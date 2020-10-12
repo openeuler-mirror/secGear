@@ -1,7 +1,10 @@
-# secenclave
+# secGear
 
 #### Description
 Confidential computing framework for developing enclave apps on top of hardware TEE
+
+#### Milestone
+<img src="milestone.png" alt="secGear" style="zoom:80%;" />
 
 #### Software Architecture
 Software architecture description
