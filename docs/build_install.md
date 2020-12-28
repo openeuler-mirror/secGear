@@ -16,7 +16,9 @@ openEuler x86
    
 openEuler arm
 
-1. Refer to xxx  download and install the iTrustee SDK
+1. The itrustee OS is not released. Therefore, no installation description is provided.
+   How to install and configure the secGear on the platform where the itrustee OS is enabled will be provided
+   after the itrustee OS is released.
 
 2. Refer to https://github.com/ocaml/opam/releases download and install the  opam-2.0.7-arm64-linux.
    Run "./opam-2.0.7-arm64-linux init"

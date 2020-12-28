@@ -1,19 +1,19 @@
-# Getting started with the codegener
+# Getting started with the codegen_x86_64/codegen_arm64
 
-The codegener helps to define these special functiong through the `edl` files and assist user to using enclave.
+The codegen_x86_64/codegen_arm64 helps to define these special functions through the `edl` files and assist user to using enclave.
 
-## The codegener
+## The codegen_x86_64/codegen_arm64
 
-The codegener is based on the 'edger8r' tool in SGX SDK.
+The codegen_x86_64/codegen_arm64 is based on the 'edger8r' tool in SGX SDK.
 - For example
 ```
-$ codegener --trustzone test.edl 
+$ codegen_arm64 --trustzone test.edl 
 ```
 OR
 ```
-$ codgener --sgx test.edl
+$ codegen_x86_64 --sgx test.edl
 ```
-**Note**: using the `codegener --help` to get more details.
+**Note**: using the `codegen_x86_64/codegen_arm64 --help` to get more details.
 
 ## EDL format
 - For SGX(x86) 
