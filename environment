@@ -1,0 +1,2 @@
+export CC_SDK=$(pwd)
+export PATH=$PATH:$CC_SDK/bin/

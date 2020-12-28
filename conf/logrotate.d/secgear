@@ -1,0 +1,8 @@
+/var/log/secgear/secgear.log {
+	missingok
+	rotate 20
+	notifempty
+	nocompress
+	copytruncate
+	size 2048k
+}

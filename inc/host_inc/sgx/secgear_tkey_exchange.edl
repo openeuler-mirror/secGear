@@ -1,0 +1,4 @@
+// To do: develop key libraries of secGear version, to be compatible with SGX and GP.
+enclave {
+    from "sgx_tkey_exchange.edl" import *;
+};
