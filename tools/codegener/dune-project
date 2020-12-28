@@ -1,0 +1,14 @@
+(lang dune 2.5)
+
+(name cc_gencoder)
+(license MIT)
+(version 0.7.0)
+(authors "secGear SDK")
+(maintainers "secGear SDK")
+(source (github secGear/secGear))
+
+(package
+  (name cc_gencoder)
+  (synopsis "An OCaml tool for processing Enclave Definition Language files")
+  (description "Generates code for Enclave SDK"))
+
