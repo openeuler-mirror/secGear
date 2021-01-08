@@ -1,4 +1,4 @@
-(lang dune 2.5)
+(lang dune 2.4)
 
 (name cc_gencoder)
 (license MIT)
