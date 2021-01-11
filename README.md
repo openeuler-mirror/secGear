@@ -315,7 +315,7 @@ so -nostdinc -nodefaultlibs -nostdlib -nodefaultlibs compile link options was in
 			link_directories(${SECGEAR_INSTALL_PATH})
 		endif()
 
-		add_library(${PREFIX} SHARED ${SOURCE_FILES} ${AUTO_FILES} ${LOCAL_ROOT_PATH}/src/enclave_src/gp/gp.c)
+		add_library(${PREFIX} SHARED ${SOURCE_FILES} ${AUTO_FILES})
 
 		target_include_directories( ${PREFIX} PRIVATE
 			${CMAKE_CURRENT_BINARY_DIR}
@@ -357,9 +357,6 @@ so -nostdinc -nodefaultlibs -nostdlib -nodefaultlibs compile link options was in
 In the case of iTrustee, generate the configuration file manifest.tx, which details of the configuration file will
 be explained later, specify some compilation options related to itrustee, set the search paths of the header file and
 the link file, and compile the enclave binary.
-
-It should be noted here that when compiling the enclave dynamic library, you need to compile with gp.c in the project. 
-If you need to use itrustee's ocall feature, you also need to compile with gp_ocall.c.
 
 Regarding the use of itrustee ocall, there are some other notes, which will be introduced later. Then define the
 whitelist macro. Next, you need to link to the secgear_tee library, in which there are interfaces for generating
