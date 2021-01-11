@@ -294,6 +294,57 @@ let set_ocall_func (uf : untrusted_func) =
         "}";
      ]
 
+let g_caller_ca_owner =
+    [
+        "void set_caller_ca_owner()";
+        "{";
+        "#ifdef WHITE_LIST_OWNER";
+        "\tchar *white_list_owner = WHITE_LIST_OWNER;";
+        "#else";
+        "\tchar *white_list_owner = \"root\";";
+        "#endif";
+        "\t";
+        "#ifdef WHITE_LIST_0";
+        "\taddcaller_ca_exec(WHITE_LIST_0, while_list_owner);";
+        "#endif";
+        "\t";
+        "#ifdef WHITE_LIST_1";
+        "\taddcaller_ca_exec(WHITE_LIST_1, while_list_owner);";
+        "#endif";
+        "\t";
+        "#ifdef WHITE_LIST_2";
+        "\taddcaller_ca_exec(WHITE_LIST_2, while_list_owner);";
+        "#endif";
+        "\t";
+        "#ifdef WHITE_LIST_3";
+        "\taddcaller_ca_exec(WHITE_LIST_3, while_list_owner);";
+        "#endif";
+        "\t";
+        "#ifdef WHITE_LIST_4";
+        "\taddcaller_ca_exec(WHITE_LIST_4, while_list_owner);";
+        "#endif";
+        "\t";
+        "#ifdef WHITE_LIST_5";
+        "\taddcaller_ca_exec(WHITE_LIST_5, while_list_owner);";
+        "#endif";
+        "\t";
+        "#ifdef WHITE_LIST_6";
+        "\taddcaller_ca_exec(WHITE_LIST_6, while_list_owner);";
+        "#endif";
+        "\t";
+        "#ifdef WHITE_LIST_7";
+        "\taddcaller_ca_exec(WHITE_LIST_7, while_list_owner);";
+        "#endif";
+        "\t";
+        "#ifdef WHITE_LIST_8";
+        "\taddcaller_ca_exec(WHITE_LIST_8, while_list_owner);";
+        "#endif";
+        "\t";
+        "#ifndef WHITE_LIST_0";
+        "\taddcaller_ca_exec(\"/vendor/bin/teec_hello\", while_list_owner);";
+        "#endif";
+        "}";
+    ]
 
 let gen_trusted(ec : enclave_content) = 
     let trust_funcs = ec.tfunc_decls in
@@ -321,6 +372,9 @@ let gen_trusted(ec : enclave_content) =
         "";
         " /* ECALL FUNCTIONs */";
         concat "\n" ecall_func;
+        "";
+        "/* set_caller_ca_owner*/";
+        concat "\n" g_caller_ca_owner;
         "";
         " /* OCALL FUNCTIONs */";
         if (List.length untrust_funcs <> 0 ) then concat "\n" ocall_func ^"\n"
