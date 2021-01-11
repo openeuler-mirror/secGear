@@ -58,7 +58,7 @@ if(CC_SGX)
     else()
         set(Urts_Library_Name sgx_urts_sim)
     endif()
-    add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES} ${LOCAL_ROOT_PATH}/src/host_src/sgx/sgx_log.c)
+    add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
     target_include_directories(${OUTPUT} PRIVATE
 			${LOCAL_ROOT_PATH}/inc/host_inc 
 			${LOCAL_ROOT_PATH}/inc/host_inc/sgx

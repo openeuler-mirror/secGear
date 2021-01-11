@@ -670,7 +670,7 @@ let gen_uheader_preemble (guard: string) (inclist: string)=
 #include <wchar.h>\n\
 #include <stddef.h>\n\
 #include <string.h>\n\
-#include \"sgx_log.h\"\n\
+#include \"ocall_log.h\"\n\
 #include \"enclave_internal.h\"\n" in
     grd_hdr ^ inc_exp ^ "\n" ^ inclist ^ "\n" ^ common_macros_uheader
 

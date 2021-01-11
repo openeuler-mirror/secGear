@@ -22,7 +22,7 @@ if(CC_SGX)
     add_subdirectory(sgx)
 endif()
 
-add_library(secgear SHARED enclave.c enclave_internal.c)
+add_library(secgear SHARED enclave.c enclave_internal.c ocall_log.c)
 
 target_link_libraries(secgear dl)
 
