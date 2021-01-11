@@ -70,7 +70,7 @@ if(CC_GP)
         link_directories(${CMAKE_BINARY_DIR}/lib/)
     endif()
 
-    add_library(${PREFIX} SHARED ${SOURCE_FILES} ${AUTO_FILES} ${LOCAL_ROOT_PATH}/src/enclave_src/gp/gp.c)
+    add_library(${PREFIX} SHARED ${SOURCE_FILES} ${AUTO_FILES})
 
     target_include_directories( ${PREFIX} PRIVATE
 	${CMAKE_CURRENT_BINARY_DIR}

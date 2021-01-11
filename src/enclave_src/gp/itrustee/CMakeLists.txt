@@ -8,7 +8,7 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-set(SOURCE_FILES ${SOURCE_FILES} itrustee_seal_data.c error_conversion.c bottom_memory_check.c itrustee_random.c)
+set(SOURCE_FILES ${SOURCE_FILES} ../gp.c ../gp_ocall.c itrustee_seal_data.c error_conversion.c bottom_memory_check.c itrustee_random.c)
 
 set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
 set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
@@ -25,6 +25,7 @@ target_include_directories(${target_lib} PRIVATE
 	${ITRUSTEE_LIBC}/arch/arm/bits
 	${ITRUSTEE_LIBC}/arch/generic
 	${ITRUSTEE_LIBC}/arch/arm
+	${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/
 	${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee)
 
 install(TARGETS  ${target_lib}

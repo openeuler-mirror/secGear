@@ -15,6 +15,7 @@
 #include <string.h>
 #include "tee_mem_mgmt_api.h"
 #include "gp.h"
+#include "caller.h"
 
 #define PARAMNUM 4
 #define POS_IN 0
@@ -41,51 +42,7 @@ TEE_Result TA_CreateEntryPoint(void)
 {
     SLogTrace("----- TA_CreateEntryPoint ----- ");
     SLogTrace("TA version: %s ", TA_TEMPLATE_VERSION);
-#ifdef WHITE_LIST_OWNER 
-    char *white_list_owner = WHITE_LIST_OWNER;
-#else
-    char *white_list_owner = "root";
-#endif
-
-#ifdef WHITE_LIST_0
-    addcaller_ca_exec(WHITE_LIST_0, white_list_owner);
-#endif
-
-#ifdef WHITE_LIST_1
-    addcaller_ca_exec(WHITE_LIST_1, white_list_owner);
-#endif
-
-#ifdef WHITE_LIST_2
-    addcaller_ca_exec(WHITE_LIST_2, white_list_owner);
-#endif
-
-#ifdef WHITE_LIST_3
-    addcaller_ca_exec(WHITE_LIST_3, white_list_owner);
-#endif
-
-#ifdef WHITE_LIST_4
-    addcaller_ca_exec(WHITE_LIST_4, white_list_owner);
-#endif
-
-#ifdef WHITE_LIST_5
-    addcaller_ca_exec(WHITE_LIST_5, white_list_owner);
-#endif
-
-#ifdef WHITE_LIST_6
-    addcaller_ca_exec(WHITE_LIST_6, white_list_owner);
-#endif
-
-#ifdef WHITE_LIST_7
-    addcaller_ca_exec(WHITE_LIST_7, white_list_owner);
-#endif
-
-#ifdef WHITE_LIST_8
-    addcaller_ca_exec(WHITE_LIST_8, white_list_owner);
-#endif
-
-#ifndef WHITE_LIST_0
-    addcaller_ca_exec("/vendor/bin/teec_hello", white_list_owner);
-#endif
+    set_caller_ca_owner();
     return TEE_SUCCESS;
 }
 
