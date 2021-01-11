@@ -8,7 +8,7 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden -fPIC")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden -fPIC -Wno-stringop-overflow")
 
 set(LIBRARY_INSTALL /lib64)
 

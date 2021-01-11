@@ -12,7 +12,7 @@ set(SOURCE_FILES ${SOURCE_FILES} sgx_seal_data.c  bottom_memory_check.c error_co
 
 set(SGX_DIR ${SGXSDK})
 
-set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64")
+set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fPIC")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
 
 add_library(${target_lib} STATIC  ${SOURCE_FILES})
