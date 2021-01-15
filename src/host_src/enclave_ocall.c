@@ -9,21 +9,35 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-
-#define _GNU_SOURCE
-
 #include <dlfcn.h>
 #include "enclave.h"
 #include "enclave_internal.h"
 #include "enclave_log.h"
 
+#define SGX_URTS "libsgx_urts.so"
+
 static int find_symbol(const char *name, void **function)
 {
-    *function = dlsym(RTLD_NEXT, name);
-    if(*function == NULL) {
-       return 1;
+    int ret = 0;
+    void *handle = NULL;
+
+    handle = dlopen(SGX_URTS, RTLD_LAZY);
+    if (handle == NULL) {
+        ret = 1;
+        goto done;
     }
-    return 0;
+
+    *function = dlsym(handle, name);
+    if (*function == NULL) {
+        ret = 1;
+        goto done;
+    }
+
+done:
+    if (handle != NULL) {
+        dlclose(handle);
+    }
+    return ret;
 }
 
 CC_API_SPEC void sgx_oc_cpuidex(int cpuinfo[4], int leaf, int subleaf)
@@ -32,7 +46,7 @@ CC_API_SPEC void sgx_oc_cpuidex(int cpuinfo[4], int leaf, int subleaf)
     if (find_symbol(__FUNCTION__, (void **) &p_sgx_oc_cpuidex) == 0) {
         return p_sgx_oc_cpuidex(cpuinfo, leaf, subleaf);
     } else {
-        print_error_term("can not find symbol %s", __FUNCTION__);
+        print_error_term("can not find symbol %s \n", __FUNCTION__);
     }
 }       
     
@@ -42,7 +56,7 @@ CC_API_SPEC int sgx_thread_wait_untrusted_event_ocall(const void *self)
     if (find_symbol(__FUNCTION__, (void **) &p_sgx_thread_wait_untrusted_event_ocall) == 0) {
         return p_sgx_thread_wait_untrusted_event_ocall(self);
     } else {
-        print_error_term("can not find symbol %s", __FUNCTION__);
+        print_error_term("can not find symbol %s \n", __FUNCTION__);
         return 1;
     }
 }      
@@ -54,7 +68,7 @@ CC_API_SPEC int sgx_thread_set_untrusted_event_ocall(const void *waiter)
     if (find_symbol(__FUNCTION__, (void **) &p_sgx_thread_set_untrusted_event_ocall) == 0) {
         return p_sgx_thread_set_untrusted_event_ocall(waiter);
     } else {
-        print_error_term("can not find symbol %s", __FUNCTION__);
+        print_error_term("can not find symbol %s \n", __FUNCTION__);
         return 1;
     }
 }      
@@ -65,7 +79,7 @@ CC_API_SPEC int sgx_thread_setwait_untrusted_events_ocall(const void *waiter, co
     if (find_symbol(__FUNCTION__, (void **) &p_sgx_thread_setwait_untrusted_events_ocall) == 0) {
         return p_sgx_thread_setwait_untrusted_events_ocall(waiter, self);
     } else {
-        print_error_term("can not find symbol %s", __FUNCTION__);
+        print_error_term("can not find symbol %s \n", __FUNCTION__);
         return 1;
     }
 } 
@@ -76,7 +90,7 @@ CC_API_SPEC int sgx_thread_set_multiple_untrusted_events_ocall(const void **wait
     if (find_symbol(__FUNCTION__, (void **) &p_sgx_thread_set_multiple_untrusted_events_ocall) == 0) {
         return p_sgx_thread_set_multiple_untrusted_events_ocall(waiter, total);
     } else {
-        print_error_term("can not find symbol %s", __FUNCTION__);
+        print_error_term("can not find symbol %s \n", __FUNCTION__);
         return 1;
     }
 }
@@ -87,7 +101,7 @@ CC_API_SPEC int pthread_wait_timeout_ocall(unsigned long long waiter, unsigned l
     if (find_symbol(__FUNCTION__, (void **) &p_pthread_wait_timeout_ocall) == 0) {
         return p_pthread_wait_timeout_ocall(waiter, timeout);
     } else {
-        print_error_term("can not find symbol %s", __FUNCTION__);
+        print_error_term("can not find symbol %s \n", __FUNCTION__);
         return 1;
     }
 }
@@ -98,7 +112,7 @@ CC_API_SPEC int pthread_create_ocall(unsigned long long self)
     if (find_symbol(__FUNCTION__, (void **) &p_pthread_create_ocall) == 0) {
         return p_pthread_create_ocall(self);
     } else {
-        print_error_term("can not find symbol %s", __FUNCTION__);
+        print_error_term("can not find symbol %s \n", __FUNCTION__);
         return 1;
     }
 }
@@ -109,7 +123,7 @@ CC_API_SPEC int pthread_wakeup_ocall(unsigned long long waiter)
     if (find_symbol(__FUNCTION__, (void **) &p_pthread_wakeup_ocall) == 0) {
         return p_pthread_wakeup_ocall(waiter);
     } else {
-        print_error_term("can not find symbol %s", __FUNCTION__);
+        print_error_term("can not find symbol %s \n", __FUNCTION__);
         return 1;
     }
 }
