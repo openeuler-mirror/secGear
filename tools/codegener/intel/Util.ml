@@ -107,7 +107,7 @@ let path_separator : char =
     | _       -> ':'			(* "Unix" or "Cygwin" *)
 
 (* Parse the command line and return a record of `edger8r_params'. *)
-let rec parse_cmdline (progname: string) (cmdargs: string list) =
+let parse_cmdline (progname: string) (cmdargs: string list) =
   let use_pref = ref false in
   let hd_only  = ref false in
   let untrusted= ref false in
@@ -123,7 +123,7 @@ let rec parse_cmdline (progname: string) (cmdargs: string list) =
     match args with
         [] -> ()
       | op :: ops ->
-          match String.lowercase op with
+          match String.lowercase_ascii op with
               "--use-prefix" -> use_pref := true; local_parser ops
             | "--header-only"-> hd_only := true; local_parser ops
             | "--untrusted"  -> untrusted := true; local_parser ops

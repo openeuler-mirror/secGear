@@ -177,30 +177,20 @@ In the case of iTrustee, set the search paths of the header file and the link fi
 
 	if(CC_SGX)
 		if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
-			link_directories(${SECGEAR_INSTALL_PATH}  ${SGXSDK}/lib64)
+			link_directories(${SECGEAR_INSTALL_PATH})
 		endif()
-		set(SGX_MODE HW)
-		if(${SGX_MODE} STREQUAL HW)
-			set(Urts_Library_Name sgx_urts)
-		else()
-			set(Urts_Library_Name sgx_urts_sim)
-		endif()
-		add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES} ${LOCAL_ROOT_PATH}/src/host_src/sgx/sgx_log.c)
+		add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
 		target_include_directories(${OUTPUT} PRIVATE
 							${LOCAL_ROOT_PATH}/inc/host_inc
 							${LOCAL_ROOT_PATH}/inc/host_inc/sgx
 							${CMAKE_CURRENT_BINARY_DIR})
 		if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-			target_link_directories(${OUTPUT} PRIVATE ${SECGEAR_INSTALL_PATH}  ${SGXSDK}/lib64)
+			target_link_directories(${OUTPUT} PRIVATE ${SECGEAR_INSTALL_PATH})
 		endif()
-		target_link_libraries(${OUTPUT} secgear ${Urts_Library_Name})
+		target_link_libraries(${OUTPUT} secgear)
 	endif()
 
 In the case of sgx, set the search paths of the header file and the link file, and compile the final non-secure binary.
-Note that in order to support the recording of the sgx security side log, it needs to be compiled together with
-sgx_log.c file in the secGear project. In addition, multi-threading capabilities of sgx require ocall support.
-In this version, this difference is not eliminated about multi-threading, so you need to link to sgx_urts or sgx_urts_sim.
-These improvements will be completed in the next version.
 
 	set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
 	if(CC_GP)

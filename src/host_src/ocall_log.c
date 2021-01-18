@@ -11,9 +11,8 @@
  */
 #include <stdio.h>
 #include <syslog.h>
-#include "sgx_log.h"
 
-void cc_enclave_PrintInfo(const char *str)
+__attribute__((visibility("default"))) void cc_enclave_PrintInfo(const char *str)
 {
     openlog("secGear", LOG_CONS | LOG_PID, 0);
     syslog(LOG_INFO, "%s\n", str);

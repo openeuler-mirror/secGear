@@ -8,6 +8,12 @@
 ; PURPOSE.
 ; See the Mulan PSL v2 for more details.
 
+(env
+ (dev
+  (flags (:standard -w -11 -w -14 -w -26..27 -w -32 -w -33)))
+ (release
+  (flags (:standard -O3 -w -11 -w -14 -w -26..27 -w -32 -w -33))))
+
 (executable
  (name main)
  (public_name cc_gencoder)
