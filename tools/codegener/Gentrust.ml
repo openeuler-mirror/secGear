@@ -339,7 +339,7 @@ let g_caller_ca_owner =
         "#ifdef WHITE_LIST_8";
         "\taddcaller_ca_exec(WHITE_LIST_8, white_list_owner);";
         "#endif";
-        "\t;
+        "\t";
         "#ifndef WHITE_LIST_0";
         "\taddcaller_ca_exec(\"/vendor/bin/teec_hello\", white_list_owner);";
         "#endif";
