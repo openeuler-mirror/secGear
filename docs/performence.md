@@ -1,5 +1,9 @@
 # 性能数据
 
+测试环境：
+x86：supermicro sys-1019s-MCOT Inter(R) Xeon(R) CPU E3-1280 v6 @ 3.90GHz
+arm：TaiShan 2280 V2 CPU鲲鹏920
+
 ## 一、创建/销毁enclave
 分别在sgx以及trustzone环境下进行测试，数据为100次创建enclave耗时的均值。
 
