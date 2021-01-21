@@ -14,30 +14,28 @@
 #include "enclave_internal.h"
 #include "enclave_log.h"
 
-#define SGX_URTS "libsgx_urts.so"
+extern list_ops_management g_list_ops;
 
 static int find_symbol(const char *name, void **function)
 {
-    int ret = 0;
     void *handle = NULL;
-
-    handle = dlopen(SGX_URTS, RTLD_LAZY);
-    if (handle == NULL) {
-        ret = 1;
-        goto done;
+    
+    /* Currently, this function can only be called 
+       under intel sgx. in this case, only be one sgx node.
+       note: the ocall is intermediate process, and resources
+       will not be released. */
+    if (g_list_ops.list_head == NULL) {
+        return 1;
     }
+
+    handle = g_list_ops.list_head->ops_desc->handle;
 
     *function = dlsym(handle, name);
     if (*function == NULL) {
-        ret = 1;
-        goto done;
+        return 1;
     }
 
-done:
-    if (handle != NULL) {
-        dlclose(handle);
-    }
-    return ret;
+    return 0;
 }
 
 CC_API_SPEC void sgx_oc_cpuidex(int cpuinfo[4], int leaf, int subleaf)
