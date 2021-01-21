@@ -9,6 +9,7 @@
 # See the Mulan PSL v2 for more details.
 
 set(sgx_engine sgx_0)
+set(sgxsim_engine sgxsim_0)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/sgx)
 
 if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
@@ -17,8 +18,12 @@ if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
 endif()
 
 add_library(${sgx_engine}  SHARED sgx_enclave.c sgx_enclave.h )
+add_library(${sgxsim_engine}  SHARED sgx_enclave.c sgx_enclave.h )
 
 target_include_directories(${sgx_engine} PRIVATE
+	${SGXSDK}/include)
+
+target_include_directories(${sgxsim_engine} PRIVATE
 	${SGXSDK}/include)
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0") 
@@ -27,11 +32,24 @@ if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
 	    ${CMAKE_BINARY_DIR}/lib)
 endif()
 
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0") 
+    target_link_directories(${sgxsim_engine} PRIVATE
+	    ${SGXSDK}/lib64
+	    ${CMAKE_BINARY_DIR}/lib)
+endif()
+
 target_link_libraries(${sgx_engine}  sgx_urts pthread secgear)
+target_link_libraries(${sgxsim_engine}  sgx_urts_sim pthread secgearsim)
 
 set_target_properties(${sgx_engine} PROPERTIES SKIP_BUILD_RPATH TRUE)
+set_target_properties(${sgxsim_engine} PROPERTIES SKIP_BUILD_RPATH TRUE)
 
 install(TARGETS ${sgx_engine}
+        LIBRARY
+        DESTINATION ${LIBRARY_INSTALL}
+        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)
+
+install(TARGETS ${sgxsim_engine}
         LIBRARY
         DESTINATION ${LIBRARY_INSTALL}
         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)

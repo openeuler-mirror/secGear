@@ -88,12 +88,19 @@ cc_enclave_result_t find_engine_open(enclave_type_version_t type, void **handle)
         res = CC_SUCCESS;
         goto done;
     }
+
     *handle = NULL;
+
     switch (type) {
         case SGX_ENCLAVE_TYPE_0:
+#ifdef CC_SIM
+            *handle = dlopen("/lib64/libsgxsim_0.so", RTLD_LAZY);
+#else
             *handle = dlopen("/lib64/libsgx_0.so", RTLD_LAZY);
+#endif
             break;
         case GP_ENCLAVE_TYPE_0:
+            /*todo: gp supported simulation*/
             *handle = dlopen("/lib64/libgp_0.so", RTLD_LAZY);
             break;
         default:
