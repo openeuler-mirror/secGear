@@ -1,10 +1,11 @@
 Name:		secGear
 Version:	1.0
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
+ExclusiveArch:	x86_64
 
-Group:		OS Securitt
-License:	MulanPSL2
+Group:		OS Security
+License:	Mulan PSL v2
 URL:		https://gitee.com/openeuler-src/secGear
 Source0:	%{name}-%{version}.tar.gz
 
