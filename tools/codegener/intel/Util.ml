@@ -296,8 +296,11 @@ let create_dir (d: string) =
         | _          -> false
     else false
   in
+  let access_dir dir = 
+    Unix.access dir [Unix.W_OK]
+  in
   let __do_create_and_goto_dir dir =
-    (if dir_exist_p dir then () else Unix.mkdir dir 0o755);
+    (if dir_exist_p dir then (try access_dir dir with exn -> (eprintf "error:'%s': Permission denied\n" d; exit 1)) else Unix.mkdir dir 0o755);
     Unix.chdir dir
   in
   let do_create_dir () =
