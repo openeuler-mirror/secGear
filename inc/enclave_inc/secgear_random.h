@@ -16,7 +16,12 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "status.h"
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 cc_enclave_result_t  cc_enclave_generate_random(void * buffer, size_t size);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

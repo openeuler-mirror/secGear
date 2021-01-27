@@ -20,6 +20,9 @@
 #include <stdint.h>
 #include "status.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _enclave_sealed_data_t {
     uint32_t data_body_len;
@@ -38,4 +41,7 @@ cc_enclave_result_t cc_enclave_seal_data(uint8_t *seal_data, uint32_t seal_data_
 cc_enclave_result_t cc_enclave_unseal_data(cc_enclave_sealed_data_t *sealed_data, uint8_t *decrypted_data,
     uint32_t *decrypted_data_len, uint8_t *additional_text, uint32_t *additional_text_len);
 
+#ifdef __cplusplus
+}
+#endif
 #endif
