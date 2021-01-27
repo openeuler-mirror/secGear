@@ -19,8 +19,8 @@ add_library(${target_lib} STATIC  ${SOURCE_FILES})
 
 target_include_directories(${target_lib} PRIVATE
 	${SGX_DIR}/include/tlibc
-	${SGX_DIR}/include
-        ${LOCAL_ROOT_PATH}/inc/enclave_inc/sgx)
+    ${SGX_DIR}/include
+    ${LOCAL_ROOT_PATH}/inc/enclave_inc/sgx)
 
 install(TARGETS  ${target_lib}
         ARCHIVE

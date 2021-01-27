@@ -69,11 +69,11 @@ if(CC_GP)
     add_library(${PREFIX} SHARED ${SOURCE_FILES} ${AUTO_FILES} )
 
     target_include_directories( ${PREFIX} PRIVATE
-        ${CMAKE_CURRENT_BINARY_DIR}
-        ${LOCAL_ROOT_PATH}/inc/host_inc
-        ${LOCAL_ROOT_PATH}/inc/host_inc/gp
-        ${LOCAL_ROOT_PATH}/inc/enclave_inc
-        ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${LOCAL_ROOT_PATH}/inc/host_inc
+    ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+    ${LOCAL_ROOT_PATH}/inc/enclave_inc
+    ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp
 	${ITRUSTEE_TEEDIR}/include/TA
 	${ITRUSTEE_TEEDIR}/include/TA/huawei_ext
 	${ITRUSTEE_LIBC}/arch/aarch64
@@ -81,7 +81,7 @@ if(CC_GP)
 	${ITRUSTEE_LIBC}/arch/arm/bits
 	${ITRUSTEE_LIBC}/arch/generic
 	${ITRUSTEE_LIBC}/arch/arm
-        ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee)
+    ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee)
 
 
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
@@ -107,18 +107,17 @@ if(CC_GP)
 endif()
 
 if(CC_SGX)
-    set(SGX_MODE HW)
     set(SGX_DIR ${SGXSDK})
     set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fvisibility=hidden")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
     set(LINK_LIBRARY_PATH ${SGX_DIR}/lib64)
 
-    if(${SGX_MODE} STREQUAL HW)
+    if(CC_SIM)
+        set(Trts_Library_Name sgx_trts_sim)
+        set(Service_Library_Name sgx_tservice_sim)
+    else()
         set(Trts_Library_Name sgx_trts)
         set(Service_Library_Name sgx_tservice)
-    else()
-	set(Trts_Library_Name sgx_trts_sim)
-        set(Service_Library_Name sgx_tservice_sim)
     endif()
 
     set(Crypto_Library_Name sgx_tcrypto)
@@ -139,7 +138,7 @@ if(CC_SGX)
             ${SGX_DIR}/include
             ${LOCAL_ROOT_PATH}/inc/host_inc
             ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
-	    ${LOCAL_ROOT_PATH}/inc/enclave_inc)
+            ${LOCAL_ROOT_PATH}/inc/enclave_inc)
 
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(${PREFIX} PRIVATE

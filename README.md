@@ -170,10 +170,9 @@ Set compile and link options
 		if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
 			target_link_directories(${OUTPUT} PRIVATE ${SECGEAR_INSTALL_PATH})
 		endif()
-		target_link_libraries(${OUTPUT} secgear)
 	endif()
 
-In the case of iTrustee, set the search paths of the header file and the link file, and compile the final non-secure binary.
+In the case of iTrustee, set the search paths of the header file and compile the final non-secure binary.
 
 	if(CC_SGX)
 		if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
@@ -187,12 +186,16 @@ In the case of iTrustee, set the search paths of the header file and the link fi
 		if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
 			target_link_directories(${OUTPUT} PRIVATE ${SECGEAR_INSTALL_PATH})
 		endif()
-		target_link_libraries(${OUTPUT} secgear)
 	endif()
 
-In the case of sgx, set the search paths of the header file and the link file, and compile the final non-secure binary.
+In the case of sgx, set the search paths of the header file and compile the final non-secure binary.
 
-	set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
+	if(CC_SIM)
+            target_link_libraries(${OUTPUT} secgearsim)
+        else()
+            target_link_libraries(${OUTPUT} secgear)
+        endif()
+        set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
 	if(CC_GP)
 		install(TARGETS  ${OUTPUT}
 				RUNTIME
@@ -206,8 +209,9 @@ In the case of sgx, set the search paths of the header file and the link file, a
 				PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)
 	endif()
 
-Specify the installation path of the final binary. The non-secure side image of iTrustee must be installed on the
-specified whitelist. The whitelist configuration will be introduced below.
+Based on -DCC_SIM=ON or none transferred from cmake, linking secgear or secgearsim. Specify the installation 
+path of the final binary. The non-secure side image of iTrustee must be installed on the specified whitelist. 
+The whitelist configuration will be introduced below.
 
 ### 4 Write security side code, CMakeLists.txt and some configuration files
 	
@@ -353,18 +357,17 @@ whitelist macro. Next, you need to link to the secgear_tee library, in which the
 random numbers, seal, unseal, etc. The last step is to sign and install.
 
 	if(CC_SGX)
-		set(SGX_MODE HW)
 		set(SGX_DIR ${SGXSDK})
 		set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fvisibility=hidden")
 		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
 		set(LINK_LIBRARY_PATH ${SGX_DIR}/lib64)
 
-		if(${SGX_MODE} STREQUAL HW)
-			set(Trts_Library_Name sgx_trts)
-			set(Service_Library_Name sgx_tservice)
-		else()
+		if(CC_SIM)
 			set(Trts_Library_Name sgx_trts_sim)
 			set(Service_Library_Name sgx_tservice_sim)
+		else()
+			set(Trts_Library_Name sgx_trts)
+			set(Service_Library_Name sgx_tservice)
 		endif()
 
 		set(Crypto_Library_Name sgx_tcrypto)

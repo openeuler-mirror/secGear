@@ -23,12 +23,23 @@ if(CC_SGX)
 endif()
 
 add_library(secgear SHARED enclave.c enclave_internal.c ocall_log.c enclave_ocall.c)
+add_library(secgearsim SHARED enclave.c enclave_internal.c ocall_log.c enclave_ocall.c)
 
 target_link_libraries(secgear dl)
+target_link_libraries(secgearsim dl)
 
-set_target_properties(secgear PROPERTIES SKIP_BUILD_RPATH TRUE)
+set_target_properties(secgear PROPERTIES 
+            SKIP_BUILD_RPATH TRUE)
+
+target_compile_definitions(secgearsim PRIVATE CC_SIM)
+set_target_properties(secgearsim PROPERTIES 
+            SKIP_BUILD_RPATH TRUE)
 
 install(TARGETS  secgear
+        LIBRARY
+        DESTINATION ${LIBRARY_INSTALL}
+        PERMISSIONS  OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)
+install(TARGETS  secgearsim
         LIBRARY
         DESTINATION ${LIBRARY_INSTALL}
         PERMISSIONS  OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)
