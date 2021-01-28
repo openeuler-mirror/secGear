@@ -59,6 +59,8 @@ char *cc_enclave_res2_str(cc_enclave_result_t res)
             return "CC_ERROR_BAD_PARAMETERS";
         case CC_ERROR_OUT_OF_MEMORY:
             return "CC_ERROR_OUT_OF_MEMORY";
+	case CC_ERROR_SIGNATURE_INVALID:
+	    return "CC_ERROR_SIGNATURE_INVALID";
         default:
             return "UNKNOWN_RESULT_STATUS";
     }

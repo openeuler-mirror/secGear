@@ -106,7 +106,7 @@ cc_enclave_result_t _sgx_create_with_features(cc_enclave_t **enclave, const encl
     }
     if (sgx_res != SGX_SUCCESS) {
         res = conversion_res_status(sgx_res, (*enclave)->type);
-        print_error_goto("Failed to create sgx enclave\n");
+        print_error_goto("Failed to create sgx enclave %s\n",cc_enclave_res2_str(res));
     }
     res = CC_SUCCESS;
 done:
@@ -131,7 +131,7 @@ cc_enclave_result_t _sgx_create(cc_enclave_t **enclave, const enclave_features_t
                     NULL, &(l_context->edi), NULL);
             if (sgx_res != SGX_SUCCESS) {
                 res = conversion_res_status(sgx_res, (*enclave)->type);
-                print_error_goto("Failed to create sgx enclave\n");
+                print_error_goto("Failed to create sgx enclave %s\n",cc_enclave_res2_str(res));
             }
             break;
         case 1:
@@ -168,7 +168,7 @@ cc_enclave_result_t _sgx_destroy(cc_enclave_t *context)
     sgx_res = sgx_destroy_enclave(tmp->edi);
     if (sgx_res != SGX_SUCCESS) {
         res = conversion_res_status(sgx_res, context->type);
-        print_error_goto("Failed to create sgx enclave \n");
+        print_error_goto("Failed to destroy sgx enclave \n");
     }
 
     free(tmp);
