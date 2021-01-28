@@ -94,17 +94,17 @@ let check_untrust_funcs_method (ufs : untrusted_func list) =
     List.iter
         (fun t ->
             if t.uf_fattr.fa_dllimport then 
-                failwithf "%s:Trustzone mode is not support dllimport"
+                failwithf "%s:Trustzone mode is not support dllimport\n"
                 t.uf_fdecl.fname;
             if t.uf_allow_list != [] then
                 printf "WARNING: %s: Reentrant ocalls are not supported by Open Enclave. Allow list ignored.\n"
                 t.uf_fdecl.fname;
             if check_is_user_check t.uf_fdecl=true then 
-                failwithf "%s :Trustzone mode is not support 'user_check' feature"
+                failwithf "%s :Trustzone mode is not support 'user_check' feature\n"
                 t.uf_fdecl.fname;
             if t.uf_fattr.fa_convention <> CC_NONE then
                 let cconv_str = get_call_conv_str t.uf_fattr.fa_convention in
-                printf "WARNING: %s: Trustzone mode is not support Calling convention %s for ocalls"
+                printf "WARNING: %s: Trustzone mode is not support Calling convention %s for ocalls\n"
                 t.uf_fdecl.fname cconv_str)
         ufs
 
