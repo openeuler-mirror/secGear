@@ -32,22 +32,23 @@ The tool supports the following two modes:
 ## sign_tool.sh parameter
 
 ```
-    -d <parameter>: sign tool command, sign/digest.
+    -a <parameter>  API_LEVEL, indicates trustzone GP API version, defalut is 1.
+    -c <file>       config file.
+    -d <parameter>  sign tool command, sign/digest.
                     The sign command is used to generate a signed enclave.
                     The digest command is used to generate a digest value.
-    -i <file>:      enclave to be signed.
-    -x <parameter>: enclave type, 1: SGX, 2:trustzone.
-    -m <file>:      manifest file, required by trustzone.
-    -a <parameter>: API_LEVEL, indicates trustzone GP API version, defalut is 1.
-    -f <parameter>: OTRP_FLAG, indicates whether the OTRP standard protocol is supported, default is 0.
-    -t <parameter>: trustzone TA_TYPE, default is 1.
-    -c <file>:      config file.
-    -k <file>:      private key required for single-step method required when trustzone TA_TYPE is 2 or SGX.
-    -p <file>:      signing server public key certificate, required for two-step method.
-    -s <file>:      the signed digest value required for two-step method, this parameter is empty to indicate single-step method.
-    -e <file>:      the device's public key certificate, used to protect the AES key of the encrypted rawdata, required by trustzone.
-    -o <file>:      output parameters, the sign command outputs sigend enclave, the digest command outpus digest value.
-    -h:             printf help message.
+    -e <file>       the device's public key certificate, used to protect the AES key of the encrypted rawdata,
+                    required by trustzone.
+    -f <parameter>  OTRP_FLAG, indicates whether the OTRP standard protocol is supported, default is 0.
+    -i <file>       enclave to be signed.
+    -k <file>       private key required for single-step method, required when trustzone TA_TYPE is 2 or SGX.
+    -m <file>       manifest file, required by trustzone.
+    -o <file>       output parameters, the sign command outputs sigend enclave, the digest command outputs digest value.
+    -p <file>       signing server public key certificate, required for two-step method.
+    -s <file>       the signed digest value required for two-step method, this parameter is empty to indicate single-step method.
+    -t <parameter>  trustzone TA_TYPE, default is 1.
+    -x <parameter>  enclave type, 1: SGX, 2:trustzone.
+    -h              printf help message.
 ```
 **Note**: 
 Using the `./sign_tool.sh -h` to get help information.
