@@ -20,56 +20,85 @@ localpath="$(cd "$(dirname "$0")"; pwd)"
 print_help(){
     echo "sign tool usage: ./sign_tool.sh [options] ..."
     echo "[options]"
-    echo "-d <parameter>: sign tool command, sign/digest."
+    echo "-a <parameter>  API_LEVEL, indicates trustzone GP API version, defalut is 1."
+    echo "-c <file>       config file."
+    echo "-d <parameter>  sign tool command, sign/digest."
     echo "                The sign command is used to generate a signed enclave."
     echo "                The digest command is used to generate a digest value."
-    echo "-i <file>:      enclave to be signed."
-    echo "-x <parameter>: enclave type, 1: SGX, 2:trustzone."
-    echo "-m <file>:      manifest file, required by trustzone."
-    echo "-a <parameter>: API_LEVEL, indicates trustzone GP API version, defalut is 1."
-    echo "-f <parameter>: OTRP_FLAG, indicates whether the OTRP standard protocol is supported, default is 0."
-    echo "-t <parameter>: trustzone TA_TYPE, default is 1."
-    echo "-c <file>:      config file."
-    echo "-k <file>:      private key required for single-step method, required when trustzone TA_TYPE is 2 or SGX."
-    echo "-p <file>:      signing server public key certificate, required for two-step method."
-    echo "-s <file>:      the signed digest value required for two-step method, this parameter is empty to indicate single-step method."
-    echo "-e <file>:      the device's public key certificate, used to protect the AES key of the encrypted rawdata, required by trustzone."
-    echo "-o <file>:      output parameters, the sign command outputs sigend enclave, the digest command outpus digest value."
-    echo "-h:             printf help message."
+    echo "-e <file>       the device's public key certificate, used to protect the AES key of the encrypted rawdata,"
+    echo "                required by trustzone."
+    echo "-f <parameter>  OTRP_FLAG, indicates whether the OTRP standard protocol is supported, default is 0."
+    echo "-i <file>       enclave to be signed."
+    echo "-k <file>       private key required for single-step method, required when trustzone TA_TYPE is 2 or SGX."
+    echo "-m <file>       manifest file, required by trustzone."
+    echo "-o <file>       output parameters, the sign command outputs sigend enclave, the digest command outputs"
+    echo "                digest value."
+    echo "-p <file>       signing server public key certificate, required for two-step method."
+    echo "-s <file>       the signed digest value required for two-step method, this parameter is empty to indicate"
+    echo "                single-step method."
+    echo "-t <parameter>  trustzone TA_TYPE, default is 1."
+    echo "-x <parameter>  enclave type, 1: SGX, 2:trustzone."
+    echo "-h              printf help message."
+
 }
 
 while getopts "d:i:x:m:a:f:t:c:e:k:p:s:o:h" opt
 do
     case $opt in
         d)
+        if [[ $OPTARG == -* ]]; then
+            echo "Error: parameter for -d is missing or incorrect"
+            exit -1
+        fi
         typeset -l CMD
         CMD=$OPTARG
         ;;
         i)
+        if [[ $OPTARG == -* ]]; then
+            echo "Error: parameter for -i is missing or incorrect"
+            exit -1
+        fi 
         IN_ENCLAVE=$OPTARG
         ;;
         x)
         if [[ $OPTARG =~ ^[1-2]$ ]]; then
             ENCLAVE_TYPE=$OPTARG
         else
+            if [[ $OPTARG == -* ]]; then
+                echo "Error: parameter for -x is missing or incorrect"
+                exit -1
+            fi 
             echo "Error: illegal ENCLAVE TYPE"
+            exit -1
         fi
         ;;
         m)
+        if [[ $OPTARG == -* ]]; then
+            echo "Error: parameter for -m is missing or incorrect"
+            exit -1
+        fi 
         MANIFIST=$OPTARG
         ;;
         a)
         if [[ $OPTARG =~ ^[1-3]$ ]]; then
             API_LEVEL=$OPTARG
         else
+            if [[ $OPTARG == -* ]]; then
+                echo "Error: parameter for -a is missing or incorrect"
+                exit -1
+            fi 
             echo "Error: illegal API LEVEL"
-        exit -1
+            exit -1
         fi
         ;;
         f)
         if [[ $OPTARG =~ ^[0-1]$ ]]; then
             OTRP_FLAG=$OPTARG
         else
+            if [[ $OPTARG == -* ]]; then
+                echo "Error: parameter for -f is missing or incorrect"
+                exit -1
+            fi 
             echo "Error: illegal OTRP FLAG"
             exit -1
         fi
@@ -78,26 +107,54 @@ do
         if [[ $OPTARG =~ ^[1-2]$ ]]; then
             TA_TYPE=$OPTARG
         else
+            if [[ $OPTARG == -* ]]; then
+                echo "Error: parameter for -t is missing or incorrect"
+                exit -1
+            fi 
             echo "Error: illegal TA TYPE"
             exit -1
         fi
         ;;
         c)
+        if [[ $OPTARG == -* ]]; then
+            echo "Error: parameter for -c is missing or incorrect"
+            exit -1
+        fi 
         CONFIG_FILE=$OPTARG
         ;;
         e)
+        if [[ $OPTARG == -* ]]; then
+            echo "Error: parameter for -e is missing or incorrect"
+            exit -1
+        fi 
         DEVICE_PUBKEY=$OPTARG
         ;;
         k)
+        if [[ $OPTARG == -* ]]; then
+            echo "Error: parameter for -k is missing or incorrect"
+            exit -1
+        fi 
         SIG_KEY=$OPTARG
         ;;
         p)
+        if [[ $OPTARG == -* ]]; then
+            echo "Error: parameter for -p is missing or incorrect"
+            exit -1
+        fi 
         SERVER_PUBKEY=$OPTARG
         ;;
         s)
+        if [[ $OPTARG == -* ]]; then
+            echo "Error: parameter for -s is missing or incorrect"
+            exit -1
+        fi 
         SIGNATURE=$OPTARG
         ;;
         o)
+        if [[ $OPTARG == -* ]]; then
+            echo "Error: parameter for -o is missing or incorrect"
+            exit -1
+        fi 
         OUT_FILE=$OPTARG
         ;;
         h)
@@ -105,7 +162,6 @@ do
         exit 0
         ;;
         ?)
-        echo "ERROR: illegal parameter"
         print_help
         exit -1
     esac
@@ -117,26 +173,18 @@ fi
 
 itrustee_start_sign(){
 #    check_native_sign
-    if [ -z $IN_ENCLAVE ]; then
-        echo "ERROR: missing enclave file"
-        exit -1
-    fi
-    if [ -z $OUT_FILE ]; then
-        echo "ERROR: missing out file"
-        exit -1
-    fi
     if [ -z $MANIFIST ]; then
-        echo "ERROR: missing manifest file for signing iTrustee enclave"
+        echo "Error: missing manifest file for signing iTrustee enclave"
         exit -1
     fi
     if [ -z $DEVICE_PUBKEY ]; then
-        echo "ERROR: missing device pubkey for signing iTrustee enclave"
+        echo "Error: missing device pubkey for signing iTrustee enclave"
         exit -1
     fi
 
     if [ ${TA_TYPE} == 2 ]; then
         if [ -z $CONFIG_FILE]; then
-            echo "ERROR: TA TYPE = 2,missing config file for signing iTrustee enclave"
+            echo "Error: TA TYPE = 2, missing config file for signing iTrustee enclave"
             exit -1
         fi
     else
@@ -154,7 +202,7 @@ itrustee_start_sign(){
         else
             DEBUG=0
             if [ -z $SERVER_PUBKEY ]; then
-                echo "ERROR: missing server public key for verifying signature"
+                echo "Error: missing server public key for verifying signature"
                 exit -1
             fi
             python ${localpath}/sign_tool.py "sign" "${DEBUG}" "${IN_ENCLAVE}" "${OUT_FILE}" "${MANIFIST}" "${OTRP_FLAG}" "${TA_TYPE}" "${API_LEVEL}" "${DEVICE_PUBKEY}" "${CONFIG_FILE}" "${SIGNATURE}" "${SERVER_PUBKEY}"
@@ -163,17 +211,17 @@ itrustee_start_sign(){
         DEBUG=0
         python ${localpath}/sign_tool.py "digest" "${DEBUG}" "${IN_ENCLAVE}" "${OUT_FILE}" "${MANIFIST}" "${OTRP_FLAG}" "${TA_TYPE}" "${API_LEVEL}" "${DEVICE_PUBKEY}" "${CONFIG_FILE}"
     else
-        echo "ERROR: illegal command"
+        echo "Error: illegal command"
     fi
 }
 
 sgx_start_sign(){
-    if [ -z $OUT_FILE ]; then
-        echo "ERROR: missing out file"
-        exit -1
-    fi
     SIGDATA_FILE="signdata"
     if [ "${CMD}"x == "sign"x ]; then
+        if [ -z $SIG_KEY ]; then
+            echo "Error: missing sign key"
+            exit -1
+        fi  
         if [ -z $SIGNATURE ]; then
             if [ -z $CONFIG_FILE ]; then
                 sgx_sign sign -enclave ${IN_ENCLAVE} -key ${SIG_KEY} -out ${OUT_FILE}
@@ -181,6 +229,10 @@ sgx_start_sign(){
                 sgx_sign sign -enclave ${IN_ENCLAVE} -key ${SIG_KEY} -out ${OUT_FILE} -config ${CONFIG_FILE}
             fi
         else
+            if [ -z $SERVER_PUBKEY ]; then
+                echo "Error: missing server public key"
+                exit -1
+            fi  
             if [ -z $CONFIG_FILE ]; then
                 sgx_sign catsig -enclave ${IN_ENCLAVE} -key ${SERVER_PUBKEY} -sig ${SIGNATURE} -unsignd ${SIGDATA_FILE} -out ${OUT_FILE}
             else
@@ -196,17 +248,38 @@ sgx_start_sign(){
         fi
         openssl dgst -sha256 -out ${OUT_FILE} ${SIGDATA_FILE}
     else
-        echo "ERROR: illegal command"
+        echo "Error: illegal command"
     fi
 }
 
-echo "ENCLAVE TYPE: ${ENCLAVE_TYPE}"
 
+if [ -z $CMD ]; then
+    echo "Error: missing command"
+    exit -1
+fi
+if [ -z $ENCLAVE_TYPE ]; then
+    echo "Error: missing enclave type"
+    exit -1
+fi
+if [ -z $IN_ENCLAVE ]; then
+    echo "Error: missing enclave file"
+    exit -1
+fi
+if [ -z $OUT_FILE ]; then
+    echo "Error: missing out file"
+    exit -1
+fi
+check_results=`uname -m`
 if [ "${ENCLAVE_TYPE}"x == "1"x ]; then
+    if [ "${check_results}"x != "x86_64"x ]; then
+        echo "Warning: the enclave type does not comply with current architecture"
+    fi
     sgx_start_sign
 elif [ "${ENCLAVE_TYPE}"x == "2"x ]; then
+    if [ "${check_results}"x != "aarch64"x ]; then
+        echo "Warning: the enclave type does not comply with current architecture"
+    fi
     itrustee_start_sign
 else
-    echo "ERROR: illegal ENCLAVE TYPE"
     exit -1
 fi
