@@ -71,7 +71,6 @@ let usage (progname: string) =
 --trusted-dir   <dir> Specify the directory for saving trusted code\n\
 --trustzone           Generate code for trustzone mode\n\
 --sgx                 Generate code for sgx mode\n\
---experimental        Enable experimental features\n\
 --help                Print this help message\n";
   eprintf "\n\
 If neither `--untrusted' nor `--trusted' is specified, generate both.\n";
@@ -89,7 +88,6 @@ type edger8r_params = {
   trusted_dir   : string;       (* Directory to save trusted code *)
   trustzone_mode: bool;         (* Generate code for trustzone mode *)
   sgx_mode      : bool;         (* Generate code for sgx mode *)
-  experimental  : bool;         (* Enable experimental features *)
 }
 
 (* The search paths are recored in the array below.
@@ -114,7 +112,6 @@ let parse_cmdline (progname: string) (cmdargs: string list) =
   let trusted  = ref false in
   let sgx      = ref false in
   let trustzone= ref false in
-  let experi   = ref false in
   let u_dir    = ref "." in
   let t_dir    = ref "." in
   let files    = ref [] in
@@ -130,7 +127,6 @@ let parse_cmdline (progname: string) (cmdargs: string list) =
             | "--trusted"    -> trusted := true; local_parser ops
             | "--sgx" -> sgx := true; local_parser ops
             | "--trustzone" -> trustzone := true; local_parser ops
-            | "--experimental" -> experi := true; local_parser ops
             | "--untrusted-dir" ->
               (match ops with
                 []    -> usage progname
@@ -157,7 +153,6 @@ let parse_cmdline (progname: string) (cmdargs: string list) =
         untrusted_dir = !u_dir; trusted_dir = !t_dir;
         sgx_mode = !sgx;
         trustzone_mode = !trustzone;
-        experimental = !experi;
       }
     in
       if opt.input_files = [] then usage progname;
