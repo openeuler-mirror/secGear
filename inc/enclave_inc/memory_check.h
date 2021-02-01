@@ -16,7 +16,14 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 bool cc_enclave_memory_in_enclave(const void *addr, size_t size);
 bool cc_enclave_memory_out_enclave(const void *addr, size_t size);
 
+#ifdef __cplusplus
+}
+#endif
 #endif
