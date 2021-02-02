@@ -103,9 +103,9 @@ cc_enclave_result_t find_engine_registered(void *handle, p_tee_registered *p_fun
 /*each engine needs to implement registered, and the unregistered function declaration*/
 CC_API_SPEC cc_enclave_result_t cc_tee_registered(cc_enclave_t **context, void *handle);
 CC_API_SPEC cc_enclave_result_t cc_tee_unregistered(cc_enclave_t *context, enclave_type_version_t type_version);
-
 CC_API_SPEC void add_ops_list(struct list_ops_desc *node);
 CC_API_SPEC void remove_ops_list(const struct list_ops_desc *node);
+
 uint32_t check_node_exists_add(const struct list_ops_desc *node);
 //////////////////////////////////////////////////////////////////////////////////////////////
 

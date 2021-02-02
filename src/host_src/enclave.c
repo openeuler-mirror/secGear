@@ -199,13 +199,9 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
         goto done;
     }
 
-    /* to do: gp support debugging and simulate */
-    if (((GP_ENCLAVE_TYPE_0 <= type_version) && (type_version < GP_ENCLAVE_TYPE_MAX)) && (flags & SECGEAR_SIMULATE_FLAG)) {
-        print_warning("This enclave scheme does not support simulation\n");
-    }
-
+    /* to do: gp support enter enclave debugging */
     if (((GP_ENCLAVE_TYPE_0 <= type_version) && (type_version < GP_ENCLAVE_TYPE_MAX)) && (flags & SECGEAR_DEBUG_FLAG)) {
-        print_warning("This enclave scheme does not support debugging\n");
+        print_warning("This enclave scheme does not support enter enclave debugging\n");
     }    
 
     /* initialize the context */

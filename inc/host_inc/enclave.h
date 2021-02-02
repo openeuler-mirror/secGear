@@ -29,11 +29,8 @@ extern "C" {
 /*only supports sgx debugging*/
 #define SECGEAR_DEBUG_FLAG 0x00000001u
 
-/*only supports sgx simulation*/
-#define SECGEAR_SIMULATE_FLAG 0x00000002u
-
 #define SECGEAR_RESERVED_FLAG \
-    (~(SECGEAR_DEBUG_FLAG | SECGEAR_SIMULATE_FLAG))
+    (~(SECGEAR_DEBUG_FLAG))
 
 /*the enclave types supported by cloud enclave*/
 typedef enum _enclave_type {
