@@ -97,7 +97,7 @@ if(CC_GP)
     
     add_custom_command(TARGET ${PREFIX}
 	    POST_BUILD
-            COMMAND bash ${SIGN_TOOL} -d sign -x 2 -a 2 -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -m ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt 
+            COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -a 2 -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -m ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt 
 	    -e ${DEVICEPEM} -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
 
     install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT} 
@@ -153,7 +153,7 @@ if(CC_SGX)
     POST_BUILD
     COMMAND umask 0177
     COMMAND openssl genrsa -3 -out ${PEM} 3072
-    COMMAND bash ${SIGN_TOOL} -d sign -x 1 -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -k ${PEM} -o ${OUTPUT} -c ${CMAKE_CURRENT_SOURCE_DIR}/Enclave.config.xml)
+    COMMAND bash ${SIGN_TOOL} -d sign -x sgx -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -k ${PEM} -o ${OUTPUT} -c ${CMAKE_CURRENT_SOURCE_DIR}/Enclave.config.xml)
 endif()
 
 set_target_properties(${PREFIX} PROPERTIES SKIP_BUILD_RPATH TRUE)
