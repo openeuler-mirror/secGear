@@ -335,7 +335,7 @@ so -nostdinc -nodefaultlibs -nostdlib -nodefaultlibs compile link options was in
 
 		add_custom_command(TARGET ${PREFIX}
 			POST_BUILD
-			COMMAND bash ${SIGN_TOOL} -d sign -x 2 -i lib${PREFIX}.so -m ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt
+			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -m ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt
 			-e ${DEVICEPEM} -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT})
 
 		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
@@ -396,7 +396,7 @@ random numbers, seal, unseal, etc. The last step is to sign and install.
 		add_custom_command(TARGET ${PREFIX}
 		POST_BUILD
 		COMMAND openssl genrsa -3 -out ${PEM} 3072
-		COMMAND bash ${SIGN_TOOL} -d sign -x 1 -i lib${PREFIX}.so -k ${PEM} -o ${OUTPUT} -c ${CMAKE_CURRENT_SOURCE_DIR}/Enclave.config.xml)
+		COMMAND bash ${SIGN_TOOL} -d sign -x sgx -i lib${PREFIX}.so -k ${PEM} -o ${OUTPUT} -c ${CMAKE_CURRENT_SOURCE_DIR}/Enclave.config.xml)
 	endif()
 
 In the case of sgx, specify some compilation, link options related to sgx.  When linking libraries, sgx and itrustee
