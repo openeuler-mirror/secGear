@@ -164,7 +164,7 @@ typedef struct
 } err2str;
 
 
-const char *cc_enclave_res2_str(cc_enclave_result_t res);
+__attribute__((visibility("default"))) const char *cc_enclave_res2_str(cc_enclave_result_t res);
 
 /*only check the cloud enclave_result_t type in the status.h */
 #define SECGEAR_CHECK_MUTEX_RES(RES)                          \
