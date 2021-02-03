@@ -29,7 +29,7 @@ print_help(){
     echo "                required by trustzone."
     echo "-f <parameter>  OTRP_FLAG, indicates whether the OTRP standard protocol is supported, default is 0."
     echo "-i <file>       enclave to be signed."
-    echo "-k <file>       private key required for single-step method, required when trustzone TA_TYPE is 2 or SGX."
+    echo "-k <file>       private key required for single-step method, required when trustzone TA_TYPE is 2 or sgx."
     echo "-m <file>       manifest file, required by trustzone."
     echo "-o <file>       output parameters, the sign command outputs sigend enclave, the digest command outputs"
     echo "                digest value."
@@ -37,7 +37,7 @@ print_help(){
     echo "-s <file>       the signed digest value required for two-step method, this parameter is empty to indicate"
     echo "                single-step method."
     echo "-t <parameter>  trustzone TA_TYPE, default is 1."
-    echo "-x <parameter>  enclave type, 1: SGX, 2:trustzone."
+    echo "-x <parameter>  enclave type, sgx or trustzone."
     echo "-h              printf help message."
 
 }
@@ -61,16 +61,12 @@ do
         IN_ENCLAVE=$OPTARG
         ;;
         x)
-        if [[ $OPTARG =~ ^[1-2]$ ]]; then
-            ENCLAVE_TYPE=$OPTARG
-        else
-            if [[ $OPTARG == -* ]]; then
-                echo "Error: parameter for -x is missing or incorrect"
-                exit -1
-            fi 
-            echo "Error: illegal ENCLAVE TYPE"
+        if [[ $OPTARG == -* ]]; then
+            echo "Error: parameter for -x is missing or incorrect"
             exit -1
         fi
+        typeset -l ENCLAVE_TYPE
+        ENCLAVE_TYPE=$OPTARG
         ;;
         m)
         if [[ $OPTARG == -* ]]; then
@@ -270,16 +266,17 @@ if [ -z $OUT_FILE ]; then
     exit -1
 fi
 check_results=`uname -m`
-if [ "${ENCLAVE_TYPE}"x == "1"x ]; then
+if [ "${ENCLAVE_TYPE}"x == "sgx"x ]; then
     if [ "${check_results}"x != "x86_64"x ]; then
         echo "Warning: the enclave type does not comply with current architecture"
     fi
     sgx_start_sign
-elif [ "${ENCLAVE_TYPE}"x == "2"x ]; then
+elif [ "${ENCLAVE_TYPE}"x == "trustzone"x ]; then
     if [ "${check_results}"x != "aarch64"x ]; then
         echo "Warning: the enclave type does not comply with current architecture"
     fi
     itrustee_start_sign
 else
+    echo "Error: illegal enclave type"
     exit -1
 fi
