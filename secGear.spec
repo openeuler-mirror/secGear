@@ -1,6 +1,6 @@
 Name:		secGear
-Version:	1.0
-Release:	2%{?dist}
+Version:	v0.1.0
+Release:	1%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 ExclusiveArch:	x86_64
 
@@ -31,7 +31,7 @@ The %{name}-devel is package contains Header file for developing applications th
 us %{name}
 
 %prep
-%setup -q
+%setup -q -n secGear
 
 
 %build
@@ -83,5 +83,8 @@ install -pm 644 inc/enclave_inc/gp/*.h %{buildroot}/%{_includedir}/secGear/encla
 %{_includedir}/secGear/*
 
 %changelog
+* Wed Feb 3 2021 wanghongzhe<wanghongzhe@huawei.com> - v0.1.0-1
+- DESC:init secGear.tar.gz
+
 * Mon Jan 11 2021 wanghongzhe<wanghongzhe@huawei.com> - 1.0-1
 - DESC:init secgear
