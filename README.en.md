@@ -344,7 +344,7 @@ so -nostdinc -nodefaultlibs -nostdlib -nodefaultlibs compile link options was in
 
 	endif()
 
-In the case of iTrustee, generate the configuration file manifest.tx, which details of the configuration file will
+In the case of iTrustee, generate the configuration file manifest.txt, which details of the configuration file will
 be explained later, specify some compilation options related to itrustee, set the search paths of the header file and
 the link file, and compile the enclave binary.
 
