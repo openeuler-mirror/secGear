@@ -449,6 +449,6 @@ secGear引入EDL(Enclave Description Language)和中间代码辅助生成工具c
 
 - [了解更多关于签名工具](./docs/sign_tool.md)
 
-Milestone
+里程碑
 ---------
 <img src="docs/milestone.png" alt="secGear" style="zoom:80%;" />
