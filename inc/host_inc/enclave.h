@@ -34,7 +34,7 @@ extern "C" {
 
 /*the enclave types supported by cloud enclave*/
 typedef enum _enclave_type {
-    SGX_ENCLAVE_TYPE = 1,
+    SGX_ENCLAVE_TYPE = 0,
     GP_ENCLAVE_TYPE,
     AUTO_ENCLAVE_TYPE,
     ENCLAVE_TYPE_MAX
@@ -42,7 +42,7 @@ typedef enum _enclave_type {
 
 /*the enclave types and version supported by cloud enclave*/
 typedef enum _enclave_type_version {
-    SGX_ENCLAVE_TYPE_0 = 1,
+    SGX_ENCLAVE_TYPE_0 = 0,
     SGX_ENCLAVE_TYPE_MAX,
     GP_ENCLAVE_TYPE_0,
     GP_ENCLAVE_TYPE_MAX,
