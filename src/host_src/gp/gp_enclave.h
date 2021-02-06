@@ -17,7 +17,7 @@
 
 enum
 {
-    SECGEAR_ECALL_FUNCTION = 1,
+    SECGEAR_ECALL_FUNCTION = 0,
 };
 
 typedef struct _gp_context{

@@ -21,7 +21,6 @@ extern "C" {
 #define NULL    ((void *)0)
 #endif
 #define SECGEAR_ENUM_MAX 0xffffffff
-#define SGX_MK_ERROR(x)              (0x00000000|(x))
 
 typedef enum _enclave_result_t
 {
