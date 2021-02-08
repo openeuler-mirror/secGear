@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	v0.1.0
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 ExclusiveArch:	x86_64
 
@@ -29,6 +29,12 @@ Requires:	%{name}%{?isa} = %{version}-%{release}
 %description	devel
 The %{name}-devel is package contains Header file for developing applications that 
 us %{name}
+
+%package        sim
+Summary:        simulation package files for %{name}
+Requires:       %{name}%{?isa} = %{version}-%{release}
+%description    sim
+The %{name}-sim is package contains simulation libraries for developing applications
 
 %prep
 %setup -q -n secGear
@@ -67,13 +73,14 @@ install -pm 644 inc/enclave_inc/*.h %{buildroot}/%{_includedir}/secGear/enclave_
 install -pm 644 inc/enclave_inc/gp/*.h %{buildroot}/%{_includedir}/secGear/enclave_inc/gp
 %endif
 
+rm %{buildroot}/home* -rf
 
 %files
 %defattr(-,root,root)
-%{_libdir}/libsecgear_tee.a
-%{_libdir}/libsecgear.so
+/%{_lib}/libsecgear_tee.a
+/%{_lib}/libsecgear.so
 %ifarch x86_64
-%{_libdir}/libsgx_0.so
+/%{_lib}/libsgx_0.so
 %else
 #The itrustee OS is not released
 %endif
@@ -82,7 +89,19 @@ install -pm 644 inc/enclave_inc/gp/*.h %{buildroot}/%{_includedir}/secGear/encla
 %files devel
 %{_includedir}/secGear/*
 
+%files sim
+%defattr(-,root,root)
+/%{_lib}/libsecgearsim.so
+%ifarch x86_64
+/%{_lib}/libsgxsim_0.so
+%else
+#The itrustee OS is not released
+%endif
+
 %changelog
+* Sun Feb 7 2021 chenmaodong<chenmaodong@huawei.com> - v0.1.0-2
+- DESC:fix secGear build error and add secGear-sim rpm package
+
 * Wed Feb 3 2021 wanghongzhe<wanghongzhe@huawei.com> - v0.1.0-1
 - DESC:init secGear.tar.gz
 
