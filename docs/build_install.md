@@ -13,6 +13,10 @@ openEuler x86
 3. source environment && mkdir debug && cd debug 
    && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK="sgx_sdk path" .. &&  make && sudo make install
 
+4. To run example tls_enclave, refer to https://gitee.com/src-openeuler/intel-sgx-ssl 
+   download and install intel-sgx-ssl firstly.
+   source environment && mkdir debug && cd debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK="sgx_sdk path"
+   && -DENCLAVE_SSL="sgxssl path" .. &&  make && sudo make install
    
 openEuler arm
 
