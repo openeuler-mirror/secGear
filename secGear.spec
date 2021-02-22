@@ -1,15 +1,15 @@
 Name:		secGear
-Version:	v0.1.0
-Release:	2%{?dist}
+Version:	0.1.0
+Release:	4%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 ExclusiveArch:	x86_64
 
 Group:		OS Security
 License:	Mulan PSL v2
-URL:		https://gitee.com/openeuler-src/secGear
-Source0:	%{name}-%{version}.tar.gz
+URL:		https://gitee.com/openeuler/secGear
+Source0:	https://gitee.com/openeuler/secGear/repository/archive/v%{version}.tar.gz
 
-BuildRequires:	gcc python3 automake autoconf libtool gcc-g++ 
+BuildRequires:	gcc python3 automake autoconf libtool
 BUildRequires:	glibc glibc-devel
 %ifarch x86_64
 BUildRequires:	linux-sgx-driver linux-sgx-sdk libsgx-launch libsgx-urts
@@ -99,10 +99,16 @@ rm %{buildroot}/home* -rf
 %endif
 
 %changelog
-* Sun Feb 7 2021 chenmaodong<chenmaodong@huawei.com> - v0.1.0-2
+* Mon Feb 22 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-4
+- DESC:delete unnecessary BuildRequires
+
+* Sat Feb 20 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-3
+- DESC:fix url and source0 description error
+
+* Sun Feb 7 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-2
 - DESC:fix secGear build error and add secGear-sim rpm package
 
-* Wed Feb 3 2021 wanghongzhe<wanghongzhe@huawei.com> - v0.1.0-1
+* Wed Feb 3 2021 wanghongzhe<wanghongzhe@huawei.com> - 0.1.0-1
 - DESC:init secGear.tar.gz
 
 * Mon Jan 11 2021 wanghongzhe<wanghongzhe@huawei.com> - 1.0-1
