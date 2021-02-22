@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	3%{?dist}
+Release:	4%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 ExclusiveArch:	x86_64
 
@@ -9,7 +9,7 @@ License:	Mulan PSL v2
 URL:		https://gitee.com/openeuler/secGear
 Source0:	https://gitee.com/openeuler/secGear/repository/archive/v%{version}.tar.gz
 
-BuildRequires:	gcc python3 automake autoconf libtool gcc-g++ 
+BuildRequires:	gcc python3 automake autoconf libtool
 BUildRequires:	glibc glibc-devel
 %ifarch x86_64
 BUildRequires:	linux-sgx-driver linux-sgx-sdk libsgx-launch libsgx-urts
@@ -99,6 +99,9 @@ rm %{buildroot}/home* -rf
 %endif
 
 %changelog
+* Mon Feb 22 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-4
+- DESC:delete unnecessary BuildRequires
+
 * Sat Feb 20 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-3
 - DESC:fix url and source0 description error
 
