@@ -180,7 +180,7 @@ __attribute__((visibility("default"))) const char *cc_enclave_res2_str(cc_enclav
         int32_t _res = (RES);                                           \
         if (_res != 0) {                                                \
             CCRES = CC_FAIL;                                            \
-            print_error_goto("Mutex acquisition or release error \n");  \
+            print_error_goto("%s Mutex acquisition or release error\n", cc_enclave_res2_str(CCRES)); \
         }                                                               \
     } while(0)
 
@@ -195,12 +195,21 @@ __attribute__((visibility("default"))) const char *cc_enclave_res2_str(cc_enclav
     } while(0)
 
 /* jump to done and log according to the type of res */
-#define SECGEAR_CHECK_RES(RES)                                \
-    do {                                                           \
-        cc_enclave_result_t _res = (RES);                        \
-        if (_res != CC_SUCCESS) {                                  \
-            print_error_goto(":%s \n", cc_enclave_res2_str(_res));    \
-        }                                                          \
+#define SECGEAR_CHECK_RES(RES)                                          \
+    do {                                                                \
+        cc_enclave_result_t _res = (RES);                               \
+        if (_res != CC_SUCCESS) {                                       \
+            print_error_goto("%s \n", cc_enclave_res2_str(_res));       \
+        }                                                               \
+    } while(0)
+
+#define SECGEAR_CHECK_RES_UNLOCK(RES)                                   \
+    do {                                                                \
+        cc_enclave_result_t _res = (RES);                               \
+        if (_res != CC_SUCCESS) {                                       \
+            pthread_mutex_unlock(&(g_list_ops.mutex_work));             \
+            print_error_goto("%s \n", cc_enclave_res2_str(_res));       \
+        }                                                               \
     } while(0)
 
 /* jump done, error log already printed in the previous error function */
