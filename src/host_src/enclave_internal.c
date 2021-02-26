@@ -117,8 +117,8 @@ static err2str g_secgearerror [] =
     {CC_ERROR_BAD_PARAMETERS,                    "Invalid parameter."},
     {CC_ERROR_BAD_STATE,                         "Bad state."},
     {CC_ERROR_ITEM_NOT_FOUND,                    "The requested item is not found."},
-    {CC_ERROR_NOT_IMPLEMENTED,                   "opration is not implemented."},
-    {CC_ERROR_NOT_SUPPORTED,                     "operation is not support."},
+    {CC_ERROR_NOT_IMPLEMENTED,                   "operation is not implemented."},
+    {CC_ERROR_NOT_SUPPORTED,                     "feature or type is not support."},
     {CC_ERROR_NO_DATA,                           "There is no data."},
     {CC_ERROR_OUT_OF_MEMORY,                     "Out of memory."},
     {CC_ERROR_BUSY,                              "Busy system."},
@@ -231,7 +231,7 @@ cc_enclave_result_t find_engine_open(enclave_type_version_t type, void **handle)
     }
     if (!*handle) {
         res = CC_ERROR_INVALID_HANDLE;
-        print_error_goto("The dlopen failure: reason is %s\n", dlerror());
+        print_error_goto("%s\n", dlerror());
     } else {
         res = CC_SUCCESS;
     }
