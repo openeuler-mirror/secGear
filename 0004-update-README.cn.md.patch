@@ -1,0 +1,25 @@
+From 87dfa76438300aa21a7a28cd794c4d7912c40425 Mon Sep 17 00:00:00 2001
+From: whzhe <wanghongzhe@huawei.com>
+Date: Thu, 4 Feb 2021 17:05:14 +0800
+Subject: [PATCH 4/7] update README.cn.md.
+
+---
+ README.cn.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/README.cn.md b/README.cn.md
+index 274c70d..54c32e3 100644
+--- a/README.cn.md
++++ b/README.cn.md
+@@ -449,6 +449,6 @@ secGear引入EDL(Enclave Description Language)和中间代码辅助生成工具c
+ 
+ - [了解更多关于签名工具](./docs/sign_tool.md)
+ 
+-Milestone
++里程碑
+ ---------
+ <img src="docs/milestone.png" alt="secGear" style="zoom:80%;" />
+\ No newline at end of file
+-- 
+2.27.0
+
