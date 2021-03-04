@@ -10,7 +10,7 @@
 
 include(ExternalProject)
 
-project(CodeGen)
+project(CodeGen C)
 
 find_program(DUNE dune)
 
