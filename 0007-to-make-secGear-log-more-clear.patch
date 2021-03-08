@@ -1,0 +1,173 @@
+From 956328150ae4a07b2f95cb2d4993b767c14b9e9b Mon Sep 17 00:00:00 2001
+From: chenmaodong <chenmaodong@huawei.com>
+Date: Fri, 26 Feb 2021 10:06:50 +0800
+Subject: [PATCH 7/7] to make secGear log more clear
+
+Signed-off-by: chenmaodong <chenmaodong@huawei.com>
+---
+ inc/host_inc/status.h           | 23 ++++++++++++++++-------
+ src/host_src/enclave.c          | 33 +++++++++++++++++++--------------
+ src/host_src/enclave_internal.c |  6 +++---
+ 3 files changed, 38 insertions(+), 24 deletions(-)
+
+diff --git a/inc/host_inc/status.h b/inc/host_inc/status.h
+index 90f14a6..84c092a 100644
+--- a/inc/host_inc/status.h
++++ b/inc/host_inc/status.h
+@@ -180,7 +180,7 @@ __attribute__((visibility("default"))) const char *cc_enclave_res2_str(cc_enclav
+         int32_t _res = (RES);                                           \
+         if (_res != 0) {                                                \
+             CCRES = CC_FAIL;                                            \
+-            print_error_goto("Mutex acquisition or release error \n");  \
++            print_error_goto("%s Mutex acquisition or release error\n", cc_enclave_res2_str(CCRES)); \
+         }                                                               \
+     } while(0)
+ 
+@@ -195,12 +195,21 @@ __attribute__((visibility("default"))) const char *cc_enclave_res2_str(cc_enclav
+     } while(0)
+ 
+ /* jump to done and log according to the type of res */
+-#define SECGEAR_CHECK_RES(RES)                                \
+-    do {                                                           \
+-        cc_enclave_result_t _res = (RES);                        \
+-        if (_res != CC_SUCCESS) {                                  \
+-            print_error_goto(":%s \n", cc_enclave_res2_str(_res));    \
+-        }                                                          \
++#define SECGEAR_CHECK_RES(RES)                                          \
++    do {                                                                \
++        cc_enclave_result_t _res = (RES);                               \
++        if (_res != CC_SUCCESS) {                                       \
++            print_error_goto("%s \n", cc_enclave_res2_str(_res));       \
++        }                                                               \
++    } while(0)
++
++#define SECGEAR_CHECK_RES_UNLOCK(RES)                                   \
++    do {                                                                \
++        cc_enclave_result_t _res = (RES);                               \
++        if (_res != CC_SUCCESS) {                                       \
++            pthread_mutex_unlock(&(g_list_ops.mutex_work));             \
++            print_error_goto("%s \n", cc_enclave_res2_str(_res));       \
++        }                                                               \
+     } while(0)
+ 
+ /* jump done, error log already printed in the previous error function */
+diff --git a/src/host_src/enclave.c b/src/host_src/enclave.c
+index e3020d3..dc8c5ed 100644
+--- a/src/host_src/enclave.c
++++ b/src/host_src/enclave.c
+@@ -110,15 +110,19 @@ static bool check_flag(cc_enclave_result_t *res, const char *path, uint32_t flag
+     const uint32_t features_count, cc_enclave_t **enclave)
+ {
+     if (enclave == NULL || *enclave != NULL) {
+-        *res = CC_ERROR_BAD_PARAMETERS;
+-        print_error_term("Input context should not be NULL or context pointer should be set to NULL\n");
++        *res = CC_ERROR_INVALID_ENCLAVE_ID;
+         return false;
+     }
+-
+-    if (!path || (features_count > 0 && features == NULL) || (features_count == 0 &&  features != NULL) 
+-    || (flags & SECGEAR_RESERVED_FLAG)) {
++    if (!path) {
++        *res = CC_ERROR_INVALID_PATH;
++        return false;
++    }
++    if ((features_count > 0 && features == NULL) || (features_count == 0 &&  features != NULL)) {
+         *res = CC_ERROR_BAD_PARAMETERS;
+-        print_error_term("Parameter error\n");
++        return false;
++    }
++    if (flags & SECGEAR_RESERVED_FLAG) {
++        *res = CC_ERROR_NOT_SUPPORTED;
+         return false;
+     }
+     return true;
+@@ -197,9 +201,10 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
+     if (res == CC_ERROR_UNEXPECTED) {
+         check = false;
+     }
+-    SECGEAR_CHECK_RES_NO_LOG(res);
++    SECGEAR_CHECK_RES(res);
+ 
+     if (!check_flag(&res, path, flags, features, features_count, enclave)) {
++        print_error_term("%s\n", cc_enclave_res2_str(res));
+         return res;
+     }
+ 
+@@ -239,13 +244,13 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
+         SECGEAR_CHECK_MUTEX_RES_CC(ires, res);
+ 
+         res = find_engine_open(type_version, &handle);
+-        SECGEAR_CHECK_RES_NO_LOG_UNLOCK(res);
++        SECGEAR_CHECK_RES_UNLOCK(res);
+ 
+         res = find_engine_registered(handle, &registered_func, &unregistered_func);
+-        SECGEAR_CHECK_RES_NO_LOG_UNLOCK(res);
++        SECGEAR_CHECK_RES_UNLOCK(res);
+ 
+         res = (*registered_func)(&l_context, handle);
+-        SECGEAR_CHECK_RES_NO_LOG_UNLOCK(res);
++        SECGEAR_CHECK_RES_UNLOCK(res);
+ 
+         ires = pthread_mutex_unlock(&(g_list_ops.mutex_work));
+         SECGEAR_CHECK_MUTEX_RES_CC(ires, res);
+@@ -256,7 +261,7 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
+     if (l_context->list_ops_node != NULL && l_context->list_ops_node->ops_desc->ops->cc_create_enclave != NULL) {
+         /* failure of this function will not bring out additional memory that needs to be managed */
+         res = l_context->list_ops_node->ops_desc->ops->cc_create_enclave(enclave, features, features_count);
+-        SECGEAR_CHECK_RES_NO_LOG(res);
++        SECGEAR_CHECK_RES(res);
+     } else {
+         print_error_goto("Enclave type version %d no valid ops function", type_version);
+     }
+@@ -282,21 +287,21 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
+ 
+     if (context->list_ops_node->ops_desc->ops->cc_destroy_enclave != NULL) {
+         res = context->list_ops_node->ops_desc->ops->cc_destroy_enclave(context);
+-        SECGEAR_CHECK_RES_NO_LOG(res);
++        SECGEAR_CHECK_RES(res);
+     } else {
+         print_error_goto("Enclave context no valid ops function\n");
+     }
+ 
+     /* look up enclave engine unregistered */
+     res = find_engine_registered(context->list_ops_node->ops_desc->handle, NULL, &unregistered_funcc);
+-    SECGEAR_CHECK_RES_NO_LOG(res);
++    SECGEAR_CHECK_RES(res);
+ 
+     /* lock call unregistered func */
+     pthread_mutex_lock(&(g_list_ops.mutex_work));
+     SECGEAR_CHECK_MUTEX_RES_CC(ires, res);
+     /* call enclave engine free node */
+     res = (*unregistered_funcc)(context, context->list_ops_node->ops_desc->type_version);
+-    SECGEAR_CHECK_RES_NO_LOG_UNLOCK(res);
++    SECGEAR_CHECK_RES_UNLOCK(res);
+     if (context->list_ops_node->ops_desc->count == 0) {
+         ires = dlclose(context->list_ops_node->ops_desc->handle);
+         if (ires != 0) {
+diff --git a/src/host_src/enclave_internal.c b/src/host_src/enclave_internal.c
+index de51f2d..9a172bd 100644
+--- a/src/host_src/enclave_internal.c
++++ b/src/host_src/enclave_internal.c
+@@ -117,8 +117,8 @@ static err2str g_secgearerror [] =
+     {CC_ERROR_BAD_PARAMETERS,                    "Invalid parameter."},
+     {CC_ERROR_BAD_STATE,                         "Bad state."},
+     {CC_ERROR_ITEM_NOT_FOUND,                    "The requested item is not found."},
+-    {CC_ERROR_NOT_IMPLEMENTED,                   "opration is not implemented."},
+-    {CC_ERROR_NOT_SUPPORTED,                     "operation is not support."},
++    {CC_ERROR_NOT_IMPLEMENTED,                   "operation is not implemented."},
++    {CC_ERROR_NOT_SUPPORTED,                     "feature or type is not support."},
+     {CC_ERROR_NO_DATA,                           "There is no data."},
+     {CC_ERROR_OUT_OF_MEMORY,                     "Out of memory."},
+     {CC_ERROR_BUSY,                              "Busy system."},
+@@ -231,7 +231,7 @@ cc_enclave_result_t find_engine_open(enclave_type_version_t type, void **handle)
+     }
+     if (!*handle) {
+         res = CC_ERROR_INVALID_HANDLE;
+-        print_error_goto("The dlopen failure: reason is %s\n", dlerror());
++        print_error_goto("%s\n", dlerror());
+     } else {
+         res = CC_SUCCESS;
+     }
+-- 
+2.27.0
+

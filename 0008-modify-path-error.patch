@@ -1,0 +1,25 @@
+From 4ad45c9dfd22eb5e4193e5769227ad9ecedc8812 Mon Sep 17 00:00:00 2001
+From: zgzxx <zhangguangzhi3@huawei.com>
+Date: Thu, 4 Mar 2021 11:10:06 +0800
+Subject: [PATCH] modify path error
+
+---
+ tools/codegener/Genheader.ml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/codegener/Genheader.ml b/tools/codegener/Genheader.ml
+index 8c7391d..e683670 100644
+--- a/tools/codegener/Genheader.ml
++++ b/tools/codegener/Genheader.ml
+@@ -316,7 +316,7 @@ let generate_untrusted_header (ec: enclave_content) =
+     in
+     let hfile_end = "#endif\n" in
+     let hfile_include =
+-        sprintf "#include \"%s_args.h\"\n#include \"enclave_internal.h\"\n" ec.file_shortnm
++        sprintf "#include \"%s_args.h\"\n#include \"secGear/enclave_internal.h\"\n" ec.file_shortnm
+     in
+     let agent_id = "#ifndef TEE_SECE_AGENT_ID\n#define TEE_SECE_AGENT_ID 0x53656345\n#endif\n"
+     in
+-- 
+2.27.0
+

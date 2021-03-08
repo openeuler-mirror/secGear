@@ -1,0 +1,82 @@
+From f1361d482b30dc651485b3ae0665a33148602786 Mon Sep 17 00:00:00 2001
+From: liwei3013 <liwei3013@126.com>
+Date: Wed, 24 Feb 2021 14:00:10 +0800
+Subject: [PATCH 6/7] fix issues about double create/destory
+
+Signed-off-by: liwei3013 <liwei3013@126.com>
+---
+ src/host_src/enclave.c | 24 +++++++++++++++++-------
+ 1 file changed, 17 insertions(+), 7 deletions(-)
+
+diff --git a/src/host_src/enclave.c b/src/host_src/enclave.c
+index 14f6aae..e3020d3 100644
+--- a/src/host_src/enclave.c
++++ b/src/host_src/enclave.c
+@@ -67,7 +67,6 @@ static void error_handle(cc_enclave_t **l_context, void *handle, p_tee_registere
+     if (path) {
+         free(path);
+     }
+-    path = NULL;
+ 
+     if (*l_context) {
+         free(*l_context);
+@@ -110,8 +109,14 @@ done:
+ static bool check_flag(cc_enclave_result_t *res, const char *path, uint32_t flags, const enclave_features_t *features,
+     const uint32_t features_count, cc_enclave_t **enclave)
+ {
+-    if (!path || !enclave || (features_count > 0 && features == NULL) 
+-	       || (features_count == 0 &&  features != NULL) || (flags & SECGEAR_RESERVED_FLAG)) {
++    if (enclave == NULL || *enclave != NULL) {
++        *res = CC_ERROR_BAD_PARAMETERS;
++        print_error_term("Input context should not be NULL or context pointer should be set to NULL\n");
++        return false;
++    }
++
++    if (!path || (features_count > 0 && features == NULL) || (features_count == 0 &&  features != NULL) 
++    || (flags & SECGEAR_RESERVED_FLAG)) {
+         *res = CC_ERROR_BAD_PARAMETERS;
+         print_error_term("Parameter error\n");
+         return false;
+@@ -194,8 +199,12 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
+     }
+     SECGEAR_CHECK_RES_NO_LOG(res);
+ 
+-    if (!check_flag(&res, path, flags, features, features_count, enclave) || !check_transform_path(&res, path, &l_path)
+-    || !chose_engine_type(&res, type, version, &type_version)|| !allocate_context_memory(&res, &l_context)) {
++    if (!check_flag(&res, path, flags, features, features_count, enclave)) {
++        return res;
++    }
++
++    if (!check_transform_path(&res, path, &l_path) || !chose_engine_type(&res, type, version, &type_version)
++    || !allocate_context_memory(&res, &l_context)) {
+         goto done;
+     }
+ 
+@@ -267,7 +276,8 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
+ 
+     /* check context and enclave engine context */
+     if (!context || !context->list_ops_node) {
+-        print_error_goto("Function context parameter error\n");
++        print_error_term("Function context parameter error\n");
++        return CC_ERROR_BAD_PARAMETERS;
+     }
+ 
+     if (context->list_ops_node->ops_desc->ops->cc_destroy_enclave != NULL) {
+@@ -294,6 +304,7 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
+             pthread_mutex_unlock(&(g_list_ops.mutex_work));
+             print_error_goto("Close engine failure\n");
+         }
++        context->list_ops_node = NULL;
+     }
+     /* free enclave number resources */
+     g_list_ops.enclaveState.enclave_count--;
+@@ -308,6 +319,5 @@ done:
+     if (context) {
+         free(context);
+     }
+-    context = NULL;
+     return res;
+ }
+-- 
+2.27.0
+
