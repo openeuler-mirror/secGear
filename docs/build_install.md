@@ -3,7 +3,7 @@ Install secGear
 openEuler x86
 
 1. Refer to https://01.org/intel-software-guard-extensions/downloads download and install the 2.11 
-   sgx  driver, sgx psw, sgx sdx. In the directory of sgx sdk, source environment(for use sgx-sign)
+   sgx  driver, sgx psw, sgx sdk. In the directory of sgx sdk, source environment(for use sgx-sign)
    
 2. Refer to https://github.com/ocaml/opam/releases download and install the  opam-2.0.7-x86_64-linux.
    Run "./opam-2.0.7-x86_64-linux init"
