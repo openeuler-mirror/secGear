@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	4%{?dist}
+Release:	6%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 ExclusiveArch:	x86_64
 
@@ -12,13 +12,13 @@ Source0:	https://gitee.com/openeuler/secGear/repository/archive/v%{version}.tar.
 BuildRequires:	gcc python3 automake autoconf libtool
 BUildRequires:	glibc glibc-devel
 %ifarch x86_64
-BUildRequires:	linux-sgx-driver linux-sgx-sdk libsgx-launch libsgx-urts
+BUildRequires:	linux-sgx-driver sgxsdk libsgx-launch libsgx-urts
 %endif
 BUildRequires:	cmake ocaml-dune
 
 Requires:	rsyslog
 %ifarch x86_64
-Requires:	linux-sgx-driver linux-sgx-sdk libsgx-launch libsgx-urts
+Requires:	linux-sgx-driver sgxsdk libsgx-launch libsgx-urts
 %endif
 %description
 secGear is an SDK to develop confidential computing apps based on hardware enclave features
@@ -99,6 +99,12 @@ rm %{buildroot}/home* -rf
 %endif
 
 %changelog
+* Wed Mar 10 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-6
+- DESC: change requires from linux-sgx-sdk to sgxsdk
+
+* Wed Mar 3 2021 zhangguangzhi<zhangguangzhi@huawei.com> - 0.1.0-5
+- DESC: add codegen and sign_tool, modify file path and backport patch
+
 * Mon Feb 22 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-4
 - DESC:delete unnecessary BuildRequires
 
