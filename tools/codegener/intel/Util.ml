@@ -62,7 +62,7 @@ let dedup_list lst =
 let usage (progname: string) =
   eprintf "usage: %s [options] <file> ...\n" progname;
   eprintf "\n[options]\n\
---search-path <path>  Specify the search path of EDL files\n\
+--search-path <path>  Specify the search path of the dependent files of the EDL files\n\
 --use-prefix          Prefix untrusted proxy with Enclave name\n\
 --header-only         Only generate header files\n\
 --untrusted           Generate untrusted proxy and bridge\n\
