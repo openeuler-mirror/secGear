@@ -64,7 +64,7 @@ static err2str g_secgearerror [] =
     {CC_ERROR_INVALID_ISVSVN,             "The isv svn is greater than the enclave's isv svn."},
     {CC_ERROR_INVALID_KEYNAME,            "The key name is an unsupported value."},
     {CC_ERROR_AE_INVALID_EPIDBLOB,        "Indicates epid blob verification error."},
-    {CC_ERROR_SERVICE_INVALID_PRIVILEGE,  "Enclave has no privilege to get launch token."},
+    {CC_ERROR_SERVICE_INVALID_PRIVILEGE,  "Enclave not authorized to run."},
     {CC_ERROR_EPID_MEMBER_REVOKED,        "The EPID group membership is revoked."},
     {CC_ERROR_UPDATE_NEEDED,              "SDK need to be update."},
     {CC_ERROR_MC_NOT_FOUND,               "The Monotonic Counter doesn't exist or has been invalided."},
