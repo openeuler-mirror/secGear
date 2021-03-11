@@ -59,6 +59,8 @@ cc_enclave_result_t conversion_res_status(uint32_t enclave_res, enclave_type_ver
                 return CC_ERROR_OUT_OF_TCS;
             case SGX_ERROR_ENCLAVE_CRASHED:
                 return CC_ERROR_ENCLAVE_DEAD;
+            case SGX_ERROR_SERVICE_INVALID_PRIVILEGE:
+                return CC_ERROR_SERVICE_INVALID_PRIVILEGE;
             default:
                 return CC_ERROR_UNEXPECTED;
         }
@@ -131,7 +133,7 @@ cc_enclave_result_t _sgx_create(cc_enclave_t **enclave, const enclave_features_t
                     NULL, &(l_context->edi), NULL);
             if (sgx_res != SGX_SUCCESS) {
                 res = conversion_res_status(sgx_res, (*enclave)->type);
-                print_error_goto("Failed to create sgx enclave %s\n",cc_enclave_res2_str(res));
+                print_error_goto("Failed to create sgx enclave\n");
             }
             break;
         case 1:
