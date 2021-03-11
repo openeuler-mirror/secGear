@@ -187,7 +187,7 @@ let get_file_path (fname: string) =
     try
       List.find Sys.file_exists fn_list
     with
-      Not_found -> failwithf "File not found within search paths: %s\n" fname
+      Not_found -> failwithf "File not found within search paths or search paths is permisson denied: %s\n" fname
 
 (* Get the short name of the given file name.
  * ------------------------------------------
