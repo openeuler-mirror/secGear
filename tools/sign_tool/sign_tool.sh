@@ -265,6 +265,7 @@ if [ -z $OUT_FILE ]; then
     echo "Error: missing out file"
     exit -1
 fi
+umask 0077
 check_results=`uname -m`
 if [ "${ENCLAVE_TYPE}"x == "sgx"x ]; then
     if [ "${check_results}"x != "x86_64"x ]; then
