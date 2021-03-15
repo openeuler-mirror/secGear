@@ -1,0 +1,25 @@
+From a960391b449cdc9dc081dbab28e9fbc0aa093cf0 Mon Sep 17 00:00:00 2001
+From: liwei3013 <liwei3013@126.com>
+Date: Mon, 8 Mar 2021 10:19:54 +0800
+Subject: [PATCH 2/6] update docs/build_install.md.
+
+---
+ docs/build_install.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/docs/build_install.md b/docs/build_install.md
+index 9ba1adb..482e8c2 100644
+--- a/docs/build_install.md
++++ b/docs/build_install.md
+@@ -3,7 +3,7 @@ Install secGear
+ openEuler x86
+ 
+ 1. Refer to https://01.org/intel-software-guard-extensions/downloads download and install the 2.11 
+-   sgx  driver, sgx psw, sgx sdx. In the directory of sgx sdk, source environment(for use sgx-sign)
++   sgx  driver, sgx psw, sgx sdk. In the directory of sgx sdk, source environment(for use sgx-sign)
+    
+ 2. Refer to https://github.com/ocaml/opam/releases download and install the  opam-2.0.7-x86_64-linux.
+    Run "./opam-2.0.7-x86_64-linux init"
+-- 
+2.27.0
+

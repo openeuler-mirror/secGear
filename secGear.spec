@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	6%{?dist}
+Release:	7%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 ExclusiveArch:	x86_64
 
@@ -17,6 +17,12 @@ Patch4:		0005-delete-unnecessary-README.cn.md.patch
 Patch5:		0006-fix-issues-about-double-create-destory.patch
 Patch6:		0007-to-make-secGear-log-more-clear.patch
 Patch7:		0008-modify-path-error.patch
+Patch8:		0009-fix-sgxssl-edl.patch
+Patch9:		0010-update-docs-build_install.md.patch
+Patch10:	0011-modify-the-prompt-information.patch
+Patch11:	0012-parse-new-error-code-and-del-redundant-print.patch
+Patch12:	0013-fix-error-print.patch
+Patch13:	0014-set-umask-in-sign_tool.sh.patch
 
 BuildRequires:	gcc python3 automake autoconf libtool
 BUildRequires:	glibc glibc-devel
@@ -109,6 +115,9 @@ rm %{buildroot}/home* -rf
 %endif
 
 %changelog
+* Mon Mar 15 2021 zhangguangzhi<zhangguangzhi3@huawei.com> - 0.1.0-7
+- DESC: backport patch
+
 * Wed Mar 10 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-6
 - DESC: change requires from linux-sgx-sdk to sgxsdk
 
