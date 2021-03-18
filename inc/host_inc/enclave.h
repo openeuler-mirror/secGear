@@ -16,7 +16,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-
+#include <pthread.h>
 
 #include "status.h"
 
@@ -62,6 +62,8 @@ typedef struct _enclave {
     enclave_type_version_t type;
     char *path;
     uint32_t flags;
+    pthread_rwlock_t rwlock;
+    bool used_flag;
     void *private_data;
     /*enclave engine context manage, only one pointer*/
     struct  list_ops_desc *list_ops_node;

@@ -200,8 +200,10 @@ cc_enclave_result_t cc_enclave_sgx_call_function(
     (void)output_buffer_size;
     sgx_status_t status;
     cc_enclave_result_t cc_status;
+    pthread_rwlock_rdlock(&(enclave->rwlock));
     status = sgx_ecall(((sgx_context_t *)(enclave->private_data))->edi, (int)function_id, ocall_table, ms);
     cc_status = conversion_res_status(status, enclave->type);
+    pthread_rwlock_unlock(&(enclave->rwlock));
     return cc_status;
 }
  

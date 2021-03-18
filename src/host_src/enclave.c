@@ -109,7 +109,7 @@ done:
 static bool check_flag(cc_enclave_result_t *res, const char *path, uint32_t flags, const enclave_features_t *features,
     const uint32_t features_count, cc_enclave_t **enclave)
 {
-    if (enclave == NULL || *enclave != NULL) {
+    if (enclave == NULL || (*enclave != NULL && (*enclave)->used_flag == true)) {
         *res = CC_ERROR_INVALID_ENCLAVE_ID;
         return false;
     }
@@ -217,11 +217,14 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
     if (((GP_ENCLAVE_TYPE_0 <= type_version) && (type_version < GP_ENCLAVE_TYPE_MAX)) && (flags & SECGEAR_DEBUG_FLAG)) {
         print_warning("This enclave scheme does not support enter enclave debugging\n");
     }    
-
+    
     /* initialize the context */
+
+    pthread_rwlock_init(&(l_context->rwlock), NULL);
     l_context->path  = l_path;
     l_context->flags = flags;
     l_context->type  = type_version;
+    l_context->used_flag = true;
 
     /* if an enclave is created multiple times, first find it in the global list,
      * maybe the information about this engine has been filled in the list 
@@ -280,11 +283,13 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
     p_tee_unregistered unregistered_funcc;
 
     /* check context and enclave engine context */
-    if (!context || !context->list_ops_node) {
+    if (!context || !context->list_ops_node || !context->list_ops_node->ops_desc ||
+        !context->list_ops_node->ops_desc->ops || context->used_flag == false) {
         print_error_term("Function context parameter error\n");
         return CC_ERROR_BAD_PARAMETERS;
     }
 
+    pthread_rwlock_wrlock(&(context->rwlock));
     if (context->list_ops_node->ops_desc->ops->cc_destroy_enclave != NULL) {
         res = context->list_ops_node->ops_desc->ops->cc_destroy_enclave(context);
         SECGEAR_CHECK_RES(res);
@@ -322,6 +327,9 @@ done:
         free(context->path);
     }
     if (context) {
+        pthread_rwlock_unlock(&context->rwlock);
+        pthread_rwlock_destroy(&context->rwlock);
+        explicit_bzero(context, sizeof(cc_enclave_t));
         free(context);
     }
     return res;
