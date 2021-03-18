@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	7%{?dist}
+Release:	8%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 ExclusiveArch:	x86_64
 
@@ -23,6 +23,7 @@ Patch10:	0011-modify-the-prompt-information.patch
 Patch11:	0012-parse-new-error-code-and-del-redundant-print.patch
 Patch12:	0013-fix-error-print.patch
 Patch13:	0014-set-umask-in-sign_tool.sh.patch
+Patch14:	0015-1.fix-the-race-of-ecall-and-enclave-destroy.patch	
 
 BuildRequires:	gcc python3 automake autoconf libtool
 BUildRequires:	glibc glibc-devel
@@ -115,6 +116,9 @@ rm %{buildroot}/home* -rf
 %endif
 
 %changelog
+* Thu Mar 18 2021 gaoyusong<gaoyusong1@huawei.com> - 0.1.0-8
+- DESC: backport patch
+
 * Mon Mar 15 2021 zhangguangzhi<zhangguangzhi3@huawei.com> - 0.1.0-7
 - DESC: backport patch
 
