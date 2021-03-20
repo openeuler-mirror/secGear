@@ -872,7 +872,11 @@ let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
   let sgx_ecall_fn = get_sgx_fname SGX_ECALL tf.Ast.tf_is_switchless in
 
   (* Normal case - do ECALL with marshaling structure*)
-  let ecall_with_ms = sprintf "result = enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave( \n\
+  let ecall_with_ms = sprintf "if(!enclave || !enclave->list_ops_node || !enclave->list_ops_node->ops_desc ||\n\
+                    \t\t!enclave->list_ops_node->ops_desc->ops || \n\
+                    \t\t!enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave)\n\
+                    \t\treturn CC_ERROR_BAD_PARAMETERS;
+        result = enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave( \n\
                     \t\tenclave,\n\
                     \t\t%d,\n\
                     \t\tNULL,\n\
@@ -885,7 +889,11 @@ let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
   (* Rare case - the trusted function doesn't have parameter nor return value.
    * In this situation, no marshaling structure is required - passing in NULL.
    *)
-  let ecall_null = sprintf "result = enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave( \n\
+  let ecall_null = sprintf "if(!enclave || !enclave->list_ops_node || !enclave->list_ops_node->ops_desc ||\n\
+                    \t\t!enclave->list_ops_node->ops_desc->ops || \n\
+                    \t\t!enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave)\n\
+                    \t\treturn CC_ERROR_BAD_PARAMETERS;
+        result = enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave( \n\
                     \t\tenclave,\n\
                     \t\t%d,\n\
                     \t\tNULL,\n\
