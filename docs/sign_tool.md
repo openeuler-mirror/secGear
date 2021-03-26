@@ -4,7 +4,7 @@ The sign_tool.sh helps to sign the enclave.
 
 ## The sign_tool.sh
 
-The sign_tool.sh uses the 'sgx_sign' tool in SGX SDK for signing the sgx enclave and the 'sign_too.py' for signing the trustzone enclave.
+The sign_tool.sh uses the 'sgx_sign' tool in SGX SDK for signing the sgx enclave and the 'sign_tool.py' for signing the trustzone enclave.
 
 The tool supports the following two modes:
 
@@ -13,21 +13,21 @@ The tool supports the following two modes:
 
     For example:    
 
-    `$ ./signtool.sh –d sign –x trustzone –i test.enclave -m manifest.txt –e device_pubkey.pem –o signed.enclave `
+    `$ ./sign_tool.sh –d sign –x trustzone –i test.enclave -m manifest.txt –e device_pubkey.pem –o signed.enclave `
 
 
 - two-step method, it is used when the signature needs to be obtained from the signing organization or the private key is stored on another secure platform.  
 
     For example:  
     (1) generate the digest value.  
-    `$ ./signtool.sh –d digest –x trustzone –i input -m manifest.txt –e device_pubkey.pem –o digest.data `
+    `$ ./sign_tool.sh –d digest –x trustzone –i input -m manifest.txt –e device_pubkey.pem –o digest.data `
 
     For trustzone, temporary files KeyInfo.enc, rawData.enc, and rawDataHash.bin are generated in the current directory. And for sgx, a temporary file signdata is generated in the current directory. The temporary file is required when generating the signed enclave in step 3 and is deleted after the signed enclave is generated.  
 
     (2) send the digest.data to the signing organization or platform and get the signature.  
 
     (3) use the signature to generate the signed enclave.  
-    `$ ./signtool.sh –d sign –x trustzone –i input -m manifest.txt –p pub.pem –e device_pubkey.pem –s signature –o signed.enclave `
+    `$ ./sign_tool.sh –d sign –x trustzone –i input -m manifest.txt –p pub.pem –e device_pubkey.pem –s signature –o signed.enclave `
 
 ## sign_tool.sh parameter
 
