@@ -254,8 +254,6 @@ Set sign tool and the security side log printing level
 	if(CC_GP)
             #set signed output
             set(OUTPUT ${UUID}.sec)
-            #set itrustee device key
-            set(DEVICEPEM ${CMAKE_CURRENT_SOURCE_DIR}/rsa_public_key_cloud.pem)
 
             set(WHITE_LIST_0 /vendor/bin/helloworld)
             set(WHITE_LIST_1 /vendor/bin/secgear_test)
@@ -270,8 +268,7 @@ Set sign tool and the security side log printing level
 
 WHITE_LIS_X sets the whitelist of itrustee, only the host binary of these paths can call this secure image,
 and up to 8 list paths can be configured. WHITE_LIST_OWNER set user, this user will be applied to all whitelist paths.
-DEVICEPEM public key is used by itrustee and is used to encrypt the enclave image of the security side with the
-dynamically generated aes key. Finally, set the name of the security side image after the final signature, and
+Finally, set the name of the security side image after the final signature, and
 generate auxiliary code.
 
 	if(CC_SGX)
@@ -339,8 +336,8 @@ so -nostdinc -nodefaultlibs -nostdlib -nodefaultlibs compile link options was in
 
 		add_custom_command(TARGET ${PREFIX}
 			POST_BUILD
-			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -m ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt
-			-e ${DEVICEPEM} -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT})
+			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt
+			-o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT})
 
 		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
 			DESTINATION /data
@@ -425,9 +422,6 @@ configuration file.  For details, please refer to the official development docum
 Write itrustee related configuration files
 The gpd.ta.appID in the manifest.txt.in file is the uuid configuration item, which is dynamically generated, 
 and the other configuration items can refer to the itrustee development document.
-
-Copy the rsa_public_key_cloud.pem device public key from other examples in the project to the enclave directory.
-The device public key here is used to encrypt the enclave image with the temporarily generated aes key.
 	
 ### 5 build and install test
 

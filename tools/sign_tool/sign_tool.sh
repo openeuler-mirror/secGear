@@ -21,16 +21,14 @@ print_help(){
     echo "sign tool usage: ./sign_tool.sh [options] ..."
     echo "[options]"
     echo "-a <parameter>  API_LEVEL, indicates trustzone GP API version, defalut is 1."
-    echo "-c <file>       config file."
+    echo "-c <file>       basic config file."
     echo "-d <parameter>  sign tool command, sign/digest."
     echo "                The sign command is used to generate a signed enclave."
     echo "                The digest command is used to generate a digest value."
-    echo "-e <file>       the device's public key certificate, used to protect the AES key of the encrypted rawdata,"
-    echo "                required by trustzone."
     echo "-f <parameter>  OTRP_FLAG, indicates whether the OTRP standard protocol is supported, default is 0."
     echo "-i <file>       enclave to be signed."
     echo "-k <file>       private key required for single-step method, required when trustzone TA_TYPE is 2 or sgx."
-    echo "-m <file>       manifest file, required by trustzone."
+    echo "-m <file>       additional config for trustzone when TA_TYPE is 2."
     echo "-o <file>       output parameters, the sign command outputs sigend enclave, the digest command outputs"
     echo "                digest value."
     echo "-p <file>       signing server public key certificate, required for two-step method."
@@ -42,7 +40,7 @@ print_help(){
 
 }
 
-while getopts "d:i:x:m:a:f:t:c:e:k:p:s:o:h" opt
+while getopts "d:i:x:m:a:f:t:c:k:p:s:o:h" opt
 do
     case $opt in
         d)
@@ -73,7 +71,7 @@ do
             echo "Error: parameter for -m is missing or incorrect"
             exit -1
         fi 
-        MANIFIST=$OPTARG
+        A_CONFIG_FILE=$OPTARG
         ;;
         a)
         if [[ $OPTARG =~ ^[1-3]$ ]]; then
@@ -117,13 +115,6 @@ do
             exit -1
         fi 
         CONFIG_FILE=$OPTARG
-        ;;
-        e)
-        if [[ $OPTARG == -* ]]; then
-            echo "Error: parameter for -e is missing or incorrect"
-            exit -1
-        fi 
-        DEVICE_PUBKEY=$OPTARG
         ;;
         k)
         if [[ $OPTARG == -* ]]; then
@@ -169,23 +160,21 @@ fi
 
 itrustee_start_sign(){
 #    check_native_sign
-    if [ -z $MANIFIST ]; then
-        echo "Error: missing manifest file for signing iTrustee enclave"
-        exit -1
-    fi
-    if [ -z $DEVICE_PUBKEY ]; then
-        echo "Error: missing device pubkey for signing iTrustee enclave"
+    MANIFEST=$CONFIG_FILE
+    if [ -z $MANIFEST ]; then
+        echo "Error: missing config file for signing iTrustee enclave"
         exit -1
     fi
 
     if [ ${TA_TYPE} == 2 ]; then
-        if [ -z $CONFIG_FILE]; then
-            echo "Error: TA TYPE = 2, missing config file for signing iTrustee enclave"
+        if [ -z $A_CONFIG_FILE]; then
+            echo "Error: TA TYPE = 2, missing additional config file for signing iTrustee enclave"
             exit -1
         fi
     else
-        CONFIG_FILE="NULL"
+        A_CONFIG_FILE="NULL"
     fi
+    DEVICE_PUBKEY=${localpath}/rsa_public_key_cloud.pem
 
     if [ "${CMD}"x == "sign"x ]; then
         if [ -z $SIGNATURE ]; then
@@ -194,18 +183,18 @@ itrustee_start_sign(){
                 echo "missing the signature private key"
                 exit -1
             fi
-            python ${localpath}/sign_tool.py "sign" "${DEBUG}" "${IN_ENCLAVE}" "${OUT_FILE}" "${MANIFIST}" "${OTRP_FLAG}" "${TA_TYPE}" "${API_LEVEL}" "${DEVICE_PUBKEY}" "${CONFIG_FILE}" "${SIG_KEY}"
+            python ${localpath}/sign_tool.py "sign" "${DEBUG}" "${IN_ENCLAVE}" "${OUT_FILE}" "${MANIFEST}" "${OTRP_FLAG}" "${TA_TYPE}" "${API_LEVEL}" "${DEVICE_PUBKEY}" "${A_CONFIG_FILE}" "${SIG_KEY}"
         else
             DEBUG=0
             if [ -z $SERVER_PUBKEY ]; then
                 echo "Error: missing server public key for verifying signature"
                 exit -1
             fi
-            python ${localpath}/sign_tool.py "sign" "${DEBUG}" "${IN_ENCLAVE}" "${OUT_FILE}" "${MANIFIST}" "${OTRP_FLAG}" "${TA_TYPE}" "${API_LEVEL}" "${DEVICE_PUBKEY}" "${CONFIG_FILE}" "${SIGNATURE}" "${SERVER_PUBKEY}"
+            python ${localpath}/sign_tool.py "sign" "${DEBUG}" "${IN_ENCLAVE}" "${OUT_FILE}" "${MANIFEST}" "${OTRP_FLAG}" "${TA_TYPE}" "${API_LEVEL}" "${DEVICE_PUBKEY}" "${A_CONFIG_FILE}" "${SIGNATURE}" "${SERVER_PUBKEY}"
         fi
     elif [ "${CMD}"x == "digest"x ]; then
         DEBUG=0
-        python ${localpath}/sign_tool.py "digest" "${DEBUG}" "${IN_ENCLAVE}" "${OUT_FILE}" "${MANIFIST}" "${OTRP_FLAG}" "${TA_TYPE}" "${API_LEVEL}" "${DEVICE_PUBKEY}" "${CONFIG_FILE}"
+        python ${localpath}/sign_tool.py "digest" "${DEBUG}" "${IN_ENCLAVE}" "${OUT_FILE}" "${MANIFEST}" "${OTRP_FLAG}" "${TA_TYPE}" "${API_LEVEL}" "${DEVICE_PUBKEY}" "${A_CONFIG_FILE}"
     else
         echo "Error: illegal command"
     fi

@@ -236,8 +236,6 @@ test_t.h：该头文件为自动生成代码工具codegen通过edl文件生成�
 	if(CC_GP)
             #set signed output
             set(OUTPUT ${UUID}.sec)
-            #set itrustee device key
-            set(DEVICEPEM ${CMAKE_CURRENT_SOURCE_DIR}/rsa_public_key_cloud.pem)
 
             set(WHITE_LIST_0 /vendor/bin/helloworld)
             set(WHITE_LIST_1 /vendor/bin/secgear_test)
@@ -252,7 +250,6 @@ test_t.h：该头文件为自动生成代码工具codegen通过edl文件生成�
 
 WHITE_LIST_x：为设置iTrustee的二进制白名单，只有这里定义的白名单，在非安全侧的二进制才可以调用安全侧的动态库。上限为8个。
 WHITE_LIST_OWNER：为设置运行二进制的用户，只有该用户才可以调用安全侧动态库。
-DEVICEPEM：该公钥用来动态生成aes秘钥
 AUTO_FILES：由edl文件生成的安全侧二进制文件
 
         if(CC_SGX)
@@ -319,8 +316,8 @@ AUTO_FILES：由edl文件生成的安全侧二进制文件
 
 		add_custom_command(TARGET ${PREFIX}
 			POST_BUILD
-			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -m ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt
-			-e ${DEVICEPEM} -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT})
+			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt
+			-o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT})
 
 		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
 			DESTINATION /data
@@ -391,7 +388,6 @@ itrustee需要链接secgear_tee动态库，提供seal接口等。
 编写itrustee enclave相关配置文件
 mainfest.txt.in:其中gpd.ta.appID 为动态生成uuid。其他配置参见itrustee开发文档。
 
-rsa_public_key_cloud.pem文件请将其他examples的中的拷贝过来，这里的设备公钥用于使用临时生成的aes密钥用于对enclave动态库进行加密。
 
 #### 5 构建 安装
 
