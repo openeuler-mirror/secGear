@@ -1,0 +1,24 @@
+From c5b813e96262f2af0596d8c5e164aafcd64fb60c Mon Sep 17 00:00:00 2001
+From: yanlu <yanlu14@huawei.com>
+Date: Fri, 12 Mar 2021 11:42:11 +0800
+Subject: [PATCH 6/6] set umask in sign_tool.sh
+
+---
+ tools/sign_tool/sign_tool.sh | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tools/sign_tool/sign_tool.sh b/tools/sign_tool/sign_tool.sh
+index 9aaf663..8f2189c 100755
+--- a/tools/sign_tool/sign_tool.sh
++++ b/tools/sign_tool/sign_tool.sh
+@@ -265,6 +265,7 @@ if [ -z $OUT_FILE ]; then
+     echo "Error: missing out file"
+     exit -1
+ fi
++umask 0077
+ check_results=`uname -m`
+ if [ "${ENCLAVE_TYPE}"x == "sgx"x ]; then
+     if [ "${check_results}"x != "x86_64"x ]; then
+-- 
+2.27.0
+

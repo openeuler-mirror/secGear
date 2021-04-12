@@ -1,0 +1,76 @@
+From c7464e2f6a492a84dd0c7c808ba43750961d5143 Mon Sep 17 00:00:00 2001
+From: chenmaodong <chenmaodong@huawei.com>
+Date: Thu, 4 Feb 2021 16:42:46 +0800
+Subject: [PATCH 2/7] it is better to define enum from 0 rather than 1
+
+Signed-off-by: chenmaodong <chenmaodong@huawei.com>
+---
+ inc/enclave_inc/gp/gp.h      | 2 +-
+ inc/host_inc/enclave.h       | 4 ++--
+ inc/host_inc/status.h        | 1 -
+ src/host_src/gp/gp_enclave.h | 2 +-
+ 4 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/inc/enclave_inc/gp/gp.h b/inc/enclave_inc/gp/gp.h
+index 0662110..bed6afd 100644
+--- a/inc/enclave_inc/gp/gp.h
++++ b/inc/enclave_inc/gp/gp.h
+@@ -25,7 +25,7 @@
+ #define COUNT(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
+ enum
+ {
+-    SECGEAR_ECALL_FUNCTION = 1,
++    SECGEAR_ECALL_FUNCTION = 0,
+ };
+ 
+ typedef cc_enclave_result_t (*cc_ecall_func_t)(
+diff --git a/inc/host_inc/enclave.h b/inc/host_inc/enclave.h
+index 9722ca3..b063ce9 100644
+--- a/inc/host_inc/enclave.h
++++ b/inc/host_inc/enclave.h
+@@ -34,7 +34,7 @@ extern "C" {
+ 
+ /*the enclave types supported by cloud enclave*/
+ typedef enum _enclave_type {
+-    SGX_ENCLAVE_TYPE = 1,
++    SGX_ENCLAVE_TYPE = 0,
+     GP_ENCLAVE_TYPE,
+     AUTO_ENCLAVE_TYPE,
+     ENCLAVE_TYPE_MAX
+@@ -42,7 +42,7 @@ typedef enum _enclave_type {
+ 
+ /*the enclave types and version supported by cloud enclave*/
+ typedef enum _enclave_type_version {
+-    SGX_ENCLAVE_TYPE_0 = 1,
++    SGX_ENCLAVE_TYPE_0 = 0,
+     SGX_ENCLAVE_TYPE_MAX,
+     GP_ENCLAVE_TYPE_0,
+     GP_ENCLAVE_TYPE_MAX,
+diff --git a/inc/host_inc/status.h b/inc/host_inc/status.h
+index 30f62d0..90f14a6 100644
+--- a/inc/host_inc/status.h
++++ b/inc/host_inc/status.h
+@@ -21,7 +21,6 @@ extern "C" {
+ #define NULL    ((void *)0)
+ #endif
+ #define SECGEAR_ENUM_MAX 0xffffffff
+-#define SGX_MK_ERROR(x)              (0x00000000|(x))
+ 
+ typedef enum _enclave_result_t
+ {
+diff --git a/src/host_src/gp/gp_enclave.h b/src/host_src/gp/gp_enclave.h
+index 1764b99..52dc911 100644
+--- a/src/host_src/gp/gp_enclave.h
++++ b/src/host_src/gp/gp_enclave.h
+@@ -17,7 +17,7 @@
+ 
+ enum
+ {
+-    SECGEAR_ECALL_FUNCTION = 1,
++    SECGEAR_ECALL_FUNCTION = 0,
+ };
+ 
+ typedef struct _gp_context{
+-- 
+2.27.0
+
