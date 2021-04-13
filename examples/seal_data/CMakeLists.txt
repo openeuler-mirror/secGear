@@ -17,10 +17,10 @@ set(CMAKE_C_STANDARD 99)
 set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(EDL_FILE seal_data.edl)
+set(CODEGEN codegen)
 
 if(CC_GP)
     set(CODETYPE trustzone)
-    set(CODEGEN codegen_arm64)
     execute_process(COMMAND uuidgen -r 
 	OUTPUT_VARIABLE UUID)
     string(REPLACE "\n" "" UUID ${UUID})
@@ -29,7 +29,6 @@ endif()
 
 if(CC_SGX)
     set(CODETYPE sgx)
-    set(CODEGEN codegen_x86_64)
     add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/seal_data.signed.so")
 endif()
 

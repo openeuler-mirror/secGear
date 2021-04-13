@@ -18,13 +18,7 @@ if(NOT DUNE)
 	message(FATAL_ERROR "Please check your dune installation")
 endif()
 
-if(CC_SGX)
-	set(code codegen_x86_64)
-endif()
-
-if(CC_GP)
-	set(code codegen_arm64)
-endif()
+set(code codegen)
 
 ExternalProject_Add(codegen
 		SOURCE_DIR ${LOCAL_ROOT_PATH}/tools/codegener
