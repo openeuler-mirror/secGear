@@ -13,36 +13,34 @@ The tool supports the following two modes:
 
     For example:    
 
-    `$ ./sign_tool.sh –d sign –x trustzone –i test.enclave -m manifest.txt –e device_pubkey.pem –o signed.enclave `
+    `$ ./sign_tool.sh –d sign –x trustzone –i test.enclave -c manifest.txt –o signed.enclave `
 
 
 - two-step method, it is used when the signature needs to be obtained from the signing organization or the private key is stored on another secure platform.  
 
     For example:  
     (1) generate the digest value.  
-    `$ ./sign_tool.sh –d digest –x trustzone –i input -m manifest.txt –e device_pubkey.pem –o digest.data `
+    `$ ./sign_tool.sh –d digest –x trustzone –i input -c manifest.txt –o digest.data `
 
     For trustzone, temporary files KeyInfo.enc, rawData.enc, and rawDataHash.bin are generated in the current directory. And for sgx, a temporary file signdata is generated in the current directory. The temporary file is required when generating the signed enclave in step 3 and is deleted after the signed enclave is generated.  
 
     (2) send the digest.data to the signing organization or platform and get the signature.  
 
     (3) use the signature to generate the signed enclave.  
-    `$ ./sign_tool.sh –d sign –x trustzone –i input -m manifest.txt –p pub.pem –e device_pubkey.pem –s signature –o signed.enclave `
+    `$ ./sign_tool.sh –d sign –x trustzone –i input -c manifest.txt –p pub.pem –s signature –o signed.enclave `
 
 ## sign_tool.sh parameter
 
 ```
     -a <parameter>  API_LEVEL, indicates trustzone GP API version, defalut is 1.
-    -c <file>       config file.
+    -c <file>       basic config file.
     -d <parameter>  sign tool command, sign/digest.
                     The sign command is used to generate a signed enclave.
                     The digest command is used to generate a digest value.
-    -e <file>       the device's public key certificate, used to protect the AES key of the encrypted rawdata,
-                    required by trustzone.
     -f <parameter>  OTRP_FLAG, indicates whether the OTRP standard protocol is supported, default is 0.
     -i <file>       enclave to be signed.
     -k <file>       private key required for single-step method, required when trustzone TA_TYPE is 2 or sgx.
-    -m <file>       manifest file, required by trustzone.
+    -m <file>       additional config for trustzone when TA_TYPE is 2.
     -o <file>       output parameters, the sign command outputs sigend enclave, the digest command outputs digest value.
     -p <file>       signing server public key certificate, required for two-step method.
     -s <file>       the signed digest value required for two-step method, this parameter is empty to indicate single-step method.

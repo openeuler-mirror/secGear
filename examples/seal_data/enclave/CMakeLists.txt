@@ -24,9 +24,6 @@ add_definitions(-DPRINT_LEVEL=${PRINT_LEVEL})
 if(CC_GP)
     #set signed output
     set(OUTPUT ${UUID}.sec)
-    #set itrustee device key
-    set(DEVICEPEM ${CMAKE_CURRENT_SOURCE_DIR}/rsa_public_key_cloud.pem)
-
     set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
     #set whilelist. default: /vendor/bin/teec_hello
     set(WHITE_LIST_0 /vendor/bin/seal_data)
@@ -97,8 +94,8 @@ if(CC_GP)
     
     add_custom_command(TARGET ${PREFIX}
 	    POST_BUILD
-            COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -a 2 -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -m ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt 
-	    -e ${DEVICEPEM} -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
+            COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -a 2 -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt 
+	    -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
 
     install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT} 
         DESTINATION /data
