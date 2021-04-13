@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	10%{?dist}
+Release:	11%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 ExclusiveArch:	x86_64
 
@@ -70,6 +70,8 @@ make
 
 %install
 make install DESTDIR=%{buildroot}
+install -d %{buildroot}/%{_datarootdir}/licenses/secGear
+install -pm 644 License/Third_Party_Open_Source_Software_Notice.md %{buildroot}/%{_datarootdir}/licenses/secGear
 install -d %{buildroot}/%{_includedir}/secGear
 #install -pm 644 inc/host_inc/* %{buildroot}/%{_includedir}/secGear/host_inc
 %ifarch x86_64
@@ -94,6 +96,8 @@ rm `find . -name secgear_seal_data` -rf
 popd
 
 %files
+%license License/LICENSE
+%license License/Third_Party_Open_Source_Software_Notice.md
 %defattr(-,root,root)
 /%{_lib}/libsecgear_tee.a
 /%{_lib}/libsecgear.so
@@ -111,6 +115,7 @@ popd
 
 %files sim
 %defattr(-,root,root)
+%license License/LICENSE
 /%{_lib}/libsecgearsim.so
 %ifarch x86_64
 /%{_lib}/libsgxsim_0.so
@@ -119,6 +124,9 @@ popd
 %endif
 
 %changelog
+* Tue Apr 13 2021 wanghongzhe<wanghongzhe@huawei.com> - 0.1.0-11
+- DESC: add licenses and thirdparty opensource notice
+
 * Sat Mar 20 2021 zhangguangzhi<zhangguangzhi3@huawei.com> - 0.1.0-10
 - DESC: backport patch
 
