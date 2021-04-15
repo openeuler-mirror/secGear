@@ -1,0 +1,26 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
+ * secGear is licensed under the Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *     http://license.coscl.org.cn/MulanPSL2
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
+ * PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ */
+
+enclave {
+    include "stdbool.h"
+    include "secgear_urts.h"
+    from "secgear_tstdc.edl" import *; 
+    from "secgear_tssl.edl" import *;
+    trusted {
+        public size_t seal_key([in, size = file_name_len] const char *file_name, size_t file_name_len,
+                               [in, size = pw_len] char *password, size_t pw_len,
+                               [out, size = enc_buf_len] char *enc_buf, size_t enc_buf_len);
+        public int start_enclave_tls(int client_fd,
+                                 [in, size = cert_len] const char *cert, size_t cert_len,
+                                 [in, size = enc_key_len] const char *enc_key, size_t enc_key_len);
+    };
+};
