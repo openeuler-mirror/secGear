@@ -1,0 +1,8 @@
+gpd.ta.appID:	@UUID@
+gpd.ta.service_name:	test0108
+gpd.ta.singleInstance:	true
+gpd.ta.multiSession:	false
+gpd.ta.multiCommand:	false
+gpd.ta.instanceKeepAlive:	false
+gpd.ta.dataSize:	16384
+gpd.ta.stackSize:	20480

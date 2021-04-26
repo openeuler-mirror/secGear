@@ -35,7 +35,7 @@ SecGear则是面向计算产业的机密计算安全应用开发套件。旨在�
 
 ### 2 编写最外层CMakeLists.txt文件
 
-	cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+	cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 	project(TEST  C)
 	set(CMAKE_C_STANDARD 99)
 	set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})

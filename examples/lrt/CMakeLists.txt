@@ -8,30 +8,27 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-cmake_minimum_required(VERSION 3.10)
-
-project(SealData C)
+project(HelloWorldLRT  C)
 
 set(CMAKE_C_STANDARD 99)
 
 set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
-set(EDL_FILE seal_data.edl)
+#set edl name
+set(EDL_FILE lrt.edl)
 set(CODEGEN codegen)
 
 if(CC_GP)
     set(CODETYPE trustzone)
-    execute_process(COMMAND uuidgen -r 
-	OUTPUT_VARIABLE UUID)
+    execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
     string(REPLACE "\n" "" UUID ${UUID})
     add_definitions(-DPATH="/data/${UUID}.sec")
 endif()
 
 if(CC_SGX)
     set(CODETYPE sgx)
-    add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/seal_data.signed.so")
+    add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/enclave.signed.so")
 endif()
 
-
-ADD_SUBDIRECTORY(${CURRENT_ROOT_PATH}/enclave)
-ADD_SUBDIRECTORY(${CURRENT_ROOT_PATH}/host)
+add_subdirectory(${CURRENT_ROOT_PATH}/enclave)
+add_subdirectory(${CURRENT_ROOT_PATH}/host)
