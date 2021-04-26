@@ -43,7 +43,7 @@ Then save as test.edl
 
 ### 2 Write the top-level CMakeLists.txt
 
-	cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+	cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 	project(TEST  C)
 	set(CMAKE_C_STANDARD 99)
 	set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
