@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	11%{?dist}
+Release:	12%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 ExclusiveArch:	x86_64
 
@@ -27,11 +27,10 @@ Patch14:	0015-1.fix-the-race-of-ecall-and-enclave-destroy.patch
 Patch15:	0016-fix-wrong-spelling-and-null-pointer-dereference-issu.patch
 
 BuildRequires:	gcc python3 automake autoconf libtool
-BUildRequires:	glibc glibc-devel
+BUildRequires:	glibc glibc-devel cmake ocaml-dune
 %ifarch x86_64
 BUildRequires:	linux-sgx-driver sgxsdk libsgx-launch libsgx-urts
 %endif
-BUildRequires:	cmake ocaml-dune
 
 Requires:	rsyslog
 %ifarch x86_64
@@ -42,7 +41,7 @@ secGear is an SDK to develop confidential computing apps based on hardware encla
 
 %package	devel
 Summary:	Development files for %{name}
-Requires:	%{name}%{?isa} = %{version}-%{release}
+Requires:	%{name}%{?isa} = %{version}-%{release} cmake
 %description	devel
 The %{name}-devel is package contains Header file for developing applications that 
 us %{name}
@@ -124,6 +123,9 @@ popd
 %endif
 
 %changelog
+* Thu Apr 27 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-12
+- DESC: add licenses and thirdparty opensource notice
+
 * Tue Apr 13 2021 wanghongzhe<wanghongzhe@huawei.com> - 0.1.0-11
 - DESC: add licenses and thirdparty opensource notice
 
