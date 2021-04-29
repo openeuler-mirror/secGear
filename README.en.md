@@ -1,4 +1,4 @@
-﻿<img src="docs/logo.png" alt="secGear" style="zoom:100%;" />
+<img src="docs/logo.png" alt="secGear" style="zoom:100%;" />
 
 secGear
 ============================
@@ -502,5 +502,5 @@ secGear introduce the signing tool to sign the enclave.
 
 Milestone
 ---------
-<img src="docs/milestone.png" alt="secGear" style="zoom:80%;" />
+<img src="docs/milestone_en.png" alt="secGear" style="zoom:80%;" />
 
