@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	12%{?dist}
+Release:	13%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 ExclusiveArch:	x86_64
 
@@ -25,6 +25,7 @@ Patch12:	0013-fix-error-print.patch
 Patch13:	0014-set-umask-in-sign_tool.sh.patch
 Patch14:	0015-1.fix-the-race-of-ecall-and-enclave-destroy.patch	
 Patch15:	0016-fix-wrong-spelling-and-null-pointer-dereference-issu.patch
+Patch16:    0017-update-signtool-codegen.patch
 
 BuildRequires:	gcc python3 automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune
@@ -80,7 +81,7 @@ install -pm 644 inc/host_inc/sgx/*.h %{buildroot}/%{_includedir}/secGear
 install -pm 644 inc/host_inc/sgx/*.edl %{buildroot}/%{_includedir}/secGear
 install -pm 644 inc/enclave_inc/*.h %{buildroot}/%{_includedir}/secGear
 install -pm 644 inc/enclave_inc/sgx/*.h %{buildroot}/%{_includedir}/secGear
-install -pm 751 bin/codegen_x86_64 %{buildroot}/%{_bindir}
+install -pm 751 bin/codegen %{buildroot}/%{_bindir}
 install -pm 751 tools/sign_tool/sign_tool.sh %{buildroot}/%{_bindir}
 %else
 install -d %{buildroot}/%{_includedir}/secGear
@@ -123,6 +124,9 @@ popd
 %endif
 
 %changelog
+* Wed May 12 2021 yanlu<yanlu14@huawei.com> - 0.1.0-13
+- DESC: update signtool and codegen
+
 * Thu Apr 27 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-12
 - DESC: add licenses and thirdparty opensource notice
 
