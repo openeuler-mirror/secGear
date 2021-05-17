@@ -29,7 +29,7 @@ spec:
         k8s-app: sgx-device-plugin
     spec:
       containers:
-      - image: hub.oepkgs.net/lifeng2221dd1/hw-ali-device-plugin:devel
+      - image: hub.oepkgs.net/lifeng2221dd1/intel-sgx-device-plugin-hw:isgx
         imagePullPolicy: IfNotPresent
         name: sgx-device-plugin
         securityContext:
