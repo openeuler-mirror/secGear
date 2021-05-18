@@ -11,8 +11,6 @@
 set(gp_engine gp_0)
 
 # to do itrustee sdk Open Source
-set(itrustee_lib )
-
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/gp)
 
 if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
@@ -33,7 +31,7 @@ endif()
 
 set_target_properties(${gp_engine} PROPERTIES SKIP_BUILD_RPATH TRUE)
 #link iTrustee teec lib
-target_link_libraries(${gp_engine} ${itrustee_lib} secgear pthread)
+target_link_libraries(${gp_engine} secgear pthread teec_adaptor)
 
 install(TARGETS ${gp_engine}
         LIBRARY

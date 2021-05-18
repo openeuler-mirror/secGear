@@ -221,12 +221,11 @@ TEE_Result itrustee_unseal_data(void *sealed_data, uint8_t *decrypted_data, uint
         SLogError("malloc key_buf failed\n");
         return TEE_ERROR_OUT_OF_MEMORY;
     }
-    result = TEE_EXT_DeriveTARootKey(salt, strlen(salt), key_buf, key_len);
+    result = TEE_EXT_DeriveTARootKey(salt, SEAL_KEY_SALT_LEN, key_buf, key_len);
     if (result != TEE_SUCCESS) {
         SLogError("DeriveTARootKey failed");
         goto done;
     }
-
     *decrypted_data_len = tmp_sealed_data->encrypted_data_len;
     *mac_data_len = tmp_sealed_data->aad_len;
     result = aes_seal_unseal_data(key_buf, key_len, (uint8_t *)&(tmp_sealed_data->nonce), SEAL_DATA_NONCE_LEN,

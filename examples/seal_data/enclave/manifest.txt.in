@@ -1,8 +1,0 @@
-gpd.ta.appID:	@UUID@
-gpd.ta.service_name:	seal_data
-gpd.ta.singleInstance:	true
-gpd.ta.multiSession:	false
-gpd.ta.multiCommand:	false
-gpd.ta.instanceKeepAlive:	false
-gpd.ta.dataSize:    4038400
-gpd.ta.stackSize:   6048000

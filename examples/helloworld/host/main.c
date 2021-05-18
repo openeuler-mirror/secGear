@@ -15,6 +15,7 @@
 #include <linux/limits.h>
 #include "enclave.h"
 #include "helloworld_u.h"
+#include "string.h"
 
 #define BUF_LEN 32
 

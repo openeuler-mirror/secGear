@@ -25,7 +25,7 @@
 
 #define OCALL_AGENT_REGISTER_SUCCESS 0
 #define OCALL_AGENT_REGISTER_FAIL    1
-
+#define SECGEAR_OCALL 0
 #define MAX_LEN 4096
 
 static pthread_cond_t g_cond = PTHREAD_COND_INITIALIZER;
@@ -535,7 +535,7 @@ cc_enclave_result_t cc_enclave_call_function(
     /* for ocall thread */
     ires = pthread_mutex_lock(&g_mtx_flag);
     SECGEAR_CHECK_MUTEX_RES(ires);
-    if (!(g_list_ops.pthread_flag)) {
+    if (g_list_ops.pthread_flag || SECGEAR_OCALL) {
         param.agent_id = *(uint32_t *)ms;
         param.num = ((ocall_enclave_table_t *)ocall_table)->num;
         param.ocalls = ((ocall_enclave_table_t *)ocall_table)->ocalls;

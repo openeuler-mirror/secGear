@@ -38,9 +38,10 @@ if(CC_GP)
         link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
     endif()
     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
-    target_include_directories(${OUTPUT} PRIVATE  
-                    ${LOCAL_ROOT_PATH}/inc/host_inc
-                    ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+    target_include_directories(${OUTPUT} PRIVATE
+	    	    ${LOCAL_ROOT_PATH}/debug/inc
+		    ${LOCAL_ROOT_PATH}/inc/host_inc
+		    ${LOCAL_ROOT_PATH}/inc/host_inc/gp
                     ${CMAKE_CURRENT_BINARY_DIR})
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
