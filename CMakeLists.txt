@@ -49,17 +49,8 @@ add_subdirectory(src)
 
 execute_process(COMMAND mkdir ${LOCAL_ROOT_PATH}/bin)
 
-if(CC_GP)
-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/seal_data)
-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/helloworld)
-endif()
+add_subdirectory(examples)
 
-if(CC_SGX)
-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/helloworld)
-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/seal_data)
-#    add_subdirectory(${LOCAL_ROOT_PATH}/examples/tls_enclave)
-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/lrt)
-endif()
 
 install(FILES ${LOCAL_ROOT_PATH}/conf/logrotate.d/secgear
         DESTINATION /etc/logrotate.d/)

@@ -315,7 +315,7 @@ AUTO_FILES：由edl文件生成的安全侧二进制文件
 
 		add_custom_command(TARGET ${PREFIX}
 			POST_BUILD
-			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt
+			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini
 			-o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT})
 
 		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}

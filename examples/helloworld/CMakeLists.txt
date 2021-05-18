@@ -20,8 +20,7 @@ set(CODEGEN codegen)
 
 if(CC_GP)
     set(CODETYPE trustzone)
-    execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
-    string(REPLACE "\n" "" UUID ${UUID})
+    set(UUID f68fd704-6eb1-4d14-b218-722850eb3ef0)
     add_definitions(-DPATH="/data/${UUID}.sec")
 endif()
 
