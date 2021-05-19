@@ -20,19 +20,22 @@ print_help(){
     echo "sign tool usage: ./sign_tool.sh [options] ..."
     echo "[options]"
     echo "-c <file>       basic config file."
-    echo "-d <parameter>  sign tool command, sign/digest."
+    echo "-d <parameter>  sign tool command, sign/digest/dump."
     echo "                The sign command is used to generate a signed enclave."
-    echo "                The digest command is used to generate a digest value."
-    echo "-i <file>       enclave to be signed."
-    echo "-k <file>       private key required for single-step method"
+    echo "                The digest command is used to generate signing material."
+    echo "                The dump command is used to generate metadata for sgx signed enclave."
+    echo "-i <file>       input parameter, which is enclave to be signed for digest/sign command, and signed enclave for"
+    echo "                dump command."
+    echo "-k <file>       private key required for single-step method."
     echo "-m <file>       additional config_cloud.ini for trustzone."
-    echo "-o <file>       output parameters, the sign command outputs sigend enclave, the digest command outputs"
-    echo "                digest value."
-    echo "-p <file>       signing server public key certificate, required for two-step method."
-    echo "-s <file>       the signed digest value required for two-step method, this parameter is empty to indicate"
+    echo "-o <file>       output parameter, the sign command outputs signed enclave, the digest command outputs signing"
+    echo "                material, the dump command outputs data containing the SIGStruct metadata for the SGX signed"
+    echo "                enclave, which is submitted to Intel for whitelisting."
+    echo "-p <file>       signing server public key certificate, required for sgx two-step method."
+    echo "-s <file>       the signature value required for two-step method, this parameter is empty to indicate"
     echo "                single-step method."
     echo "-x <parameter>  enclave type, sgx or trustzone."
-    echo "-h              printf help message."
+    echo "-h              print help message."
 
 }
 
@@ -164,12 +167,12 @@ sgx_start_sign(){
     fi
     SIGDATA_FILE="signdata"
     if [ "${CMD}"x == "sign"x ]; then
-        if [ -z $SIG_KEY ]; then
-            echo "Error: missing sign key"
-            exit -1
-        fi  
         if [ -z $SIGNATURE ]; then
-            if [ -z $CONFIG_FILE ]; then
+           if [ -z $SIG_KEY ]; then
+		       echo "Error: missing sign key"
+			   exit -1
+		   fi
+           if [ -z $CONFIG_FILE ]; then
                 sgx_sign sign -enclave ${IN_ENCLAVE} -key ${SIG_KEY} -out ${OUT_FILE}
             else
                 sgx_sign sign -enclave ${IN_ENCLAVE} -key ${SIG_KEY} -out ${OUT_FILE} -config ${CONFIG_FILE}
@@ -180,9 +183,9 @@ sgx_start_sign(){
                 exit -1
             fi  
             if [ -z $CONFIG_FILE ]; then
-                sgx_sign catsig -enclave ${IN_ENCLAVE} -key ${SERVER_PUBKEY} -sig ${SIGNATURE} -unsignd ${SIGDATA_FILE} -out ${OUT_FILE}
+                sgx_sign catsig -enclave ${IN_ENCLAVE} -key ${SERVER_PUBKEY} -sig ${SIGNATURE} -unsigned ${SIGDATA_FILE} -out ${OUT_FILE}
             else
-                sgx_sign catsig -enclave ${IN_ENCLAVE} -key ${SERVER_PUBKEY} -sig ${SIGNATURE} -unsignd ${SIGDATA_FILE} -out ${OUT_FILE} -config ${CONFIG_FILE}
+                sgx_sign catsig -enclave ${IN_ENCLAVE} -key ${SERVER_PUBKEY} -sig ${SIGNATURE} -unsigned ${SIGDATA_FILE} -out ${OUT_FILE} -config ${CONFIG_FILE}
             fi
             rm -rf ${SIGDATA_FILE}
         fi
@@ -192,7 +195,9 @@ sgx_start_sign(){
         else
             sgx_sign gendata -enclave ${IN_ENCLAVE} -out ${SIGDATA_FILE} -config ${CONFIG_FILE}
         fi
-        openssl dgst -sha256 -out ${OUT_FILE} ${SIGDATA_FILE}
+	    cp ${SIGDATA_FILE} ${OUT_FILE}
+    elif [ "${CMD}"x == "dump"x ]; then
+        sgx_sign dump -enclave ${IN_ENCLAVE} -dumpfile ${OUT_FILE}
     else
         echo "Error: illegal command"
     fi
