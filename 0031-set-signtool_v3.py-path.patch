@@ -1,0 +1,166 @@
+From 2d9a481617422a423612417835a48b0614716f2d Mon Sep 17 00:00:00 2001
+From: yanlu <yanlu14@huawei.com>
+Date: Thu, 20 May 2021 10:40:25 +0800
+Subject: [PATCH 14/14] set signtool_v3.py path
+
+---
+ README.en.md                               |  2 +-
+ README.md                                  |  2 +-
+ examples/helloworld/enclave/CMakeLists.txt |  2 +-
+ examples/helloworld/host/CMakeLists.txt    |  2 +-
+ examples/seal_data/enclave/CMakeLists.txt  |  2 +-
+ examples/seal_data/host/CMakeLists.txt     |  2 +-
+ src/enclave_src/CMakeLists.txt             |  2 +-
+ src/host_src/CMakeLists.txt                |  2 +-
+ tools/sign_tool/sign_tool.sh               | 13 +++++++++----
+ 9 files changed, 17 insertions(+), 12 deletions(-)
+
+diff --git a/README.en.md b/README.en.md
+index 8aaa1b0..ec7ada0 100644
+--- a/README.en.md
++++ b/README.en.md
+@@ -49,7 +49,7 @@ Then save as test.edl
+ 	set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+ 	set(EDL_FILE test.edl)
+ 	set(LOCAL_ROOT_PATH "$ENV{CC_SDK}")
+-        set(SECGEAR_INSTALL_PATH /lib64/)
++        set(SECGEAR_INSTALL_PATH /usr/lib64/)
+ 	set(CODEGEN codegen)
+ 	if(CC_GP)
+ 		set(CODETYPE trustzone)
+diff --git a/README.md b/README.md
+index b95dcc9..2d09831 100644
+--- a/README.md
++++ b/README.md
+@@ -41,7 +41,7 @@ SecGear则是面向计算产业的机密计算安全应用开发套件。旨在
+ 	set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+ 	set(EDL_FILE test.edl)
+ 	set(LOCAL_ROOT_PATH "$ENV{CC_SDK}")
+-        set(SECGEAR_INSTALL_PATH /lib64/)
++        set(SECGEAR_INSTALL_PATH /usr/lib64/)
+ 	set(CODEGEN codegen)
+ 	if(CC_GP)
+ 		set(CODETYPE trustzone)
+diff --git a/examples/helloworld/enclave/CMakeLists.txt b/examples/helloworld/enclave/CMakeLists.txt
+index 98f50ac..0546183 100644
+--- a/examples/helloworld/enclave/CMakeLists.txt
++++ b/examples/helloworld/enclave/CMakeLists.txt
+@@ -71,7 +71,7 @@ if(CC_GP)
+ 
+     target_include_directories( ${PREFIX} PRIVATE
+ 	${CMAKE_CURRENT_BINARY_DIR}
+-	${LOCAL_ROOT_PATH}/${CMAKE_BINARY_DIR}/inc
++	${CMAKE_BINARY_DIR}/inc
+ 	${LOCAL_ROOT_PATH}/inc/host_inc
+ 	${LOCAL_ROOT_PATH}/inc/host_inc/gp
+ 	${LOCAL_ROOT_PATH}/inc/enclave_inc
+diff --git a/examples/helloworld/host/CMakeLists.txt b/examples/helloworld/host/CMakeLists.txt
+index c6f2166..96985cb 100644
+--- a/examples/helloworld/host/CMakeLists.txt
++++ b/examples/helloworld/host/CMakeLists.txt
+@@ -39,7 +39,7 @@ if(CC_GP)
+     endif()
+     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
+     target_include_directories(${OUTPUT} PRIVATE
+-            ${LOCAL_ROOT_PATH}/${CMAKE_BINARY_DIR}/inc
++            ${CMAKE_BINARY_DIR}/inc
+             ${LOCAL_ROOT_PATH}/inc/host_inc
+             ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+             ${CMAKE_CURRENT_BINARY_DIR})
+diff --git a/examples/seal_data/enclave/CMakeLists.txt b/examples/seal_data/enclave/CMakeLists.txt
+index 542163e..f80efb8 100644
+--- a/examples/seal_data/enclave/CMakeLists.txt
++++ b/examples/seal_data/enclave/CMakeLists.txt
+@@ -66,7 +66,7 @@ if(CC_GP)
+ 
+     target_include_directories( ${PREFIX} PRIVATE
+     ${CMAKE_CURRENT_BINARY_DIR}
+-    ${LOCAL_ROOT_PATH}/${CMAKE_BINARY_DIR}/inc
++    ${CMAKE_BINARY_DIR}/inc
+     ${LOCAL_ROOT_PATH}/inc/host_inc
+     ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+     ${LOCAL_ROOT_PATH}/inc/enclave_inc
+diff --git a/examples/seal_data/host/CMakeLists.txt b/examples/seal_data/host/CMakeLists.txt
+index a0986d1..19920b4 100644
+--- a/examples/seal_data/host/CMakeLists.txt
++++ b/examples/seal_data/host/CMakeLists.txt
+@@ -40,7 +40,7 @@ if(CC_GP)
+     endif()
+     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
+     target_include_directories(${OUTPUT} PRIVATE
+-            ${LOCAL_ROOT_PATH}/${CMAKE_BINARY_DIR}/inc
++            ${CMAKE_BINARY_DIR}/inc
+             ${LOCAL_ROOT_PATH}/inc/host_inc
+             ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+             ${CMAKE_CURRENT_BINARY_DIR})
+diff --git a/src/enclave_src/CMakeLists.txt b/src/enclave_src/CMakeLists.txt
+index 66a36ea..f6d353c 100644
+--- a/src/enclave_src/CMakeLists.txt
++++ b/src/enclave_src/CMakeLists.txt
+@@ -11,7 +11,7 @@
+ project(secgear_tee C)
+ 
+ set(target_lib secgear_tee)
+-set(LIBRARY_INSTALL /lib64)
++set(LIBRARY_INSTALL /usr/lib64)
+ 
+ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+ 
+diff --git a/src/host_src/CMakeLists.txt b/src/host_src/CMakeLists.txt
+index 25d245f..a545e27 100644
+--- a/src/host_src/CMakeLists.txt
++++ b/src/host_src/CMakeLists.txt
+@@ -10,7 +10,7 @@
+ 
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden -fPIC -Wno-stringop-overflow")
+ 
+-set(LIBRARY_INSTALL /lib64)
++set(LIBRARY_INSTALL /usr/lib64)
+ 
+ include_directories(${LOCAL_ROOT_PATH}/inc/host_inc)
+ 
+diff --git a/tools/sign_tool/sign_tool.sh b/tools/sign_tool/sign_tool.sh
+index 9906bff..5469f80 100755
+--- a/tools/sign_tool/sign_tool.sh
++++ b/tools/sign_tool/sign_tool.sh
+@@ -12,9 +12,14 @@
+ VERSION=3
+ API_LEVEL=2
+ ONE_STEP_MODE=1
+-A_CONFIG_FILE="NULL"
+ 
+ localpath="$(cd "$(dirname "$0")"; pwd)"
++pypath="/lib/secGear"
++if [ -f ${localpath}/signtool_v3.py ]; then
++    signtoolpath=${localpath}
++else
++    signtoolpath=${pypath}
++fi
+ 
+ print_help(){
+     echo "sign tool usage: ./sign_tool.sh [options] ..."
+@@ -139,10 +144,10 @@ itrustee_start_sign(){
+                 echo "Error: missing enclave file"
+                 exit -1
+             fi
+-            python ${localpath}/signtool_v3.py "sign" "${ONE_STEP_MODE}" "${IN_ENCLAVE}" "${OUT_FILE}" "${CONFIG_FILE}" "${A_CONFIG_FILE}" "${API_LEVEL}" 
++            python ${signtoolpath}/signtool_v3.py "sign" "${ONE_STEP_MODE}" "${IN_ENCLAVE}" "${OUT_FILE}" "${CONFIG_FILE}" "${A_CONFIG_FILE}" "${API_LEVEL}" 
+         else
+             ONE_STEP_MODE=0
+-            python ${localpath}/signtool_v3.py "sign" "${ONE_STEP_MODE}" "NULL" "${OUT_FILE}" "NULL" "${A_CONFIG_FILE}" "${API_LEVEL}" "${SIGNATURE}"
++            python ${signtoolpath}/signtool_v3.py "sign" "${ONE_STEP_MODE}" "NULL" "${OUT_FILE}" "NULL" "${A_CONFIG_FILE}" "${API_LEVEL}" "${SIGNATURE}"
+         fi
+     elif [ "${CMD}"x == "digest"x ]; then
+         ONE_STEP_MODE=0
+@@ -154,7 +159,7 @@ itrustee_start_sign(){
+             echo "Error: missing enclave file"
+             exit -1
+         fi
+-        python ${localpath}/signtool_v3.py "digest" "${ONE_STEP_MODE}" "${IN_ENCLAVE}" "${OUT_FILE}" "${CONFIG_FILE}" "${A_CONFIG_FILE}" "${API_LEVEL}" 
++        python ${signtoolpath}/signtool_v3.py "digest" "${ONE_STEP_MODE}" "${IN_ENCLAVE}" "${OUT_FILE}" "${CONFIG_FILE}" "${A_CONFIG_FILE}" "${API_LEVEL}" 
+     else
+         echo "Error: illegal command"
+     fi
+-- 
+2.27.0
+

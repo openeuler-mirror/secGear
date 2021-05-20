@@ -1,0 +1,68 @@
+From 20d6808fd639e4506fd1a383cf59094a17773775 Mon Sep 17 00:00:00 2001
+From: Li Feng <lifeng68@huawei.com>
+Date: Mon, 26 Apr 2021 09:26:46 +0000
+Subject: [PATCH 07/14] Cmake: replace minial cmake from 3.12 to 3.10
+
+Signed-off-by: Li Feng <lifeng68@huawei.com>
+---
+ CMakeLists.txt                    | 2 +-
+ README.en.md                      | 2 +-
+ README.md                         | 2 +-
+ examples/seal_data/CMakeLists.txt | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b1fe4a4..a4d1668 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -8,7 +8,7 @@
+ # PURPOSE.
+ # See the Mulan PSL v2 for more details.
+ 
+-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
++cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+ project(secGear C)
+  
+ set(CMAKE_C_STANDARD 99)
+diff --git a/README.en.md b/README.en.md
+index a33a50c..4df13b0 100644
+--- a/README.en.md
++++ b/README.en.md
+@@ -43,7 +43,7 @@ Then save as test.edl
+ 
+ ### 2 Write the top-level CMakeLists.txt
+ 
+-	cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
++	cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+ 	project(TEST  C)
+ 	set(CMAKE_C_STANDARD 99)
+ 	set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+diff --git a/README.md b/README.md
+index 971ddca..a90450b 100644
+--- a/README.md
++++ b/README.md
+@@ -35,7 +35,7 @@ SecGear则是面向计算产业的机密计算安全应用开发套件。旨在
+ 
+ ### 2 编写最外层CMakeLists.txt文件
+ 
+-	cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
++	cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+ 	project(TEST  C)
+ 	set(CMAKE_C_STANDARD 99)
+ 	set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+diff --git a/examples/seal_data/CMakeLists.txt b/examples/seal_data/CMakeLists.txt
+index 503fe0d..3577301 100644
+--- a/examples/seal_data/CMakeLists.txt
++++ b/examples/seal_data/CMakeLists.txt
+@@ -8,7 +8,7 @@
+ # PURPOSE.
+ # See the Mulan PSL v2 for more details.
+ 
+-cmake_minimum_required(VERSION 3.12)
++cmake_minimum_required(VERSION 3.10)
+ 
+ project(SealData C)
+ 
+-- 
+2.27.0
+
