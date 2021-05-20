@@ -10,7 +10,7 @@
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden -fPIC -Wno-stringop-overflow")
 
-set(LIBRARY_INSTALL /lib64)
+set(LIBRARY_INSTALL /usr/lib64)
 
 include_directories(${LOCAL_ROOT_PATH}/inc/host_inc)
 
