@@ -1,0 +1,43 @@
+From ca6b3ab02bd3d1853a88d637b38daf45c737e15e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E7=AB=A0=E6=9F=B3=E7=87=95?= <zhangliuyan@huawei.com>
+Date: Thu, 4 Mar 2021 11:16:05 +0800
+Subject: [PATCH 1/1] =?UTF-8?q?=E4=BF=AE=E6=94=B9cmake=E9=94=99=E8=AF=AF?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: root <root@localhost.localdomain>
+---
+ src/enclave_src/CMakeLists.txt | 2 +-
+ tools/codegener/CMakeLists.txt | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/enclave_src/CMakeLists.txt b/src/enclave_src/CMakeLists.txt
+index cb09b5c..66a36ea 100644
+--- a/src/enclave_src/CMakeLists.txt
++++ b/src/enclave_src/CMakeLists.txt
+@@ -8,7 +8,7 @@
+ # PURPOSE.
+ # See the Mulan PSL v2 for more details.
+ 
+-project(secgear_tee)
++project(secgear_tee C)
+ 
+ set(target_lib secgear_tee)
+ set(LIBRARY_INSTALL /lib64)
+diff --git a/tools/codegener/CMakeLists.txt b/tools/codegener/CMakeLists.txt
+index c5fd618..0f8b5af 100644
+--- a/tools/codegener/CMakeLists.txt
++++ b/tools/codegener/CMakeLists.txt
+@@ -10,7 +10,7 @@
+ 
+ include(ExternalProject)
+ 
+-project(CodeGen)
++project(CodeGen C)
+ 
+ find_program(DUNE dune)
+ 
+-- 
+2.27.0
+

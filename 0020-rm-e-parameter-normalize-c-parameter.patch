@@ -1,75 +1,26 @@
-From ace83320ad722deae65672e9801b1e58c62f7a81 Mon Sep 17 00:00:00 2001
+From f7995d756490c966659976153630403ba9941c18 Mon Sep 17 00:00:00 2001
 From: yanlu <yanlu14@huawei.com>
-Date: Wed, 12 May 2021 10:44:12 +0800
-Subject: [PATCH] patch
+Date: Mon, 12 Apr 2021 11:17:16 +0800
+Subject: [PATCH 03/14] rm -e parameter, normalize -c parameter
 
 ---
- CMakeLists.txt                             |  2 +-
- README.en.md                               | 21 ++++--------
- README.md                                  | 15 +++------
- docs/build_install.md                      |  4 +++
- docs/codegener.md                          | 14 +++-----
- docs/sign_tool.md                          | 14 ++++----
- examples/helloworld/CMakeLists.txt         |  3 +-
- examples/helloworld/enclave/CMakeLists.txt |  6 ++--
- examples/helloworld/host/main.c            | 18 +++++++++-
- examples/seal_data/CMakeLists.txt          |  5 ++-
- examples/seal_data/enclave/CMakeLists.txt  |  7 ++--
- src/enclave_src/CMakeLists.txt             |  2 +-
- tools/codegener/CMakeLists.txt             | 10 ++----
- tools/sign_tool/sign_tool.sh               | 39 ++++++++--------------
- 14 files changed, 69 insertions(+), 91 deletions(-)
+ README.en.md                                  | 12 ++----
+ README.md                                     | 10 ++---
+ docs/sign_tool.md                             | 12 +++---
+ examples/helloworld/enclave/CMakeLists.txt    |  6 +--
+ examples/seal_data/enclave/CMakeLists.txt     |  7 +---
+ .../enclave/rsa_public_key_cloud.pem          | 11 ------
+ .../sign_tool}/rsa_public_key_cloud.pem       |  0
+ tools/sign_tool/sign_tool.sh                  | 39 +++++++------------
+ 8 files changed, 29 insertions(+), 68 deletions(-)
+ delete mode 100644 examples/seal_data/enclave/rsa_public_key_cloud.pem
+ rename {examples/helloworld/enclave => tools/sign_tool}/rsa_public_key_cloud.pem (100%)
 
-diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 98862a3..edb7d80 100644
---- a/CMakeLists.txt
-+++ b/CMakeLists.txt
-@@ -8,7 +8,7 @@
- # PURPOSE.
- # See the Mulan PSL v2 for more details.
- 
--cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
-+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
- project(secGear C)
-  
- set(CMAKE_C_STANDARD 99)
 diff --git a/README.en.md b/README.en.md
-index fa47d03..aa8c4a8 100644
+index fa47d03..0acc4f8 100644
 --- a/README.en.md
 +++ b/README.en.md
-@@ -1,4 +1,4 @@
--﻿<img src="docs/logo.png" alt="secGear" style="zoom:100%;" />
-+<img src="docs/logo.png" alt="secGear" style="zoom:100%;" />
- 
- secGear
- ============================
-@@ -43,23 +43,22 @@ Then save as test.edl
- 
- ### 2 Write the top-level CMakeLists.txt
- 
--	cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
-+	cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
- 	project(TEST  C)
- 	set(CMAKE_C_STANDARD 99)
- 	set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
- 	set(EDL_FILE test.edl)
- 	set(LOCAL_ROOT_PATH "$ENV{CC_SDK}")
-         set(SECGEAR_INSTALL_PATH /lib64/)
-+	set(CODEGEN codegen)
- 	if(CC_GP)
- 		set(CODETYPE trustzone)
--		set(CODEGEN codegen_arm64)
- 		execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
- 		string(REPLACE "\n" "" UUID ${UUID})
- 		add_definitions(-DPATH="/data/${UUID}.sec")
- 	endif()
- 	if(CC_SGX)
- 		set(CODETYPE sgx)
--		set(CODEGEN codegen_x86_64)
- 		add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/enclave.signed.so")
- 	endif()
- 	add_subdirectory(${CURRENT_ROOT_PATH}/enclave)
-@@ -254,8 +253,6 @@ Set sign tool and the security side log printing level
+@@ -254,8 +254,6 @@ Set sign tool and the security side log printing level
  	if(CC_GP)
              #set signed output
              set(OUTPUT ${UUID}.sec)
@@ -78,7 +29,7 @@ index fa47d03..aa8c4a8 100644
  
              set(WHITE_LIST_0 /vendor/bin/helloworld)
              set(WHITE_LIST_1 /vendor/bin/secgear_test)
-@@ -270,8 +267,7 @@ Set sign tool and the security side log printing level
+@@ -270,8 +268,7 @@ Set sign tool and the security side log printing level
  
  WHITE_LIS_X sets the whitelist of itrustee, only the host binary of these paths can call this secure image,
  and up to 8 list paths can be configured. WHITE_LIST_OWNER set user, this user will be applied to all whitelist paths.
@@ -88,7 +39,7 @@ index fa47d03..aa8c4a8 100644
  generate auxiliary code.
  
  	if(CC_SGX)
-@@ -339,8 +335,8 @@ so -nostdinc -nodefaultlibs -nostdlib -nodefaultlibs compile link options was in
+@@ -339,8 +336,8 @@ so -nostdinc -nodefaultlibs -nostdlib -nodefaultlibs compile link options was in
  
  		add_custom_command(TARGET ${PREFIX}
  			POST_BUILD
@@ -99,7 +50,7 @@ index fa47d03..aa8c4a8 100644
  
  		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
  			DESTINATION /data
-@@ -425,9 +421,6 @@ configuration file.  For details, please refer to the official development docum
+@@ -425,9 +422,6 @@ configuration file.  For details, please refer to the official development docum
  Write itrustee related configuration files
  The gpd.ta.appID in the manifest.txt.in file is the uuid configuration item, which is dynamically generated, 
  and the other configuration items can refer to the itrustee development document.
@@ -109,44 +60,11 @@ index fa47d03..aa8c4a8 100644
  	
  ### 5 build and install test
  
-@@ -509,5 +502,5 @@ secGear introduce the signing tool to sign the enclave.
- 
- Milestone
- ---------
--<img src="docs/milestone.png" alt="secGear" style="zoom:80%;" />
-+<img src="docs/milestone_en.png" alt="secGear" style="zoom:80%;" />
- 
 diff --git a/README.md b/README.md
-index 54c32e3..a90450b 100644
+index 54c32e3..77bebd6 100644
 --- a/README.md
 +++ b/README.md
-@@ -35,23 +35,22 @@ SecGear则是面向计算产业的机密计算安全应用开发套件。旨在
- 
- ### 2 编写最外层CMakeLists.txt文件
- 
--	cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
-+	cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
- 	project(TEST  C)
- 	set(CMAKE_C_STANDARD 99)
- 	set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
- 	set(EDL_FILE test.edl)
- 	set(LOCAL_ROOT_PATH "$ENV{CC_SDK}")
-         set(SECGEAR_INSTALL_PATH /lib64/)
-+	set(CODEGEN codegen)
- 	if(CC_GP)
- 		set(CODETYPE trustzone)
--		set(CODEGEN codegen_arm64)
- 		execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
- 		string(REPLACE "\n" "" UUID ${UUID})
- 		add_definitions(-DPATH="/data/${UUID}.sec")
- 	endif()
- 	if(CC_SGX)
- 		set(CODETYPE sgx)
--		set(CODEGEN codegen_x86_64)
- 		add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/enclave.signed.so")
- 	endif()
- 	add_subdirectory(${CURRENT_ROOT_PATH}/enclave)
-@@ -236,8 +235,6 @@ test_t.h：该头文件为自动生成代码工具codegen通过edl文件生成
+@@ -236,8 +236,6 @@ test_t.h：该头文件为自动生成代码工具codegen通过edl文件生成
  	if(CC_GP)
              #set signed output
              set(OUTPUT ${UUID}.sec)
@@ -155,7 +73,7 @@ index 54c32e3..a90450b 100644
  
              set(WHITE_LIST_0 /vendor/bin/helloworld)
              set(WHITE_LIST_1 /vendor/bin/secgear_test)
-@@ -252,7 +249,6 @@ test_t.h：该头文件为自动生成代码工具codegen通过edl文件生成
+@@ -252,7 +250,6 @@ test_t.h：该头文件为自动生成代码工具codegen通过edl文件生成
  
  WHITE_LIST_x：为设置iTrustee的二进制白名单，只有这里定义的白名单，在非安全侧的二进制才可以调用安全侧的动态库。上限为8个。
  WHITE_LIST_OWNER：为设置运行二进制的用户，只有该用户才可以调用安全侧动态库。
@@ -163,7 +81,7 @@ index 54c32e3..a90450b 100644
  AUTO_FILES：由edl文件生成的安全侧二进制文件
  
          if(CC_SGX)
-@@ -319,8 +315,8 @@ AUTO_FILES：由edl文件生成的安全侧二进制文件
+@@ -319,8 +316,8 @@ AUTO_FILES：由edl文件生成的安全侧二进制文件
  
  		add_custom_command(TARGET ${PREFIX}
  			POST_BUILD
@@ -174,7 +92,7 @@ index 54c32e3..a90450b 100644
  
  		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
  			DESTINATION /data
-@@ -391,7 +387,6 @@ itrustee需要链接secgear_tee动态库，提供seal接口等。
+@@ -391,7 +388,6 @@ itrustee需要链接secgear_tee动态库，提供seal接口等。
  编写itrustee enclave相关配置文件
  mainfest.txt.in:其中gpd.ta.appID 为动态生成uuid。其他配置参见itrustee开发文档。
  
@@ -182,75 +100,15 @@ index 54c32e3..a90450b 100644
  
  #### 5 构建 安装
  
-@@ -451,4 +446,4 @@ secGear引入EDL(Enclave Description Language)和中间代码辅助生成工具c
- 
- 里程碑
- ---------
--<img src="docs/milestone.png" alt="secGear" style="zoom:80%;" />
-\ No newline at end of file
-+<img src="docs/milestone.png" alt="secGear" style="zoom:80%;" />
-diff --git a/docs/build_install.md b/docs/build_install.md
-index 482e8c2..760ceaa 100644
---- a/docs/build_install.md
-+++ b/docs/build_install.md
-@@ -13,6 +13,10 @@ openEuler x86
- 3. source environment && mkdir debug && cd debug 
-    && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK="sgx_sdk path" .. &&  make && sudo make install
- 
-+4. To run example tls_enclave, refer to https://gitee.com/src-openeuler/intel-sgx-ssl 
-+   download and install intel-sgx-ssl firstly.
-+   source environment && mkdir debug && cd debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK="sgx_sdk path"
-+   && -DENCLAVE_SSL="sgxssl path" .. &&  make && sudo make install
-    
- openEuler arm
- 
-diff --git a/docs/codegener.md b/docs/codegener.md
-index cc20013..85fc6a0 100644
---- a/docs/codegener.md
-+++ b/docs/codegener.md
-@@ -1,19 +1,15 @@
--# Getting started with the codegen_x86_64/codegen_arm64
-+# Getting started with the codegen
- 
--The codegen_x86_64/codegen_arm64 helps to define these special functions through the `edl` files and assist user to using enclave.
-+The codegen helps to define these special functions through the `edl` files and assist user to using enclave.
- 
--## The codegen_x86_64/codegen_arm64
-+## The codegen
- 
--The codegen_x86_64/codegen_arm64 is based on the 'edger8r' tool in SGX SDK.
-+The codegen is based on the 'edger8r' tool in SGX SDK.
- - For example
- ```
- $ codegen_arm64 --trustzone test.edl 
- ```
--OR
--```
--$ codegen_x86_64 --sgx test.edl
--```
--**Note**: using the `codegen_x86_64/codegen_arm64 --help` to get more details.
-+**Note**: using the `codegen --help` to get more details.
- 
- ## EDL format
- - For SGX(x86) 
 diff --git a/docs/sign_tool.md b/docs/sign_tool.md
-index 3a49d5b..ccaa2e6 100644
+index 26805bd..ccaa2e6 100644
 --- a/docs/sign_tool.md
 +++ b/docs/sign_tool.md
-@@ -4,7 +4,7 @@ The sign_tool.sh helps to sign the enclave.
- 
- ## The sign_tool.sh
- 
--The sign_tool.sh uses the 'sgx_sign' tool in SGX SDK for signing the sgx enclave and the 'sign_too.py' for signing the trustzone enclave.
-+The sign_tool.sh uses the 'sgx_sign' tool in SGX SDK for signing the sgx enclave and the 'sign_tool.py' for signing the trustzone enclave.
- 
- The tool supports the following two modes:
- 
 @@ -13,36 +13,34 @@ The tool supports the following two modes:
  
      For example:    
  
--    `$ ./signtool.sh –d sign –x trustzone –i test.enclave -m manifest.txt –e device_pubkey.pem –o signed.enclave `
+-    `$ ./sign_tool.sh –d sign –x trustzone –i test.enclave -m manifest.txt –e device_pubkey.pem –o signed.enclave `
 +    `$ ./sign_tool.sh –d sign –x trustzone –i test.enclave -c manifest.txt –o signed.enclave `
  
  
@@ -258,7 +116,7 @@ index 3a49d5b..ccaa2e6 100644
  
      For example:  
      (1) generate the digest value.  
--    `$ ./signtool.sh –d digest –x trustzone –i input -m manifest.txt –e device_pubkey.pem –o digest.data `
+-    `$ ./sign_tool.sh –d digest –x trustzone –i input -m manifest.txt –e device_pubkey.pem –o digest.data `
 +    `$ ./sign_tool.sh –d digest –x trustzone –i input -c manifest.txt –o digest.data `
  
      For trustzone, temporary files KeyInfo.enc, rawData.enc, and rawDataHash.bin are generated in the current directory. And for sgx, a temporary file signdata is generated in the current directory. The temporary file is required when generating the signed enclave in step 3 and is deleted after the signed enclave is generated.  
@@ -266,7 +124,7 @@ index 3a49d5b..ccaa2e6 100644
      (2) send the digest.data to the signing organization or platform and get the signature.  
  
      (3) use the signature to generate the signed enclave.  
--    `$ ./signtool.sh –d sign –x trustzone –i input -m manifest.txt –p pub.pem –e device_pubkey.pem –s signature –o signed.enclave `
+-    `$ ./sign_tool.sh –d sign –x trustzone –i input -m manifest.txt –p pub.pem –e device_pubkey.pem –s signature –o signed.enclave `
 +    `$ ./sign_tool.sh –d sign –x trustzone –i input -c manifest.txt –p pub.pem –s signature –o signed.enclave `
  
  ## sign_tool.sh parameter
@@ -288,30 +146,6 @@ index 3a49d5b..ccaa2e6 100644
      -o <file>       output parameters, the sign command outputs sigend enclave, the digest command outputs digest value.
      -p <file>       signing server public key certificate, required for two-step method.
      -s <file>       the signed digest value required for two-step method, this parameter is empty to indicate single-step method.
-diff --git a/examples/helloworld/CMakeLists.txt b/examples/helloworld/CMakeLists.txt
-index a758f1c..5da2a6b 100644
---- a/examples/helloworld/CMakeLists.txt
-+++ b/examples/helloworld/CMakeLists.txt
-@@ -16,10 +16,10 @@ set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
- 
- #set edl name
- set(EDL_FILE helloworld.edl)
-+set(CODEGEN codegen)
- 
- if(CC_GP)
-     set(CODETYPE trustzone)
--    set(CODEGEN codegen_arm64)
-     execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
-     string(REPLACE "\n" "" UUID ${UUID})
-     add_definitions(-DPATH="/data/${UUID}.sec")
-@@ -27,7 +27,6 @@ endif()
- 
- if(CC_SGX)
-     set(CODETYPE sgx)
--    set(CODEGEN codegen_x86_64)
-     add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/enclave.signed.so")
- endif()
- 
 diff --git a/examples/helloworld/enclave/CMakeLists.txt b/examples/helloworld/enclave/CMakeLists.txt
 index c1638f8..0aefdae 100644
 --- a/examples/helloworld/enclave/CMakeLists.txt
@@ -336,75 +170,6 @@ index c1638f8..0aefdae 100644
  
      install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}  
          DESTINATION /data
-diff --git a/examples/helloworld/host/main.c b/examples/helloworld/host/main.c
-index e4c4ec4..51993ce 100644
---- a/examples/helloworld/host/main.c
-+++ b/examples/helloworld/host/main.c
-@@ -11,6 +11,8 @@
-  */
- 
- #include <stdio.h>
-+#include <unistd.h>
-+#include <linux/limits.h>
- #include "enclave.h"
- #include "helloworld_u.h"
- 
-@@ -26,7 +28,21 @@ int main()
- 
-     printf("Create secgear enclave\n");
- 
--    res = cc_enclave_create(path, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, &context);
-+    char real_p[PATH_MAX];
-+    /* check file exists, if not exist then use absolute path */
-+    if (realpath(path, real_p) == NULL) {
-+	    if (getcwd(real_p, sizeof(real_p)) == NULL) {
-+		    printf("Cannot find enclave.sign.so");
-+		    return -1;
-+	    }
-+	    if (PATH_MAX - strlen(real_p) <= strlen("/enclave.signed.so")) {
-+		    printf("Failed to strcat enclave.sign.so path");
-+		    return -1;
-+	    }
-+	    (void)strcat(real_p, "/enclave.signed.so");
-+    }
-+
-+    res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, &context);
-     if (res != CC_SUCCESS) {
-         printf("Create enclave error\n");
-         return res;
-diff --git a/examples/seal_data/CMakeLists.txt b/examples/seal_data/CMakeLists.txt
-index 20e2fd5..3577301 100644
---- a/examples/seal_data/CMakeLists.txt
-+++ b/examples/seal_data/CMakeLists.txt
-@@ -8,7 +8,7 @@
- # PURPOSE.
- # See the Mulan PSL v2 for more details.
- 
--cmake_minimum_required(VERSION 3.12)
-+cmake_minimum_required(VERSION 3.10)
- 
- project(SealData C)
- 
-@@ -17,10 +17,10 @@ set(CMAKE_C_STANDARD 99)
- set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
- 
- set(EDL_FILE seal_data.edl)
-+set(CODEGEN codegen)
- 
- if(CC_GP)
-     set(CODETYPE trustzone)
--    set(CODEGEN codegen_arm64)
-     execute_process(COMMAND uuidgen -r 
- 	OUTPUT_VARIABLE UUID)
-     string(REPLACE "\n" "" UUID ${UUID})
-@@ -29,7 +29,6 @@ endif()
- 
- if(CC_SGX)
-     set(CODETYPE sgx)
--    set(CODEGEN codegen_x86_64)
-     add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/seal_data.signed.so")
- endif()
- 
 diff --git a/examples/seal_data/enclave/CMakeLists.txt b/examples/seal_data/enclave/CMakeLists.txt
 index 20851bd..0ddcbd5 100644
 --- a/examples/seal_data/enclave/CMakeLists.txt
@@ -430,47 +195,27 @@ index 20851bd..0ddcbd5 100644
  
      install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT} 
          DESTINATION /data
-diff --git a/src/enclave_src/CMakeLists.txt b/src/enclave_src/CMakeLists.txt
-index cb09b5c..66a36ea 100644
---- a/src/enclave_src/CMakeLists.txt
-+++ b/src/enclave_src/CMakeLists.txt
-@@ -8,7 +8,7 @@
- # PURPOSE.
- # See the Mulan PSL v2 for more details.
- 
--project(secgear_tee)
-+project(secgear_tee C)
- 
- set(target_lib secgear_tee)
- set(LIBRARY_INSTALL /lib64)
-diff --git a/tools/codegener/CMakeLists.txt b/tools/codegener/CMakeLists.txt
-index c5fd618..e52d894 100644
---- a/tools/codegener/CMakeLists.txt
-+++ b/tools/codegener/CMakeLists.txt
-@@ -10,7 +10,7 @@
- 
- include(ExternalProject)
- 
--project(CodeGen)
-+project(CodeGen C)
- 
- find_program(DUNE dune)
- 
-@@ -18,13 +18,7 @@ if(NOT DUNE)
- 	message(FATAL_ERROR "Please check your dune installation")
- endif()
- 
--if(CC_SGX)
--	set(code codegen_x86_64)
--endif()
--
--if(CC_GP)
--	set(code codegen_arm64)
--endif()
-+set(code codegen)
- 
- ExternalProject_Add(codegen
- 		SOURCE_DIR ${LOCAL_ROOT_PATH}/tools/codegener
+diff --git a/examples/seal_data/enclave/rsa_public_key_cloud.pem b/examples/seal_data/enclave/rsa_public_key_cloud.pem
+deleted file mode 100644
+index a321f63..0000000
+--- a/examples/seal_data/enclave/rsa_public_key_cloud.pem
++++ /dev/null
+@@ -1,11 +0,0 @@
+------BEGIN PUBLIC KEY-----
+-MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAzAPwbnbgBg7JgXERA9Bx
+-p7GLI1S3e1zL83RMd2+GXb6kO4yMKUL3NUCE2HhA2BtQYmLyGovx59UUcKnU58is
+-Xux++kH+A2shmOPjYvEFuX0Kt8tc19b8M9b/iHsY8ZmKykqia2a5U+IrECRFJo5p
+-DWUnl7jrHVtq78BSR1c7iXG1frrEC0AYCuqKJo/fxfmOKL0Y9mENCB3nAwjn9unD
+-BsO/OhkqvvB3nkeuMfNKPh4wCqtQPve13eTojbuxjX/3ePijplTI5X2Gr+n6Ximn
+-fYRlytQmMgMl/db0ARSKNApq9bmwzVNrnGWWZWJksdRvf6iL7t17Gs4L9AApOuC9
+-WkzxPvwp5ZUqjsGd4oJGWeC6ZE6BTw2vxE+xMFI9uAKHxq9pBKkcGMa0g4fANNNV
+-+W+8JZGanxEXKB3y/M7BCyQAPCWOHC/RNjmRA1gczLYCPzC4pWu935UZdF1RR6zY
+-CD3t+FoOGGET/g4CwWgyhb5qkp65Hs6ayYt/DUAqo+yBAgMBAAE=
+------END PUBLIC KEY-----
+diff --git a/examples/helloworld/enclave/rsa_public_key_cloud.pem b/tools/sign_tool/rsa_public_key_cloud.pem
+similarity index 100%
+rename from examples/helloworld/enclave/rsa_public_key_cloud.pem
+rename to tools/sign_tool/rsa_public_key_cloud.pem
 diff --git a/tools/sign_tool/sign_tool.sh b/tools/sign_tool/sign_tool.sh
 index 8f2189c..212db5d 100755
 --- a/tools/sign_tool/sign_tool.sh

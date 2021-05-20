@@ -1,0 +1,25 @@
+From f31970aac34d3e6fb6c50508ec5d5d4e07da0e0a Mon Sep 17 00:00:00 2001
+From: zgzxx <zhangguangzhi3@huawei.com>
+Date: Fri, 21 May 2021 11:14:06 +0800
+Subject: [PATCH] del size_to_aligned_size
+
+---
+ tools/codegener/Commonfunc.ml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/codegener/Commonfunc.ml b/tools/codegener/Commonfunc.ml
+index 42d62c4..6f3966a 100644
+--- a/tools/codegener/Commonfunc.ml
++++ b/tools/codegener/Commonfunc.ml
+@@ -428,7 +428,7 @@ let set_in_memcpy (fd : func_decl) =
+             sprintf "for (int i = 0; i < %s; i++) {\n        if((%s + i)->%s) {\n            memcpy(in_buf + %s_p + tmp_size, (uint8_t *)(%s + i)->%s, %s);\n        tmp_size += size_to_aligned_size(%s);\n        }\n    }\n    tmp_size = 0;\n    " (get_param_count pty) decl.identifier mem_decl.identifier mem_decl.identifier decl.identifier mem_decl.identifier (get_sizestr_2 (mem_pty, mem_decl) decl) (get_sizestr_2 (mem_pty, mem_decl) decl) in
+     [
+         "/* Copy in_params to in_buf*/";
+-        sprintf "memcpy(in_buf, &args_size, size_to_aligned_size(sizeof(%s_size_t)));" fd.fname;
++        sprintf "memcpy(in_buf, &args_size, sizeof(%s_size_t));" fd.fname;
+         if in_memcpy <> [] then
+         concat "\n    " in_memcpy ^ "\n    " ^ 
+         concat "\n    "
+-- 
+2.27.0
+
