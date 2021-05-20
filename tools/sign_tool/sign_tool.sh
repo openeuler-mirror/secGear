@@ -12,9 +12,14 @@
 VERSION=3
 API_LEVEL=2
 ONE_STEP_MODE=1
-A_CONFIG_FILE="NULL"
 
 localpath="$(cd "$(dirname "$0")"; pwd)"
+pypath="/lib/secGear"
+if [ -f ${localpath}/signtool_v3.py ]; then
+    signtoolpath=${localpath}
+else
+    signtoolpath=${pypath}
+fi
 
 print_help(){
     echo "sign tool usage: ./sign_tool.sh [options] ..."
@@ -139,10 +144,10 @@ itrustee_start_sign(){
                 echo "Error: missing enclave file"
                 exit -1
             fi
-            python ${localpath}/signtool_v3.py "sign" "${ONE_STEP_MODE}" "${IN_ENCLAVE}" "${OUT_FILE}" "${CONFIG_FILE}" "${A_CONFIG_FILE}" "${API_LEVEL}" 
+            python ${signtoolpath}/signtool_v3.py "sign" "${ONE_STEP_MODE}" "${IN_ENCLAVE}" "${OUT_FILE}" "${CONFIG_FILE}" "${A_CONFIG_FILE}" "${API_LEVEL}" 
         else
             ONE_STEP_MODE=0
-            python ${localpath}/signtool_v3.py "sign" "${ONE_STEP_MODE}" "NULL" "${OUT_FILE}" "NULL" "${A_CONFIG_FILE}" "${API_LEVEL}" "${SIGNATURE}"
+            python ${signtoolpath}/signtool_v3.py "sign" "${ONE_STEP_MODE}" "NULL" "${OUT_FILE}" "NULL" "${A_CONFIG_FILE}" "${API_LEVEL}" "${SIGNATURE}"
         fi
     elif [ "${CMD}"x == "digest"x ]; then
         ONE_STEP_MODE=0
@@ -154,7 +159,7 @@ itrustee_start_sign(){
             echo "Error: missing enclave file"
             exit -1
         fi
-        python ${localpath}/signtool_v3.py "digest" "${ONE_STEP_MODE}" "${IN_ENCLAVE}" "${OUT_FILE}" "${CONFIG_FILE}" "${A_CONFIG_FILE}" "${API_LEVEL}" 
+        python ${signtoolpath}/signtool_v3.py "digest" "${ONE_STEP_MODE}" "${IN_ENCLAVE}" "${OUT_FILE}" "${CONFIG_FILE}" "${A_CONFIG_FILE}" "${API_LEVEL}" 
     else
         echo "Error: illegal command"
     fi

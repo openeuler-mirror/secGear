@@ -71,7 +71,7 @@ if(CC_GP)
 
     target_include_directories( ${PREFIX} PRIVATE
 	${CMAKE_CURRENT_BINARY_DIR}
-	${LOCAL_ROOT_PATH}/${CMAKE_BINARY_DIR}/inc
+	${CMAKE_BINARY_DIR}/inc
 	${LOCAL_ROOT_PATH}/inc/host_inc
 	${LOCAL_ROOT_PATH}/inc/host_inc/gp
 	${LOCAL_ROOT_PATH}/inc/enclave_inc

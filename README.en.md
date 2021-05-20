@@ -49,7 +49,7 @@ Then save as test.edl
 	set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 	set(EDL_FILE test.edl)
 	set(LOCAL_ROOT_PATH "$ENV{CC_SDK}")
-        set(SECGEAR_INSTALL_PATH /lib64/)
+        set(SECGEAR_INSTALL_PATH /usr/lib64/)
 	set(CODEGEN codegen)
 	if(CC_GP)
 		set(CODETYPE trustzone)
