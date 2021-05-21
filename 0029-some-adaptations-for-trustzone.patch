@@ -1,0 +1,2159 @@
+From 45cf3b4bb86d5dc9d149f5e6056e9b2cb27eff63 Mon Sep 17 00:00:00 2001
+From: zgzxx <zhangguangzhi3@huawei.com>
+Date: Tue, 18 May 2021 14:27:31 +0800
+Subject: [PATCH 12/14] some adaptations for trustzone
+
+---
+ CMakeLists.txt                                |  11 +-
+ README.en.md                                  |   2 +-
+ README.md                                     |   2 +-
+ docs/sign_tool.md                             |  19 +-
+ examples/CMakeLists.txt                       |  28 ++
+ examples/helloworld/CMakeLists.txt            |   3 +-
+ examples/helloworld/enclave/CMakeLists.txt    |  16 +-
+ examples/helloworld/enclave/config_cloud.ini  |  49 ++
+ examples/helloworld/enclave/manifest.txt      |   7 +
+ examples/helloworld/enclave/manifest.txt.in   |   8 -
+ examples/helloworld/host/CMakeLists.txt       |   7 +-
+ examples/helloworld/host/main.c               |   1 +
+ examples/seal_data/CMakeLists.txt             |   4 +-
+ examples/seal_data/enclave/CMakeLists.txt     |  19 +-
+ examples/seal_data/enclave/config_cloud.ini   |  49 ++
+ examples/seal_data/enclave/manifest.txt       |   7 +
+ examples/seal_data/enclave/manifest.txt.in    |   8 -
+ examples/seal_data/host/CMakeLists.txt        |   1 +
+ .../gp/itrustee/itrustee_seal_data.c          |   3 +-
+ src/host_src/gp/CMakeLists.txt                |   4 +-
+ src/host_src/gp/gp_enclave.c                  |   4 +-
+ .../{ => cloud}/rsa_public_key_cloud.pem      |   0
+ tools/sign_tool/generate_signature.py         |  56 +++
+ tools/sign_tool/manifest.py                   | 170 ++++---
+ tools/sign_tool/sign_tool.py                  | 471 ------------------
+ tools/sign_tool/sign_tool.sh                  | 141 ++----
+ tools/sign_tool/signtool_v3.py                | 428 ++++++++++++++++
+ 27 files changed, 802 insertions(+), 716 deletions(-)
+ create mode 100644 examples/CMakeLists.txt
+ create mode 100644 examples/helloworld/enclave/config_cloud.ini
+ create mode 100644 examples/helloworld/enclave/manifest.txt
+ delete mode 100644 examples/helloworld/enclave/manifest.txt.in
+ create mode 100644 examples/seal_data/enclave/config_cloud.ini
+ create mode 100644 examples/seal_data/enclave/manifest.txt
+ delete mode 100644 examples/seal_data/enclave/manifest.txt.in
+ rename tools/sign_tool/{ => cloud}/rsa_public_key_cloud.pem (100%)
+ create mode 100644 tools/sign_tool/generate_signature.py
+ delete mode 100644 tools/sign_tool/sign_tool.py
+ create mode 100644 tools/sign_tool/signtool_v3.py
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 3886316..b373328 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -49,17 +49,8 @@ add_subdirectory(src)
+ 
+ execute_process(COMMAND mkdir ${LOCAL_ROOT_PATH}/bin)
+ 
+-if(CC_GP)
+-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/seal_data)
+-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/helloworld)
+-endif()
++add_subdirectory(examples)
+ 
+-if(CC_SGX)
+-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/helloworld)
+-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/seal_data)
+-#    add_subdirectory(${LOCAL_ROOT_PATH}/examples/tls_enclave)
+-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/lrt)
+-endif()
+ 
+ install(FILES ${LOCAL_ROOT_PATH}/conf/logrotate.d/secgear
+         DESTINATION /etc/logrotate.d/)
+diff --git a/README.en.md b/README.en.md
+index aa8c4a8..8aaa1b0 100644
+--- a/README.en.md
++++ b/README.en.md
+@@ -335,7 +335,7 @@ so -nostdinc -nodefaultlibs -nostdlib -nodefaultlibs compile link options was in
+ 
+ 		add_custom_command(TARGET ${PREFIX}
+ 			POST_BUILD
+-			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt
++			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini
+ 			-o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT})
+ 
+ 		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
+diff --git a/README.md b/README.md
+index a90450b..b95dcc9 100644
+--- a/README.md
++++ b/README.md
+@@ -315,7 +315,7 @@ AUTO_FILES：由edl文件生成的安全侧二进制文件
+ 
+ 		add_custom_command(TARGET ${PREFIX}
+ 			POST_BUILD
+-			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt
++			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini
+ 			-o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT})
+ 
+ 		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
+diff --git a/docs/sign_tool.md b/docs/sign_tool.md
+index ccaa2e6..399e4c5 100644
+--- a/docs/sign_tool.md
++++ b/docs/sign_tool.md
+@@ -13,38 +13,37 @@ The tool supports the following two modes:
+ 
+     For example:    
+ 
+-    `$ ./sign_tool.sh –d sign –x trustzone –i test.enclave -c manifest.txt –o signed.enclave `
++    `$ ./sign_tool.sh –d sign –x trustzone –i test.enclave -c manifest.txt -m config_cloud.ini –o signed.enclave `
+ 
+ 
+ - two-step method, it is used when the signature needs to be obtained from the signing organization or the private key is stored on another secure platform.  
+ 
+     For example:  
+     (1) generate the digest value.  
+-    `$ ./sign_tool.sh –d digest –x trustzone –i input -c manifest.txt –o digest.data `
++    `$ ./sign_tool.sh –d digest –x trustzone –i input -c manifest.txt -m config_cloud.ini –o digest.data `
+ 
+     For trustzone, temporary files KeyInfo.enc, rawData.enc, and rawDataHash.bin are generated in the current directory. And for sgx, a temporary file signdata is generated in the current directory. The temporary file is required when generating the signed enclave in step 3 and is deleted after the signed enclave is generated.  
+ 
+     (2) send the digest.data to the signing organization or platform and get the signature.  
+ 
+     (3) use the signature to generate the signed enclave.  
+-    `$ ./sign_tool.sh –d sign –x trustzone –i input -c manifest.txt –p pub.pem –s signature –o signed.enclave `
++    `$ ./sign_tool.sh –d sign –x trustzone –i input -c manifest.txt -m config_cloud.ini –s signature –o signed.enclave `
+ 
+ ## sign_tool.sh parameter
+ 
+ ```
+-    -a <parameter>  API_LEVEL, indicates trustzone GP API version, defalut is 1.
+     -c <file>       basic config file.
+     -d <parameter>  sign tool command, sign/digest.
+                     The sign command is used to generate a signed enclave.
+                     The digest command is used to generate a digest value.
+-    -f <parameter>  OTRP_FLAG, indicates whether the OTRP standard protocol is supported, default is 0.
+     -i <file>       enclave to be signed.
+-    -k <file>       private key required for single-step method, required when trustzone TA_TYPE is 2 or sgx.
+-    -m <file>       additional config for trustzone when TA_TYPE is 2.
+-    -o <file>       output parameters, the sign command outputs sigend enclave, the digest command outputs digest value.
++    -k <file>       private key required for single-step method
++    -m <file>       additional config_cloud.ini for trustzone.
++    -o <file>       output parameters, the sign command outputs sigend enclave, the digest command outputs
++                    digest value.
+     -p <file>       signing server public key certificate, required for two-step method.
+-    -s <file>       the signed digest value required for two-step method, this parameter is empty to indicate single-step method.
+-    -t <parameter>  trustzone TA_TYPE, default is 1.
++    -s <file>       the signed digest value required for two-step method, this parameter is empty to indicate
++                    single-step method.
+     -x <parameter>  enclave type, sgx or trustzone.
+     -h              printf help message.
+ ```
+diff --git a/examples/CMakeLists.txt b/examples/CMakeLists.txt
+new file mode 100644
+index 0000000..cfd0171
+--- /dev/null
++++ b/examples/CMakeLists.txt
+@@ -0,0 +1,28 @@
++add_custom_target(copy ALL
++	COMMAND mkdir -p ${CMAKE_BINARY_DIR}/inc/secGear
++	COMMAND cp ${LOCAL_ROOT_PATH}/inc/host_inc/*.h ${CMAKE_BINARY_DIR}/inc/secGear/
++	COMMAND cp ${LOCAL_ROOT_PATH}/inc/enclave_inc/*.h ${CMAKE_BINARY_DIR}/inc/secGear/)
++
++if(CC_GP)
++	add_custom_command(TARGET copy
++		POST_BUILD
++		COMMAND cp ${LOCAL_ROOT_PATH}/inc/host_inc/gp/*.edl ${CMAKE_BINARY_DIR}/inc/secGear/
++		COMMAND cp ${LOCAL_ROOT_PATH}/inc/host_inc/gp/*.h ${CMAKE_BINARY_DIR}/inc/secGear/
++		COMMAND cp ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/*.h ${CMAKE_BINARY_DIR}/inc/secGear/
++		COMMAND cp ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee/*.h ${CMAKE_BINARY_DIR}/inc/secGear/)
++	add_subdirectory(seal_data)
++	add_subdirectory(helloworld)
++endif()
++
++if(CC_SGX)
++	add_custom_command(TARGET copy
++		POST_BUILD
++		COMMAND cp ${LOCAL_ROOT_PATH}/inc/host_inc/sgx/*.h ${CMAKE_BINARY_DIR}/inc/secGear/
++		COMMAND cp ${LOCAL_ROOT_PATH}/inc/host_inc/sgx/*.edl ${CMAKE_BINARY_DIR}/inc/secGear/
++		COMMAND cp ${LOCAL_ROOT_PATH}/inc/enclave_inc/sgx/*.h ${CMAKE_BINARY_DIR}/inc/secGear/)
++	add_subdirectory(seal_data)
++	add_subdirectory(helloworld)
++	#add_subdirectory(tls_enclave)
++	#add_subdirectory(lrt)
++endif()
++
+diff --git a/examples/helloworld/CMakeLists.txt b/examples/helloworld/CMakeLists.txt
+index 5da2a6b..843a573 100644
+--- a/examples/helloworld/CMakeLists.txt
++++ b/examples/helloworld/CMakeLists.txt
+@@ -20,8 +20,7 @@ set(CODEGEN codegen)
+ 
+ if(CC_GP)
+     set(CODETYPE trustzone)
+-    execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
+-    string(REPLACE "\n" "" UUID ${UUID})
++    set(UUID f68fd704-6eb1-4d14-b218-722850eb3ef0)
+     add_definitions(-DPATH="/data/${UUID}.sec")
+ endif()
+ 
+diff --git a/examples/helloworld/enclave/CMakeLists.txt b/examples/helloworld/enclave/CMakeLists.txt
+index 0aefdae..f7967ef 100644
+--- a/examples/helloworld/enclave/CMakeLists.txt
++++ b/examples/helloworld/enclave/CMakeLists.txt
+@@ -55,7 +55,6 @@ set(COMMON_C_FLAGS "-W -Wall -Werror  -fno-short-enums  -fno-omit-frame-pointer
+ set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
+ 
+ if(CC_GP)
+-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt.in" "${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt")
+ 
+     set(CMAKE_C_FLAGS "${COMMON_C_FLAGS}  -march=armv8-a ")
+     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s -fPIC")
+@@ -72,6 +71,7 @@ if(CC_GP)
+ 
+     target_include_directories( ${PREFIX} PRIVATE
+ 	${CMAKE_CURRENT_BINARY_DIR}
++	${LOCAL_ROOT_PATH}/debug/inc
+ 	${LOCAL_ROOT_PATH}/inc/host_inc
+ 	${LOCAL_ROOT_PATH}/inc/host_inc/gp
+ 	${LOCAL_ROOT_PATH}/inc/enclave_inc
+@@ -97,14 +97,14 @@ if(CC_GP)
+ 
+     target_link_libraries(${PREFIX} -lsecgear_tee)
+ 
+-    add_custom_command(TARGET ${PREFIX}
+-	      POST_BUILD
+-              COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt 
+-	      		-o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
++    #for trustzone compiling, you should connact us to get config and private_key.pem for test, so we will not sign and install binary in this example #
++    #    add_custom_command(TARGET ${PREFIX}
++    #	      POST_BUILD
++	      #	      COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
+ 
+-    install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}  
+-        DESTINATION /data
+-        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE  WORLD_READ  WORLD_EXECUTE)
++      #    install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}  
++      #        DESTINATION /data
++      #        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE  WORLD_READ  WORLD_EXECUTE)
+ 
+ endif()
+ 
+diff --git a/examples/helloworld/enclave/config_cloud.ini b/examples/helloworld/enclave/config_cloud.ini
+new file mode 100644
+index 0000000..552f59c
+--- /dev/null
++++ b/examples/helloworld/enclave/config_cloud.ini
+@@ -0,0 +1,49 @@
++[config]
++;0 means debug
++;1 means release
++;[fixed value]
++releaseType = 1
++;;;
++;0 means TA not installed by OTRP
++;1 means TA installed by OTRP
++otrpFlag = 0
++;;;
++;server address for signing TA
++serverIp=
++;;;
++;public key for encrypt TA
++;[fixed value]
++encryptKey = cloud/rsa_public_key_cloud.pem
++;;;
++;public key length
++;[fixed value]
++encryptKeyLen = 3072
++;;;
++;0 means not sign
++;1 means signed by local private
++;2 means signed using native sign tool;
++;3 means signed by CI
++;[fixed value]
++signType = 1
++;;;
++;private key for signing TA
++;[private key owned by yourself]
++signKey = ../../examples/helloworld/enclave/cert/private_key.pem
++;;;
++;private key length for signing TA
++;[key length should be 4096 for security enhance]
++signKeyLen = 4096
++;;;
++;0 means SHA256 hash type
++;1 means SHA512 hash type
++;[set value to 0 by default]
++hashType = 0
++;;;
++;0 means padding type is pkcs1v15
++;1 means padding type is PSS
++;[set value to 0 by default]
++paddingType = 0
++;;;
++;config file
++;[signed config file by Huawei]
++configPath= ../../examples/helloworld/enclave/signed_config/config
+diff --git a/examples/helloworld/enclave/manifest.txt b/examples/helloworld/enclave/manifest.txt
+new file mode 100644
+index 0000000..d78354e
+--- /dev/null
++++ b/examples/helloworld/enclave/manifest.txt
+@@ -0,0 +1,7 @@
++gpd.ta.appID:   		f68fd704-6eb1-4d14-b218-722850eb3ef0
++gpd.ta.service_name:		rsa-demo
++gpd.ta.singleInstance:		true
++gpd.ta.multiSession: 		false
++gpd.ta.instanceKeepAlive:	false
++gpd.ta.dataSize:		819200
++gpd.ta.stackSize:		40960
+diff --git a/examples/helloworld/enclave/manifest.txt.in b/examples/helloworld/enclave/manifest.txt.in
+deleted file mode 100644
+index 7b8ecf5..0000000
+--- a/examples/helloworld/enclave/manifest.txt.in
++++ /dev/null
+@@ -1,8 +0,0 @@
+-gpd.ta.appID:	@UUID@
+-gpd.ta.service_name:	test0108
+-gpd.ta.singleInstance:	true
+-gpd.ta.multiSession:	false
+-gpd.ta.multiCommand:	false
+-gpd.ta.instanceKeepAlive:	false
+-gpd.ta.dataSize:	16384
+-gpd.ta.stackSize:	20480
+diff --git a/examples/helloworld/host/CMakeLists.txt b/examples/helloworld/host/CMakeLists.txt
+index 1c96ffd..60173a9 100644
+--- a/examples/helloworld/host/CMakeLists.txt
++++ b/examples/helloworld/host/CMakeLists.txt
+@@ -38,9 +38,10 @@ if(CC_GP)
+         link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+     endif()
+     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
+-    target_include_directories(${OUTPUT} PRIVATE  
+-                    ${LOCAL_ROOT_PATH}/inc/host_inc
+-                    ${LOCAL_ROOT_PATH}/inc/host_inc/gp
++    target_include_directories(${OUTPUT} PRIVATE
++	    	    ${LOCAL_ROOT_PATH}/debug/inc
++		    ${LOCAL_ROOT_PATH}/inc/host_inc
++		    ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+                     ${CMAKE_CURRENT_BINARY_DIR})
+     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
+         target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+diff --git a/examples/helloworld/host/main.c b/examples/helloworld/host/main.c
+index 51993ce..7213a5e 100644
+--- a/examples/helloworld/host/main.c
++++ b/examples/helloworld/host/main.c
+@@ -15,6 +15,7 @@
+ #include <linux/limits.h>
+ #include "enclave.h"
+ #include "helloworld_u.h"
++#include "string.h"
+ 
+ #define BUF_LEN 32
+ 
+diff --git a/examples/seal_data/CMakeLists.txt b/examples/seal_data/CMakeLists.txt
+index 3577301..dce8b81 100644
+--- a/examples/seal_data/CMakeLists.txt
++++ b/examples/seal_data/CMakeLists.txt
+@@ -21,9 +21,7 @@ set(CODEGEN codegen)
+ 
+ if(CC_GP)
+     set(CODETYPE trustzone)
+-    execute_process(COMMAND uuidgen -r 
+-	OUTPUT_VARIABLE UUID)
+-    string(REPLACE "\n" "" UUID ${UUID})
++    set(UUID 9cb38838-2766-42be-8b7b-0d184a996066)
+     add_definitions(-DPATH="/data/${UUID}.sec")
+ endif()
+ 
+diff --git a/examples/seal_data/enclave/CMakeLists.txt b/examples/seal_data/enclave/CMakeLists.txt
+index 0ddcbd5..b24e498 100644
+--- a/examples/seal_data/enclave/CMakeLists.txt
++++ b/examples/seal_data/enclave/CMakeLists.txt
+@@ -52,7 +52,6 @@ set(COMMON_C_FLAGS "-W -Wall -Werror  -fno-short-enums  -fno-omit-frame-pointer
+ set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
+ 
+ if(CC_GP)
+-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt.in" "${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt")
+     set(CMAKE_C_FLAGS "${COMMON_C_FLAGS}  -march=armv8-a ")
+     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
+     set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-s -fPIC")
+@@ -67,6 +66,7 @@ if(CC_GP)
+ 
+     target_include_directories( ${PREFIX} PRIVATE
+     ${CMAKE_CURRENT_BINARY_DIR}
++    ${LOCAL_ROOT_PATH}/debug/inc
+     ${LOCAL_ROOT_PATH}/inc/host_inc
+     ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+     ${LOCAL_ROOT_PATH}/inc/enclave_inc
+@@ -91,15 +91,14 @@ if(CC_GP)
+     endforeach(WHITE_LIST)
+     
+     target_link_libraries(${PREFIX} -lsecgear_tee)
+-    
+-    add_custom_command(TARGET ${PREFIX}
+-	    POST_BUILD
+-            COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -a 2 -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt 
+-	    -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
+-
+-    install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT} 
+-        DESTINATION /data
+-        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE  WORLD_READ  WORLD_EXECUTE)
++   # for trustzone compiling, you should connact us to get config and private_key.pem for test, so we will not sign and install binary in this example #
++   # add_custom_command(TARGET ${PREFIX}
++   #	    POST_BUILD
++   #	    COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
++
++   # install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}
++   #    DESTINATION /data
++   #    PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE  WORLD_READ  WORLD_EXECUTE)
+ 
+ endif()
+ 
+diff --git a/examples/seal_data/enclave/config_cloud.ini b/examples/seal_data/enclave/config_cloud.ini
+new file mode 100644
+index 0000000..f0c0e39
+--- /dev/null
++++ b/examples/seal_data/enclave/config_cloud.ini
+@@ -0,0 +1,49 @@
++[config]
++;0 means debug
++;1 means release
++;[fixed value]
++releaseType = 1
++;;;
++;0 means TA not installed by OTRP
++;1 means TA installed by OTRP
++otrpFlag = 0
++;;;
++;server address for signing TA
++serverIp=
++;;;
++;public key for encrypt TA
++;[fixed value]
++encryptKey = cloud/rsa_public_key_cloud.pem
++;;;
++;public key length
++;[fixed value]
++encryptKeyLen = 3072
++;;;
++;0 means not sign
++;1 means signed by local private
++;2 means signed using native sign tool;
++;3 means signed by CI
++;[fixed value]
++signType = 1
++;;;
++;private key for signing TA
++;[private key owned by yourself]
++signKey = ../../examples/seal_data/enclave/cert/private_key.pem
++;;;
++;private key length for signing TA
++;[key length should be 4096 for security enhance]
++signKeyLen = 4096
++;;;
++;0 means SHA256 hash type
++;1 means SHA512 hash type
++;[set value to 0 by default]
++hashType = 0
++;;;
++;0 means padding type is pkcs1v15
++;1 means padding type is PSS
++;[set value to 0 by default]
++paddingType = 0
++;;;
++;config file
++;[signed config file by Huawei]
++configPath= ../../examples/seal_data/enclave/signed_config/config
+diff --git a/examples/seal_data/enclave/manifest.txt b/examples/seal_data/enclave/manifest.txt
+new file mode 100644
+index 0000000..e845fd7
+--- /dev/null
++++ b/examples/seal_data/enclave/manifest.txt
+@@ -0,0 +1,7 @@
++gpd.ta.appID:               9cb38838-2766-42be-8b7b-0d184a996066
++gpd.ta.service_name:        secstorage-demo
++gpd.ta.singleInstance:      true
++gpd.ta.multiSession:        false
++gpd.ta.instanceKeepAlive:   False
++gpd.ta.dataSize:            819200
++gpd.ta.stackSize:           40960
+diff --git a/examples/seal_data/enclave/manifest.txt.in b/examples/seal_data/enclave/manifest.txt.in
+deleted file mode 100644
+index 749815a..0000000
+--- a/examples/seal_data/enclave/manifest.txt.in
++++ /dev/null
+@@ -1,8 +0,0 @@
+-gpd.ta.appID:	@UUID@
+-gpd.ta.service_name:	seal_data
+-gpd.ta.singleInstance:	true
+-gpd.ta.multiSession:	false
+-gpd.ta.multiCommand:	false
+-gpd.ta.instanceKeepAlive:	false
+-gpd.ta.dataSize:    4038400
+-gpd.ta.stackSize:   6048000
+diff --git a/examples/seal_data/host/CMakeLists.txt b/examples/seal_data/host/CMakeLists.txt
+index 75b33f7..691cd07 100644
+--- a/examples/seal_data/host/CMakeLists.txt
++++ b/examples/seal_data/host/CMakeLists.txt
+@@ -40,6 +40,7 @@ if(CC_GP)
+     endif()
+     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
+     target_include_directories(${OUTPUT} PRIVATE
++		    ${LOCAL_ROOT_PATH}/debug/inc
+                     ${LOCAL_ROOT_PATH}/inc/host_inc
+ 		    ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+                     ${CMAKE_CURRENT_BINARY_DIR})
+diff --git a/src/enclave_src/gp/itrustee/itrustee_seal_data.c b/src/enclave_src/gp/itrustee/itrustee_seal_data.c
+index 5b1676a..cf13bd9 100644
+--- a/src/enclave_src/gp/itrustee/itrustee_seal_data.c
++++ b/src/enclave_src/gp/itrustee/itrustee_seal_data.c
+@@ -221,12 +221,11 @@ TEE_Result itrustee_unseal_data(void *sealed_data, uint8_t *decrypted_data, uint
+         SLogError("malloc key_buf failed\n");
+         return TEE_ERROR_OUT_OF_MEMORY;
+     }
+-    result = TEE_EXT_DeriveTARootKey(salt, strlen(salt), key_buf, key_len);
++    result = TEE_EXT_DeriveTARootKey(salt, SEAL_KEY_SALT_LEN, key_buf, key_len);
+     if (result != TEE_SUCCESS) {
+         SLogError("DeriveTARootKey failed");
+         goto done;
+     }
+-
+     *decrypted_data_len = tmp_sealed_data->encrypted_data_len;
+     *mac_data_len = tmp_sealed_data->aad_len;
+     result = aes_seal_unseal_data(key_buf, key_len, (uint8_t *)&(tmp_sealed_data->nonce), SEAL_DATA_NONCE_LEN,
+diff --git a/src/host_src/gp/CMakeLists.txt b/src/host_src/gp/CMakeLists.txt
+index 37635ec..ca6d87f 100644
+--- a/src/host_src/gp/CMakeLists.txt
++++ b/src/host_src/gp/CMakeLists.txt
+@@ -11,8 +11,6 @@
+ set(gp_engine gp_0)
+ 
+ # to do itrustee sdk Open Source
+-set(itrustee_lib )
+-
+ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/gp)
+ 
+ if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
+@@ -33,7 +31,7 @@ endif()
+ 
+ set_target_properties(${gp_engine} PROPERTIES SKIP_BUILD_RPATH TRUE)
+ #link iTrustee teec lib
+-target_link_libraries(${gp_engine} ${itrustee_lib} secgear pthread)
++target_link_libraries(${gp_engine} secgear pthread teec_adaptor)
+ 
+ install(TARGETS ${gp_engine}
+         LIBRARY
+diff --git a/src/host_src/gp/gp_enclave.c b/src/host_src/gp/gp_enclave.c
+index b185958..86ea941 100644
+--- a/src/host_src/gp/gp_enclave.c
++++ b/src/host_src/gp/gp_enclave.c
+@@ -25,7 +25,7 @@
+ 
+ #define OCALL_AGENT_REGISTER_SUCCESS 0
+ #define OCALL_AGENT_REGISTER_FAIL    1
+-
++#define SECGEAR_OCALL 0
+ #define MAX_LEN 4096
+ 
+ static pthread_cond_t g_cond = PTHREAD_COND_INITIALIZER;
+@@ -535,7 +535,7 @@ cc_enclave_result_t cc_enclave_call_function(
+     /* for ocall thread */
+     ires = pthread_mutex_lock(&g_mtx_flag);
+     SECGEAR_CHECK_MUTEX_RES(ires);
+-    if (!(g_list_ops.pthread_flag)) {
++    if (g_list_ops.pthread_flag || SECGEAR_OCALL) {
+         param.agent_id = *(uint32_t *)ms;
+         param.num = ((ocall_enclave_table_t *)ocall_table)->num;
+         param.ocalls = ((ocall_enclave_table_t *)ocall_table)->ocalls;
+diff --git a/tools/sign_tool/rsa_public_key_cloud.pem b/tools/sign_tool/cloud/rsa_public_key_cloud.pem
+similarity index 100%
+rename from tools/sign_tool/rsa_public_key_cloud.pem
+rename to tools/sign_tool/cloud/rsa_public_key_cloud.pem
+diff --git a/tools/sign_tool/generate_signature.py b/tools/sign_tool/generate_signature.py
+new file mode 100644
+index 0000000..b3264ba
+--- /dev/null
++++ b/tools/sign_tool/generate_signature.py
+@@ -0,0 +1,56 @@
++#!/usr/bin/env python
++# coding:utf-8
++#----------------------------------------------------------------------------
++# Copyright (c) Huawei Technologies Co., Ltd. 2020-2020. All rights reserved.
++# iTrustee licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan
++# PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY
++# KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
++# NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
++# See the Mulan PSL v2 for more details.
++# Description: tools for generating a trusted application load image
++# Author: Li mingjuan
++# Create: 2020-10-27
++#----------------------------------------------------------------------------
++
++import struct
++import os
++import hashlib
++import subprocess
++
++HASH256 = 0
++HASH512 = 1
++
++def gen_hash(hash_type, in_file_path, out_file_path):
++    in_file_size = os.path.getsize(in_file_path)
++    # Initialize a SHA256 object from the Python hash library
++    if int(hash_type) == HASH256:
++        hash_op = hashlib.sha256()
++    elif int(hash_type) == HASH512:
++        hash_op = hashlib.sha512()
++    # Set the input buffer and return the output digest
++    with open(in_file_path, 'rb') as in_file:
++        hash_op.update(in_file.read(in_file_size))
++
++    #-----hash file used for ras sign---
++    with open(out_file_path, 'wb') as hash_fp:
++        # fixed hash prefix value
++        hash_fp.write(struct.pack('B'*19, 0x30, 0x31, 0x30, 0x0d, 0x06, \
++            0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, \
++            0x05, 0x00, 0x04, 0x20))
++        hash_fp.write(hash_op.digest())
++    return
++
++def gen_ta_signature(cfg, hash_file_path, out_file_path):
++    cmd = "openssl rsautl -sign -inkey {} -in {} -out {}".\
++            format(cfg.sign_key, hash_file_path, out_file_path)
++    try:
++        subprocess.check_output(cmd.split(), shell=False)
++    except Exception:
++        print("sign operation failed")
++        raise RuntimeError
++    return
++
+diff --git a/tools/sign_tool/manifest.py b/tools/sign_tool/manifest.py
+index 4de8407..9cc2360 100644
+--- a/tools/sign_tool/manifest.py
++++ b/tools/sign_tool/manifest.py
+@@ -1,10 +1,20 @@
+ #!/usr/bin/env python
+ # coding:utf-8
+ #----------------------------------------------------------------------------
+-# Copyright @ Huawei Technologies Co., Ltd. 2018-2019. All rights reserved.
+-# tools for generating a trusted application load image
++# Copyright (c) Huawei Technologies Co., Ltd. 2018-2020. All rights reserved.
++# iTrustee licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan
++# PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY
++# KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
++# NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
++# See the Mulan PSL v2 for more details.
++# Description: tools for generating a trusted application load image
++# Author: Li mingjuan
++# Create: 2018-02-20
+ #----------------------------------------------------------------------------
+-
+ import string
+ import struct
+ import uuid
+@@ -14,31 +24,32 @@ PRODUCT_TA_IMAGE        = 1
+ PRODUCT_DYN_LIB         = 2
+ PRODUCT_SERVICE_IMAGE   = 3
+ 
+-class TEE_UUID:
++
++class PackUuid:
+     # Structure object to align and package the TEE_UUID
+-    s = struct.Struct('IHH8b')
++    data = struct.Struct('IHH8b')
+ 
+     def __init__(self, data):
+-        unpacked_data       = (TEE_UUID.s).unpack(str.encode(data))
++        unpacked_data       = (PackUuid.data).unpack(str.encode(data))
+         self.unpacked_data  = unpacked_data
+-        self.timeLow        = unpacked_data[0]
+-        self.timeMid        = unpacked_data[1]
+-        self.timeHiAndVersion = unpacked_data[2]
+-        self.clockSeqAndNode  = unpacked_data[3]
++        self.time_low        = unpacked_data[0]
++        self.time_mid        = unpacked_data[1]
++        self.time_hi_version = unpacked_data[2]
++        self.clock_seq_node  = unpacked_data[3]
+ 
+-    def printValues(self):
++    def print_values(self):
+         print("ATTRIBUTE / VALUE")
+         for attr, value in self.__dict__.items():
+             print(attr, value)
+ 
+-    def getPackedData(self):
+-        values = [self.timeLow,
+-                self.timeMid,
+-                self.timeHiAndVersion,
+-                self.clockSeqAndNode,
++    def get_pack_data(self):
++        values = [self.time_low,
++                self.time_mid,
++                self.time_hi_version,
++                self.clock_seq_node,
+                 ]
+ 
+-        return (TEE_UUID.s).pack(*values)
++        return (PackUuid.data).pack(*values)
+ 
+ 
+ #----------------------------------------------------------------------------
+@@ -47,10 +58,10 @@ class TEE_UUID:
+ class Manifest:
+ 
+     # Structure object to align and package the Manifest
+-    s = struct.Struct('I' * 6)
++    data = struct.Struct('I' * 6)
+ 
+     def __init__(self, data):
+-        unpacked_data       = (Manifest.s).unpack(str.encode(data))
++        unpacked_data       = (Manifest.data).unpack(str.encode(data))
+         self.unpacked_data  = unpacked_data
+         self.single_instance = unpacked_data[0]
+         self.multi_session  = unpacked_data[1]
+@@ -59,12 +70,12 @@ class Manifest:
+         self.stack_size     = unpacked_data[4]
+         self.instancekeepalive = unpacked_data[5]
+ 
+-    def printValues(self):
++    def print_values(self):
+         print("ATTRIBUTE / VALUE")
+         for attr, value in self.__dict__.items():
+             print(attr, value)
+ 
+-    def getPackedData(self):
++    def get_pack_data(self):
+         values = [self.single_instance,
+                 self.multi_session,
+                 self.multi_command,
+@@ -73,21 +84,22 @@ class Manifest:
+                 self.instancekeepalive,
+                 ]
+ 
+-        return (Manifest.s).pack(*values)
++        return (Manifest.data).pack(*values)
++
+ 
+ #----------------------------------------------------------------------------
+ # verify property name in manifest file
+ #----------------------------------------------------------------------------
+-def verify_property_name(strLine):
++def verify_property_name(str_line):
+     print('verify property name')
+     alphas = string.ascii_letters + string.digits
+     cont = "".join([alphas, '-', '_', '.'])
+-    if len(strLine) > 1:
+-        if strLine[0] not in alphas:
++    if len(str_line) > 1:
++        if str_line[0] not in alphas:
+             print('invalid first letter in property name')
+             return False
+         else:
+-            for otherchar in strLine[1:]:
++            for otherchar in str_line[1:]:
+                 if otherchar not in cont:
+                     print('invalid char in property name')
+                     return False
+@@ -97,35 +109,37 @@ def verify_property_name(strLine):
+ 
+     return True
+ 
++
+ #----------------------------------------------------------------------------
+ # verify property value in manifest file
+ #----------------------------------------------------------------------------
+-def verify_property_value(strLine):
++def verify_property_value(str_line):
+     print('verify property value')
+-    filt_letter = chr(0) + chr(10) +chr(13)
+-    for thechar in strLine:
++    filt_letter = chr(0) + chr(10) + chr(13)
++    for thechar in str_line:
+         if thechar in filt_letter:
+             print('invalid letter in prop value')
+             return False
+     return True
+ 
++
+ #----------------------------------------------------------------------------
+ # remove tabs and space in property value
+ #----------------------------------------------------------------------------
+-def trailing_space_tabs(strLine):
++def trailing_space_tabs(str_line):
+     print('trailing space tabs in value head and trail')
+-    space_tabs = chr(9) + chr(32) +chr(160)
+-    space_tabs_newlines = space_tabs + chr(10) +chr(13)
++    space_tabs = chr(9) + chr(32) + chr(160)
++    space_tabs_newlines = space_tabs + chr(10) + chr(13)
+     print('tab: {}'.format(space_tabs))
+ 
+-    print('str in: {}'.format(strLine))
++    print('str in: {}'.format(str_line))
+     index = 0
+-    for thechar in strLine:
++    for thechar in str_line:
+         if thechar in space_tabs:
+             index += 1
+         else:
+             break
+-    headvalue = strLine[index:]
++    headvalue = str_line[index:]
+ 
+     strlen = len(headvalue)
+ 
+@@ -137,21 +151,20 @@ def trailing_space_tabs(strLine):
+         else:
+             break
+ 
+-    #print 'str len: '+str(strlen)
+-    strRet = headvalue[0:strlen+1] + chr(10)
+-    print('str ret: {}'.format(strRet))
++    str_ret = headvalue[0:strlen+1] + chr(10)
++    print('str ret: {}'.format(str_ret))
++
++    return str_ret
+ 
+-    return strRet
+ 
+ #----------------------------------------------------------------------------
+ # verify manifest file, parse manifest file, generate a new manfiest file
+ #----------------------------------------------------------------------------
+-def parserManifest(manifest, manifestDataPath, mani_ext):
++def parser_manifest(manifest, manifest_data_path, mani_ext):
+     print('verify manifest')
+-    targetType = PRODUCT_TA_IMAGE
++    target_type = PRODUCT_TA_IMAGE
+ 
+-    uuid_val_flag = 1
+-    uuid_val = TEE_UUID('\0' * 16)
++    uuid_val = PackUuid('\0' * 16)
+ 
+     #manifest default
+     manifest_val = Manifest('\0'*24)
+@@ -166,30 +179,29 @@ def parserManifest(manifest, manifestDataPath, mani_ext):
+     service_name = 'external_service'
+ 
+     with open(manifest, 'r') as mani_fp, open(mani_ext, 'wb') as mani_ext_fp:
+-        for eachLine in mani_fp:
+-            print(eachLine)
+-            if eachLine.startswith("#") or not len(eachLine.strip()):
++        for each_line in mani_fp:
++            print(each_line)
++            if each_line.startswith("#") or not len(each_line.strip()):
+                 continue
+-            index = eachLine.find(':', 1, len(eachLine))
+-            #print 'index name : value is ' + str(index)
++            index = each_line.find(':', 1, len(each_line))
+ 
+-            prop_name = eachLine[0:index] #no ':'
+-            prop_name_t = eachLine[0:index+1] #with ':'
+-            prop_value_t = eachLine[index+1:]
++            prop_name = each_line[0:index]
++            prop_name_t = each_line[0:index+1]
++            prop_value_t = each_line[index+1:]
+             print('name is: {}; value is: {}'.format(prop_name, prop_value_t))
+ 
+             prop_value = trailing_space_tabs(prop_value_t)
+             prop_len = len(prop_value)
+-            prop_value_v = prop_value[0:prop_len-1]# mv last letter
++            prop_value_v = prop_value[0:prop_len-1]
+             print('prop value_v: {}'.format(prop_value_v))
+ 
+             if verify_property_name(prop_name) is False:
+                 print('manifest format invalid, please check it')
+-                return (False, 0, 0, 0)
++                return (False, 0)
+ 
+             if verify_property_value(prop_value_v) is False:
+                 print('manifest format invalid, please check it')
+-                return (False, 0, 0, 0)
++                return (False, 0)
+ 
+             # name:value to lowcase, and parse manifest
+             prop_name_low = prop_name.lower()
+@@ -197,58 +209,54 @@ def parserManifest(manifest, manifestDataPath, mani_ext):
+             if 'gpd.ta.appid' == prop_name_low:
+                 print("compare name is srv id")
+                 uuid_val = uuid.UUID(prop_value_v)
+-                uuid_val_flag = 0
+                 print('uuid str {}'.format(uuid_val))
+                 print('val fields {}'.format(uuid_val.fields))
+ 
+             elif 'gpd.ta.singleinstance' == prop_name_low:
+                 prop_value_low = prop_value_v.lower()
+                 if 'true' == prop_value_low:
+-                    manifest_val.single_instance = 1;
++                    manifest_val.single_instance = 1
+                 elif 'false' == prop_value_low:
+-                    manifest_val.single_instance = 0;
++                    manifest_val.single_instance = 0
+                 else:
+                     print('single_instance value error!')
+ 
+             elif 'gpd.ta.multisession' == prop_name_low:
+                 prop_value_low = prop_value_v.lower()
+                 if 'true' == prop_value_low:
+-                    manifest_val.multi_session = 1;
++                    manifest_val.multi_session = 1
+                 elif 'false' == prop_value_low:
+-                    manifest_val.multi_session = 0;
++                    manifest_val.multi_session = 0
+                 else:
+                     print('multi_session value error!')
+ 
+             elif 'gpd.ta.multicommand' == prop_name_low:
+                 prop_value_low = prop_value_v.lower()
+                 if 'true' == prop_value_low:
+-                    manifest_val.multi_command = 1;
++                    manifest_val.multi_command = 1
+                 elif 'false' == prop_value_low:
+-                    manifest_val.multi_command = 0;
++                    manifest_val.multi_command = 0
+                 else:
+                     print('multi_command value error!')
+ 
+             elif 'gpd.ta.instancekeepalive' == prop_name_low:
+                 prop_value_low = prop_value_v.lower()
+                 if 'true' == prop_value_low:
+-                    manifest_val.instancekeepalive = 1;
++                    manifest_val.instancekeepalive = 1
+                 elif 'false' == prop_value_low:
+-                    manifest_val.instancekeepalive = 0;
++                    manifest_val.instancekeepalive = 0
+                 else:
+                     print('instancekeepalive value error!')
+ 
+             elif 'gpd.ta.datasize' == prop_name_low:
+-                #manifest_val.heap_size = prop_value_v.atoi()
+                 manifest_val.heap_size = int(prop_value_v)
+                 print('b')
+ 
+             elif 'gpd.ta.stacksize' == prop_name_low:
+-                #manifest_val.stack_size = prop_value_v.atoi()
+                 manifest_val.stack_size = int(prop_value_v)
+                 print('b')
+ 
+             elif 'gpd.ta.service_name' == prop_name_low:
+-                #manifest_val.stack_size = prop_value_v.atoi()
+                 service_name = prop_value_v
+                 print('b')
+ 
+@@ -260,11 +268,11 @@ def parserManifest(manifest, manifestDataPath, mani_ext):
+                 if 'gpd.ta.is_tee_service' == prop_name_low:
+                     prop_value_low = prop_value_v.lower()
+                     if 'true' == prop_value_low:
+-                         targetType = PRODUCT_SERVICE_IMAGE
++                        target_type = PRODUCT_SERVICE_IMAGE
+                 elif 'gpd.ta.is_lib' == prop_name_low:
+                     prop_value_low = prop_value_v.lower()
+                     if 'true' == prop_value_low:
+-                        targetType = PRODUCT_DYN_LIB
++                        target_type = PRODUCT_DYN_LIB
+ 
+         #write the whole parsed manifest into sample.manifest file
+ 
+@@ -277,14 +285,11 @@ def parserManifest(manifest, manifestDataPath, mani_ext):
+ 
+     # get manifest string file len
+     manifest_str_size = os.path.getsize(mani_ext)
+-    if manifest_str_size > 152:
+-        print("extra manifest string exceed MAX len 152")
+-        raise RuntimeError
+     print('manifest str size {}'.format(manifest_str_size))
+ 
+     # 2> manifest + service_name
+     print("bytes len {}".format(len(uuid_val.bytes_le)))
+-    print("bytes len {}".format(len(manifest_val.getPackedData())))
++    print("bytes len {}".format(len(manifest_val.get_pack_data())))
+     print("bytes len {}".format(len(service_name)))
+ 
+     # 3> unparsed manifest, string manifest
+@@ -294,23 +299,24 @@ def parserManifest(manifest, manifestDataPath, mani_ext):
+         print("manifest strint: {}".format(manifest_string_buf))
+ 
+     #---- write manifest parse context to manifest file
+-    with open(manifestDataPath, 'wb') as out_manifest_fp:
++    with open(manifest_data_path, 'wb') as out_manifest_fp:
+         out_manifest_fp.write(uuid_val.bytes_le)
+         out_manifest_fp.write(str.encode(service_name))
+-        out_manifest_fp.write(manifest_val.getPackedData())
++        out_manifest_fp.write(manifest_val.get_pack_data())
+ 
+-    productName = str(uuid_val)
+-    if targetType == PRODUCT_TA_IMAGE:
++    product_name = str(uuid_val)
++    if target_type == PRODUCT_TA_IMAGE:
+         print("product type is ta image")
+-        productName = "".join([productName,  ".sec"])
+-    elif targetType == PRODUCT_SERVICE_IMAGE:
++        product_name = "".join([product_name,  ".sec"])
++    elif target_type == PRODUCT_SERVICE_IMAGE:
+         print("product type is service")
+-        productName = "".join([productName, service_name, "_svr.sec"])
+-    elif targetType == PRODUCT_DYN_LIB:
++        product_name = "".join([product_name, service_name, "_svr.sec"])
++    elif target_type == PRODUCT_DYN_LIB:
+         print("product type is dyn lib")
+-        productName = "".join([productName, service_name, ".so.sec"])
++        product_name = "".join([product_name, service_name, ".so.sec"])
+     else:
+         print("invalid product type!")
+         raise RuntimeError
+ 
+-    return (True, productName, uuid_val_flag)
++    return (True, product_name)
++
+diff --git a/tools/sign_tool/sign_tool.py b/tools/sign_tool/sign_tool.py
+deleted file mode 100644
+index 1e6e37d..0000000
+--- a/tools/sign_tool/sign_tool.py
++++ /dev/null
+@@ -1,471 +0,0 @@
+-#!/usr/bin/env python
+-# coding:utf-8
+-#----------------------------------------------------------------------------
+-# Copyright @ Huawei Technologies Co., Ltd. 2018-2019. All rights reserved.
+-# tools for generating a trusted application load image
+-#----------------------------------------------------------------------------
+-
+-import struct
+-import sys
+-import os
+-import hashlib
+-import binascii
+-import subprocess
+-import shutil
+-
+-from manifest import *
+-
+-DEBUG      = 0
+-VERSION     = 3
+-TA_VERSION     = 3
+-# TA_TYPE 1 stand for v3.0
+-# TA_TYPE 2 stand for v3.1(with config and cert)
+-TA_TYPE    = 0
+-
+-API_LEVEL = 1
+-PRODUCT_NAME = ""
+-
+-# OTRP_FLAG 1 stand for otrp sec, and only can load sec by otrp mode
+-# OTRP_FLAG 0 stand for no-otrp sec, and only can load sec by tzdriver mode
+-OTRP_FLAG  = 0
+-
+-MAGIC1         = 0xA5A55A5A
+-MAGIC2         = 0x55AA
+-
+-# low 8 bits:key is derived from root key
+-# high 8 bits:key len is 3072, if value is 0 or 1, then key len is 2048
+-KEY_VERSION    = 0x0202
+-
+-SIGN_ALG_V3    = 0x10002048
+-SIGN_ALG_V4    = 0x10004096
+-
+-HASH256_LEN    = 256
+-HASH512_LEN    = 512
+-
+-ENCRYPTED_KEYINFO_LEN  =256
+-SIGNATURE_LEN_256      = 256
+-SIGNATURE_LEN_512      = 512
+-
+-SUCCESS = 0
+-
+-# ELF Definitions
+-ELF_TYPE                  = 32
+-ELF_HDR_SIZE              = 52
+-ELF_PHDR_SIZE             = 32
+-ELF_INFO_MAGIC0_INDEX        = 0
+-ELF_INFO_MAGIC1_INDEX        = 1
+-ELF_INFO_MAGIC2_INDEX        = 2
+-ELF_INFO_MAGIC3_INDEX        = 3
+-ELF_INFO_MAGIC0              = 127 #'\x7f'
+-ELF_INFO_MAGIC1              = 69  #'E'
+-ELF_INFO_MAGIC2              = 76  #'L'
+-ELF_INFO_MAGIC3              = 70  #'F'
+-ELF_INFO_CLASS_INDEX       = 4
+-ELF_INFO_CLASS             = 1   #'\x01'
+-ELF_INFO_VERSION_INDEX     = 6
+-ELF_INFO_VERSION_CURRENT   = 1   #'\x01'
+-ELF_BLOCK_ALIGN           = 0x1000
+-ELF_HEAD_FORMAT           = ''
+-
+-#----------------------------------------------------------------------------
+-# ELF File Header Check
+-#----------------------------------------------------------------------------
+-class Elf_Header:
+-    def __init__(self, data):
+-      # Algin data obj in ELF header
+-      if(ELF_TYPE == 64):
+-         self.s = struct.Struct('16sHHIQQQIHHHHHH')
+-      else:
+-         self.s = struct.Struct('16sHHIIIIIHHHHHH')
+-
+-      unpacked_data       = (self.s).unpack(data)
+-      self.unpacked_data  = unpacked_data
+-      self.elf_ident        = unpacked_data[0]
+-      self.elf_type         = unpacked_data[1]
+-      self.elf_machine      = unpacked_data[2]
+-      self.elf_version      = unpacked_data[3]
+-      self.elf_entry        = unpacked_data[4]
+-      self.elf_phoff        = unpacked_data[5]
+-      self.elf_shoff        = unpacked_data[6]
+-      self.elf_flags        = unpacked_data[7]
+-      self.elf_ehsize       = unpacked_data[8]
+-      self.elf_phentsize    = unpacked_data[9]
+-      self.elf_phnum        = unpacked_data[10]
+-      self.elf_shentsize    = unpacked_data[11]
+-      self.elf_shnum        = unpacked_data[12]
+-      self.elf_shstrndx     = unpacked_data[13]
+-
+-    def printValues(self):
+-        print("ATTRIBUTE / VALUE")
+-        for attr, value in self.__dict__.items():
+-            print(attr, value)
+-
+-    def getPackedData(self):
+-        values = [self.elf_ident,
+-                  self.elf_type,
+-                  self.elf_machine,
+-                  self.elf_version,
+-                  self.elf_entry,
+-                  self.elf_phoff,
+-                  self.elf_shoff,
+-                  self.elf_flags,
+-                  self.elf_ehsize,
+-                  self.elf_phentsize,
+-                  self.elf_phnum,
+-                  self.elf_shentsize,
+-                  self.elf_shnum,
+-                  self.elf_shstrndx
+-                 ]
+-
+-        return (self.s).pack(*values)
+-
+-#----------------------------------------------------------------------------
+-# Verify ELF header contents from an input ELF file
+-#----------------------------------------------------------------------------
+-def verify_elf_header(elf_header):
+-    s = struct.unpack('BBBBBBBBBBBBBBBB', elf_header.elf_ident)
+-    if (s[ELF_INFO_MAGIC0_INDEX] != ELF_INFO_MAGIC0) or \
+-        (s[ELF_INFO_MAGIC1_INDEX] != ELF_INFO_MAGIC1) or \
+-        (s[ELF_INFO_MAGIC2_INDEX] != ELF_INFO_MAGIC2) or \
+-        (s[ELF_INFO_MAGIC3_INDEX] != ELF_INFO_MAGIC3) or \
+-        (s[ELF_INFO_CLASS_INDEX] != ELF_INFO_CLASS) or \
+-        (s[ELF_INFO_VERSION_INDEX] != ELF_INFO_VERSION_CURRENT):
+-
+-        return False
+-    else:
+-        return True
+-
+-def get_elf_type(elfFile):
+-    EI_NIDENT = 16
+-    global ELF_TYPE
+-    global ELF_HDR_SIZE
+-    global ELF_HEAD_FORMAT
+-    global ELF_INFO_CLASS
+-
+-    elfFile.seek(0x0, 0)
+-    elf_ident = elfFile.read(EI_NIDENT)
+-    ''' check EI_CLASS, 32-bit or 64-bit'''
+-    elfStr = bytes.decode(elf_ident)
+-    s = struct.unpack('BBBBBBBBBBBBBBBB', elf_ident)
+-    if s[4] == 2:
+-        print("64 bit type")
+-        ELF_TYPE = 64
+-        ELF_HDR_SIZE = 64
+-        ELF_HEAD_FORMAT = "HHIQQQIHHHHHH"
+-        ELF_INFO_CLASS = 2
+-    elif s[4] == 1:
+-        print("32 bit type")
+-        ELF_TYPE = 32
+-        ELF_HDR_SIZE = 52
+-        ELF_HEAD_FORMAT = "HHIIIIIHHHHHH"
+-        ELF_INFO_CLASS = 1
+-    else:
+-        raise RuntimeError("Unknown ELF file type")
+-    return
+-
+-def generateHeader(contentLen):
+-    return struct.pack('IHHII', MAGIC1, MAGIC2, VERSION, contentLen, KEY_VERSION)
+-
+-def generateAesKeyInfo(ivFilePath, keyFilePath, outFilePath):
+-    # Aes key is randomly generated and temporarily stored in the file in plaintext, please ensure security.
+-    try:
+-        subprocess.check_output(["openssl", "rand", "-out", format(ivFilePath), "16"], shell=False)
+-        subprocess.check_output(["openssl", "rand", "-out", format(keyFilePath), "32"], shell=False)
+-    except:
+-        print("rand operation failed")
+-        raise RuntimeError
+-
+-    with open(outFilePath, 'wb') as outFile:
+-        outFile.write(struct.pack('I', 32))
+-        outFile.write(struct.pack('I', 16))
+-        if DEBUG == 0 or TA_TYPE == 1:
+-            outFile.write(struct.pack('I', SIGN_ALG_V3))
+-        elif TA_TYPE == 2:
+-            outFile.write(struct.pack('I', SIGN_ALG_V4))
+-        else:
+-            print("target sign type is not supported: {}".format(TA_TYPE))
+-            raise RuntimeError
+-
+-        with open(keyFilePath, 'rb') as keyFile:
+-            outFile.write(keyFile.read(32))
+-
+-        with open(ivFilePath, 'rb') as ivFile:
+-            outFile.write(ivFile.read(16))
+-
+-    return
+-
+-def encryptAesKeyInfo(pubkeyFilePath, inFilePath, outFilePath):
+-    try:
+-        subprocess.check_output(["openssl", "rsautl", "-encrypt", "-pubin", "-oaep", \
+-        "-inkey", format(pubkeyFilePath), "-in", format(inFilePath), "-out", format(outFilePath)], shell=False)
+-    except:
+-        print("RSA encrypt operation failed")
+-        raise RuntimeError
+-    return
+-
+-def generateHash(hashLen, inFilePath, outFilePath):
+-    inFileSize = os.path.getsize(inFilePath)
+-    # Initialize a SHA256 object from the Python hash library
+-    if hashLen == HASH256_LEN:
+-        hashOp = hashlib.sha256()
+-    elif hashLen == HASH512_LEN:
+-        hashOp = hashlib.sha512()
+-    # Set the input buffer and return the output digest
+-    with  open(inFilePath, 'rb') as inFile:
+-        hashOp.update(inFile.read(inFileSize))
+-
+-    #-----hash file used for ras sign---
+-    with open(outFilePath, 'wb') as hash_fp:
+-        # fixed hash prefix value
+-        hash_fp.write(struct.pack('B'*19, 0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60,
+-            0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20))
+-        hash_fp.write(hashOp.digest())
+-    return
+-
+-def generateSignature(priKeyPath, inFilePath, outFilePath):
+-    if TA_TYPE == 1:
+-        print("generate dummy signature for DEBUG version")
+-        with open(outFilePath, 'wb') as f:
+-            f.write(str.encode('\0'*256, encoding='utf-8'))
+-    elif TA_TYPE == 2:
+-        try:
+-            subprocess.check_output(["openssl", "rsautl", "-sign", "-inkey", format(priKeyPath), \
+-            "-in", format(inFilePath), " -out", format(outFilePath)], shell=False)
+-        except:
+-            print("sign operation failed")
+-            raise RuntimeError
+-    return
+-
+-def checkSignature(rawDataHashPath, inSignature, serverPubKey):
+-    try:
+-        subprocess.check_output(["openssl", "pkeyutl", "-verify", "-in", format(rawDataHashPath), \
+-        "-sigfile", format(inSignature), "-pubin", "-inkey", format(serverPubKey)], shell=False)
+-    except:
+-        print("check operation failed")
+-        raise RuntimeError
+-    return
+-
+-def generateRawData(manifestDataPath, manifestExtFilePath, elfFilePath, configFilePath, rawFilePath):
+-    manifestDataSize = os.path.getsize(manifestDataPath)
+-    manifestExtSize = os.path.getsize(manifestExtFilePath)
+-    elfFileSize = os.path.getsize(elfFilePath)
+-    configFileSize = 0
+-
+-    with open(rawFilePath, 'wb') as f:
+-        header  = ""
+-        if TA_TYPE == 2:
+-            configFileSize = os.path.getsize(configFilePath)
+-        header = struct.pack('IIIII', TA_VERSION, manifestDataSize, manifestExtSize, elfFileSize, configFileSize)
+-        f.write(header)
+-
+-        with open(manifestDataPath, 'rb') as manifestData:
+-            f.write(manifestData.read(manifestDataSize))
+-
+-        with open(manifestExtFilePath, 'rb') as manifestExt:
+-            f.write(manifestExt.read(manifestExtSize))
+-
+-        with open(elfFilePath, 'rb') as elfFile:
+-            get_elf_type(elfFile)
+-            elfFile.seek(0x0, 0)
+-            elfFileHaderBuf = elfFile.read(ELF_HDR_SIZE)
+-            elfFileHader = Elf_Header(elfFileHaderBuf)
+-            if verify_elf_header(elfFileHader) is False:
+-                print("verify elf header failed")
+-                raise RuntimeError
+-            elfFile.seek(0x0, 0)
+-            f.write(elfFile.read(elfFileSize))
+-
+-        if TA_TYPE == 2:
+-            with open(configFilePath, 'rb') as configFile:
+-                f.write(configFile.read(configFileSize))
+-    return
+-
+-def aesEncrypt(keyPath, ivPath, inFilePath, outfilePath):
+-    keySize = os.path.getsize(keyPath)
+-    with open(keyPath, 'rb') as key:
+-        keyData = key.read(keySize)
+-    hexKeyStr = binascii.b2a_hex(keyData)
+-
+-    ivSize = os.path.getsize(ivPath)
+-    with open(ivPath, 'rb') as iv:
+-        ivData = iv.read(ivSize)
+-    hexIvStr = binascii.b2a_hex(ivData)
+-
+-    try:
+-        subprocess.check_output(["openssl", "enc", "-aes-256-cbc", "-in", format(inFilePath), \
+-         "-out", format(outfilePath), "-K", format(bytes.decode(hexKeyStr)), \
+-         "-iv", format(bytes.decode(hexIvStr))], shell=False)
+-    except:
+-        print("AES encrypt operation failed")
+-        raise RuntimeError
+-
+-    return
+-
+-def updateManifestTaApiLevel(manifest):
+-    line = "\ngpd.ta.api_level:{}\n".format(API_LEVEL)
+-    with open(manifest, "w") as f:
+-        f.writelines(line)
+-
+-def updateManifestTaOtrpFlag(manifest):
+-    data = ''
+-    with open(manifest, 'r') as f:
+-        for line in f:
+-            if line.startswith("#") or not "gpd.ta.otrp_flag" in line:
+-                data += line
+-    line = "\ngpd.ta.otrp_flag:{}\n".format('true')
+-    data += line
+-    with open(manifest, "w") as f:
+-        f.writelines(data)
+-
+-def generateDataForSign(contentLen, key_info, raw_file, data_sign):
+-    keyInfoLen = os.path.getsize(key_info)
+-    rawFileLen = os.path.getsize(raw_file)
+-
+-    with open(data_sign, 'wb') as data_fp, \
+-            open(key_info, 'rb') as key_fp, open(raw_file, 'rb') as raw_fp:
+-        data_fp.write(generateHeader(contentLen))
+-        data_fp.write(key_fp.read(keyInfoLen))
+-        data_fp.write(raw_fp.read(rawFileLen))
+-
+-
+-def generateDigest(enclavePath, manifestPath, deviceKeyPath, configFilePath, rawDataHashPath, encKeyInfoFilePath, \
+-    encRawFilePath):
+-    inPath = os.getcwd()
+-    ivFilePath = os.path.join(inPath, "iv.bin")
+-    keyFilePath = os.path.join(inPath, "aeskey.bin")
+-    keyInfoFilePath = os.path.join(inPath, "KeyInfo")
+-    rawFilePath = os.path.join(inPath, "rawData")
+-    manifestDataPath = os.path.join(inPath, "manifestData.bin")
+-    manifestExtPath = os.path.join(inPath, "manifestExt.bin")
+-    dataForSignPath = os.path.join(inPath, "dataForSign.bin")
+-
+-    #mandentory input files
+-    manifestFilePath = manifestPath
+-    elfFilePath = enclavePath
+-    pubkeyFilePath = deviceKeyPath
+-
+-    (ret, PRODUCT_NAME, flag) = parserManifest(manifestFilePath, manifestDataPath, manifestExtPath)
+-    updateManifestTaApiLevel(manifestExtPath)
+-
+-    if OTRP_FLAG == 1:
+-        print("package otrp sec file\n")
+-        updateManifestTaOtrpFlag(manifestExtPath)
+-
+-    generateRawData(manifestDataPath, manifestExtPath, elfFilePath, configFilePath, rawFilePath)
+-
+-    #generate AES key info to encrypt raw data
+-    generateAesKeyInfo(ivFilePath, keyFilePath, keyInfoFilePath)
+-    encryptAesKeyInfo(pubkeyFilePath, keyInfoFilePath, encKeyInfoFilePath)
+-
+-    aesEncrypt(keyFilePath, ivFilePath, rawFilePath, encRawFilePath)
+-
+-    contentLen = 0
+-    if DEBUG == 0 or TA_TYPE == 1:
+-        contentLen = os.path.getsize(encKeyInfoFilePath) + SIGNATURE_LEN_256 + os.path.getsize(encRawFilePath)
+-    elif TA_TYPE == 2:
+-        contentLen = os.path.getsize(encKeyInfoFilePath) + SIGNATURE_LEN_512 + os.path.getsize(encRawFilePath)
+-    else:
+-        print("target sign type is not supported: {}".format(TA_TYPE))
+-        raise RuntimeError
+-
+-    generateDataForSign(contentLen, keyInfoFilePath, rawFilePath, dataForSignPath)
+-
+-    generateHash(HASH256_LEN, dataForSignPath, rawDataHashPath)
+-
+-    #remove temp files
+-    os.remove(ivFilePath)
+-    os.remove(keyFilePath)
+-    os.remove(keyInfoFilePath)
+-    os.remove(rawFilePath)
+-    os.remove(manifestDataPath)
+-    os.remove(manifestExtPath)
+-    os.remove(dataForSignPath)
+-    return
+-
+-def generateSecEnclave(priKeyPath, rawDataHashPath, encKeyInfoFilePath, encRawFilePath, inSignature, serverPubKey, \
+-    outFile):
+-    inPath = os.getcwd()
+-    signatureFilePath = inSignature
+-    if DEBUG == 1:
+-        signatureFilePath = os.path.join(inPath, "signature.bin")
+-        generateSignature(priKeyPath, rawDataHashPath, signatureFilePath)
+-    else:
+-        checkSignature(rawDataHashPath, inSignature, serverPubKey)
+-
+-    contentLen = 0
+-    if DEBUG == 0 or TA_TYPE == 1:
+-        contentLen = os.path.getsize(encKeyInfoFilePath) + SIGNATURE_LEN_256 + os.path.getsize(encRawFilePath)
+-    elif TA_TYPE == 2:
+-        contentLen = os.path.getsize(encKeyInfoFilePath) + SIGNATURE_LEN_512 + os.path.getsize(encRawFilePath)
+-    else:
+-        print("target sign type is not supported: {}".format(TA_TYPE))
+-        raise RuntimeError
+-
+- #   secImagePath = os.path.join(outPath, productName)
+-    secImagePath = outFile
+-    with open(secImagePath, 'wb') as secImage:
+-        # write to sec file [1.header info]
+-        secImage.write(generateHeader(contentLen))
+-        # write to sec file [2.AES key info]
+-        encKeyInfoSize = os.path.getsize(encKeyInfoFilePath)
+-        with open(encKeyInfoFilePath, 'rb') as encKeyInfo:
+-            secImage.write(encKeyInfo.read(encKeyInfoSize))
+-        # write to sec file [3.signature]
+-        signatureSize = os.path.getsize(signatureFilePath)
+-        with open(signatureFilePath, 'rb') as signatureFile:
+-            secImage.write(signatureFile.read(signatureSize))
+-        # write to sec file [4.encrypted raw data]
+-        encRawDataSize = os.path.getsize(encRawFilePath)
+-        with open(encRawFilePath, 'rb') as encRawData:
+-            secImage.write(encRawData.read(encRawDataSize))
+-
+-    if DEBUG == 1:
+-        os.remove(signatureFilePath)
+-
+-    print("=========================SUCCESS============================")
+-    print("generate TA(V3 format) load image success: ")
+-    print(secImagePath)
+-    print("============================================================")
+-    return
+-
+-if __name__ == '__main__':
+-    argvs = sys.argv
+-    priKeyPath = ""
+-    configFilePath = ""
+-    cmd = argvs[1]
+-    DEBUG = int(argvs[2])
+-    enclavePath = argvs[3]
+-    outFile = argvs[4]
+-    manifestPath = argvs[5]
+-    OTRP_FLAG = int(argvs[6])
+-    TA_TYPE = int(argvs[7])
+-    API_LEVEL = int(argvs[8])
+-    DEVICE_PUBKEY = argvs[9]
+-    configFilePath = argvs[10]
+-
+-    os.umask(127)
+-    inPath = os.getcwd()
+-    encKeyInfoFilePath = os.path.join(inPath, "KeyInfo.enc")
+-    encRawFilePath = os.path.join(inPath, "rawData.enc")
+-    rawDataHashPath = os.path.join(inPath, "rawDataHash.bin")
+-
+-    if cmd == "digest":
+-        generateDigest(enclavePath, manifestPath, DEVICE_PUBKEY, configFilePath, rawDataHashPath, encKeyInfoFilePath, \
+-        encRawFilePath)
+-        shutil.copy(rawDataHashPath, outFile)
+-    elif cmd == "sign":
+-        if DEBUG == 0:
+-            inSignature = argvs[11]
+-            serverPubKey = argvs[12]
+-        else:
+-            if TA_TYPE == 2:
+-                priKeyPath = argvs[11]
+-            inSignature = ""
+-            serverPubKey = ""
+-            generateDigest(enclavePath, manifestPath, DEVICE_PUBKEY, configFilePath, rawDataHashPath, \
+-            encKeyInfoFilePath, encRawFilePath)
+-        generateSecEnclave(priKeyPath, rawDataHashPath, encKeyInfoFilePath, encRawFilePath, inSignature, \
+-        serverPubKey, outFile)
+-        os.remove(rawDataHashPath)
+-        os.remove(encKeyInfoFilePath)
+-        os.remove(encRawFilePath)
+diff --git a/tools/sign_tool/sign_tool.sh b/tools/sign_tool/sign_tool.sh
+index 212db5d..5fd7d5b 100755
+--- a/tools/sign_tool/sign_tool.sh
++++ b/tools/sign_tool/sign_tool.sh
+@@ -10,39 +10,42 @@
+ 
+ #!/bin/bash
+ VERSION=3
+-TA_TYPE=1
+-OTRP_FLAG=0
+-API_LEVEL=1
+-DEBUG=0
++API_LEVEL=2
++ONE_STEP_MODE=1
++A_CONFIG_FILE="NULL"
+ 
+ localpath="$(cd "$(dirname "$0")"; pwd)"
+ 
+ print_help(){
+     echo "sign tool usage: ./sign_tool.sh [options] ..."
+     echo "[options]"
+-    echo "-a <parameter>  API_LEVEL, indicates trustzone GP API version, defalut is 1."
+     echo "-c <file>       basic config file."
+     echo "-d <parameter>  sign tool command, sign/digest."
+     echo "                The sign command is used to generate a signed enclave."
+     echo "                The digest command is used to generate a digest value."
+-    echo "-f <parameter>  OTRP_FLAG, indicates whether the OTRP standard protocol is supported, default is 0."
+     echo "-i <file>       enclave to be signed."
+-    echo "-k <file>       private key required for single-step method, required when trustzone TA_TYPE is 2 or sgx."
+-    echo "-m <file>       additional config for trustzone when TA_TYPE is 2."
++    echo "-k <file>       private key required for single-step method"
++    echo "-m <file>       additional config_cloud.ini for trustzone."
+     echo "-o <file>       output parameters, the sign command outputs sigend enclave, the digest command outputs"
+     echo "                digest value."
+     echo "-p <file>       signing server public key certificate, required for two-step method."
+     echo "-s <file>       the signed digest value required for two-step method, this parameter is empty to indicate"
+     echo "                single-step method."
+-    echo "-t <parameter>  trustzone TA_TYPE, default is 1."
+     echo "-x <parameter>  enclave type, sgx or trustzone."
+     echo "-h              printf help message."
+ 
+ }
+ 
+-while getopts "d:i:x:m:a:f:t:c:k:p:s:o:h" opt
++while getopts "c:d:i:k:m:o:p:s:x:h" opt
+ do
+     case $opt in
++        c)
++        if [[ $OPTARG == -* ]]; then
++            echo "Error: parameter for -c is missing or incorrect"
++            exit -1
++        fi 
++        CONFIG_FILE=$OPTARG
++        ;;
+         d)
+         if [[ $OPTARG == -* ]]; then
+             echo "Error: parameter for -d is missing or incorrect"
+@@ -58,13 +61,12 @@ do
+         fi 
+         IN_ENCLAVE=$OPTARG
+         ;;
+-        x)
++        k)
+         if [[ $OPTARG == -* ]]; then
+-            echo "Error: parameter for -x is missing or incorrect"
++            echo "Error: parameter for -k is missing or incorrect"
+             exit -1
+-        fi
+-        typeset -l ENCLAVE_TYPE
+-        ENCLAVE_TYPE=$OPTARG
++        fi 
++        SIG_KEY=$OPTARG
+         ;;
+         m)
+         if [[ $OPTARG == -* ]]; then
+@@ -73,55 +75,12 @@ do
+         fi 
+         A_CONFIG_FILE=$OPTARG
+         ;;
+-        a)
+-        if [[ $OPTARG =~ ^[1-3]$ ]]; then
+-            API_LEVEL=$OPTARG
+-        else
+-            if [[ $OPTARG == -* ]]; then
+-                echo "Error: parameter for -a is missing or incorrect"
+-                exit -1
+-            fi 
+-            echo "Error: illegal API LEVEL"
+-            exit -1
+-        fi
+-        ;;
+-        f)
+-        if [[ $OPTARG =~ ^[0-1]$ ]]; then
+-            OTRP_FLAG=$OPTARG
+-        else
+-            if [[ $OPTARG == -* ]]; then
+-                echo "Error: parameter for -f is missing or incorrect"
+-                exit -1
+-            fi 
+-            echo "Error: illegal OTRP FLAG"
+-            exit -1
+-        fi
+-        ;;
+-        t)
+-        if [[ $OPTARG =~ ^[1-2]$ ]]; then
+-            TA_TYPE=$OPTARG
+-        else
+-            if [[ $OPTARG == -* ]]; then
+-                echo "Error: parameter for -t is missing or incorrect"
+-                exit -1
+-            fi 
+-            echo "Error: illegal TA TYPE"
+-            exit -1
+-        fi
+-        ;;
+-        c)
+-        if [[ $OPTARG == -* ]]; then
+-            echo "Error: parameter for -c is missing or incorrect"
+-            exit -1
+-        fi 
+-        CONFIG_FILE=$OPTARG
+-        ;;
+-        k)
++        o)
+         if [[ $OPTARG == -* ]]; then
+-            echo "Error: parameter for -k is missing or incorrect"
++            echo "Error: parameter for -o is missing or incorrect"
+             exit -1
+         fi 
+-        SIG_KEY=$OPTARG
++        OUT_FILE=$OPTARG
+         ;;
+         p)
+         if [[ $OPTARG == -* ]]; then
+@@ -137,12 +96,13 @@ do
+         fi 
+         SIGNATURE=$OPTARG
+         ;;
+-        o)
++        x)
+         if [[ $OPTARG == -* ]]; then
+-            echo "Error: parameter for -o is missing or incorrect"
++            echo "Error: parameter for -x is missing or incorrect"
+             exit -1
+-        fi 
+-        OUT_FILE=$OPTARG
++        fi
++        typeset -l ENCLAVE_TYPE
++        ENCLAVE_TYPE=$OPTARG
+         ;;
+         h)
+         print_help
+@@ -160,47 +120,48 @@ fi
+ 
+ itrustee_start_sign(){
+ #    check_native_sign
+-    MANIFEST=$CONFIG_FILE
+-    if [ -z $MANIFEST ]; then
++    if [ -z $A_CONFIG_FILE ]; then
+         echo "Error: missing config file for signing iTrustee enclave"
+         exit -1
+     fi
+ 
+-    if [ ${TA_TYPE} == 2 ]; then
+-        if [ -z $A_CONFIG_FILE]; then
+-            echo "Error: TA TYPE = 2, missing additional config file for signing iTrustee enclave"
+-            exit -1
+-        fi
+-    else
+-        A_CONFIG_FILE="NULL"
+-    fi
+-    DEVICE_PUBKEY=${localpath}/rsa_public_key_cloud.pem
+-
+     if [ "${CMD}"x == "sign"x ]; then
+         if [ -z $SIGNATURE ]; then
+-            DEBUG=1
+-            if [ -z $SIG_KEY ] && [ ${TA_TYPE} == 2 ]; then
+-                echo "missing the signature private key"
++            ONE_STEP_MODE=1
++            if [ -z $CONFIG_FILE ]; then
++                echo "Error: missing config file for signing iTrustee enclave"
+                 exit -1
+             fi
+-            python ${localpath}/sign_tool.py "sign" "${DEBUG}" "${IN_ENCLAVE}" "${OUT_FILE}" "${MANIFEST}" "${OTRP_FLAG}" "${TA_TYPE}" "${API_LEVEL}" "${DEVICE_PUBKEY}" "${A_CONFIG_FILE}" "${SIG_KEY}"
+-        else
+-            DEBUG=0
+-            if [ -z $SERVER_PUBKEY ]; then
+-                echo "Error: missing server public key for verifying signature"
++            if [ -z $IN_ENCLAVE ]; then
++                echo "Error: missing enclave file"
+                 exit -1
+             fi
+-            python ${localpath}/sign_tool.py "sign" "${DEBUG}" "${IN_ENCLAVE}" "${OUT_FILE}" "${MANIFEST}" "${OTRP_FLAG}" "${TA_TYPE}" "${API_LEVEL}" "${DEVICE_PUBKEY}" "${A_CONFIG_FILE}" "${SIGNATURE}" "${SERVER_PUBKEY}"
++            python ${localpath}/signtool_v3.py "sign" "${ONE_STEP_MODE}" "${IN_ENCLAVE}" "${OUT_FILE}" "${CONFIG_FILE}" "${A_CONFIG_FILE}" "${API_LEVEL}" 
++        else
++            ONE_STEP_MODE=0
++            python ${localpath}/signtool_v3.py "sign" "${ONE_STEP_MODE}" "NULL" "${OUT_FILE}" "NULL" "${A_CONFIG_FILE}" "${API_LEVEL}" "${SIGNATURE}"
+         fi
+     elif [ "${CMD}"x == "digest"x ]; then
+-        DEBUG=0
+-        python ${localpath}/sign_tool.py "digest" "${DEBUG}" "${IN_ENCLAVE}" "${OUT_FILE}" "${MANIFEST}" "${OTRP_FLAG}" "${TA_TYPE}" "${API_LEVEL}" "${DEVICE_PUBKEY}" "${A_CONFIG_FILE}"
++        ONE_STEP_MODE=0
++        if [ -z $CONFIG_FILE ]; then
++            echo "Error: missing config file for signing iTrustee enclave"
++            exit -1
++        fi
++        if [ -z $IN_ENCLAVE ]; then
++            echo "Error: missing enclave file"
++            exit -1
++        fi
++        python ${localpath}/signtool_v3.py "digest" "${ONE_STEP_MODE}" "${IN_ENCLAVE}" "${OUT_FILE}" "${CONFIG_FILE}" "${A_CONFIG_FILE}" "${API_LEVEL}" 
+     else
+         echo "Error: illegal command"
+     fi
+ }
+ 
+ sgx_start_sign(){
++    if [ -z $IN_ENCLAVE ]; then
++        echo "Error: missing enclave file"
++        exit -1
++    fi
+     SIGDATA_FILE="signdata"
+     if [ "${CMD}"x == "sign"x ]; then
+         if [ -z $SIG_KEY ]; then
+@@ -246,10 +207,6 @@ if [ -z $ENCLAVE_TYPE ]; then
+     echo "Error: missing enclave type"
+     exit -1
+ fi
+-if [ -z $IN_ENCLAVE ]; then
+-    echo "Error: missing enclave file"
+-    exit -1
+-fi
+ if [ -z $OUT_FILE ]; then
+     echo "Error: missing out file"
+     exit -1
+diff --git a/tools/sign_tool/signtool_v3.py b/tools/sign_tool/signtool_v3.py
+new file mode 100644
+index 0000000..dae036f
+--- /dev/null
++++ b/tools/sign_tool/signtool_v3.py
+@@ -0,0 +1,428 @@
++#!/usr/bin/env python
++# coding:utf-8
++#----------------------------------------------------------------------------
++# Copyright (c) Huawei Technologies Co., Ltd. 2018-2020. All rights reserved.
++# iTrustee licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan
++# PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY
++# KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
++# NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
++# See the Mulan PSL v2 for more details.
++# Description: tools for generating a trusted application load image
++# Author: Li mingjuan
++# Create: 2018-02-20
++#----------------------------------------------------------------------------
++
++import struct
++import os
++import sys
++import stat
++import hashlib
++import binascii
++import subprocess
++import shutil
++import getpass
++import argparse
++
++try:
++    from configparser import SafeConfigParser
++except ImportError:
++    from ConfigParser import SafeConfigParser
++
++from manifest import parser_manifest
++from generate_signature import gen_ta_signature
++from generate_signature import gen_hash
++
++# fixed value, {1, 2} version are abandoned.
++VERSION = 3
++TA_VERSION = 3
++
++MAX_EXT_PROP_LEN = 152
++
++MAGIC1 = 0xA5A55A5A
++MAGIC2 = 0x55AA
++
++# ELF Definitions
++ELF_TYPE = 32
++ELF_HDR_SIZE = 52
++ELF_PHDR_SIZE = 32
++ELF_INFO_MAGIC0_INDEX = 0
++ELF_INFO_MAGIC1_INDEX = 1
++ELF_INFO_MAGIC2_INDEX = 2
++ELF_INFO_MAGIC3_INDEX = 3
++#'\x7f'
++ELF_INFO_MAGIC0 = 127
++#'E'
++ELF_INFO_MAGIC1 = 69
++#'L'
++ELF_INFO_MAGIC2 = 76
++#'F'
++ELF_INFO_MAGIC3 = 70
++ELF_INFO_CLASS_INDEX = 4
++ELF_INFO_CLASS_32 = 1
++ELF_INFO_CLASS_64 = 2
++ELF_INFO_VERSION_INDEX = 6
++ELF_INFO_VERSION_CURRENT = 1
++ELF_BLOCK_ALIGN = 0x1000
++
++
++#----------------------------------------------------------------------------
++# Verify ELF header contents from an input ELF file
++#----------------------------------------------------------------------------
++def verify_elf_header(elf_path):
++    elf_type = 0
++    with open(elf_path, 'rb') as elf:
++        elf_data = struct.unpack('B'*16, elf.read(16))
++        elf_type = elf_data[4]
++        if ((elf_data[ELF_INFO_MAGIC0_INDEX] != ELF_INFO_MAGIC0) or \
++                (elf_data[ELF_INFO_MAGIC1_INDEX] != ELF_INFO_MAGIC1) or \
++                (elf_data[ELF_INFO_MAGIC2_INDEX] != ELF_INFO_MAGIC2) or \
++                (elf_data[ELF_INFO_MAGIC3_INDEX] != ELF_INFO_MAGIC3) or \
++                (elf_data[ELF_INFO_VERSION_INDEX] != \
++                ELF_INFO_VERSION_CURRENT)):
++            print("invalid elf header info")
++            raise RuntimeError
++
++        if ((elf_type == 1 and elf_data[ELF_INFO_CLASS_INDEX] != \
++                ELF_INFO_CLASS_32) or \
++                (elf_type == 2 and elf_data[ELF_INFO_CLASS_INDEX] != \
++                ELF_INFO_CLASS_64) or \
++                (elf_type != 1 and elf_type != 2)):
++            print("invliad elf format")
++            raise RuntimeError
++    return
++
++
++class Configuration:
++    release_type = 0
++    otrp_flag = 0
++    sign_type = 0
++    public_key = ""
++    pub_key_len = 0
++    server_ip = ""
++    config_path = ""
++    sign_key = ""
++    sign_key_len = 2048
++    hash_type = 0
++    padding_type = 0
++
++    def __init__(self, file_name):
++        parser = SafeConfigParser()
++        parser.read(file_name)
++        self.release_type = parser.get("config", "releaseType")
++        self.otrp_flag = parser.get("config", "otrpFlag")
++        self.sign_type = parser.get("config", "signType")
++        self.public_key = parser.get("config", "encryptKey")
++        self.pub_key_len = parser.get("config", "encryptKeyLen")
++        self.server_ip = parser.get("config", "serverIp")
++        self.config_path = parser.get("config", "configPath")
++        self.sign_key = parser.get("config", "signKey")
++        self.sign_key_len = parser.get("config", "signKeyLen")
++        self.hash_type = parser.get("config", "hashType")
++        self.padding_type = parser.get("config", "paddingType")
++
++
++def gen_header(content_len, key_version):
++    return struct.pack('IHHII', MAGIC1, MAGIC2, VERSION, content_len, \
++            key_version)
++
++
++def gen_aes_key_info(cfg, iv_file_path, key_file_path, out_file_path):
++    rand_iv_cmd = "openssl rand -out {} 16".format(iv_file_path)
++    rand_key_cmd = "openssl rand -out {} 32".format(key_file_path)
++    try:
++        subprocess.check_output(rand_iv_cmd.split(), shell=False)
++        subprocess.check_output(rand_key_cmd.split(), shell=False)
++    except Exception:
++        print("rand operation failed")
++        raise RuntimeError
++
++    os.chmod(iv_file_path, stat.S_IWUSR | stat.S_IRUSR)
++    os.chmod(key_file_path, stat.S_IWUSR | stat.S_IRUSR)
++
++    sign_alg = 0
++    sign_alg = sign_alg | (int(cfg.release_type) << 28)
++    sign_alg = sign_alg | (int(cfg.padding_type) << 27)
++    sign_alg = sign_alg | (int(cfg.hash_type) << 26)
++    if cfg.sign_key_len == "2048":
++        sign_alg = sign_alg | 0x00002048
++    elif cfg.sign_key_len == "4096":
++        sign_alg = sign_alg | 0x00004096
++
++    print("sign_alg value is 0x%x" % sign_alg)
++    with open(out_file_path, 'wb') as out_file:
++        out_file.write(struct.pack('I', 32))
++        out_file.write(struct.pack('I', 16))
++        out_file.write(struct.pack('I', sign_alg))
++
++        with open(key_file_path, 'rb') as key_file:
++            out_file.write(key_file.read(32))
++
++        with open(iv_file_path, 'rb') as iv_file:
++            out_file.write(iv_file.read(16))
++
++    os.chmod(out_file_path, stat.S_IWUSR | stat.S_IRUSR)
++    return
++
++
++def encrypt_aes_key(pubkey_path, in_path, out_path):
++    cmd = "openssl rsautl -encrypt -pubin -oaep -inkey {} -in {} -out {}". \
++        format(pubkey_path, in_path, out_path)
++    try:
++        subprocess.check_output(cmd.split(), shell=False)
++    except Exception:
++        print("RSA encrypt operation failed")
++        raise RuntimeError
++    os.chmod(out_path, stat.S_IWUSR | stat.S_IRUSR)
++    return
++
++def gen_signature(cfg, uuid_str, raw_data_path, hash_file_path, out_file_path):
++    gen_ta_signature(cfg, uuid_str, raw_data_path, hash_file_path, out_file_path)
++    os.chmod(out_file_path, stat.S_IWUSR | stat.S_IRUSR)
++    return
++
++def gen_raw_data(manifest_data_path, manifest_ext_path, elf_file_path, \
++        config_path, raw_file_path):
++    manifest_size = os.path.getsize(manifest_data_path)
++    manifest_ext_size = os.path.getsize(manifest_ext_path)
++    elf_size = os.path.getsize(elf_file_path)
++    config_size = 0
++
++    if manifest_ext_size > MAX_EXT_PROP_LEN:
++        print("too much data in \"manifest.txt\" to be handled. \
++                extra string len %d" \
++                % manifest_ext_size)
++        raise RuntimeError
++
++    verify_elf_header(elf_file_path)
++
++    with open(raw_file_path, 'wb') as file_op:
++        header = ""
++        if os.path.isfile(config_path):
++            config_size = os.path.getsize(config_path)
++        header = struct.pack('IIIII', TA_VERSION, manifest_size, \
++                manifest_ext_size, \
++                elf_size, config_size)
++        file_op.write(header)
++
++        with open(manifest_data_path, 'rb') as manifest_data:
++            file_op.write(manifest_data.read(manifest_size))
++
++        with open(manifest_ext_path, 'rb') as manifest_ext:
++            file_op.write(manifest_ext.read(manifest_ext_size))
++
++        with open(elf_file_path, 'rb') as elf:
++            file_op.write(elf.read(elf_size))
++        if config_size != 0:
++            with open(config_path, 'rb') as config:
++                file_op.write(config.read(config_size))
++    return
++
++
++def aes_encrypt(key_path, iv_path, in_file_path, out_file_path):
++    key_size = os.path.getsize(key_path)
++    with open(key_path, 'rb') as key_file:
++        key_data = key_file.read(key_size)
++    hex_key_str = binascii.b2a_hex(key_data)
++
++    iv_size = os.path.getsize(iv_path)
++    with open(iv_path, 'rb') as iv_file:
++        iv_data = iv_file.read(iv_size)
++    hex_iv_str = binascii.b2a_hex(iv_data)
++
++    cmd = "openssl enc -aes-256-cbc  -in {}  -out {}  -K {} -iv {}".\
++                 format(in_file_path, out_file_path, \
++                 bytes.decode(hex_key_str), bytes.decode(hex_iv_str))
++    try:
++        subprocess.check_output(cmd.split(), shell=False)
++    except Exception:
++        print("AES encrypt operation failed")
++        raise RuntimeError
++
++    os.chmod(out_file_path, stat.S_IWUSR | stat.S_IRUSR)
++    return
++
++def update_api_level(api_level, manifest):
++    data = ''
++    with open(manifest, 'r') as file_op:
++        for line in file_op:
++            if line.startswith("#") or not "gpd.ta.api_level" in line:
++                data += line
++    line = "\ngpd.ta.api_level:{}\n".format(api_level)
++    data += line
++    with open(manifest, "w") as file_op:
++        file_op.writelines(data)
++
++
++def update_otrp_flag(manifest):
++    data = ''
++    with open(manifest, 'r') as file_op:
++        for line in file_op:
++            if line.startswith("#") or not "gpd.ta.otrp_flag" in line:
++                data += line
++    line = "\ngpd.ta.otrp_flag:{}\n".format('true')
++    data += line
++    with open(manifest, "w") as file_op:
++        file_op.writelines(data)
++
++
++def gen_data_for_sign(header, key_info, raw_file, data_sign):
++    key_info_len = os.path.getsize(key_info)
++    raw_file_len = os.path.getsize(raw_file)
++
++    with open(data_sign, 'wb') as data_fp, \
++            open(key_info, 'rb') as key_fp, open(raw_file, 'rb') as raw_fp:
++        data_fp.write(header)
++        data_fp.write(key_fp.read(key_info_len))
++        data_fp.write(raw_fp.read(raw_file_len))
++
++
++def gen_key_version(cfg):
++    if cfg.pub_key_len == '3072':
++        return int(0x0202)
++    if cfg.pub_key_len == '2048':
++        return int(0x0002)
++    print("unhandled pulic key len %s" % cfg.pub_key_len)
++    raise RuntimeError
++
++
++def generate_digest(cfg, api_level, enclave_file,  manifest_file, hash_path, enc_key_path, enc_raw_path):
++    # temporary files
++    in_path = os.path.dirname(os.path.abspath(manifest_file))
++    temp_path = os.path.join(in_path, "temp")
++    shutil.rmtree(temp_path, ignore_errors=True)
++    os.mkdir(temp_path)
++    os.chmod(temp_path, stat.S_IRWXU)
++    iv_file_path = os.path.join(temp_path, "iv.bin")
++    key_file_path = os.path.join(temp_path, "aeskey.bin")
++    key_info_path = os.path.join(temp_path, "KeyInfo")
++    raw_file_path = os.path.join(temp_path, "rawData")
++    manifest_data_path = os.path.join(temp_path, "manifestData.bin")
++    manifest_ext_path = os.path.join(temp_path, "manifestExt.bin")
++    data_for_sign_path = os.path.join(temp_path, "dataForSign.bin")
++    signature_path = os.path.join(temp_path, "signature.bin")
++
++    # mandentory input files
++    manifest_path = manifest_file
++    elf_file_path = enclave_file
++    
++    ret, product_name = parser_manifest(manifest_path, \
++            manifest_data_path, manifest_ext_path)
++    if ret is False:
++        raise RuntimeError
++
++    update_api_level(api_level, manifest_ext_path)
++
++    if cfg.otrp_flag == 1:
++        print("package otrp sec file\n")
++        update_otrp_flag(manifest_ext_path)
++
++    gen_raw_data(manifest_data_path, manifest_ext_path, elf_file_path, \
++            cfg.config_path, raw_file_path)
++
++    # generate AES key info to encrypt raw data
++    gen_aes_key_info(cfg, iv_file_path, key_file_path, key_info_path)
++    encrypt_aes_key(cfg.public_key, key_info_path, enc_key_path)
++
++    aes_encrypt(key_file_path, iv_file_path, raw_file_path, enc_raw_path)
++
++    # generate Main Header
++    content_len = os.path.getsize(enc_key_path) + \
++            (int(cfg.sign_key_len) / 8) + \
++            os.path.getsize(enc_raw_path)
++    key_version = gen_key_version(cfg)
++    header = gen_header(int(content_len), key_version)
++
++    gen_data_for_sign(header, key_info_path, raw_file_path, data_for_sign_path)
++    
++    gen_hash(cfg.hash_type, data_for_sign_path, hash_path)
++    
++    #remove temp files
++    os.remove(iv_file_path)
++    os.remove(key_file_path)
++    os.remove(key_info_path)
++    os.remove(raw_file_path)
++    os.remove(manifest_data_path)
++    os.remove(manifest_ext_path)
++    os.remove(data_for_sign_path)
++    return
++
++def gen_sec_image(cfg, enc_raw_path, enc_key_path, signature_path, out_file):
++    content_len = os.path.getsize(enc_key_path) + \
++            (int(cfg.sign_key_len) / 8) + \
++            os.path.getsize(enc_raw_path)
++    key_version = gen_key_version(cfg)
++    header = gen_header(int(content_len), key_version)
++    sec_img_path = out_file
++    with open(sec_img_path, 'wb') as sec_image:
++        # write to sec file [1.header info]
++        sec_image.write(header)
++        # write to sec file [2.AES key info]
++        enc_key_size = os.path.getsize(enc_key_path)
++        with open(enc_key_path, 'rb') as enc_key_info:
++            sec_image.write(enc_key_info.read(enc_key_size))
++        # write to sec file [3.signature]
++        signature_size = os.path.getsize(signature_path)
++        with open(signature_path, 'rb') as signature_file:
++            sec_image.write(signature_file.read(signature_size))
++        # write to sec file [4.encrypted raw data]
++        enc_raw_size = os.path.getsize(enc_raw_path)
++        with open(enc_raw_path, 'rb') as enc_raw_data:
++            sec_image.write(enc_raw_data.read(enc_raw_size))
++
++    print("=========================SUCCESS============================")
++    print("generate TA(V3 format) load image success: ")
++    print(sec_img_path)
++    print("============================================================")
++
++    return
++
++
++def main():
++    argvs = sys.argv
++    cmd = argvs[1]
++    one_step_mode = int(argvs[2])
++    enclave_path = argvs[3]
++    out_file = argvs[4]
++    manifest_file = argvs[5]
++    cloud_config = argvs[6]
++    cfg = Configuration(cloud_config)
++    api_level = int(argvs[7])
++
++    os.umask(127)
++    
++    in_path = os.path.dirname(os.path.abspath(cloud_config))
++    temp_path = os.path.join(in_path, "temp")
++    enc_key_path = os.path.join(temp_path, "KeyInfo.enc")
++    enc_raw_path = os.path.join(temp_path, "rawData.enc")
++    hash_path = os.path.join(temp_path, "rawDataHash.bin")
++    temp_signature = os.path.join(temp_path, "tempSignature")
++    
++    sign_tool_dir = os.path.dirname(os.path.abspath(__file__))
++    os.chdir(sign_tool_dir)    
++    if cmd == "digest":
++        generate_digest(cfg, api_level, enclave_path, manifest_file, hash_path, enc_key_path, enc_raw_path)
++        shutil.copy(hash_path, out_file)
++    elif cmd == "sign":
++        if one_step_mode == 0:
++            in_signature = argvs[8]
++            gen_sec_image(cfg, enc_raw_path, enc_key_path, in_signature, out_file)
++        else:
++            generate_digest(cfg,  api_level, enclave_path, manifest_file, hash_path, enc_key_path, enc_raw_path)
++            gen_ta_signature(cfg, hash_path, temp_signature)
++            in_signature = temp_signature
++            gen_sec_image(cfg, enc_raw_path, enc_key_path, in_signature, out_file)
++            os.remove(temp_signature)
++        os.remove(enc_key_path)
++        os.remove(enc_raw_path)
++        os.remove(hash_path)   
++        #remove temp files
++        shutil.rmtree(temp_path)
++
++
++if __name__ == '__main__':
++    main()
++
+-- 
+2.27.0
+
