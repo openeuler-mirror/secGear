@@ -1,0 +1,29 @@
+From 4fe112079e599cf779dacde08181f22ad62ede51 Mon Sep 17 00:00:00 2001
+From: blue <jingood@yeah.net>
+Date: Thu, 29 Apr 2021 20:53:21 +0800
+Subject: [PATCH 10/14] Change to use the milestone picture with English
+
+---
+ README.en.md | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/README.en.md b/README.en.md
+index 4df13b0..aa8c4a8 100644
+--- a/README.en.md
++++ b/README.en.md
+@@ -1,4 +1,4 @@
+-﻿<img src="docs/logo.png" alt="secGear" style="zoom:100%;" />
++<img src="docs/logo.png" alt="secGear" style="zoom:100%;" />
+ 
+ secGear
+ ============================
+@@ -502,5 +502,5 @@ secGear introduce the signing tool to sign the enclave.
+ 
+ Milestone
+ ---------
+-<img src="docs/milestone.png" alt="secGear" style="zoom:80%;" />
++<img src="docs/milestone_en.png" alt="secGear" style="zoom:80%;" />
+ 
+-- 
+2.27.0
+

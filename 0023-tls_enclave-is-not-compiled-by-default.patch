@@ -1,0 +1,25 @@
+From 90df8d9c0ac4ee7cbe24971ed4a8c4c6ac86c3b1 Mon Sep 17 00:00:00 2001
+From: yanlu <yanlu14@huawei.com>
+Date: Thu, 15 Apr 2021 11:49:27 +0800
+Subject: [PATCH 06/14] tls_enclave is not compiled by default
+
+---
+ CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1653287..b1fe4a4 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -57,7 +57,7 @@ endif()
+ if(CC_SGX)
+     add_subdirectory(${LOCAL_ROOT_PATH}/examples/helloworld)
+     add_subdirectory(${LOCAL_ROOT_PATH}/examples/seal_data)
+-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/tls_enclave)
++#    add_subdirectory(${LOCAL_ROOT_PATH}/examples/tls_enclave)
+ endif()
+ 
+ install(FILES ${LOCAL_ROOT_PATH}/conf/logrotate.d/secgear
+-- 
+2.27.0
+
