@@ -129,7 +129,7 @@ fi
 itrustee_start_sign(){
 #    check_native_sign
     if [ -z $A_CONFIG_FILE ]; then
-        echo "Error: missing config file for signing iTrustee enclave"
+        echo "Error: missing additional config_cloud.ini file for signing iTrustee enclave"
         exit -1
     fi
 
@@ -137,7 +137,7 @@ itrustee_start_sign(){
         if [ -z $SIGNATURE ]; then
             ONE_STEP_MODE=1
             if [ -z $CONFIG_FILE ]; then
-                echo "Error: missing config file for signing iTrustee enclave"
+                echo "Error: missing basic config file for signing iTrustee enclave"
                 exit -1
             fi
             if [ -z $IN_ENCLAVE ]; then
