@@ -24,22 +24,21 @@
 #define PRINT_STRACE 2
 #define PRINT_DEBUG 3
 
-#define PrintInfo(level, fmt, args...)                                                      \
-    if (level <= PRINT_LEVEL) {                                                             \
-        switch (level) {                                                                    \
-            case 0:                                                                         \
-                SLog("%s %s: " fmt "\n", "[secGear][ERROR]", __FUNCTION__, ## args);   \
-                break;                                                                      \
-            case 1:                                                                         \
-                SLog("%s %s: " fmt "\n", "[secGear][WARNING]", __FUNCTION__, ## args); \
-                break;                                                                      \
-            case 2:                                                                         \
-                SLog("%s %s: " fmt "\n", "[secGear][STRACE]", __FUNCTION__, ## args);  \
-                break;                                                                      \
-            default:                                                                        \
-                SLog("%s %s: " fmt "\n", "[secGear][DEBUG]", __FUNCTION__, ## args);   \
-        }                                                                                   \
+#define PrintInfo(level, fmt, args...)                               \
+    if (level <= PRINT_LEVEL) {                                      \
+        switch (level) {                                             \
+            case 0:                                                  \
+                SLog("%s " fmt "\n", "[secGear][ERROR]", ## args);   \
+                break;                                               \
+            case 1:                                                  \
+                SLog("%s " fmt "\n", "[secGear][WARNING]", ## args); \
+                break;                                               \
+            case 2:                                                  \
+                SLog("%s " fmt "\n", "[secGear][STRACE]", ## args);  \
+                break;                                               \
+            default:                                                 \
+                SLog("%s " fmt "\n", "[secGear][DEBUG]", ## args);   \
+        }                                                            \
     }
-
 
 #endif
