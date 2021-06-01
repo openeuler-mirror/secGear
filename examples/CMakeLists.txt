@@ -12,6 +12,7 @@ if(CC_GP)
 		COMMAND cp ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee/*.h ${CMAKE_BINARY_DIR}/inc/secGear/)
 	add_subdirectory(seal_data)
 	add_subdirectory(helloworld)
+	#add_subdirectory(lrt)
 endif()
 
 if(CC_SGX)

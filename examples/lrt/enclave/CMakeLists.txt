@@ -28,9 +28,9 @@ if(CC_GP)
     #set signed output
     set(OUTPUT ${UUID}.sec)
     #set whilelist. default: /vendor/bin/teec_hello
-    set(WHITE_LIST_0 /vendor/bin/helloworld)
+    set(WHITE_LIST_0 /vendor/bin/lrt)
     set(WHITE_LIST_OWNER root)
-    set(WHITE_LIST_1 /vendor/bin/secgear_helloworld)
+    set(WHITE_LIST_1 /vendor/bin/secgear_lrt)
     set(WHITELIST WHITE_LIST_0 WHITE_LIST_1)
 
     set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
@@ -55,7 +55,7 @@ set(COMMON_C_FLAGS "-W -Wall -Werror  -fno-short-enums  -fno-omit-frame-pointer 
 set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
 
 if(CC_GP)
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt.in" "${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt")
+	#   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt.in" "${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt")
 
     set(CMAKE_C_FLAGS "${COMMON_C_FLAGS}  -march=armv8-a ")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s -fPIC")
@@ -99,8 +99,15 @@ if(CC_GP)
 
     add_custom_command(TARGET ${PREFIX}
 	      POST_BUILD
-              COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt 
-	      		-o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
+	      # COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}
+	      COMMAND bash ${SIGN_TOOL} -d digest -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt
+	      -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/temp_hash
+	      COMMAND openssl rsautl -sign -inkey ${CMAKE_CURRENT_SOURCE_DIR}/cert/private_key.pem  -in ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/temp_hash -out ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/temp_signature
+	      COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -s ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/temp_signature -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}
+	      # COMMAND rm -rf  ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/temp_hash
+	      #COMMAND rm -rf ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/temp_signature
+	      )
+
 
     install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}  
         DESTINATION /data

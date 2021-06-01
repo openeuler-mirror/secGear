@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <linux/limits.h>
+#include <string.h>
 #include "enclave.h"
 #include "lrt_u.h"
 
