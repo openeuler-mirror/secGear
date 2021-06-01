@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
       - name: hell_lifeng
-        image: secgear_hello
+        image: hub.oepkgs.net/lifeng2221dd1/hello_secgear:v1.0
         imagePullPolicy: IfNotPresent
         name: helloworld
         resources:
