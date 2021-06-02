@@ -33,9 +33,9 @@ typedef enum _enclave_state {
 /*the ops function structure is used to ecall, create, and destroy specific enclave*/
 struct cc_enclave_ops {
     cc_enclave_result_t (*cc_create_enclave)(
-		    cc_enclave_t **enclave, 
-		    const enclave_features_t *features,
-		    const uint32_t features_count);
+                    cc_enclave_t *enclave, 
+                    const enclave_features_t *features,
+                    const uint32_t features_count);
 
     cc_enclave_result_t (*cc_destroy_enclave)(cc_enclave_t *enclave);
 
@@ -83,12 +83,12 @@ typedef struct _list_ops_management {
 } list_ops_management;
 
 /*enclave engine register, unregister function*/
-typedef cc_enclave_result_t (*p_tee_registered)(cc_enclave_t **context, void *handle);
+typedef cc_enclave_result_t (*p_tee_registered)(cc_enclave_t *context, void *handle);
 typedef cc_enclave_result_t (*p_tee_unregistered)(cc_enclave_t *context, enclave_type_version_t type);
 
 
 /*creating enclave, first check in the list whether this engine has been added */
-uint32_t look_tee_in_list(enclave_type_version_t type, cc_enclave_t **);
+uint32_t look_tee_in_list(enclave_type_version_t type, cc_enclave_t *);
 
 enclave_type_version_t match_tee_type_version(enclave_type_t type, uint32_t version);
 
@@ -101,7 +101,7 @@ cc_enclave_result_t find_engine_registered(void *handle, p_tee_registered *p_fun
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 /*each engine needs to implement registered, and the unregistered function declaration*/
-CC_API_SPEC cc_enclave_result_t cc_tee_registered(cc_enclave_t **context, void *handle);
+CC_API_SPEC cc_enclave_result_t cc_tee_registered(cc_enclave_t *context, void *handle);
 CC_API_SPEC cc_enclave_result_t cc_tee_unregistered(cc_enclave_t *context, enclave_type_version_t type_version);
 CC_API_SPEC void add_ops_list(struct list_ops_desc *node);
 CC_API_SPEC void remove_ops_list(const struct list_ops_desc *node);

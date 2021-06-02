@@ -49,6 +49,20 @@ let get_param_count (pt: parameter_type) =
 let set_call_user_func (fd : func_decl) = 
     [
         "/* Call the cc_enclave function */";
+        "if (!enclave) {";
+        "    ret = CC_ERROR_BAD_PARAMETERS;";
+        "    goto exit;";
+        "}";
+        "if (pthread_rwlock_rdlock(&enclave->rwlock)) {";
+        "    ret = CC_ERROR_BUSY;";
+        "    goto exit;";
+        "}";
+        "if (!enclave->list_ops_node || !enclave->list_ops_node->ops_desc ||";
+        "         !enclave->list_ops_node->ops_desc->ops ||";
+        "         !enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave) {";
+        "    ret = CC_ERROR_BAD_PARAMETERS;";
+        "    goto exit;";
+        "}";
         "if ((ret = enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave(";
         "         enclave,";
         sprintf "         fid_%s," fd.fname;
@@ -57,8 +71,13 @@ let set_call_user_func (fd : func_decl) =
         "         out_buf,";
         "         out_buf_size,";
         "         &ms,";
-        "         &ocall_table)) != CC_SUCCESS)";
+        "         &ocall_table)) != CC_SUCCESS) {";
+        "    pthread_rwlock_unlock(&enclave->rwlock);";
+        "    goto exit; }";
+        "if (pthread_rwlock_unlock(&enclave->rwlock)) {";
+        "    ret = CC_ERROR_BUSY;";
         "    goto exit;";
+        "}";
     ]
 
 let set_ecall_func_arguments (fd : func_decl) =

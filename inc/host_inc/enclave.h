@@ -74,13 +74,13 @@ typedef struct _enclave {
  * hrough this attribute
  * */
 CC_API_SPEC cc_enclave_result_t cc_enclave_create(
-		const char *path, 
-		enclave_type_t type,
-		uint32_t version, 
-		uint32_t flags, 
-		const enclave_features_t *features, 
-		const uint32_t features_count,
-		cc_enclave_t  **enclave);
+                const char *path, 
+                enclave_type_t type,
+                uint32_t version, 
+                uint32_t flags, 
+                const enclave_features_t *features, 
+                const uint32_t features_count,
+                cc_enclave_t  *enclave);
 
 CC_API_SPEC cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context);
 

@@ -34,9 +34,8 @@ static void check_dlopen_engine(p_tee_unregistered unregistered_func, cc_enclave
     pthread_mutex_unlock(&(g_list_ops.mutex_work));
 }
 
-
-static void error_handle(cc_enclave_t **l_context, void *handle, p_tee_registered registered_func,
-		p_tee_unregistered unregistered_func, cc_enclave_t ***enclave, char* path, bool check)
+static void error_handle(cc_enclave_t *l_context, void *handle, p_tee_registered registered_func,
+                         p_tee_unregistered unregistered_func, char* path, bool check)
 {
     cc_enclave_result_t tmp_res;
     if (check == true) {
@@ -46,19 +45,19 @@ static void error_handle(cc_enclave_t **l_context, void *handle, p_tee_registere
         pthread_mutex_unlock(&(g_list_ops.mutex_work));
     }
     /* in list find engine: handle is null and l_context is not null */
-    if (*l_context != NULL && (*l_context)->list_ops_node && !handle) {
-        tmp_res = find_engine_registered((*l_context)->list_ops_node->ops_desc->handle, NULL, &unregistered_func);
+    if (l_context != NULL && l_context->list_ops_node && !handle) {
+        tmp_res = find_engine_registered(l_context->list_ops_node->ops_desc->handle, NULL, &unregistered_func);
         if (tmp_res != CC_SUCCESS) {
             print_error_term("Can not find unregistered in the failed exit phase\n");
         } else {
-            check_dlopen_engine(unregistered_func, *l_context);
+            check_dlopen_engine(unregistered_func, l_context);
         }
     }
     /* handle is not null, means dlopen is ok */
     if (handle) {
         /* check if registered invoke success */
-        if ((*l_context) != NULL && registered_func && unregistered_func && (*l_context)->list_ops_node) {
-            check_dlopen_engine(unregistered_func,*l_context);
+        if (l_context != NULL && registered_func && unregistered_func && l_context->list_ops_node) {
+            check_dlopen_engine(unregistered_func, l_context);
         } else {
             /* means registered func invoke fail OR find_engine_registered fail */
             dlclose(handle);
@@ -66,14 +65,6 @@ static void error_handle(cc_enclave_t **l_context, void *handle, p_tee_registere
     }
     if (path) {
         free(path);
-    }
-
-    if (*l_context) {
-        free(*l_context);
-    }
-    *l_context = NULL;
-    if (*enclave != NULL) {
-    	**enclave = NULL;
     }
 }
 
@@ -107,9 +98,9 @@ done:
  *  uses the currently unsupported bit. the simulation feature and the debug mode only supports sgx
  */
 static bool check_flag(cc_enclave_result_t *res, const char *path, uint32_t flags, const enclave_features_t *features,
-    const uint32_t features_count, cc_enclave_t **enclave)
+    const uint32_t features_count, cc_enclave_t *enclave)
 {
-    if (enclave == NULL || (*enclave != NULL && (*enclave)->used_flag == true)) {
+    if (enclave == NULL || (enclave != NULL && enclave->used_flag == true)) {
         *res = CC_ERROR_INVALID_ENCLAVE_ID;
         return false;
     }
@@ -137,18 +128,6 @@ static bool chose_engine_type(cc_enclave_result_t *res, enclave_type_t type, uin
         print_error_term("Type and version parameter error\n");
         return false;
     }
-    return true;
-}
-
-static bool allocate_context_memory(cc_enclave_result_t *res, cc_enclave_t **l_context)
-{
-    *l_context = (cc_enclave_t *)malloc(sizeof(cc_enclave_t));
-    if (*l_context == NULL) {
-        *res = CC_ERROR_OUT_OF_MEMORY;
-        print_error_term("Memory out \n");
-        return false;
-    }
-    memset(*l_context, 0, sizeof(cc_enclave_t));
     return true;
 }
 
@@ -182,7 +161,7 @@ static bool check_transform_path(cc_enclave_result_t *res, const char *path, cha
 
 /* The enclave variable is the output context when successfully created */
 cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uint32_t version, uint32_t flags,
-    const enclave_features_t *features, const uint32_t features_count, cc_enclave_t **enclave)
+    const enclave_features_t *features, const uint32_t features_count, cc_enclave_t *enclave)
 {
     int32_t  ires   = 0;
     uint32_t uires  = 0;
@@ -191,7 +170,6 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
     char *l_path     = NULL;
 
     cc_enclave_result_t res;
-    cc_enclave_t *l_context = NULL;
     enclave_type_version_t type_version;
 
     p_tee_registered   registered_func  = NULL;
@@ -208,8 +186,8 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
         return res;
     }
 
-    if (!check_transform_path(&res, path, &l_path) || !chose_engine_type(&res, type, version, &type_version)
-    || !allocate_context_memory(&res, &l_context)) {
+    memset(enclave, 0, sizeof(cc_enclave_t));
+    if (!check_transform_path(&res, path, &l_path) || !chose_engine_type(&res, type, version, &type_version)) {
         goto done;
     }
 
@@ -220,11 +198,11 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
     
     /* initialize the context */
 
-    pthread_rwlock_init(&(l_context->rwlock), NULL);
-    l_context->path  = l_path;
-    l_context->flags = flags;
-    l_context->type  = type_version;
-    l_context->used_flag = true;
+    pthread_rwlock_init(&(enclave->rwlock), NULL);
+    enclave->path  = l_path;
+    enclave->flags = flags;
+    enclave->type  = type_version;
+    enclave->used_flag = true;
 
     /* if an enclave is created multiple times, first find it in the global list,
      * maybe the information about this engine has been filled in the list 
@@ -232,7 +210,7 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
     ires = pthread_mutex_lock(&(g_list_ops.mutex_work));
     SECGEAR_CHECK_MUTEX_RES_CC(ires, res);
     if (g_list_ops.count > 0) {
-        uires = look_tee_in_list(type_version, &l_context);
+        uires = look_tee_in_list(type_version, enclave);
     }
     ires = pthread_mutex_unlock(&(g_list_ops.mutex_work));
     SECGEAR_CHECK_MUTEX_RES_CC(ires, res);
@@ -252,7 +230,7 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
         res = find_engine_registered(handle, &registered_func, &unregistered_func);
         SECGEAR_CHECK_RES_UNLOCK(res);
 
-        res = (*registered_func)(&l_context, handle);
+        res = (*registered_func)(enclave, handle);
         SECGEAR_CHECK_RES_UNLOCK(res);
 
         ires = pthread_mutex_unlock(&(g_list_ops.mutex_work));
@@ -260,10 +238,9 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
     }
 
     /* call the registered function of each engine */
-    *enclave = l_context;
-    if (l_context->list_ops_node != NULL && l_context->list_ops_node->ops_desc->ops->cc_create_enclave != NULL) {
+    if (enclave->list_ops_node != NULL && enclave->list_ops_node->ops_desc->ops->cc_create_enclave != NULL) {
         /* failure of this function will not bring out additional memory that needs to be managed */
-        res = l_context->list_ops_node->ops_desc->ops->cc_create_enclave(enclave, features, features_count);
+        res = enclave->list_ops_node->ops_desc->ops->cc_create_enclave(enclave, features, features_count);
         SECGEAR_CHECK_RES(res);
     } else {
         print_error_goto("Enclave type version %d no valid ops function", type_version);
@@ -271,10 +248,9 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
 
     return CC_SUCCESS;
 done:
-    error_handle(&l_context, handle, registered_func, unregistered_func, &enclave, l_path, check);
+    error_handle(enclave, handle, registered_func, unregistered_func, l_path, check);
     return res;
 }
-
 
 cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
 {
@@ -289,7 +265,10 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
         return CC_ERROR_BAD_PARAMETERS;
     }
 
-    pthread_rwlock_wrlock(&(context->rwlock));
+    ires = pthread_rwlock_wrlock(&(context->rwlock));
+    if (ires) {
+        return CC_ERROR_BUSY;
+    }
     if (context->list_ops_node->ops_desc->ops->cc_destroy_enclave != NULL) {
         res = context->list_ops_node->ops_desc->ops->cc_destroy_enclave(context);
         SECGEAR_CHECK_RES(res);
@@ -302,7 +281,7 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
     SECGEAR_CHECK_RES(res);
 
     /* lock call unregistered func */
-    pthread_mutex_lock(&(g_list_ops.mutex_work));
+    ires = pthread_mutex_lock(&(g_list_ops.mutex_work));
     SECGEAR_CHECK_MUTEX_RES_CC(ires, res);
     /* call enclave engine free node */
     res = (*unregistered_funcc)(context, context->list_ops_node->ops_desc->type_version);
@@ -318,7 +297,7 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
     }
     /* free enclave number resources */
     g_list_ops.enclaveState.enclave_count--;
-    pthread_mutex_unlock(&(g_list_ops.mutex_work));
+    ires = pthread_mutex_unlock(&(g_list_ops.mutex_work));
     SECGEAR_CHECK_MUTEX_RES_CC(ires, res);
 
     res = CC_SUCCESS;
@@ -330,7 +309,6 @@ done:
         pthread_rwlock_unlock(&context->rwlock);
         pthread_rwlock_destroy(&context->rwlock);
         explicit_bzero(context, sizeof(cc_enclave_t));
-        free(context);
     }
     return res;
 }

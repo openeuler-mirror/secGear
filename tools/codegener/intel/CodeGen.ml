@@ -872,7 +872,11 @@ let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
   let sgx_ecall_fn = get_sgx_fname SGX_ECALL tf.Ast.tf_is_switchless in
 
   (* Normal case - do ECALL with marshaling structure*)
-  let ecall_with_ms = sprintf "if(!enclave || !enclave->list_ops_node || !enclave->list_ops_node->ops_desc ||\n\
+  let ecall_with_ms = sprintf "if(!enclave) \n\
+                    \t\treturn CC_ERROR_BAD_PARAMETERS;
+        if (pthread_rwlock_rdlock(&enclave->rwlock))\n\
+                    \t\treturn CC_ERROR_BUSY;
+        if (!enclave->list_ops_node || !enclave->list_ops_node->ops_desc ||\n\
                     \t\t!enclave->list_ops_node->ops_desc->ops || \n\
                     \t\t!enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave)\n\
                     \t\treturn CC_ERROR_BAD_PARAMETERS;
@@ -884,12 +888,17 @@ let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
                     \t\tNULL,\n\
                     \t\t0,\n\
                     \t\t&%s,\n\
-                    \t\t%s);\n" idx  ms_struct_val ocall_table_ptr in
+                    \t\t%s);
+        pthread_rwlock_unlock(&enclave->rwlock);\n" idx  ms_struct_val ocall_table_ptr in
 
   (* Rare case - the trusted function doesn't have parameter nor return value.
    * In this situation, no marshaling structure is required - passing in NULL.
    *)
-  let ecall_null = sprintf "if(!enclave || !enclave->list_ops_node || !enclave->list_ops_node->ops_desc ||\n\
+  let ecall_null = sprintf "if(!enclave) \n\
+                    \t\treturn CC_ERROR_BAD_PARAMETERS;
+        if (pthread_rwlock_rdlock(&enclave->rwlock))\n\
+                    \t\treturn CC_ERROR_BUSY;
+        if(!enclave || !enclave->list_ops_node || !enclave->list_ops_node->ops_desc ||\n\
                     \t\t!enclave->list_ops_node->ops_desc->ops || \n\
                     \t\t!enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave)\n\
                     \t\treturn CC_ERROR_BAD_PARAMETERS;
@@ -901,7 +910,8 @@ let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
                     \t\tNULL,\n\
                     \t\t0,\n\
                     \t\tNULL,\n\
-                    \t\t%s);\n" idx ocall_table_ptr
+                    \t\t%s);
+        pthread_rwlock_unlock(&enclave->rwlock);\n" idx ocall_table_ptr
   in
   let update_retval = sprintf "if (result == CC_SUCCESS && %s) *%s = %s.%s;"
                               retval_name retval_name ms_struct_val ms_retval_name in

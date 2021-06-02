@@ -62,9 +62,9 @@ if(CC_SGX)
 endif()
 
 if(CC_SIM)
-    target_link_libraries(${OUTPUT} secgearsim)
+    target_link_libraries(${OUTPUT} secgearsim pthread)
 else()
-    target_link_libraries(${OUTPUT} secgear)
+    target_link_libraries(${OUTPUT} secgear pthread)
 endif()
 set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
 
