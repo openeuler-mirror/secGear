@@ -4,7 +4,7 @@ The sign_tool.sh helps to sign the enclave.
 
 ## The sign_tool.sh
 
-The sign_tool.sh uses the 'sgx_sign' tool in SGX SDK for signing the sgx enclave and the 'signtool_v3.py' for signing the trustzone enclave.
+The sign_tool.sh uses the 'sgx_sign' tool in SGX SDK for signing the sgx enclave and the 'signtool_v3.py' for signing the trustzone enclave. When signing the trustzone enclave, it is recommended that use the absolute path to specify the file parameters, if provide a relative path, is should be a path relative to 'signtool_v3.py'.
 
 The tool supports the following two modes:
 
