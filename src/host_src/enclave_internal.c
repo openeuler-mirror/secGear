@@ -318,7 +318,7 @@ enclave_type_version_t match_tee_type_version(enclave_type_t type, uint32_t vers
 /* find return 1， otherwise 0
  * Lock: prevent it from being intercepted by other insertion
  * operations when searching, not in this function, but in the calling function */
-uint32_t look_tee_in_list(enclave_type_version_t type, cc_enclave_t **context)
+uint32_t look_tee_in_list(enclave_type_version_t type, cc_enclave_t *context)
 {
     uint32_t res = 0;
     struct list_ops_desc *p = g_list_ops.list_head;
@@ -328,7 +328,7 @@ uint32_t look_tee_in_list(enclave_type_version_t type, cc_enclave_t **context)
             /* this enclave ref +1 */
             ++(p->ops_desc->count);
             /* Assign the found node to the context */
-            (*context)->list_ops_node = p;
+            context->list_ops_node = p;
             break;
         }
         p = p->next;

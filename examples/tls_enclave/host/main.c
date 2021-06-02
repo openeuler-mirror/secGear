@@ -126,6 +126,10 @@ int main(int argc, const char *argv[])
 {
     char *path = PATH;
     cc_enclave_t *context = NULL;
+    context = (cc_enclave_t*)malloc(sizeof(cc_enclave_t));
+    if (!context) {
+        return CC_ERROR_OUT_OF_MEMORY;
+    }
     struct sockaddr_in client_addr;
     socklen_t client_len;
     int server_fd = -1;
@@ -147,7 +151,7 @@ int main(int argc, const char *argv[])
         return CC_FAIL;
     }
     printf("Create secgear enclave\n");
-    res = cc_enclave_create(path, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, &context);
+    res = cc_enclave_create(path, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, context);
     if (res != CC_SUCCESS) {
         printf("Create enclave error\n");
         goto end;

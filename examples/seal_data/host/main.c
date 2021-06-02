@@ -22,8 +22,7 @@ int main()
     char *path = PATH;
     char buf[BUF_LEN];
     cc_enclave_result_t res;
-    cc_enclave_t *context = NULL;
-
+    cc_enclave_t context = {0};
     printf("Create secgear enclave\n");
     res = cc_enclave_create(path, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, &context);
     if (res != CC_SUCCESS) {
@@ -31,18 +30,16 @@ int main()
         return res;
     }
 
-    res = seal_data_test_func(context, &retval, buf, BUF_LEN);
+    res = seal_data_test_func(&context, &retval, buf, BUF_LEN);
     if (res != CC_SUCCESS || retval != (int)CC_SUCCESS) {
         printf("Ecall enclave error\n");
     } else {
         printf("%s\n", buf);
     }
 
-    if (context != NULL) {
-        res = cc_enclave_destroy(context);
-        if(res != CC_SUCCESS) {
-            printf("Destroy enclave error\n");
-        }
+    res = cc_enclave_destroy(&context);
+    if(res != CC_SUCCESS) {
+        printf("Destroy enclave error\n");
     }
     return res;
 }
