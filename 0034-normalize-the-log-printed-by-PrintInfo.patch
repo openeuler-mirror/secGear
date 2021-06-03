@@ -1,0 +1,55 @@
+From 5a34d5f560f1b35b4ae8892e07ff852af1a7a38a Mon Sep 17 00:00:00 2001
+From: chenmaodong <chenmaodong@huawei.com>
+Date: Mon, 31 May 2021 14:26:34 +0800
+Subject: [PATCH 2/6] normalize the log printed by PrintInfo
+
+Signed-off-by: chenmaodong <chenmaodong@huawei.com>
+---
+ inc/enclave_inc/gp/itrustee/secgear_log.h | 31 +++++++++++------------
+ 1 file changed, 15 insertions(+), 16 deletions(-)
+
+diff --git a/inc/enclave_inc/gp/itrustee/secgear_log.h b/inc/enclave_inc/gp/itrustee/secgear_log.h
+index 2e27b05..819fa86 100644
+--- a/inc/enclave_inc/gp/itrustee/secgear_log.h
++++ b/inc/enclave_inc/gp/itrustee/secgear_log.h
+@@ -24,22 +24,21 @@
+ #define PRINT_STRACE 2
+ #define PRINT_DEBUG 3
+ 
+-#define PrintInfo(level, fmt, args...)                                                      \
+-    if (level <= PRINT_LEVEL) {                                                             \
+-        switch (level) {                                                                    \
+-            case 0:                                                                         \
+-                SLog("%s %s: " fmt "\n", "[secGear][ERROR]", __FUNCTION__, ## args);   \
+-                break;                                                                      \
+-            case 1:                                                                         \
+-                SLog("%s %s: " fmt "\n", "[secGear][WARNING]", __FUNCTION__, ## args); \
+-                break;                                                                      \
+-            case 2:                                                                         \
+-                SLog("%s %s: " fmt "\n", "[secGear][STRACE]", __FUNCTION__, ## args);  \
+-                break;                                                                      \
+-            default:                                                                        \
+-                SLog("%s %s: " fmt "\n", "[secGear][DEBUG]", __FUNCTION__, ## args);   \
+-        }                                                                                   \
++#define PrintInfo(level, fmt, args...)                               \
++    if (level <= PRINT_LEVEL) {                                      \
++        switch (level) {                                             \
++            case 0:                                                  \
++                SLog("%s " fmt "\n", "[secGear][ERROR]", ## args);   \
++                break;                                               \
++            case 1:                                                  \
++                SLog("%s " fmt "\n", "[secGear][WARNING]", ## args); \
++                break;                                               \
++            case 2:                                                  \
++                SLog("%s " fmt "\n", "[secGear][STRACE]", ## args);  \
++                break;                                               \
++            default:                                                 \
++                SLog("%s " fmt "\n", "[secGear][DEBUG]", ## args);   \
++        }                                                            \
+     }
+ 
+-
+ #endif
+-- 
+2.27.0
+
