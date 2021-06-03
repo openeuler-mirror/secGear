@@ -1,0 +1,99 @@
+From 7fceb33ffd6e4f09faa6ba717f80ba6a51591f36 Mon Sep 17 00:00:00 2001
+From: LiFeng <lifeng68@huawei.com>
+Date: Tue, 1 Jun 2021 16:38:18 +0800
+Subject: [PATCH 3/6] itrustee: add lrt support itrustee
+
+Signed-off-by: LiFeng <lifeng68@huawei.com>
+---
+ examples/CMakeLists.txt             |  1 +
+ examples/lrt/CMakeLists.txt         |  5 +++--
+ examples/lrt/enclave/CMakeLists.txt | 17 ++++++++++++-----
+ examples/lrt/host/main.c            |  1 +
+ 4 files changed, 17 insertions(+), 7 deletions(-)
+
+diff --git a/examples/CMakeLists.txt b/examples/CMakeLists.txt
+index cfd0171..07fc0fb 100644
+--- a/examples/CMakeLists.txt
++++ b/examples/CMakeLists.txt
+@@ -12,6 +12,7 @@ if(CC_GP)
+ 		COMMAND cp ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee/*.h ${CMAKE_BINARY_DIR}/inc/secGear/)
+ 	add_subdirectory(seal_data)
+ 	add_subdirectory(helloworld)
++	#add_subdirectory(lrt)
+ endif()
+ 
+ if(CC_SGX)
+diff --git a/examples/lrt/CMakeLists.txt b/examples/lrt/CMakeLists.txt
+index 9059590..45283a3 100644
+--- a/examples/lrt/CMakeLists.txt
++++ b/examples/lrt/CMakeLists.txt
+@@ -20,8 +20,9 @@ set(CODEGEN codegen)
+ 
+ if(CC_GP)
+     set(CODETYPE trustzone)
+-    execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
+-    string(REPLACE "\n" "" UUID ${UUID})
++    #    execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
++    #string(REPLACE "\n" "" UUID ${UUID})
++    set(UUID f68fd704-6eb1-4d14-b218-722850eb3ef0)
+     add_definitions(-DPATH="/data/${UUID}.sec")
+ endif()
+ 
+diff --git a/examples/lrt/enclave/CMakeLists.txt b/examples/lrt/enclave/CMakeLists.txt
+index 64494cc..acd1607 100644
+--- a/examples/lrt/enclave/CMakeLists.txt
++++ b/examples/lrt/enclave/CMakeLists.txt
+@@ -28,9 +28,9 @@ if(CC_GP)
+     #set signed output
+     set(OUTPUT ${UUID}.sec)
+     #set whilelist. default: /vendor/bin/teec_hello
+-    set(WHITE_LIST_0 /vendor/bin/helloworld)
++    set(WHITE_LIST_0 /vendor/bin/lrt)
+     set(WHITE_LIST_OWNER root)
+-    set(WHITE_LIST_1 /vendor/bin/secgear_helloworld)
++    set(WHITE_LIST_1 /vendor/bin/secgear_lrt)
+     set(WHITELIST WHITE_LIST_0 WHITE_LIST_1)
+ 
+     set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
+@@ -55,7 +55,7 @@ set(COMMON_C_FLAGS "-W -Wall -Werror  -fno-short-enums  -fno-omit-frame-pointer
+ set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
+ 
+ if(CC_GP)
+-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt.in" "${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt")
++	#   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt.in" "${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt")
+ 
+     set(CMAKE_C_FLAGS "${COMMON_C_FLAGS}  -march=armv8-a ")
+     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s -fPIC")
+@@ -99,8 +99,15 @@ if(CC_GP)
+ 
+     add_custom_command(TARGET ${PREFIX}
+ 	      POST_BUILD
+-              COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt 
+-	      		-o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
++	      # COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}
++	      COMMAND bash ${SIGN_TOOL} -d digest -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt
++	      -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/temp_hash
++	      COMMAND openssl rsautl -sign -inkey ${CMAKE_CURRENT_SOURCE_DIR}/cert/private_key.pem  -in ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/temp_hash -out ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/temp_signature
++	      COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -s ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/temp_signature -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}
++	      # COMMAND rm -rf  ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/temp_hash
++	      #COMMAND rm -rf ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/temp_signature
++	      )
++
+ 
+     install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}  
+         DESTINATION /data
+diff --git a/examples/lrt/host/main.c b/examples/lrt/host/main.c
+index ba078c7..92ff47a 100644
+--- a/examples/lrt/host/main.c
++++ b/examples/lrt/host/main.c
+@@ -13,6 +13,7 @@
+ #include <stdio.h>
+ #include <unistd.h>
+ #include <linux/limits.h>
++#include <string.h>
+ #include "enclave.h"
+ #include "lrt_u.h"
+ 
+-- 
+2.27.0
+

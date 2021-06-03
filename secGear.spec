@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	15%{?dist}
+Release:	16%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -41,7 +41,12 @@ Patch28:	0029-some-adaptations-for-trustzone.patch
 Patch29:	0030-fix-sgx-two-step-mode-bug-add-dump-command.patch
 Patch30:	0031-set-signtool_v3.py-path.patch
 Patch31:	0032-del-size_to_aligned_size.patch
-Patch32:	0033-fix-use-after-free-in-cc_enclave_create.patch
+Patch32:	0033-modify-the-error-information-when-missing-c-and-m.patch
+Patch33:	0034-normalize-the-log-printed-by-PrintInfo.patch
+Patch34:	0035-itrustee-add-lrt-support-itrustee.patch
+Patch35:	0036-enclave-use-the-can-pull-image-from-hub.oepkgs.net.patch
+Patch36:	0037-add-description-about-file-parameter-path-for-sign_t.patch
+Patch37:	0038-fix-use-after-free-in-cc_enclave_create.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune
@@ -154,6 +159,9 @@ popd
 %endif
 
 %changelog
+* Thu June 3 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-16
+- DESC: backport some patches from openeuler secGear
+
 * Wed June 2 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-15
 - DESC: fix uaf in cc_enclave_create
 
