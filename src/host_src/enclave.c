@@ -34,7 +34,7 @@ static void check_dlopen_engine(p_tee_unregistered unregistered_func, cc_enclave
     pthread_mutex_unlock(&(g_list_ops.mutex_work));
 }
 
-static void error_handle(cc_enclave_t *l_context, void *handle, p_tee_registered registered_func,
+static void error_handle(cc_enclave_t *enclave, void *handle, p_tee_registered registered_func,
                          p_tee_unregistered unregistered_func, char* path, bool check)
 {
     cc_enclave_result_t tmp_res;
@@ -45,19 +45,19 @@ static void error_handle(cc_enclave_t *l_context, void *handle, p_tee_registered
         pthread_mutex_unlock(&(g_list_ops.mutex_work));
     }
     /* in list find engine: handle is null and l_context is not null */
-    if (l_context != NULL && l_context->list_ops_node && !handle) {
-        tmp_res = find_engine_registered(l_context->list_ops_node->ops_desc->handle, NULL, &unregistered_func);
+    if (enclave != NULL && enclave->list_ops_node && !handle) {
+        tmp_res = find_engine_registered(enclave->list_ops_node->ops_desc->handle, NULL, &unregistered_func);
         if (tmp_res != CC_SUCCESS) {
             print_error_term("Can not find unregistered in the failed exit phase\n");
         } else {
-            check_dlopen_engine(unregistered_func, l_context);
+            check_dlopen_engine(unregistered_func, enclave);
         }
     }
     /* handle is not null, means dlopen is ok */
     if (handle) {
         /* check if registered invoke success */
-        if (l_context != NULL && registered_func && unregistered_func && l_context->list_ops_node) {
-            check_dlopen_engine(unregistered_func, l_context);
+        if (enclave != NULL && registered_func && unregistered_func && enclave->list_ops_node) {
+            check_dlopen_engine(unregistered_func, enclave);
         } else {
             /* means registered func invoke fail OR find_engine_registered fail */
             dlclose(handle);
@@ -65,6 +65,10 @@ static void error_handle(cc_enclave_t *l_context, void *handle, p_tee_registered
     }
     if (path) {
         free(path);
+    }
+
+    if (enclave) {
+        explicit_bzero(enclave, sizeof(cc_enclave_t));
     }
 }
 
