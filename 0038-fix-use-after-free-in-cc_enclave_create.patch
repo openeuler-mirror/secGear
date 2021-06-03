@@ -1,10 +1,10 @@
 From f82ae0a78901c62644a53257d72fbc932d350ed7 Mon Sep 17 00:00:00 2001
 From: chenmaodong <chenmaodong@huawei.com>
 Date: Wed, 2 Jun 2021 17:16:56 +0800
-Subject: [PATCH] fix use-after-free in cc_enclave_create The last parameter
- 'enclave' of cc_enclave_create will not be a double pointer, it'll be a
- single pointer now. Besides, the memory of parameter 'enclave' will malloc
- and free by users, you can check the example to find how to use it.
+Subject: [PATCH 6/6] fix use-after-free in cc_enclave_create The last
+ parameter 'enclave' of cc_enclave_create will not be a double pointer, it'll
+ be a single pointer now. Besides, the memory of parameter 'enclave' will
+ malloc and free by users, you can check the example to find how to use it.
 
 Signed-off-by: chenmaodong <chenmaodong@huawei.com>
 ---

@@ -1,0 +1,26 @@
+From ac2ccfb69c60dba6eb472d2d62da53f5890a07ce Mon Sep 17 00:00:00 2001
+From: yanlu <yanlu14@huawei.com>
+Date: Wed, 2 Jun 2021 15:04:34 +0800
+Subject: [PATCH 5/6] add description about file parameter path for
+ sign_tool.sh
+
+---
+ docs/sign_tool.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/docs/sign_tool.md b/docs/sign_tool.md
+index e6c6e3b..a092f19 100644
+--- a/docs/sign_tool.md
++++ b/docs/sign_tool.md
+@@ -4,7 +4,7 @@ The sign_tool.sh helps to sign the enclave.
+ 
+ ## The sign_tool.sh
+ 
+-The sign_tool.sh uses the 'sgx_sign' tool in SGX SDK for signing the sgx enclave and the 'signtool_v3.py' for signing the trustzone enclave.
++The sign_tool.sh uses the 'sgx_sign' tool in SGX SDK for signing the sgx enclave and the 'signtool_v3.py' for signing the trustzone enclave. When signing the trustzone enclave, it is recommended that use the absolute path to specify the file parameters, if provide a relative path, is should be a path relative to 'signtool_v3.py'.
+ 
+ The tool supports the following two modes:
+ 
+-- 
+2.27.0
+
