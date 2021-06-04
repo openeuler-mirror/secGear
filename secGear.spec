@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	16%{?dist}
+Release:	17%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -47,6 +47,7 @@ Patch34:	0035-itrustee-add-lrt-support-itrustee.patch
 Patch35:	0036-enclave-use-the-can-pull-image-from-hub.oepkgs.net.patch
 Patch36:	0037-add-description-about-file-parameter-path-for-sign_t.patch
 Patch37:	0038-fix-use-after-free-in-cc_enclave_create.patch
+Patch38:	0039-clean-memory-when-it-come-to-error_handle.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune
@@ -159,6 +160,9 @@ popd
 %endif
 
 %changelog
+* Fri June 4 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-17
+- DESC: clean enclave memory when it comes to error_handle
+
 * Thu June 3 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-16
 - DESC: backport some patches from openeuler secGear
 

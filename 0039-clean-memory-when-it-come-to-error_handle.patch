@@ -1,0 +1,79 @@
+From 8b70a9d74bcbb07cd8f33664398b1e5a41a46033 Mon Sep 17 00:00:00 2001
+From: chenmaodong <chenmaodong@huawei.com>
+Date: Thu, 3 Jun 2021 21:01:34 +0800
+Subject: [PATCH] clean memory when it come to error_handle delete the rdlock
+ because we do it in proxy function in *_u.c
+
+Signed-off-by: chenmaodong <chenmaodong@huawei.com>
+---
+ src/host_src/enclave.c         | 16 ++++++++++------
+ src/host_src/sgx/sgx_enclave.c |  2 --
+ 2 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/src/host_src/enclave.c b/src/host_src/enclave.c
+index 4b75b6e..8d6c8a6 100644
+--- a/src/host_src/enclave.c
++++ b/src/host_src/enclave.c
+@@ -34,7 +34,7 @@ static void check_dlopen_engine(p_tee_unregistered unregistered_func, cc_enclave
+     pthread_mutex_unlock(&(g_list_ops.mutex_work));
+ }
+ 
+-static void error_handle(cc_enclave_t *l_context, void *handle, p_tee_registered registered_func,
++static void error_handle(cc_enclave_t *enclave, void *handle, p_tee_registered registered_func,
+                          p_tee_unregistered unregistered_func, char* path, bool check)
+ {
+     cc_enclave_result_t tmp_res;
+@@ -45,19 +45,19 @@ static void error_handle(cc_enclave_t *l_context, void *handle, p_tee_registered
+         pthread_mutex_unlock(&(g_list_ops.mutex_work));
+     }
+     /* in list find engine: handle is null and l_context is not null */
+-    if (l_context != NULL && l_context->list_ops_node && !handle) {
+-        tmp_res = find_engine_registered(l_context->list_ops_node->ops_desc->handle, NULL, &unregistered_func);
++    if (enclave != NULL && enclave->list_ops_node && !handle) {
++        tmp_res = find_engine_registered(enclave->list_ops_node->ops_desc->handle, NULL, &unregistered_func);
+         if (tmp_res != CC_SUCCESS) {
+             print_error_term("Can not find unregistered in the failed exit phase\n");
+         } else {
+-            check_dlopen_engine(unregistered_func, l_context);
++            check_dlopen_engine(unregistered_func, enclave);
+         }
+     }
+     /* handle is not null, means dlopen is ok */
+     if (handle) {
+         /* check if registered invoke success */
+-        if (l_context != NULL && registered_func && unregistered_func && l_context->list_ops_node) {
+-            check_dlopen_engine(unregistered_func, l_context);
++        if (enclave != NULL && registered_func && unregistered_func && enclave->list_ops_node) {
++            check_dlopen_engine(unregistered_func, enclave);
+         } else {
+             /* means registered func invoke fail OR find_engine_registered fail */
+             dlclose(handle);
+@@ -66,6 +66,10 @@ static void error_handle(cc_enclave_t *l_context, void *handle, p_tee_registered
+     if (path) {
+         free(path);
+     }
++
++    if (enclave) {
++        explicit_bzero(enclave, sizeof(cc_enclave_t));
++    }
+ }
+ 
+ /* Lock to check the number of enclave
+diff --git a/src/host_src/sgx/sgx_enclave.c b/src/host_src/sgx/sgx_enclave.c
+index aa26957..7b61ba8 100644
+--- a/src/host_src/sgx/sgx_enclave.c
++++ b/src/host_src/sgx/sgx_enclave.c
+@@ -201,10 +201,8 @@ cc_enclave_result_t cc_enclave_sgx_call_function(
+     (void)output_buffer_size;
+     sgx_status_t status;
+     cc_enclave_result_t cc_status;
+-    pthread_rwlock_rdlock(&(enclave->rwlock));
+     status = sgx_ecall(((sgx_context_t *)(enclave->private_data))->edi, (int)function_id, ocall_table, ms);
+     cc_status = conversion_res_status(status, enclave->type);
+-    pthread_rwlock_unlock(&(enclave->rwlock));
+     return cc_status;
+ }
+  
+-- 
+2.27.0
+
