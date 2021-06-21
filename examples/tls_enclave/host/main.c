@@ -125,11 +125,8 @@ int start_server(int port)
 int main(int argc, const char *argv[])
 {
     char *path = PATH;
-    cc_enclave_t *context = NULL;
-    context = (cc_enclave_t*)malloc(sizeof(cc_enclave_t));
-    if (!context) {
-        return CC_ERROR_OUT_OF_MEMORY;
-    }
+    cc_enclave_t context_data = {0};
+    cc_enclave_t *context = &context_data;
     struct sockaddr_in client_addr;
     socklen_t client_len;
     int server_fd = -1;
@@ -148,13 +145,16 @@ int main(int argc, const char *argv[])
     } 
     tlsc_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_len);
     if (tlsc_fd < 0) {
+        close(server_fd);
         return CC_FAIL;
     }
     printf("Create secgear enclave\n");
     res = cc_enclave_create(path, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, context);
     if (res != CC_SUCCESS) {
         printf("Create enclave error\n");
-        goto end;
+        close(tlsc_fd);
+        close(server_fd);
+        return CC_FAIL;
     }
     res = get_password_and_seal_key(context, argv[3], ENC_KEY_FILE_NAME);
     if (res !=  CC_SUCCESS) {
@@ -171,11 +171,9 @@ int main(int argc, const char *argv[])
     printf("enclve tls finish\n");
 
 end:
-    if (context != NULL) {
-        res = cc_enclave_destroy(context);
-        if(res != CC_SUCCESS) {
-            printf("Destroy enclave error\n");
-        }
+    res = cc_enclave_destroy(context);
+    if(res != CC_SUCCESS) {
+        printf("Destroy enclave error\n");
     }
     close(tlsc_fd);
     close(server_fd);
