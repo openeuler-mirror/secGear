@@ -24,11 +24,7 @@ int main()
     int  retval = 0;
     char *path = PATH;
     char buf[BUF_LEN];
-    cc_enclave_t *context = NULL;
-    context = (cc_enclave_t*)malloc(sizeof(cc_enclave_t));
-    if (!context) {
-        return CC_ERROR_OUT_OF_MEMORY;
-    }
+    cc_enclave_t context = {0};
     cc_enclave_result_t res;
 
     printf("Create secgear enclave\n");
@@ -47,14 +43,14 @@ int main()
 	    (void)strcat(real_p, "/enclave.signed.so");
     }
 
-    res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, context);
+    res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, &context);
     if (res != CC_SUCCESS) {
         printf("Create enclave error\n");
         return res;
     }
 
     while(true) {
-        res = get_string(context, &retval, buf);
+        res = get_string(&context, &retval, buf);
         if (res != CC_SUCCESS || retval != (int)CC_SUCCESS) {
             printf("Ecall enclave error\n");
             goto out;
@@ -65,11 +61,9 @@ int main()
     }
 
 out:
-    if (context != NULL) {
-        res = cc_enclave_destroy(context);
-        if(res != CC_SUCCESS) {
-            printf("Destroy enclave error\n");
-        }
+    res = cc_enclave_destroy(&context);
+    if(res != CC_SUCCESS) {
+        printf("Destroy enclave error\n");
     }
     return res;
 }
