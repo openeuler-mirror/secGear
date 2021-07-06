@@ -1,0 +1,25 @@
+From c9938ba0cf6b79b341efb18501827daea67c96ad Mon Sep 17 00:00:00 2001
+From: whzhe <wanghongzhe@huawei.com>
+Date: Thu, 11 Mar 2021 16:45:20 +0800
+Subject: [PATCH 5/6] fix error print
+
+---
+ tools/codegener/intel/Util.ml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/codegener/intel/Util.ml b/tools/codegener/intel/Util.ml
+index f5f9afc..a77637e 100644
+--- a/tools/codegener/intel/Util.ml
++++ b/tools/codegener/intel/Util.ml
+@@ -187,7 +187,7 @@ let get_file_path (fname: string) =
+     try
+       List.find Sys.file_exists fn_list
+     with
+-      Not_found -> failwithf "File not found within search paths: %s\n" fname
++      Not_found -> failwithf "File not found within search paths or search paths is permisson denied: %s\n" fname
+ 
+ (* Get the short name of the given file name.
+  * ------------------------------------------
+-- 
+2.27.0
+

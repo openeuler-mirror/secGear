@@ -1,0 +1,172 @@
+From 2f5b3b98d7c4705ef761e9898116b2206b7c6729 Mon Sep 17 00:00:00 2001
+From: Li Feng <lifeng68@huawei.com>
+Date: Tue, 13 Apr 2021 07:59:54 +0000
+Subject: [PATCH 09/14] example: add Dockerfile to build lrt example image
+
+Signed-off-by: Li Feng <lifeng68@huawei.com>
+---
+ examples/lrt/Dockerfile         | 33 +++++++++++++++++++
+ examples/lrt/device_plugin.yaml | 57 +++++++++++++++++++++++++++++++++
+ examples/lrt/enclave.yaml       | 46 ++++++++++++++++++++++++++
+ 3 files changed, 136 insertions(+)
+ create mode 100644 examples/lrt/Dockerfile
+ create mode 100644 examples/lrt/device_plugin.yaml
+ create mode 100644 examples/lrt/enclave.yaml
+
+diff --git a/examples/lrt/Dockerfile b/examples/lrt/Dockerfile
+new file mode 100644
+index 0000000..dadf2b7
+--- /dev/null
++++ b/examples/lrt/Dockerfile
+@@ -0,0 +1,33 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++# secGear is licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++# PURPOSE.
++# See the Mulan PSL v2 for more details.
++
++# steps to build example image:
++# 1. build the secGear project at host
++# 	# cd secGear/
++# 	# source environment
++# 	# source /opt/intel/sgxsdk/environment
++# 	# mkdir debug && cd debug
++#	# cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK=/opt/intel/sgxsdk ..
++# 	# make 
++# 2. build the example image
++# 	# cd ../examples/lrt/
++# 	# docker build -t secgear_hello -f ./Dockerfile ../../
++
++
++FROM hub.oepkgs.net/lifeng2221dd1/sgx_base_hw:latest
++
++COPY debug/lib/sgx/libsgx_0.so /lib64/
++COPY debug/lib/libsecgear.so /usr/lib/
++COPY debug/examples/lrt/host/secgear_lrt /home/
++COPY debug/examples/lrt/enclave/enclave.signed.so /home/
++
++WORKDIR /home
++
++ENTRYPOINT ["/home/secgear_lrt"]
+diff --git a/examples/lrt/device_plugin.yaml b/examples/lrt/device_plugin.yaml
+new file mode 100644
+index 0000000..9a470da
+--- /dev/null
++++ b/examples/lrt/device_plugin.yaml
+@@ -0,0 +1,57 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++# secGear is licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++# PURPOSE.
++# See the Mulan PSL v2 for more details.
++# steps to deploy device plugin:
++#       # cd secGear/
++#       # cd ./examples/lrt/
++#	# kubectl apply -f ./device_plugin.yaml
++
++apiVersion:  apps/v1
++kind: DaemonSet
++metadata:
++  name: sgx-device-plugin-ds
++  namespace: kube-system
++spec:
++  selector:
++    matchLabels:
++      k8s-app: sgx-device-plugin
++  template:
++    metadata:
++      annotations:
++        scheduler.alpha.kubernetes.io/critical-pod: ""
++      labels:
++        k8s-app: sgx-device-plugin
++    spec:
++      containers:
++      - image: hub.oepkgs.net/lifeng2221dd1/hw-ali-device-plugin:devel
++        imagePullPolicy: IfNotPresent
++        name: sgx-device-plugin
++        securityContext:
++          allowPrivilegeEscalation: false
++          capabilities:
++            drop:
++            - ALL
++        volumeMounts:
++        - mountPath: /var/lib/kubelet/device-plugins
++          name: device-plugin
++        - mountPath: /dev
++          name: dev
++      tolerations:
++      - effect: NoSchedule
++        key: alibabacloud.com/sgx_epc_MiB
++        operator: Exists
++      volumes:
++      - hostPath:
++          path: /var/lib/kubelet/device-plugins
++          type: DirectoryOrCreate
++        name: device-plugin
++      - hostPath:
++          path: /dev
++          type: Directory
++        name: dev
+diff --git a/examples/lrt/enclave.yaml b/examples/lrt/enclave.yaml
+new file mode 100644
+index 0000000..8efdada
+--- /dev/null
++++ b/examples/lrt/enclave.yaml
+@@ -0,0 +1,46 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++# secGear is licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++# PURPOSE.
++# See the Mulan PSL v2 for more details.
++# steps to deploy device plugin:
++#       # cd secGear/
++#       # cd ./examples/lrt/
++#       # kubectl apply -f ./enclave.yaml
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: helloworld
++  namespace: default
++spec:
++  replicas: 2
++  selector:
++    matchLabels:
++      app: helloworld
++  template:
++    metadata:
++      labels:
++        app: helloworld
++    spec:
++      containers:
++      - name: hell_lifeng
++        image: secgear_hello
++        imagePullPolicy: IfNotPresent
++        name: helloworld
++        resources:
++          limits:
++            cpu: 250m
++            memory: 512Mi
++            alibabacloud.com/sgx_epc_MiB: 2
++        volumeMounts:
++        - mountPath: /var/run/aesmd/aesm.socket
++          name: aesmsocket
++      volumes:
++      - hostPath:
++          path: /var/run/aesmd/aesm.socket
++          type: Socket
++        name: aesmsocket
+-- 
+2.27.0
+
