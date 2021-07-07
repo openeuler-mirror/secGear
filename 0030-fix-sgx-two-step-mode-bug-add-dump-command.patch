@@ -1,0 +1,234 @@
+From 583ac889ade73e8ffa96844dcc29a511e6c5a615 Mon Sep 17 00:00:00 2001
+From: yanlu <yanlu14@huawei.com>
+Date: Wed, 19 May 2021 15:45:24 +0800
+Subject: [PATCH 13/14] fix sgx two-step mode bug, add dump command
+
+---
+ docs/sign_tool.md                          | 49 +++++++++++++---------
+ examples/helloworld/enclave/CMakeLists.txt |  2 +-
+ examples/helloworld/host/CMakeLists.txt    |  8 ++--
+ examples/seal_data/enclave/CMakeLists.txt  |  2 +-
+ examples/seal_data/host/CMakeLists.txt     |  8 ++--
+ tools/sign_tool/sign_tool.sh               | 39 +++++++++--------
+ 6 files changed, 62 insertions(+), 46 deletions(-)
+
+diff --git a/docs/sign_tool.md b/docs/sign_tool.md
+index 399e4c5..e6c6e3b 100644
+--- a/docs/sign_tool.md
++++ b/docs/sign_tool.md
+@@ -4,7 +4,7 @@ The sign_tool.sh helps to sign the enclave.
+ 
+ ## The sign_tool.sh
+ 
+-The sign_tool.sh uses the 'sgx_sign' tool in SGX SDK for signing the sgx enclave and the 'sign_tool.py' for signing the trustzone enclave.
++The sign_tool.sh uses the 'sgx_sign' tool in SGX SDK for signing the sgx enclave and the 'signtool_v3.py' for signing the trustzone enclave.
+ 
+ The tool supports the following two modes:
+ 
+@@ -19,33 +19,44 @@ The tool supports the following two modes:
+ - two-step method, it is used when the signature needs to be obtained from the signing organization or the private key is stored on another secure platform.  
+ 
+     For example:  
+-    (1) generate the digest value.  
+-    `$ ./sign_tool.sh –d digest –x trustzone –i input -c manifest.txt -m config_cloud.ini –o digest.data `
++    (1) generate the signing material.  
++    `$ ./sign_tool.sh –d digest –x trustzone –i input -c manifest.txt -m config_cloud.ini –o signing.data `
+ 
+     For trustzone, temporary files KeyInfo.enc, rawData.enc, and rawDataHash.bin are generated in the current directory. And for sgx, a temporary file signdata is generated in the current directory. The temporary file is required when generating the signed enclave in step 3 and is deleted after the signed enclave is generated.  
+ 
+-    (2) send the digest.data to the signing organization or platform and get the signature.  
+-
+-    (3) use the signature to generate the signed enclave.  
+-    `$ ./sign_tool.sh –d sign –x trustzone –i input -c manifest.txt -m config_cloud.ini –s signature –o signed.enclave `
++    (2) send the signing.data to the signing organization or platform and get the signature.  
++    For trustzone, use rsautl command to sign the signing material.
++    
++	`$ openssl rsautl -sign -inkey sign_key.pem -in signing.data -out signature `
++	
++	For sgx, use dgst command to sign the signing material.
++    
++	`$ openssl dgst -sha256 -sign sign_key.pem -keyform PEM -out signature signing.data `
++    
++	(3) use the signature to generate the signed enclave.  
++    
++	`$ ./sign_tool.sh –d sign –x trustzone –i input -c manifest.txt -m config_cloud.ini –s signature –o signed.enclave `
+ 
+ ## sign_tool.sh parameter
+ 
+ ```
+     -c <file>       basic config file.
+-    -d <parameter>  sign tool command, sign/digest.
++    -d <parameter>  sign tool command, sign/digest/dump.
+                     The sign command is used to generate a signed enclave.
+-                    The digest command is used to generate a digest value.
+-    -i <file>       enclave to be signed.
+-    -k <file>       private key required for single-step method
+-    -m <file>       additional config_cloud.ini for trustzone.
+-    -o <file>       output parameters, the sign command outputs sigend enclave, the digest command outputs
+-                    digest value.
+-    -p <file>       signing server public key certificate, required for two-step method.
+-    -s <file>       the signed digest value required for two-step method, this parameter is empty to indicate
+-                    single-step method.
+-    -x <parameter>  enclave type, sgx or trustzone.
+-    -h              printf help message.
++		            The digest command is used to generate signing material.
++		            The dump command is used to generate metadata for sgx signed enclave.
++	-i <file>       input parameter, which is enclave to be signed for digest/sign command, and signed enclave for
++	                dump command.
++	-k <file>       private key required for single-step method.
++	-m <file>       additional config_cloud.ini for trustzone.
++	-o <file>       output parameter, the sign command outputs signed enclave, the digest command outputs signing
++	                material, the dump command outputs data containing the SIGStruct metadata for the SGX signed
++	                enclave, which is submitted to Intel for whitelisting.
++	-p <file>       signing server public key certificate, required for sgx two-step method.
++	-s <file>       the signature value required for two-step method, this parameter is empty to indicate
++	                single-step method.
++	-x <parameter>  enclave type, sgx or trustzone.
++	-h              print help message.
+ ```
+ **Note**: 
+ Using the `./sign_tool.sh -h` to get help information.
+diff --git a/examples/helloworld/enclave/CMakeLists.txt b/examples/helloworld/enclave/CMakeLists.txt
+index f7967ef..98f50ac 100644
+--- a/examples/helloworld/enclave/CMakeLists.txt
++++ b/examples/helloworld/enclave/CMakeLists.txt
+@@ -71,7 +71,7 @@ if(CC_GP)
+ 
+     target_include_directories( ${PREFIX} PRIVATE
+ 	${CMAKE_CURRENT_BINARY_DIR}
+-	${LOCAL_ROOT_PATH}/debug/inc
++	${LOCAL_ROOT_PATH}/${CMAKE_BINARY_DIR}/inc
+ 	${LOCAL_ROOT_PATH}/inc/host_inc
+ 	${LOCAL_ROOT_PATH}/inc/host_inc/gp
+ 	${LOCAL_ROOT_PATH}/inc/enclave_inc
+diff --git a/examples/helloworld/host/CMakeLists.txt b/examples/helloworld/host/CMakeLists.txt
+index 60173a9..c6f2166 100644
+--- a/examples/helloworld/host/CMakeLists.txt
++++ b/examples/helloworld/host/CMakeLists.txt
+@@ -39,10 +39,10 @@ if(CC_GP)
+     endif()
+     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
+     target_include_directories(${OUTPUT} PRIVATE
+-	    	    ${LOCAL_ROOT_PATH}/debug/inc
+-		    ${LOCAL_ROOT_PATH}/inc/host_inc
+-		    ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+-                    ${CMAKE_CURRENT_BINARY_DIR})
++            ${LOCAL_ROOT_PATH}/${CMAKE_BINARY_DIR}/inc
++            ${LOCAL_ROOT_PATH}/inc/host_inc
++            ${LOCAL_ROOT_PATH}/inc/host_inc/gp
++            ${CMAKE_CURRENT_BINARY_DIR})
+     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
+         target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+     endif()
+diff --git a/examples/seal_data/enclave/CMakeLists.txt b/examples/seal_data/enclave/CMakeLists.txt
+index b24e498..542163e 100644
+--- a/examples/seal_data/enclave/CMakeLists.txt
++++ b/examples/seal_data/enclave/CMakeLists.txt
+@@ -66,7 +66,7 @@ if(CC_GP)
+ 
+     target_include_directories( ${PREFIX} PRIVATE
+     ${CMAKE_CURRENT_BINARY_DIR}
+-    ${LOCAL_ROOT_PATH}/debug/inc
++    ${LOCAL_ROOT_PATH}/${CMAKE_BINARY_DIR}/inc
+     ${LOCAL_ROOT_PATH}/inc/host_inc
+     ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+     ${LOCAL_ROOT_PATH}/inc/enclave_inc
+diff --git a/examples/seal_data/host/CMakeLists.txt b/examples/seal_data/host/CMakeLists.txt
+index 691cd07..a0986d1 100644
+--- a/examples/seal_data/host/CMakeLists.txt
++++ b/examples/seal_data/host/CMakeLists.txt
+@@ -40,10 +40,10 @@ if(CC_GP)
+     endif()
+     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
+     target_include_directories(${OUTPUT} PRIVATE
+-		    ${LOCAL_ROOT_PATH}/debug/inc
+-                    ${LOCAL_ROOT_PATH}/inc/host_inc
+-		    ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+-                    ${CMAKE_CURRENT_BINARY_DIR})
++            ${LOCAL_ROOT_PATH}/${CMAKE_BINARY_DIR}/inc
++            ${LOCAL_ROOT_PATH}/inc/host_inc
++            ${LOCAL_ROOT_PATH}/inc/host_inc/gp
++            ${CMAKE_CURRENT_BINARY_DIR})
+     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
+         target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+     endif()
+diff --git a/tools/sign_tool/sign_tool.sh b/tools/sign_tool/sign_tool.sh
+index 5fd7d5b..9906bff 100755
+--- a/tools/sign_tool/sign_tool.sh
++++ b/tools/sign_tool/sign_tool.sh
+@@ -20,19 +20,22 @@ print_help(){
+     echo "sign tool usage: ./sign_tool.sh [options] ..."
+     echo "[options]"
+     echo "-c <file>       basic config file."
+-    echo "-d <parameter>  sign tool command, sign/digest."
++    echo "-d <parameter>  sign tool command, sign/digest/dump."
+     echo "                The sign command is used to generate a signed enclave."
+-    echo "                The digest command is used to generate a digest value."
+-    echo "-i <file>       enclave to be signed."
+-    echo "-k <file>       private key required for single-step method"
++    echo "                The digest command is used to generate signing material."
++    echo "                The dump command is used to generate metadata for sgx signed enclave."
++    echo "-i <file>       input parameter, which is enclave to be signed for digest/sign command, and signed enclave for"
++    echo "                dump command."
++    echo "-k <file>       private key required for single-step method."
+     echo "-m <file>       additional config_cloud.ini for trustzone."
+-    echo "-o <file>       output parameters, the sign command outputs sigend enclave, the digest command outputs"
+-    echo "                digest value."
+-    echo "-p <file>       signing server public key certificate, required for two-step method."
+-    echo "-s <file>       the signed digest value required for two-step method, this parameter is empty to indicate"
++    echo "-o <file>       output parameter, the sign command outputs signed enclave, the digest command outputs signing"
++    echo "                material, the dump command outputs data containing the SIGStruct metadata for the SGX signed"
++    echo "                enclave, which is submitted to Intel for whitelisting."
++    echo "-p <file>       signing server public key certificate, required for sgx two-step method."
++    echo "-s <file>       the signature value required for two-step method, this parameter is empty to indicate"
+     echo "                single-step method."
+     echo "-x <parameter>  enclave type, sgx or trustzone."
+-    echo "-h              printf help message."
++    echo "-h              print help message."
+ 
+ }
+ 
+@@ -164,12 +167,12 @@ sgx_start_sign(){
+     fi
+     SIGDATA_FILE="signdata"
+     if [ "${CMD}"x == "sign"x ]; then
+-        if [ -z $SIG_KEY ]; then
+-            echo "Error: missing sign key"
+-            exit -1
+-        fi  
+         if [ -z $SIGNATURE ]; then
+-            if [ -z $CONFIG_FILE ]; then
++           if [ -z $SIG_KEY ]; then
++		       echo "Error: missing sign key"
++			   exit -1
++		   fi
++           if [ -z $CONFIG_FILE ]; then
+                 sgx_sign sign -enclave ${IN_ENCLAVE} -key ${SIG_KEY} -out ${OUT_FILE}
+             else
+                 sgx_sign sign -enclave ${IN_ENCLAVE} -key ${SIG_KEY} -out ${OUT_FILE} -config ${CONFIG_FILE}
+@@ -180,9 +183,9 @@ sgx_start_sign(){
+                 exit -1
+             fi  
+             if [ -z $CONFIG_FILE ]; then
+-                sgx_sign catsig -enclave ${IN_ENCLAVE} -key ${SERVER_PUBKEY} -sig ${SIGNATURE} -unsignd ${SIGDATA_FILE} -out ${OUT_FILE}
++                sgx_sign catsig -enclave ${IN_ENCLAVE} -key ${SERVER_PUBKEY} -sig ${SIGNATURE} -unsigned ${SIGDATA_FILE} -out ${OUT_FILE}
+             else
+-                sgx_sign catsig -enclave ${IN_ENCLAVE} -key ${SERVER_PUBKEY} -sig ${SIGNATURE} -unsignd ${SIGDATA_FILE} -out ${OUT_FILE} -config ${CONFIG_FILE}
++                sgx_sign catsig -enclave ${IN_ENCLAVE} -key ${SERVER_PUBKEY} -sig ${SIGNATURE} -unsigned ${SIGDATA_FILE} -out ${OUT_FILE} -config ${CONFIG_FILE}
+             fi
+             rm -rf ${SIGDATA_FILE}
+         fi
+@@ -192,7 +195,9 @@ sgx_start_sign(){
+         else
+             sgx_sign gendata -enclave ${IN_ENCLAVE} -out ${SIGDATA_FILE} -config ${CONFIG_FILE}
+         fi
+-        openssl dgst -sha256 -out ${OUT_FILE} ${SIGDATA_FILE}
++	    cp ${SIGDATA_FILE} ${OUT_FILE}
++    elif [ "${CMD}"x == "dump"x ]; then
++        sgx_sign dump -enclave ${IN_ENCLAVE} -dumpfile ${OUT_FILE}
+     else
+         echo "Error: illegal command"
+     fi
+-- 
+2.27.0
+

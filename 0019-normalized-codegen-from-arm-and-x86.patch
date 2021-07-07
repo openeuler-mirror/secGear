@@ -1,0 +1,157 @@
+From 3b7651a53017e41726b80b24fc1757c06cf73ba7 Mon Sep 17 00:00:00 2001
+From: whzhe <wanghongzhe@huawei.com>
+Date: Mon, 12 Apr 2021 10:33:17 +0800
+Subject: [PATCH 02/14] normalized codegen from arm and x86
+
+---
+ README.en.md                       |  3 +--
+ README.md                          |  5 ++---
+ docs/codegener.md                  | 14 +++++---------
+ examples/helloworld/CMakeLists.txt |  3 +--
+ examples/seal_data/CMakeLists.txt  |  3 +--
+ tools/codegener/CMakeLists.txt     |  8 +-------
+ 6 files changed, 11 insertions(+), 25 deletions(-)
+
+diff --git a/README.en.md b/README.en.md
+index fa47d03..909358f 100644
+--- a/README.en.md
++++ b/README.en.md
+@@ -50,16 +50,15 @@ Then save as test.edl
+ 	set(EDL_FILE test.edl)
+ 	set(LOCAL_ROOT_PATH "$ENV{CC_SDK}")
+         set(SECGEAR_INSTALL_PATH /lib64/)
++	set(CODEGEN codegen)
+ 	if(CC_GP)
+ 		set(CODETYPE trustzone)
+-		set(CODEGEN codegen_arm64)
+ 		execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
+ 		string(REPLACE "\n" "" UUID ${UUID})
+ 		add_definitions(-DPATH="/data/${UUID}.sec")
+ 	endif()
+ 	if(CC_SGX)
+ 		set(CODETYPE sgx)
+-		set(CODEGEN codegen_x86_64)
+ 		add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/enclave.signed.so")
+ 	endif()
+ 	add_subdirectory(${CURRENT_ROOT_PATH}/enclave)
+diff --git a/README.md b/README.md
+index 54c32e3..fafe3f9 100644
+--- a/README.md
++++ b/README.md
+@@ -42,16 +42,15 @@ SecGear则是面向计算产业的机密计算安全应用开发套件。旨在
+ 	set(EDL_FILE test.edl)
+ 	set(LOCAL_ROOT_PATH "$ENV{CC_SDK}")
+         set(SECGEAR_INSTALL_PATH /lib64/)
++	set(CODEGEN codegen)
+ 	if(CC_GP)
+ 		set(CODETYPE trustzone)
+-		set(CODEGEN codegen_arm64)
+ 		execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
+ 		string(REPLACE "\n" "" UUID ${UUID})
+ 		add_definitions(-DPATH="/data/${UUID}.sec")
+ 	endif()
+ 	if(CC_SGX)
+ 		set(CODETYPE sgx)
+-		set(CODEGEN codegen_x86_64)
+ 		add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/enclave.signed.so")
+ 	endif()
+ 	add_subdirectory(${CURRENT_ROOT_PATH}/enclave)
+diff --git a/docs/codegener.md b/docs/codegener.md
+index cc20013..85fc6a0 100644
+--- a/docs/codegener.md
++++ b/docs/codegener.md
+@@ -1,19 +1,15 @@
+-# Getting started with the codegen_x86_64/codegen_arm64
++# Getting started with the codegen
+ 
+-The codegen_x86_64/codegen_arm64 helps to define these special functions through the `edl` files and assist user to using enclave.
++The codegen helps to define these special functions through the `edl` files and assist user to using enclave.
+ 
+-## The codegen_x86_64/codegen_arm64
++## The codegen
+ 
+-The codegen_x86_64/codegen_arm64 is based on the 'edger8r' tool in SGX SDK.
++The codegen is based on the 'edger8r' tool in SGX SDK.
+ - For example
+ ```
+ $ codegen_arm64 --trustzone test.edl 
+ ```
+-OR
+-```
+-$ codegen_x86_64 --sgx test.edl
+-```
+-**Note**: using the `codegen_x86_64/codegen_arm64 --help` to get more details.
++**Note**: using the `codegen --help` to get more details.
+ 
+ ## EDL format
+ - For SGX(x86) 
+diff --git a/examples/helloworld/CMakeLists.txt b/examples/helloworld/CMakeLists.txt
+index a758f1c..5da2a6b 100644
+--- a/examples/helloworld/CMakeLists.txt
++++ b/examples/helloworld/CMakeLists.txt
+@@ -16,10 +16,10 @@ set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+ 
+ #set edl name
+ set(EDL_FILE helloworld.edl)
++set(CODEGEN codegen)
+ 
+ if(CC_GP)
+     set(CODETYPE trustzone)
+-    set(CODEGEN codegen_arm64)
+     execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
+     string(REPLACE "\n" "" UUID ${UUID})
+     add_definitions(-DPATH="/data/${UUID}.sec")
+@@ -27,7 +27,6 @@ endif()
+ 
+ if(CC_SGX)
+     set(CODETYPE sgx)
+-    set(CODEGEN codegen_x86_64)
+     add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/enclave.signed.so")
+ endif()
+ 
+diff --git a/examples/seal_data/CMakeLists.txt b/examples/seal_data/CMakeLists.txt
+index 20e2fd5..503fe0d 100644
+--- a/examples/seal_data/CMakeLists.txt
++++ b/examples/seal_data/CMakeLists.txt
+@@ -17,10 +17,10 @@ set(CMAKE_C_STANDARD 99)
+ set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+ 
+ set(EDL_FILE seal_data.edl)
++set(CODEGEN codegen)
+ 
+ if(CC_GP)
+     set(CODETYPE trustzone)
+-    set(CODEGEN codegen_arm64)
+     execute_process(COMMAND uuidgen -r 
+ 	OUTPUT_VARIABLE UUID)
+     string(REPLACE "\n" "" UUID ${UUID})
+@@ -29,7 +29,6 @@ endif()
+ 
+ if(CC_SGX)
+     set(CODETYPE sgx)
+-    set(CODEGEN codegen_x86_64)
+     add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/seal_data.signed.so")
+ endif()
+ 
+diff --git a/tools/codegener/CMakeLists.txt b/tools/codegener/CMakeLists.txt
+index 0f8b5af..e52d894 100644
+--- a/tools/codegener/CMakeLists.txt
++++ b/tools/codegener/CMakeLists.txt
+@@ -18,13 +18,7 @@ if(NOT DUNE)
+ 	message(FATAL_ERROR "Please check your dune installation")
+ endif()
+ 
+-if(CC_SGX)
+-	set(code codegen_x86_64)
+-endif()
+-
+-if(CC_GP)
+-	set(code codegen_arm64)
+-endif()
++set(code codegen)
+ 
+ ExternalProject_Add(codegen
+ 		SOURCE_DIR ${LOCAL_ROOT_PATH}/tools/codegener
+-- 
+2.27.0
+

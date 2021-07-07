@@ -1,0 +1,73 @@
+From 3af4a40bef20df36ece7f7f87c44eccf8a8b3a60 Mon Sep 17 00:00:00 2001
+From: Li Feng <lifeng2221dd1@zoho.com.cn>
+Date: Mon, 17 May 2021 10:21:32 +0800
+Subject: [PATCH 11/14] example: use the sgx device plugin from intel
+
+deployment:
+1. kubectl apply -f ./examples/lrt/device_plugin.yaml
+2. kubectl apply -f ./examples/lrt/enclave.yaml
+3. kubectl get pods -A
+
+NAMESPACE     NAME                                       READY   STATUS    RESTARTS   AGE
+default       helloworld-d75bf5f9f-wgdf7                 1/1     Running   0          36m
+default       helloworld-d75bf5f9f-xthkk                 1/1     Running   0          36m
+kube-system   calico-kube-controllers-6d7b4db76c-7t8lv   1/1     Running   1          42h
+kube-system   calico-node-kcxd7                          1/1     Running   1          42h
+kube-system   coredns-6d56c8448f-ctf7m                   1/1     Running   1          42h
+kube-system   coredns-6d56c8448f-k7z5c                   1/1     Running   1          42h
+kube-system   etcd-lifeng                                1/1     Running   2          2d
+kube-system   kube-apiserver-lifeng                      1/1     Running   4          2d
+kube-system   kube-controller-manager-lifeng             1/1     Running   2          2d
+kube-system   kube-proxy-xvvz5                           1/1     Running   2          2d
+kube-system   kube-scheduler-lifeng                      1/1     Running   2          2d
+kube-system   sgx-device-plugin-ds-4sbhk                 1/1     Running   0          4m
+
+Signed-off-by: Li Feng <lifeng2221dd1@zoho.com.cn>
+---
+ CMakeLists.txt                  | 2 +-
+ examples/lrt/device_plugin.yaml | 2 +-
+ examples/lrt/enclave.yaml       | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1d036ea..3886316 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -58,7 +58,7 @@ if(CC_SGX)
+     add_subdirectory(${LOCAL_ROOT_PATH}/examples/helloworld)
+     add_subdirectory(${LOCAL_ROOT_PATH}/examples/seal_data)
+ #    add_subdirectory(${LOCAL_ROOT_PATH}/examples/tls_enclave)
+-#    add_subdirectory(${LOCAL_ROOT_PATH}/examples/lrt)
++    add_subdirectory(${LOCAL_ROOT_PATH}/examples/lrt)
+ endif()
+ 
+ install(FILES ${LOCAL_ROOT_PATH}/conf/logrotate.d/secgear
+diff --git a/examples/lrt/device_plugin.yaml b/examples/lrt/device_plugin.yaml
+index 9a470da..ce8724d 100644
+--- a/examples/lrt/device_plugin.yaml
++++ b/examples/lrt/device_plugin.yaml
+@@ -29,7 +29,7 @@ spec:
+         k8s-app: sgx-device-plugin
+     spec:
+       containers:
+-      - image: hub.oepkgs.net/lifeng2221dd1/hw-ali-device-plugin:devel
++      - image: hub.oepkgs.net/lifeng2221dd1/intel-sgx-device-plugin-hw:isgx
+         imagePullPolicy: IfNotPresent
+         name: sgx-device-plugin
+         securityContext:
+diff --git a/examples/lrt/enclave.yaml b/examples/lrt/enclave.yaml
+index 8efdada..b1bc19b 100644
+--- a/examples/lrt/enclave.yaml
++++ b/examples/lrt/enclave.yaml
+@@ -35,7 +35,7 @@ spec:
+           limits:
+             cpu: 250m
+             memory: 512Mi
+-            alibabacloud.com/sgx_epc_MiB: 2
++            sgx.intel.com/huawei_sgx_epc_MiB: 2
+         volumeMounts:
+         - mountPath: /var/run/aesmd/aesm.socket
+           name: aesmsocket
+-- 
+2.27.0
+

@@ -1,0 +1,942 @@
+From 607634479a08e5150482990343c19e2e45efc583 Mon Sep 17 00:00:00 2001
+From: yanlu <yanlu14@huawei.com>
+Date: Fri, 19 Feb 2021 11:09:51 +0800
+Subject: [PATCH 05/14] add example of using sgxssl lib
+
+---
+ CMakeLists.txt                                |   1 +
+ docs/build_install.md                         |   4 +
+ examples/tls_enclave/CMakeLists.txt           |  30 +++
+ examples/tls_enclave/client/CMakeLists.txt    |  38 +++
+ examples/tls_enclave/client/tls_client.c      | 100 +++++++
+ examples/tls_enclave/enclave/CMakeLists.txt   |  96 +++++++
+ .../tls_enclave/enclave/Enclave.config.xml    |  12 +
+ examples/tls_enclave/enclave/Enclave.lds      |  11 +
+ examples/tls_enclave/enclave/enclave_server.c | 249 ++++++++++++++++++
+ examples/tls_enclave/host/CMakeLists.txt      |  56 ++++
+ examples/tls_enclave/host/main.c              | 179 +++++++++++++
+ examples/tls_enclave/tls_enclave.edl          |  26 ++
+ examples/tls_enclave/tls_enclave.md           |  17 ++
+ 13 files changed, 819 insertions(+)
+ create mode 100644 examples/tls_enclave/CMakeLists.txt
+ create mode 100644 examples/tls_enclave/client/CMakeLists.txt
+ create mode 100644 examples/tls_enclave/client/tls_client.c
+ create mode 100644 examples/tls_enclave/enclave/CMakeLists.txt
+ create mode 100644 examples/tls_enclave/enclave/Enclave.config.xml
+ create mode 100644 examples/tls_enclave/enclave/Enclave.lds
+ create mode 100644 examples/tls_enclave/enclave/enclave_server.c
+ create mode 100644 examples/tls_enclave/host/CMakeLists.txt
+ create mode 100644 examples/tls_enclave/host/main.c
+ create mode 100644 examples/tls_enclave/tls_enclave.edl
+ create mode 100644 examples/tls_enclave/tls_enclave.md
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 98862a3..1653287 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -57,6 +57,7 @@ endif()
+ if(CC_SGX)
+     add_subdirectory(${LOCAL_ROOT_PATH}/examples/helloworld)
+     add_subdirectory(${LOCAL_ROOT_PATH}/examples/seal_data)
++    add_subdirectory(${LOCAL_ROOT_PATH}/examples/tls_enclave)
+ endif()
+ 
+ install(FILES ${LOCAL_ROOT_PATH}/conf/logrotate.d/secgear
+diff --git a/docs/build_install.md b/docs/build_install.md
+index 9ba1adb..636df90 100644
+--- a/docs/build_install.md
++++ b/docs/build_install.md
+@@ -13,6 +13,10 @@ openEuler x86
+ 3. source environment && mkdir debug && cd debug 
+    && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK="sgx_sdk path" .. &&  make && sudo make install
+ 
++4. To run example tls_enclave, refer to https://gitee.com/src-openeuler/intel-sgx-ssl 
++   download and install intel-sgx-ssl firstly.
++   source environment && mkdir debug && cd debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK="sgx_sdk path"
++   && -DENCLAVE_SSL="sgxssl path" .. &&  make && sudo make install
+    
+ openEuler arm
+ 
+diff --git a/examples/tls_enclave/CMakeLists.txt b/examples/tls_enclave/CMakeLists.txt
+new file mode 100644
+index 0000000..5b1693a
+--- /dev/null
++++ b/examples/tls_enclave/CMakeLists.txt
+@@ -0,0 +1,30 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++# secGear is licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++# PURPOSE.
++# See the Mulan PSL v2 for more details.
++
++project(TlsEnclave  C)
++
++set(CMAKE_C_STANDARD 99)
++
++set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
++
++#set edl name
++set(EDL_FILE tls_enclave.edl)
++#set auto code prefix
++set(PREFIX tls_enclave)
++set(CODEGEN codegen)
++
++if(CC_SGX)
++    set(CODETYPE sgx)
++    add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/enclave.signed.so")
++endif()
++
++add_subdirectory(${CURRENT_ROOT_PATH}/enclave)
++add_subdirectory(${CURRENT_ROOT_PATH}/host)
++add_subdirectory(${CURRENT_ROOT_PATH}/client)
+diff --git a/examples/tls_enclave/client/CMakeLists.txt b/examples/tls_enclave/client/CMakeLists.txt
+new file mode 100644
+index 0000000..a83b5e3
+--- /dev/null
++++ b/examples/tls_enclave/client/CMakeLists.txt
+@@ -0,0 +1,38 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++# secGear is licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++# PURPOSE.
++# See the Mulan PSL v2 for more details.
++
++set(OUTPUT tls_client)
++set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tls_client.c)
++
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
++set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
++
++if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++    link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
++endif()
++    
++add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
++
++if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++    target_link_directories(${OUTPUT} PRIVATE 
++	    ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
++endif()
++
++target_link_libraries(${OUTPUT} ssl crypto)
++
++set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
++
++if(CC_SGX)
++	install(TARGETS  ${OUTPUT}
++        	RUNTIME
++        	DESTINATION ${CMAKE_BINARY_DIR}/bin/
++       	 	PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)  
++endif()
++	
+diff --git a/examples/tls_enclave/client/tls_client.c b/examples/tls_enclave/client/tls_client.c
+new file mode 100644
+index 0000000..e05425b
+--- /dev/null
++++ b/examples/tls_enclave/client/tls_client.c
+@@ -0,0 +1,100 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * secGear is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ *     http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <ctype.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <sys/socket.h>
++#include <arpa/inet.h>
++#include "openssl/evp.h"
++#include "openssl/x509.h"
++#include "openssl/pem.h"
++#include "openssl/ssl.h"
++
++#define BUF_LEN 1024
++
++int main(int argc, const char *argv[])
++{
++    struct sockaddr_in client_addr;
++    int fd = 0;
++    const SSL_METHOD *meth = NULL;
++    SSL_CTX *ctx = NULL;
++    SSL *ssl = NULL;
++    char buf[BUF_LEN] = {0};   
++    int ret = -1;
++    
++    if (argc != 3) {
++        printf("usage: %s port ca_file\n", argv[0]);
++        return -1;
++    }
++
++    SSL_load_error_strings();
++    SSLeay_add_ssl_algorithms();
++    meth = TLS_method();
++    if (meth == NULL) {
++        return -1;
++    }
++    ctx = SSL_CTX_new(meth);
++    if (ctx == NULL) {
++        return -1;
++    }
++    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
++    if (SSL_CTX_load_verify_locations(ctx, argv[2], NULL) <= 0) {
++        goto end;
++    }
++    memset(&client_addr, 0, sizeof(client_addr));
++    client_addr.sin_family = AF_INET;
++    client_addr.sin_port = htons(atoi(argv[1]));
++    client_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
++    fd = socket(AF_INET, SOCK_STREAM, 0);
++    if (fd < 0) {
++        goto end;
++    } 
++    ret = connect(fd, (struct sockaddr *)&client_addr, sizeof(client_addr));
++    if (ret < 0) {
++        goto end;
++    }
++    ssl = SSL_new(ctx);
++    if (ssl == NULL) {
++        goto end;
++    }
++    SSL_set_fd(ssl, fd);
++    if (SSL_connect(ssl) <= 0) {
++        goto end;
++    }
++    if (SSL_write(ssl, "hello enclave!", sizeof("hello enclave!")) <= 0) {
++        goto end;
++    }
++    printf("send data: %s\n", "hello enclave!");
++    if (SSL_read(ssl, buf, BUF_LEN - 1) <= 0) {
++        goto end;
++    }
++    printf("receive data: %s\n", buf);
++    ret = 0;
++
++end:
++    if (ssl != NULL) {
++        SSL_shutdown(ssl);
++        SSL_free(ssl);
++    }
++    if (ctx != NULL) {
++        SSL_CTX_free(ctx);
++    }
++    if (fd > 0) {
++        close(fd);
++    }
++    return ret;
++}
+diff --git a/examples/tls_enclave/enclave/CMakeLists.txt b/examples/tls_enclave/enclave/CMakeLists.txt
+new file mode 100644
+index 0000000..5002e1b
+--- /dev/null
++++ b/examples/tls_enclave/enclave/CMakeLists.txt
+@@ -0,0 +1,96 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++# secGear is licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++# PURPOSE.
++# See the Mulan PSL v2 for more details.
++
++#set sign key
++set(PEM Enclave_private.pem)
++
++#set sign tool
++set(SIGN_TOOL ${LOCAL_ROOT_PATH}/tools/sign_tool/sign_tool.sh)
++
++#set enclave src code
++set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/enclave_server.c)
++
++#set log level
++set(PRINT_LEVEL 3)
++add_definitions(-DPRINT_LEVEL=${PRINT_LEVEL})
++
++if(NOT IS_DIRECTORY ${ENCLAVE_SSL})
++    message(FATAL_ERROR "Please provide the correct ENCLAVE_SSL path")
++endif()
++
++if(CC_SGX)
++    #set signed output
++    set(OUTPUT enclave.signed.so)
++    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
++    add_custom_command(OUTPUT ${AUTO_FILES}
++    DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
++    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SGXSDK}/include --search-path ${ENCLAVE_SSL}/include)
++endif()
++
++set(COMMON_C_FLAGS "-W -Wall -Werror  -fno-short-enums  -fno-omit-frame-pointer -fstack-protector \
++	-Wstack-protector --param ssp-buffer-size=4 -frecord-gcc-switches -Wextra -nostdinc -nodefaultlibs \
++	-fno-peephole -fno-peephole2 -Wno-main -Wno-error=unused-parameter \
++	-Wno-error=unused-but-set-variable -Wno-error=format-truncation=")
++
++set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
++    
++if(CC_SGX)
++    set(SGX_MODE HW)
++    set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fvisibility=hidden -include${ENCLAVE_SSL}/include/tsgxsslio.h")
++    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
++
++    if(${SGX_MODE} STREQUAL HW)
++        set(Trts_Library_Name sgx_trts)
++        set(Service_Library_Name sgx_tservice)
++    else()
++        set(Trts_Library_Name sgx_trts_sim)
++        set(Service_Library_Name sgx_tservice_sim)
++    endif()
++
++    set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-z,defs -Wl,-pie -Bstatic -Bsymbolic -eenclave_entry \
++	-Wl,--export-dynamic -Wl,--defsym,__ImageBase=0 -Wl,--gc-sections -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/Enclave.lds")
++
++    if(${CMAKE_VERSION} VERSION_LESS "3.13.0") 
++	link_directories(${ENCLAVE_SSL}/lib64
++           ${SGXSDK}/lib64
++           ${CMAKE_BINARY_DIR}/lib)
++    endif()
++
++    add_library(${PREFIX} SHARED ${SOURCE_FILES} ${AUTO_FILES})
++
++    target_include_directories(${PREFIX} PRIVATE
++	    ${CMAKE_CURRENT_BINARY_DIR}
++	    ${SGXSDK}/include/tlibc
++	    ${SGXSDK}/include/libcxx
++	    ${SGXSDK}/include
++	    ${ENCLAVE_SSL}/include
++	    ${LOCAL_ROOT_PATH}/inc/host_inc
++	    ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
++	    ${LOCAL_ROOT_PATH}/inc/enclave_inc
++	    ${LOCAL_ROOT_PATH}/inc/enclave_inc/sgx
++	    )
++    
++    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0") 
++        target_link_directories(${PREFIX} PRIVATE
++	   ${ENCLAVE_SSL}/lib64
++	   ${SGXSDK}/lib64
++	   ${CMAKE_BINARY_DIR}/lib)
++    endif()
++
++    target_link_libraries(${PREFIX} -lsecgear_tee -Wl,--whole-archive ${Trts_Library_Name} -lsgx_tsgxssl -Wl,--no-whole-archive -Wl,--start-group -lsgx_tsgxssl_ssl -lsgx_tsgxssl_crypto -lsgx_tstdc -lsgx_tcxx -lsgx_tcrypto -lsgx_pthread -l${Service_Library_Name} -Wl,--end-group)
++ 
++    add_custom_command(TARGET ${PREFIX} 
++    POST_BUILD
++    COMMAND umask 0177
++    COMMAND openssl genrsa -3 -out ${PEM} 3072
++    COMMAND bash ${SIGN_TOOL} -d sign -x sgx -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -k ${PEM} -o ${OUTPUT} -c ${CMAKE_CURRENT_SOURCE_DIR}/Enclave.config.xml)
++endif()
++
++set_target_properties(${PREFIX} PROPERTIES SKIP_BUILD_RPATH TRUE)
+diff --git a/examples/tls_enclave/enclave/Enclave.config.xml b/examples/tls_enclave/enclave/Enclave.config.xml
+new file mode 100644
+index 0000000..e94c9bc
+--- /dev/null
++++ b/examples/tls_enclave/enclave/Enclave.config.xml
+@@ -0,0 +1,12 @@
++<EnclaveConfiguration>
++  <ProdID>0</ProdID>
++  <ISVSVN>0</ISVSVN>
++  <StackMaxSize>0x40000</StackMaxSize>
++  <HeapMaxSize>0x100000</HeapMaxSize>
++  <TCSNum>10</TCSNum>
++  <TCSPolicy>1</TCSPolicy>
++  <!-- Recommend changing 'DisableDebug' to 1 to make the enclave undebuggable for enclave release -->
++  <DisableDebug>0</DisableDebug>
++  <MiscSelect>0</MiscSelect>
++  <MiscMask>0xFFFFFFFF</MiscMask>
++</EnclaveConfiguration>
+diff --git a/examples/tls_enclave/enclave/Enclave.lds b/examples/tls_enclave/enclave/Enclave.lds
+new file mode 100644
+index 0000000..ab77e64
+--- /dev/null
++++ b/examples/tls_enclave/enclave/Enclave.lds
+@@ -0,0 +1,11 @@
++enclave.so
++{
++    global:
++        g_global_data_sim;
++        g_global_data;
++        enclave_entry;
++        g_peak_heap_used;
++    local:
++        *;
++};
++
+diff --git a/examples/tls_enclave/enclave/enclave_server.c b/examples/tls_enclave/enclave/enclave_server.c
+new file mode 100644
+index 0000000..848eb9c
+--- /dev/null
++++ b/examples/tls_enclave/enclave/enclave_server.c
+@@ -0,0 +1,249 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * secGear is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ *     http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++#include <stdio.h>
++#include <string.h>
++#include <stdbool.h>
++#include <openssl/evp.h>
++#include <openssl/x509.h>
++#include <openssl/pem.h>
++#include <openssl/ssl.h>
++#include "tls_enclave_t.h"
++#include "status.h"
++#include "secgear_dataseal.h"
++
++#define BUF_SIZE 1024
++#define MAX_ENC_KEY_LEN 4096
++#define ADD_DATA_RAW "add mac text"
++
++size_t seal_key(const char *file_name, size_t file_name_len, char *password, size_t pw_len, 
++                char *enc_buf, size_t enc_buf_len)
++{
++    BIO *r_key = NULL;
++    BIO *r_prikey = NULL;
++    RSA *rsa_key = NULL;
++    uint8_t *buf = NULL;
++    uint32_t buf_len, sealed_data_len;
++    int res = 0;
++    int retval = CC_FAIL;
++
++    if (file_name == NULL || file_name_len == 0 || password == NULL || pw_len == 0 || enc_buf == NULL) {
++        return 0;
++    }
++    r_key = BIO_new_file(file_name, "r");
++    if (r_key == NULL) {
++        goto end;
++    };
++    rsa_key = PEM_read_bio_RSAPrivateKey(r_key, NULL, NULL, password);
++    if (rsa_key == NULL) {
++        goto end;
++    };
++    r_prikey = BIO_new(BIO_s_mem());
++    if (r_prikey == NULL) {
++        goto end;
++    }
++    if (!PEM_write_bio_RSAPrivateKey(r_prikey, rsa_key, NULL, NULL, 0, NULL, NULL)) {
++        goto end;
++    }
++    buf_len = BIO_ctrl_pending(r_prikey);
++    if (buf_len == 0) {
++        goto end;
++    }
++    buf = (uint8_t *)malloc(buf_len);
++    if (buf == NULL) {
++        goto end;
++    }
++    if ((size_t)BIO_read(r_prikey, buf, buf_len) != buf_len) {
++        goto end;
++    }
++    sealed_data_len = cc_enclave_get_sealed_data_size(buf_len, strlen((const char *)ADD_DATA_RAW));
++    if (sealed_data_len == UINT32_MAX || enc_buf_len < sealed_data_len) {
++        goto end;
++    }
++    retval = cc_enclave_seal_data((uint8_t *)buf, buf_len, (cc_enclave_sealed_data_t *)enc_buf, enc_buf_len, 
++                                  (uint8_t*)ADD_DATA_RAW, strlen((const char*)ADD_DATA_RAW));
++    if (retval != CC_SUCCESS) {
++        goto end;
++    }
++    res = sealed_data_len;
++
++end:
++    BIO_free(r_key);
++    BIO_free(r_prikey);
++    RSA_free(rsa_key);
++    if (buf != NULL) {
++        memset(buf, 0, buf_len);
++        free(buf);
++    };
++    memset(password, 0, pw_len);
++    return res;
++}
++
++int unseal_enc_data(char **data_p, size_t *data_len_p, const char *enc_data)
++{
++    char *add_data = NULL;
++    char *data = NULL;
++    size_t add_len = 0;
++    size_t data_len = 0;
++    int retval = CC_FAIL;
++    
++    add_len = cc_enclave_get_add_text_size((const cc_enclave_sealed_data_t *)enc_data);
++    data_len = cc_enclave_get_encrypted_text_size((const cc_enclave_sealed_data_t *)enc_data);
++    if (data_len == 0 || add_len != strlen((const char*)ADD_DATA_RAW)) {
++        return CC_FAIL;
++    }
++    data = malloc(data_len);
++    add_data = malloc(add_len);
++    if (data == NULL || add_data == NULL) {
++        goto end;
++    }
++    memset(data, 0, data_len);
++    retval = cc_enclave_unseal_data((cc_enclave_sealed_data_t *)enc_data, (uint8_t *)data, (uint32_t *)&data_len,
++                                    (uint8_t *)add_data, (uint32_t *)&add_len);
++    if (retval != CC_SUCCESS) {
++        goto end;
++    }
++    if (strncmp((const char *)add_data, (const char*)ADD_DATA_RAW, strlen((const char*)ADD_DATA_RAW)) != 0) {
++        retval = CC_FAIL;
++        goto end;
++    }
++    *data_p = data;
++    *data_len_p = data_len;
++    retval = CC_SUCCESS;
++
++end:
++    if (add_data != NULL) { 
++        memset(add_data, 0, add_len);
++        free(add_data);
++    }
++    if (retval != CC_SUCCESS && data != NULL) {
++        memset(data, 0, data_len);
++        free(data);
++    }
++    return retval;
++}
++
++int set_ctx_key(SSL_CTX *ctx, const char *enc_key_file_name)
++{
++    BIO *in_bio = NULL;
++    EVP_PKEY *pkey = NULL;
++    char *raw_key = NULL;
++    size_t raw_key_len = 0;
++    BIO *key_bio = NULL;
++    char *enc_key = NULL;
++    int retval = CC_FAIL;
++    int res = CC_FAIL;
++
++    key_bio = BIO_new_file(enc_key_file_name, "r");
++    if (key_bio == NULL) {
++        goto end;
++    };
++    enc_key = (char *)malloc(MAX_ENC_KEY_LEN);
++    if (enc_key == NULL) {
++        goto end;
++    }
++    if (BIO_read(key_bio, enc_key, MAX_ENC_KEY_LEN) <= 0) {
++        goto end;
++    }
++    res = unseal_enc_data(&raw_key, &raw_key_len, enc_key);
++    if (res != CC_SUCCESS || raw_key_len == 0) {
++        goto end;
++    }
++    in_bio = BIO_new_mem_buf(raw_key, raw_key_len);
++    if (in_bio == NULL) {
++        goto end;
++    }
++    pkey = PEM_read_bio_PrivateKey(in_bio, NULL, NULL, NULL);
++    if (pkey == NULL) {
++        goto end;
++    }
++    if (!SSL_CTX_use_PrivateKey(ctx, pkey)) {
++        goto end;
++    }
++    retval = CC_SUCCESS;
++
++end: 
++    EVP_PKEY_free(pkey);
++    BIO_free(in_bio);
++    BIO_free(key_bio);
++    if (enc_key != NULL) {
++        free(enc_key);
++    }
++    if (raw_key != NULL) {
++        memset(raw_key, 0, raw_key_len);
++        free(raw_key);
++    }
++    return retval;
++}
++
++int start_enclave_tls(int client_fd,const char *cert, size_t cert_len, const char *enc_key, size_t enc_key_len)
++{
++    char buf[BUF_SIZE] = {0};
++    const SSL_METHOD *meth = NULL;
++    SSL_CTX *ctx = NULL;
++    SSL *ssl = NULL;
++    int res = 0;
++    int retval = CC_FAIL;
++
++    if (client_fd <= 0 || cert == NULL || cert_len == 0 || enc_key == NULL || enc_key_len == 0) {
++        return CC_ERROR_BAD_PARAMETERS;
++    }
++    SSL_load_error_strings();
++    SSLeay_add_ssl_algorithms();
++    meth = TLS_method();
++    if (meth == NULL) {
++        return CC_FAIL;
++    }
++    ctx = SSL_CTX_new(meth);
++    if (ctx == NULL) {
++        return CC_FAIL;
++    }
++    if (SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM) <= 0) {
++        goto end;
++    }
++    if (set_ctx_key(ctx, enc_key) != CC_SUCCESS){
++        goto end;
++    }
++    if (!SSL_CTX_check_private_key(ctx)) {
++        goto end;
++    }
++    ssl = SSL_new(ctx);
++    if (ssl == NULL) {
++        goto end;
++    }
++    SSL_set_fd(ssl, client_fd);
++    if (SSL_set_cipher_list(ssl, "ECDHE-RSA-AES128-GCM-SHA256") != 1) {
++        goto end;
++    }
++    if (SSL_accept(ssl) <= 0) {
++        goto end;
++    }
++    res = SSL_read(ssl, buf, BUF_SIZE -1); 
++    if (res <= 0) {
++        goto end;
++    }
++    if (SSL_write(ssl, buf, res) <= 0) {
++        goto end;
++    }
++    retval = CC_SUCCESS;
++
++end:
++    if (ssl != NULL) {
++        SSL_shutdown(ssl);
++        SSL_free(ssl);
++    }
++    if (ctx != NULL) {
++        SSL_CTX_free(ctx);
++    }
++    memset(buf, 0, BUF_SIZE);
++    return retval;
++}
+diff --git a/examples/tls_enclave/host/CMakeLists.txt b/examples/tls_enclave/host/CMakeLists.txt
+new file mode 100644
+index 0000000..2f4c8ac
+--- /dev/null
++++ b/examples/tls_enclave/host/CMakeLists.txt
+@@ -0,0 +1,56 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++# secGear is licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++# PURPOSE.
++# See the Mulan PSL v2 for more details.
++
++#set host exec name
++set(OUTPUT secgear_tls)
++#set host src code
++set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/main.c)
++
++#set auto code
++if(CC_SGX)
++    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
++    add_custom_command(OUTPUT ${AUTO_FILES}
++    DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
++    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx  --search-path ${SGXSDK}/include --search-path ${ENCLAVE_SSL}/include)
++endif()
++
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
++set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
++
++if(CC_SGX)
++    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGXSSL}/lib64)
++    endif()
++    set(SGX_MODE HW)
++    if(${SGX_MODE} STREQUAL HW)
++        set(Urts_Library_Name sgx_urts)
++    else()
++        set(Urts_Library_Name sgx_urts_sim)
++    endif()
++    add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
++    target_include_directories(${OUTPUT} PRIVATE
++			${LOCAL_ROOT_PATH}/inc/host_inc 
++			${LOCAL_ROOT_PATH}/inc/host_inc/sgx
++            ${CMAKE_CURRENT_BINARY_DIR})
++    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++	    target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${ENCLAVE_SSL}/lib64)
++    endif()
++    target_link_libraries(${OUTPUT} secgear ${Urts_Library_Name} pthread ssl crypto sgx_usgxssl)
++endif()
++
++set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
++
++if(CC_SGX)
++	install(TARGETS  ${OUTPUT}
++        	RUNTIME
++        	DESTINATION ${CMAKE_BINARY_DIR}/bin/
++       	 	PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)  
++endif()
++	
+diff --git a/examples/tls_enclave/host/main.c b/examples/tls_enclave/host/main.c
+new file mode 100644
+index 0000000..4407e64
+--- /dev/null
++++ b/examples/tls_enclave/host/main.c
+@@ -0,0 +1,179 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * secGear is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ *     http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <ctype.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <sys/socket.h>
++#include <arpa/inet.h>
++#include <termios.h>
++#include "openssl/evp.h"
++#include "openssl/x509.h"
++#include "openssl/pem.h"
++#include "openssl/ssl.h"
++#include "tls_enclave_u.h"
++#include "enclave.h"
++
++#define BUF_LEN 1024
++#define MAX_LISTEN_FD 64
++#define PASS_MAX 32
++#define MAX_ENC_KEY_LEN 4096
++#define ENC_KEY_FILE_NAME "enc_key"
++
++int set_echo_mode(int fd, int option)
++{
++    struct termios term;
++    if (tcgetattr(fd, &term) != 0) {
++        return CC_FAIL;
++    }
++    if (option) {
++        term.c_lflag |= (ECHO | ECHOE | ECHOK | ECHONL);
++    } else {
++        term.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
++    }
++    if (tcsetattr(fd, TCSAFLUSH, &term) != 0) {
++        return CC_FAIL;
++    }
++    return CC_SUCCESS;
++}
++
++int get_password_and_seal_key(cc_enclave_t *context, const char *key_file_name, const char *enc_key_file_name)
++{
++    int res = CC_FAIL;
++    size_t retval = 0;
++    size_t pw_len = 0;
++    char password[PASS_MAX] = {0};
++    char *enc_key = NULL;
++    FILE *fp = NULL;
++
++    printf("Please input password:\n");
++    if (set_echo_mode(STDIN_FILENO, 0)) {
++        return CC_FAIL;
++    }
++    if (fgets((char *)password, PASS_MAX, stdin) == NULL) {
++        return CC_FAIL;
++    }
++    pw_len = strlen((const char *)password);
++    if (password[pw_len - 1] == '\n') {
++        password[pw_len-1] = 0;
++        pw_len--;
++    }
++    if (set_echo_mode(STDIN_FILENO, 1)) {
++        goto end;
++    }
++    enc_key = malloc(MAX_ENC_KEY_LEN);
++    if (enc_key == NULL) {
++        goto end;
++    }
++    res = seal_key(context, &retval, key_file_name, strlen(key_file_name) + 1, password, pw_len + 1, 
++                   enc_key, MAX_ENC_KEY_LEN);
++    if (res != CC_SUCCESS || retval == 0) {
++        res = CC_FAIL;
++        goto end;
++    }
++    fp = fopen(enc_key_file_name, "w+");
++    if (fp == NULL) {
++        res = CC_FAIL;
++        goto end;
++    }
++    if (fwrite(enc_key, sizeof(char), retval, fp) != retval) {
++        fclose(fp);
++        res = CC_FAIL;
++        goto end;
++    }
++    fclose(fp);
++    if (remove(key_file_name) == 0) {
++        printf("delete origin key file success!\n");
++    } else {
++        printf("delete origin key file error!\n");
++        res = CC_FAIL;
++    }
++
++end:
++    memset(password, 0, pw_len);
++    return res;
++}
++
++int start_server(int port)
++{
++    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
++    struct sockaddr_in serv_addr;
++    memset(&serv_addr, 0, sizeof(serv_addr));
++    serv_addr.sin_family = AF_INET;
++    serv_addr.sin_port = htons(port);
++    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
++    if (bind(server_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
++        return -1;
++    }
++    listen(server_fd, MAX_LISTEN_FD);
++    return server_fd;
++}
++
++int main(int argc, const char *argv[])
++{
++    char *path = PATH;
++    cc_enclave_t *context = NULL;
++    struct sockaddr_in client_addr;
++    socklen_t client_len;
++    int server_fd = -1;
++    int tlsc_fd = -1;
++    cc_enclave_result_t res = CC_FAIL;
++    int retval = 0;
++
++    if (argc != 4) {
++        printf("usage: %s port cert_file key_file\n", argv[0]);
++        return CC_FAIL;
++    }
++
++    server_fd = start_server(atoi(argv[1]));
++    if (server_fd < 0) {
++        return CC_FAIL;
++    } 
++    tlsc_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_len);
++    if (tlsc_fd < 0) {
++        return CC_FAIL;
++    }
++    printf("Create secgear enclave\n");
++    res = cc_enclave_create(path, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, &context);
++    if (res != CC_SUCCESS) {
++        printf("Create enclave error\n");
++        goto end;
++    }
++    res = get_password_and_seal_key(context, argv[3], ENC_KEY_FILE_NAME);
++    if (res !=  CC_SUCCESS) {
++        printf("get_password_and_seal_key error\n");
++        goto end;
++    }
++    res = start_enclave_tls(context, &retval, tlsc_fd, argv[2], strlen(argv[2]) + 1, ENC_KEY_FILE_NAME, 
++                            strlen(ENC_KEY_FILE_NAME) + 1);
++    if (res !=  CC_SUCCESS || retval !=  CC_SUCCESS) {
++        printf("start_enclave_tls error\n");			        
++        goto end;
++    }
++
++    printf("enclve tls finish\n");
++
++end:
++    if (context != NULL) {
++        res = cc_enclave_destroy(context);
++        if(res != CC_SUCCESS) {
++            printf("Destroy enclave error\n");
++        }
++    }
++    close(tlsc_fd);
++    close(server_fd);
++    return res;
++}
+diff --git a/examples/tls_enclave/tls_enclave.edl b/examples/tls_enclave/tls_enclave.edl
+new file mode 100644
+index 0000000..93e9a70
+--- /dev/null
++++ b/examples/tls_enclave/tls_enclave.edl
+@@ -0,0 +1,26 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * secGear is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ *     http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++enclave {
++    include "stdbool.h"
++    include "secgear_urts.h"
++    from "secgear_tstdc.edl" import *; 
++    from "secgear_tssl.edl" import *;
++    trusted {
++        public size_t seal_key([in, size = file_name_len] const char *file_name, size_t file_name_len,
++                               [in, size = pw_len] char *password, size_t pw_len,
++                               [out, size = enc_buf_len] char *enc_buf, size_t enc_buf_len);
++        public int start_enclave_tls(int client_fd,
++                                 [in, size = cert_len] const char *cert, size_t cert_len,
++                                 [in, size = enc_key_len] const char *enc_key, size_t enc_key_len);
++    };
++};
+diff --git a/examples/tls_enclave/tls_enclave.md b/examples/tls_enclave/tls_enclave.md
+new file mode 100644
+index 0000000..e81d70c
+--- /dev/null
++++ b/examples/tls_enclave/tls_enclave.md
+@@ -0,0 +1,17 @@
++#Getting started with the tls_enclave example
++
++In the scenario where a user already has a certificate and private on the host side, the tls_enclve provides an example how to protect the private key and how to estabilish a TLS connection with enclave in Linux SGX environment. 
++
++1. Install secGear and intel-sgx-ssl(http://gitee.com/src-openEuler/intel-sgx-ssl).
++2. Enter the development directory ../secGear, source environment &&  mkdir debug && cd debug
++&& cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=on -DSGXSDK="sgx_sdk path" -DENCLAVE_SSL="sgxssl path" ..
++3. To run secgear_tls, the certificate and key used by the TLS server needs to be generated, the following example generate signed certificate only for testing.
++(1) generate RSA key:
++    openssl genrsa -f4 -aes256 -out server.key 3072
++    follow the screen instructions to enter the pass phrase for protecting private key, the pass phrase should meet certain complexity requirements.
++(2) generate self-signed certificate
++    openssl req -new -x509 -days 365 -key server.key -out server.pem -sha256 -subj "/C=CN/ST=GD/L=SZ/O=test/OU=test/CN=test"
++4. start secgear_tls, sudo debug/bin/secgear_tls 9090 server.pem server.key &
++   start tls_client, sudo debug/bin/tls_client 9090 server.pem
++   follow the screen instructions to enter the pass phrase to usee the private key. 
++   After exectued successfully, the private key is deleted and only the key encrypted by enclave is saved.
+-- 
+2.27.0
+
