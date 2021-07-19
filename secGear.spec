@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	19%{?dist}
+Release:	20%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -59,7 +59,7 @@ BUildRequires:	itrustee_sdk
 
 Requires:		rsyslog
 %ifarch x86_64
-Requires:		linux-sgx-driver sgxsdk libsgx-launch libsgx-urts
+Requires:		linux-sgx-driver sgxsdk libsgx-launch libsgx-urts libsgx-aesm-launch-plugin
 %else
 Requires:		itrustee_sdk
 %endif
@@ -69,7 +69,7 @@ secGear is an SDK to develop confidential computing apps based on hardware encla
 
 %package		devel
 Summary:		Development files for %{name}
-Requires:		%{name}%{?isa} = %{version}-%{release} cmake
+Requires:		%{name}%{?isa} = %{version}-%{release} cmake ocaml-dune
 %description	devel
 The %{name}-devel is package contains Header file for developing applications that
 us %{name}
@@ -160,6 +160,9 @@ popd
 %endif
 
 %changelog
+* Mon Jul 19 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-20
+- DESC: add requires for secGear: libsgx-aesm-launch-plugin ocaml-dune
+
 * Fri Jul 2 2021 zhangguangzhi<zhangguangzhi3@huawei.com> - 0.1.0-19
 - DESC: add buildrequires openssl for x86
 
