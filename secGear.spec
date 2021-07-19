@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	18%{?dist}
+Release:	19%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -52,7 +52,7 @@ Patch38:	0039-clean-memory-when-it-come-to-error_handle.patch
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
 %ifarch x86_64
-BUildRequires:	linux-sgx-driver sgxsdk libsgx-launch libsgx-urts
+BUildRequires:	linux-sgx-driver sgxsdk libsgx-launch libsgx-urts openssl
 %else
 BUildRequires:	itrustee_sdk
 %endif
@@ -160,6 +160,9 @@ popd
 %endif
 
 %changelog
+* Fri Jul 2 2021 zhangguangzhi<zhangguangzhi3@huawei.com> - 0.1.0-19
+- DESC: add buildrequires openssl for x86
+
 * Tue Jun 29 2021 zhangguangzhi<zhangguangzhi3@huawei.com> - 0.1.0-18
 - DESC: add some buildrequires gcc-c++ rpm
 
