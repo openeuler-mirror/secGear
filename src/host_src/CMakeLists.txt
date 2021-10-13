@@ -22,6 +22,10 @@ if(CC_SGX)
     add_subdirectory(sgx)
 endif()
 
+if(CC_PL)
+    add_subdirectory(penglai)
+endif()
+
 add_library(secgear SHARED enclave.c enclave_internal.c ocall_log.c enclave_ocall.c)
 add_library(secgearsim SHARED enclave.c enclave_internal.c ocall_log.c enclave_ocall.c)
 

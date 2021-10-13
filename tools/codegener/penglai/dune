@@ -1,4 +1,4 @@
-; Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
+; Copyright (c) IPADS@SJTU 2021. All rights reserved.
 ; secGear is licensed under the Mulan PSL v2.
 ; You can use this software according to the terms and conditions of the Mulan PSL v2.
 ; You may obtain a copy of Mulan PSL v2 at:
@@ -8,13 +8,12 @@
 ; PURPOSE.
 ; See the Mulan PSL v2 for more details.
 
+(library
+ (name penglai)
+ (synopsis "penglai codegen")
+ (libraries str unix intel))
+
 (env
  (dev
-  (flags (:standard -w -11 -w -14 -w -26..27 -w -32 -w -33)))
- (release
-  (flags (:standard -O3 -w -11 -w -14 -w -26..27 -w -32 -w -33))))
-
-(executable
- (name main)
- (public_name cc_gencoder)
- (libraries intel penglai))
+  (flags
+   (:standard -warn-error -A))))

@@ -30,6 +30,13 @@ if(CC_SGX)
     COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx  --search-path ${SGXSDK}/include)
 endif()
 
+if(CC_PL)
+    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
+    add_custom_command(OUTPUT ${AUTO_FILES}
+    DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
+    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/penglai)
+endif()
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
 
@@ -62,6 +69,20 @@ if(CC_SGX)
     endif()
 endif()
 
+if(CC_PL)
+    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
+        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+    endif()
+    add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
+    target_include_directories(${OUTPUT} PRIVATE
+			${LOCAL_ROOT_PATH}/inc/host_inc
+			${LOCAL_ROOT_PATH}/inc/host_inc/penglai
+			${CMAKE_CURRENT_BINARY_DIR})
+    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
+        target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+    endif()
+endif()
+
 if(CC_SIM)
     target_link_libraries(${OUTPUT} secgearsim pthread)
 else()
@@ -83,4 +104,10 @@ if(CC_SGX)
         	DESTINATION ${CMAKE_BINARY_DIR}/bin/
        	 	PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)  
 endif()
-	
+
+if(CC_PL)
+	install(TARGETS  ${OUTPUT}
+		RUNTIME
+		DESTINATION ${CMAKE_BINARY_DIR}/bin/
+		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)
+endif()

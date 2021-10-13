@@ -33,3 +33,7 @@ endif()
 if(CC_SGX)
 	add_subdirectory(sgx)
 endif()
+
+if(CC_PL)
+	add_subdirectory(penglai)
+endif()

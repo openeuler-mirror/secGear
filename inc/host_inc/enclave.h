@@ -36,6 +36,7 @@ extern "C" {
 typedef enum _enclave_type {
     SGX_ENCLAVE_TYPE = 0,
     GP_ENCLAVE_TYPE,
+    PENGLAI_ENCLAVE_TYPE,
     AUTO_ENCLAVE_TYPE,
     ENCLAVE_TYPE_MAX
 } enclave_type_t;
@@ -46,6 +47,8 @@ typedef enum _enclave_type_version {
     SGX_ENCLAVE_TYPE_MAX,
     GP_ENCLAVE_TYPE_0,
     GP_ENCLAVE_TYPE_MAX,
+    PENGLAI_ENCLAVE_TYPE_0,
+    PENGLAI_ENCLAVE_TYPE_MAX,
     ENCLAVE_TYPE_VERSION_MAX
 } enclave_type_version_t;
 

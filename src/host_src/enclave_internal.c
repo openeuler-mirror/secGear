@@ -226,6 +226,9 @@ cc_enclave_result_t find_engine_open(enclave_type_version_t type, void **handle)
             /*todo: gp supported simulation*/
             *handle = dlopen("/lib64/libgp_0.so", RTLD_LAZY);
             break;
+        case PENGLAI_ENCLAVE_TYPE_0:
+            *handle = dlopen("/lib64/libpenglai_0.so", RTLD_LAZY);
+            break;
         default:
             print_error_goto("Input type and version are not supported\n");
     }
@@ -268,8 +271,8 @@ static uint32_t check_processor()
     if (uname(&buffer) != 0) {
         return ENCLAVE_TYPE_MAX;
     }
-    const char *arch_name[] = {"x86_64", "aarch64"};
-    const enclave_type_t type_name[] = {SGX_ENCLAVE_TYPE, GP_ENCLAVE_TYPE};
+    const char *arch_name[] = {"x86_64", "aarch64", "riscv64"};
+    const enclave_type_t type_name[] = {SGX_ENCLAVE_TYPE, GP_ENCLAVE_TYPE, PENGLAI_ENCLAVE_TYPE};
     for (size_t i = 0; i < sizeof(arch_name) / sizeof(char*); ++i) {
         if (!strcmp(arch_name[i], buffer.machine)) {
             return type_name[i];
@@ -283,6 +286,17 @@ enclave_type_version_t type_check_gp(uint32_t version)
     switch (version) {
         case 0:
             return GP_ENCLAVE_TYPE_0;
+        default:
+            print_error_term("This enclave version is not support\n");
+            return ENCLAVE_TYPE_VERSION_MAX;
+    }
+}
+
+enclave_type_version_t type_check_penglai(uint32_t version)
+{
+    switch (version) {
+        case 0:
+            return PENGLAI_ENCLAVE_TYPE_0;
         default:
             print_error_term("This enclave version is not support\n");
             return ENCLAVE_TYPE_VERSION_MAX;
@@ -309,6 +323,8 @@ enclave_type_version_t match_tee_type_version(enclave_type_t type, uint32_t vers
             return type_check_sgx(version);
         case GP_ENCLAVE_TYPE:
             return type_check_gp(version);
+        case PENGLAI_ENCLAVE_TYPE:
+            return type_check_penglai(version);
         default:
             print_error_term("Detection platform type error: only support aarch64 and x86_64\n");
             return ENCLAVE_TYPE_VERSION_MAX;

@@ -47,6 +47,14 @@ if(CC_SGX)
     COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SGXSDK}/include)
 endif()
 
+if(CC_PL)
+    set(OUTPUT penglai-ELF)
+    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
+    add_custom_command(OUTPUT ${AUTO_FILES}
+    DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
+    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/penglai)
+endif()
+
 set(COMMON_C_FLAGS "-W -Wall -Werror  -fno-short-enums  -fno-omit-frame-pointer -fstack-protector \
 	-Wstack-protector --param ssp-buffer-size=4 -frecord-gcc-switches -Wextra -nostdinc -nodefaultlibs \
 	-fno-peephole -fno-peephole2 -Wno-main -Wno-error=unused-parameter \
@@ -155,4 +163,57 @@ if(CC_SGX)
     COMMAND bash ${SIGN_TOOL} -d sign -x sgx -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -k ${PEM} -o ${OUTPUT} -c ${CMAKE_CURRENT_SOURCE_DIR}/Enclave.config.xml)
 endif()
 
-set_target_properties(${PREFIX} PROPERTIES SKIP_BUILD_RPATH TRUE)
+if(NOT DEFINED CC_PL)
+    set_target_properties(${PREFIX} PROPERTIES SKIP_BUILD_RPATH TRUE)
+endif()
+
+if(CC_PL)
+    set(SDK_LIB_DIR ${PLSDK}/lib)
+    set(SDK_INCLUDE_DIR ${SDK_LIB_DIR}/app/include)
+    set(SDK_APP_LIB ${SDK_LIB_DIR}/libpenglai-enclave-eapp.a)
+    set(MUSL_LIB_DIR ${PLSDK}/musl/lib)
+    set(MUSL_LIBC ${MUSL_LIB_DIR}/libc.a)
+    set(GCC_LIB ${SDK_LIB_DIR}/libgcc.a)
+    set(SECGEAR_TEE_LIB ${CMAKE_BINARY_DIR}/lib/libsecgear_tee.a)
+
+    set(SOURCE_C_OBJS "")
+    foreach(SOURCE_FILE ${SOURCE_FILES})
+        STRING(REGEX REPLACE ".+/(.+)\\..*" "\\1" SOURCE_FILE_NAME ${SOURCE_FILE})
+        set(SOURCE_OBJ ${CMAKE_CURRENT_BINARY_DIR}/${SOURCE_FILE_NAME}.o)
+        add_custom_command(
+            OUTPUT ${SOURCE_OBJ}
+            DEPENDS ${SOURCE_FILES}
+            COMMAND gcc -Wall -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
+                -I${LOCAL_ROOT_PATH}/inc/host_inc -I${LOCAL_ROOT_PATH}/inc/host_inc/penglai -I${LOCAL_ROOT_PATH}/inc/enclave_inc
+                -I${LOCAL_ROOT_PATH}/inc/enclave_inc/penglai -c -o ${SOURCE_OBJ} ${SOURCE_FILE}
+            COMMENT "generate SOURCE_OBJ"
+        )
+        list(APPEND SOURCE_C_OBJS ${SOURCE_OBJ})
+    endforeach()
+
+    set(APP_C_OBJ ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.o)
+    add_custom_command(
+        OUTPUT ${APP_C_OBJ}
+        DEPENDS ${AUTO_FILES}
+        COMMAND gcc -Wall -I${SDK_INCLUDE_DIR} -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_BINARY_DIR}/inc
+            -I${LOCAL_ROOT_PATH}/inc/host_inc -I${LOCAL_ROOT_PATH}/inc/host_inc/penglai -I${LOCAL_ROOT_PATH}/inc/enclave_inc
+            -I${LOCAL_ROOT_PATH}/inc/enclave_inc/penglai -c -o ${APP_C_OBJ} ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c
+        COMMENT "generate APP_C_OBJ"
+    )
+
+    add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
+        DEPENDS ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${MUSL_LIBC} ${GCC_LIB}
+        COMMAND ld -static -L${SDK_LIB_DIR} -L${MUSL_LIB_DIR} -L/usr/lib64 -lpenglai-enclave-eapp -lsecgear_tee -lc
+            -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${SECGEAR_TEE_LIB}
+            ${MUSL_LIBC} ${GCC_LIB} -T ${PLSDK}/app.lds
+        COMMAND chmod -x ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
+        COMMENT "generate penglai-ELF"
+    )
+    add_custom_target(
+        ${OUTPUT} ALL
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
+        COMMENT "makefile target penglai-ELF"
+    )
+
+endif()
