@@ -6,12 +6,13 @@ secGear
 介绍
 -----------
 
-SecGear则是面向计算产业的机密计算安全应用开发套件。旨在方便开发者在不同的硬件设备上提供统一开发框架。目前secGear支持intel SGX硬件和Trustzone itrustee。
+SecGear则是面向计算产业的机密计算安全应用开发套件。旨在方便开发者在不同的硬件设备上提供统一开发框架。目前secGear支持intel SGX硬件，Trustzone itrustee，以及RISC-V 蓬莱TEE.
 
 构建、安装
 ----------------
 
 - [详见 构建、安装](./docs/build_install.md)
+- [RISC-V蓬莱TEE的构建、安装、和示例](./docs/riscv_tee.md)
 
 开发应用和编译
 ------------------------------
@@ -77,7 +78,7 @@ DPATH：用于定义非安全侧使用安全侧动态库的绝对路径
 		char buf[BUF_LEN];
 		cc_enclave_t *context = NULL;
 		cc_enclave_result_t res;
-		
+
 		res = cc_enclave_create(path, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, &context);
 		...
 
@@ -113,7 +114,7 @@ cc_enclave_destroy: 用于销毁enclave安全上下文。
 	#set host exec name
 	set(OUTPUT secgear_test)
 	#set host src code
-	set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/main.c)    
+	set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/main.c)
 
 设置预备的基础变量
 
