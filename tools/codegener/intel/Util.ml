@@ -87,6 +87,7 @@ type edger8r_params = {
   untrusted_dir : string;       (* Directory to save untrusted code *)
   trusted_dir   : string;       (* Directory to save trusted code *)
   trustzone_mode: bool;         (* Generate code for trustzone mode *)
+  penlai_mode   : bool;         (* Generate code for penglai mode *)
   sgx_mode      : bool;         (* Generate code for sgx mode *)
 }
 
@@ -112,6 +113,7 @@ let parse_cmdline (progname: string) (cmdargs: string list) =
   let trusted  = ref false in
   let sgx      = ref false in
   let trustzone= ref false in
+  let penglai  = ref false in
   let u_dir    = ref "." in
   let t_dir    = ref "." in
   let files    = ref [] in
@@ -127,6 +129,7 @@ let parse_cmdline (progname: string) (cmdargs: string list) =
             | "--trusted"    -> trusted := true; local_parser ops
             | "--sgx" -> sgx := true; local_parser ops
             | "--trustzone" -> trustzone := true; local_parser ops
+            | "--penglai" -> penglai := true; local_parser ops
             | "--untrusted-dir" ->
               (match ops with
                 []    -> usage progname
@@ -153,13 +156,14 @@ let parse_cmdline (progname: string) (cmdargs: string list) =
         untrusted_dir = !u_dir; trusted_dir = !t_dir;
         sgx_mode = !sgx;
         trustzone_mode = !trustzone;
+        penlai_mode = !penglai;
       }
     in
       if opt.input_files = [] then usage progname;
-      if !sgx && !trustzone 
+      if (!sgx && !trustzone) || (!sgx && !penglai) || (!penglai && !trustzone)
       then (eprintf "Error:Only one mode use in conmmand.\n";
            exit 1)
-      else if !sgx || !trustzone then
+      else if !sgx || !trustzone || !penglai then
                 (if !untrusted || !trusted (* User specified '--untrusted' or '--trusted' *)
                 then { opt with gen_trusted = !trusted; gen_untrusted = !untrusted }
                 else opt)

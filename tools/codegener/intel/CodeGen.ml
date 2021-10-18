@@ -2581,8 +2581,9 @@ let gen_enclave_code (e: Ast.enclave) (ep: edger8r_params) =
     check_structure ec;
     check_allow_list ec;
     (if not ep.header_only then check_priv_funcs ec);
-    if Plugin.available() && ep.trustzone_mode then
+    if Plugin.available() && not ep.sgx_mode then (
       Plugin.gen_edge_routines ec ep
+    )
     else (
       (if ep.gen_untrusted then (gen_untrusted_header ec; if not ep.header_only then gen_untrusted_source ec));
       (if ep.gen_trusted then (gen_trusted_header ec; if not ep.header_only then gen_trusted_source ec))
