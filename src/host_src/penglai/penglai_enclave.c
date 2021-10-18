@@ -25,7 +25,9 @@ extern list_ops_management g_list_ops;
 cc_enclave_result_t _penglai_create(cc_enclave_t *enclave, const enclave_features_t *features,
                                   const uint32_t features_count)
 {
-    if(enclave != NULL) print_debug("enter function: _penglai_create\n");
+    if(enclave != NULL) {
+        print_debug("enter function: _penglai_create\n");
+    }
     cc_enclave_result_t result_cc;
 
     if (!enclave) {
@@ -56,22 +58,21 @@ cc_enclave_result_t _penglai_create(cc_enclave_t *enclave, const enclave_feature
     params->untrusted_mem_size = DEFAULT_UNTRUSTED_SIZE;
     params->untrusted_mem_ptr = 0;
 
-    if(PLenclave_create(penglai_enclave, enclaveFile, params) < 0 ) {
+    if (PLenclave_create(penglai_enclave, enclaveFile, params)<0) {
         print_error_term("host: failed to create enclave\n");
         result_cc = CC_ERROR_GENERIC;
-        goto done;
-    }
-    print_debug("penglai enclave create successfully! \n");
-    enclave->private_data = (void *)penglai_enclave;
-    result_cc = CC_SUCCESS;
-    goto done_success;
 
-done:
-    PLenclave_finalize(penglai_enclave);
-    free(penglai_enclave);
-    elf_args_destroy(enclaveFile);
-    free(enclaveFile);
-done_success:
+        /* clean states*/
+        PLenclave_finalize(penglai_enclave);
+        free(penglai_enclave);
+        elf_args_destroy(enclaveFile);
+        free(enclaveFile);
+    } else {
+        print_debug("penglai enclave create successfully! \n");
+        enclave->private_data = (void *)penglai_enclave;
+        result_cc = CC_SUCCESS;
+    }
+
     enclave_param_destroy(params);
     free(params);
     return result_cc;
@@ -79,8 +80,11 @@ done_success:
 
 cc_enclave_result_t _penglai_destroy(cc_enclave_t *context)
 {
-    if(context != NULL) print_debug("enter function: _penglai_destroy\n");
-    struct PLenclave* penglai_enclave = (struct PLenclave*)context->private_data;
+    struct PLenclave* penglai_enclave;
+    if (context != NULL) {
+        print_debug("enter function: _penglai_destroy\n");
+    }
+    penglai_enclave = (struct PLenclave*) context->private_data;
     elf_args_destroy(penglai_enclave->elffile);
     free(penglai_enclave->elffile);
     PLenclave_finalize(penglai_enclave);
@@ -186,7 +190,7 @@ cc_enclave_result_t cc_enclave_call_function(
     memcpy(out_buf, output_buffer, output_buffer_size);
 
     penglai_enclave = (struct PLenclave*)enclave->private_data;
-    penglai_enclave->user_param.untrusted_mem_ptr = 
+    penglai_enclave->user_param.untrusted_mem_ptr =
             (unsigned long)untrusted_mem_extent;
     penglai_enclave->user_param.untrusted_mem_size = ecall_buf_size;
     result = PLenclave_run(penglai_enclave);
@@ -195,44 +199,49 @@ cc_enclave_result_t cc_enclave_call_function(
             result_cc = handle_ocall(penglai_enclave,
                 untrusted_mem_extent, ocall_table, &result);
             if(result_cc != CC_SUCCESS){
-                goto done;
+                /* Return error values */
+                free(untrusted_mem_extent);
+                return result_cc;
             }
         } else {
             print_debug("[ERROR] PLenclave_run is failed with \
                     return value: %d \n", result);
+
             result_cc = CC_FAIL;
-            goto done;
+            /* Return error values */
+            free(untrusted_mem_extent);
+            return result_cc;
         }
     }
 
     memcpy(output_buffer, out_buf, output_buffer_size);
     result_cc = CC_SUCCESS;
-done:
+
     free(untrusted_mem_extent);
     return result_cc;
 }
 
-const struct cc_enclave_ops penglai_ops = {
+const struct cc_enclave_ops global_penglai_ops = {
     .cc_create_enclave = _penglai_create,
     .cc_destroy_enclave = _penglai_destroy,
     .cc_ecall_enclave = cc_enclave_call_function,
 };
 
-struct cc_enclave_ops_desc penglai_ops_name = {
+struct cc_enclave_ops_desc global_penglai_ops_name = {
     .name = "penglai",
-    .ops = &penglai_ops,
+    .ops = &global_penglai_ops,
     .type_version = PENGLAI_ENCLAVE_TYPE_0,
     .count = 0,
 };
 
-struct list_ops_desc penglai_ops_node = {
-    .ops_desc = &penglai_ops_name,
+struct list_ops_desc global_penglai_ops_node = {
+    .ops_desc = &global_penglai_ops_name,
     .next = NULL,
 };
 
-#define OPS_NAME penglai_ops_name
-#define OPS_NODE penglai_ops_node
-#define OPS_STRU penglai_ops
+#define OPS_NAME global_penglai_ops_name
+#define OPS_NODE global_penglai_ops_node
+#define OPS_STRU global_penglai_ops
 
 cc_enclave_result_t cc_tee_registered(cc_enclave_t *context, void *handle)
 {

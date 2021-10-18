@@ -11,38 +11,39 @@
  */
 
 #include <stdint.h>
+#include "status.h"
 #include "dataseal_internal.h"
 
 
 uint32_t get_sealed_data_size_ex(uint32_t aad_len, uint32_t seal_data_len)
 {
     /* Penglai does not support this API now */
-    return 1;
+    return CC_ERROR_NOT_SUPPORTED;
 }
 
 uint32_t get_encrypted_text_size_ex(const void *sealed_data)
 {
     /* Penglai does not support this API now */
-    return 1;
+    return CC_ERROR_NOT_SUPPORTED;
 }
 
 uint32_t get_add_text_size_ex(const void *sealed_data)
 {
     /* Penglai does not support this API now */
-    return 1;
+    return CC_ERROR_NOT_SUPPORTED;
 }
 
 uint32_t penglai_seal_data(uint8_t *seal_data, uint32_t seal_data_len,
     void *sealed_data, uint32_t sealed_data_len, uint8_t *mac_data, uint32_t mac_data_len)
 {
     /* Penglai does not support this API now */
-    return 1;
+    return CC_ERROR_NOT_SUPPORTED;
 }
 
 uint32_t penglai_unseal_data(void *sealed_data, uint8_t *decrypted_data,
     uint32_t *decrypted_data_len,uint8_t *mac_data, uint32_t *mac_data_len)
 {
     /* Penglai does not support this API now */
-    return 1;
+    return CC_ERROR_NOT_SUPPORTED;
 }
 

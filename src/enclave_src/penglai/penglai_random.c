@@ -10,11 +10,12 @@
  * See the Mulan PSL v2 for more details.
  */
 
+#include "status.h"
 #include "random_internal.h"
 
 
 int _cc_generate_random(void *buffer, size_t size)
 {
     /* Penglai doesn't support generate_random now */
-    return 1;
+    return CC_ERROR_NOT_SUPPORTED;
 }

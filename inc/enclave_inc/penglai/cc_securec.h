@@ -15,5 +15,4 @@
 
 //penglai not surport now
 
-
 #endif //SECGEAR_CC_SECURE_H
