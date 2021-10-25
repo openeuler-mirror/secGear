@@ -1,0 +1,166 @@
+From 4c4ec07217a59ff96d975a7091116dcd149ce1e5 Mon Sep 17 00:00:00 2001
+From: yanlu <yanlu14@huawei.com>
+Date: Mon, 21 Jun 2021 15:57:26 +0800
+Subject: [PATCH] fix context without free error
+
+---
+ examples/helloworld/host/main.c  | 24 +++++++++++++-----------
+ examples/lrt/host/main.c         | 18 ++++++------------
+ examples/tls_enclave/host/main.c | 20 +++++++++-----------
+ 3 files changed, 28 insertions(+), 34 deletions(-)
+
+diff --git a/examples/helloworld/host/main.c b/examples/helloworld/host/main.c
+index a26fb6f..0d61c62 100644
+--- a/examples/helloworld/host/main.c
++++ b/examples/helloworld/host/main.c
+@@ -29,28 +29,28 @@ int main()
+     if (!context) {
+         return CC_ERROR_OUT_OF_MEMORY;
+     }
+-    cc_enclave_result_t res;
++    cc_enclave_result_t res = CC_FAIL;
+ 
+     printf("Create secgear enclave\n");
+ 
+     char real_p[PATH_MAX];
+     /* check file exists, if not exist then use absolute path */
+     if (realpath(path, real_p) == NULL) {
+-	    if (getcwd(real_p, sizeof(real_p)) == NULL) {
+-		    printf("Cannot find enclave.sign.so");
+-		    return -1;
+-	    }
+-	    if (PATH_MAX - strlen(real_p) <= strlen("/enclave.signed.so")) {
+-		    printf("Failed to strcat enclave.sign.so path");
+-		    return -1;
+-	    }
+-	    (void)strcat(real_p, "/enclave.signed.so");
++        if (getcwd(real_p, sizeof(real_p)) == NULL) {
++            printf("Cannot find enclave.sign.so");
++            goto end;
++        }
++        if (PATH_MAX - strlen(real_p) <= strlen("/enclave.signed.so")) {
++            printf("Failed to strcat enclave.sign.so path");
++            goto end;
++        }
++        (void)strcat(real_p, "/enclave.signed.so");
+     }
+ 
+     res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, context);
+     if (res != CC_SUCCESS) {
+         printf("Create enclave error\n");
+-        return res;
++        goto end; 
+     }
+ 
+     res = get_string(context, &retval, buf);
+@@ -64,5 +64,7 @@ int main()
+     if(res != CC_SUCCESS) {
+         printf("Destroy enclave error\n");
+     }
++end:
++    free(context);
+     return res;
+ }
+diff --git a/examples/lrt/host/main.c b/examples/lrt/host/main.c
+index 5108f67..ab3079f 100644
+--- a/examples/lrt/host/main.c
++++ b/examples/lrt/host/main.c
+@@ -24,11 +24,7 @@ int main()
+     int  retval = 0;
+     char *path = PATH;
+     char buf[BUF_LEN];
+-    cc_enclave_t *context = NULL;
+-    context = (cc_enclave_t*)malloc(sizeof(cc_enclave_t));
+-    if (!context) {
+-        return CC_ERROR_OUT_OF_MEMORY;
+-    }
++    cc_enclave_t context = {0};
+     cc_enclave_result_t res;
+ 
+     printf("Create secgear enclave\n");
+@@ -47,14 +43,14 @@ int main()
+ 	    (void)strcat(real_p, "/enclave.signed.so");
+     }
+ 
+-    res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, context);
++    res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, &context);
+     if (res != CC_SUCCESS) {
+         printf("Create enclave error\n");
+         return res;
+     }
+ 
+     while(true) {
+-        res = get_string(context, &retval, buf);
++        res = get_string(&context, &retval, buf);
+         if (res != CC_SUCCESS || retval != (int)CC_SUCCESS) {
+             printf("Ecall enclave error\n");
+             goto out;
+@@ -65,11 +61,9 @@ int main()
+     }
+ 
+ out:
+-    if (context != NULL) {
+-        res = cc_enclave_destroy(context);
+-        if(res != CC_SUCCESS) {
+-            printf("Destroy enclave error\n");
+-        }
++    res = cc_enclave_destroy(&context);
++    if(res != CC_SUCCESS) {
++        printf("Destroy enclave error\n");
+     }
+     return res;
+ }
+diff --git a/examples/tls_enclave/host/main.c b/examples/tls_enclave/host/main.c
+index c801558..56d1563 100644
+--- a/examples/tls_enclave/host/main.c
++++ b/examples/tls_enclave/host/main.c
+@@ -125,11 +125,8 @@ int start_server(int port)
+ int main(int argc, const char *argv[])
+ {
+     char *path = PATH;
+-    cc_enclave_t *context = NULL;
+-    context = (cc_enclave_t*)malloc(sizeof(cc_enclave_t));
+-    if (!context) {
+-        return CC_ERROR_OUT_OF_MEMORY;
+-    }
++    cc_enclave_t context_data = {0};
++    cc_enclave_t *context = &context_data;
+     struct sockaddr_in client_addr;
+     socklen_t client_len;
+     int server_fd = -1;
+@@ -148,13 +145,16 @@ int main(int argc, const char *argv[])
+     } 
+     tlsc_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_len);
+     if (tlsc_fd < 0) {
++        close(server_fd);
+         return CC_FAIL;
+     }
+     printf("Create secgear enclave\n");
+     res = cc_enclave_create(path, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, context);
+     if (res != CC_SUCCESS) {
+         printf("Create enclave error\n");
+-        goto end;
++        close(tlsc_fd);
++        close(server_fd);
++        return CC_FAIL;
+     }
+     res = get_password_and_seal_key(context, argv[3], ENC_KEY_FILE_NAME);
+     if (res !=  CC_SUCCESS) {
+@@ -171,11 +171,9 @@ int main(int argc, const char *argv[])
+     printf("enclve tls finish\n");
+ 
+ end:
+-    if (context != NULL) {
+-        res = cc_enclave_destroy(context);
+-        if(res != CC_SUCCESS) {
+-            printf("Destroy enclave error\n");
+-        }
++    res = cc_enclave_destroy(context);
++    if(res != CC_SUCCESS) {
++        printf("Destroy enclave error\n");
+     }
+     close(tlsc_fd);
+     close(server_fd);
+-- 
+1.8.3.1
+
