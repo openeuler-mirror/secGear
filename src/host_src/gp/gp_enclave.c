@@ -79,7 +79,7 @@ static cc_enclave_result_t ta_path_to_uuid(const char *path, TEEC_UUID *uuid)
     const int clock_end = 7;
     const int unit = 8;
     const int uuid_base = 16;
-    char uuid_str[UUID_LEN];
+    char uuid_str[UUID_LEN + 1] = {0};
     uint64_t uuid_split[gp_token_nums];
 
     const char *uuid_pos = NULL;
