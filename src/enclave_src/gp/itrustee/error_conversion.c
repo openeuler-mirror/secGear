@@ -28,13 +28,13 @@ cc_enclave_result_t conversion_res_status(uint32_t enclave_res)
         CC_ERROR_READ_DATA, CC_ERROR_WRITE_DATA, CC_ERROR_TRUNCATE_OBJECT, CC_ERROR_SEEK_DATA, CC_ERROR_SYNC_DATA,
         CC_ERROR_RENAME_OBJECT, CC_ERROR_INVALID_ENCLAVE,
     };
-    const int res_table2_begin = 0x80000100U;
-    const int res_table3_begin = 0x80001001U;
-    const int res_table4_begin = 0xFFFF7000U;
-    const int res_table5_begin = 0xFFFF7110U;
-    const int res_table6_begin = 0xFFFF7118U;
-    const int res_table7_begin = 0xFFFF9110U;
-    const int shift = 7;
+    const uint32_t res_table2_begin = 0x80000100U;
+    const uint32_t res_table3_begin = 0x80001001U;
+    const uint32_t res_table4_begin = 0xFFFF7000U;
+    const uint32_t res_table5_begin = 0xFFFF7110U;
+    const uint32_t res_table6_begin = 0xFFFF7118U;
+    const uint32_t res_table7_begin = 0xFFFF9110U;
+    const uint32_t shift = 7;
 
     if (enclave_res < res_table2_begin) {
         if (enclave_res < sizeof(result_table1) / sizeof(cc_enclave_result_t)) {
