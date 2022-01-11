@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	20%{?dist}
+Release:	21%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -159,7 +159,13 @@ popd
 %{_libdir}/libsgxsim_0.so
 %endif
 
+%post
+systemctl restart rsyslog
+
 %changelog
+* Tue Jan 11 2022 houmingyong<houmingyong@huawei.com> - 0.1.0-21
+- DESC: fix no secgear.log after install secGear-devel 
+
 * Mon Jul 19 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-20
 - DESC: add requires for secGear: libsgx-aesm-launch-plugin ocaml-dune
 
