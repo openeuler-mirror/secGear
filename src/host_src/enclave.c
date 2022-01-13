@@ -68,6 +68,7 @@ static void error_handle(cc_enclave_t *enclave, void *handle, p_tee_registered r
     }
 
     if (enclave) {
+        pthread_rwlock_destroy(&enclave->rwlock);
         explicit_bzero(enclave, sizeof(cc_enclave_t));
     }
 }
@@ -192,7 +193,10 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
 
     memset(enclave, 0, sizeof(cc_enclave_t));
     if (!check_transform_path(&res, path, &l_path) || !chose_engine_type(&res, type, version, &type_version)) {
-        goto done;
+        if (l_path) {
+            free(l_path);
+        }
+        return CC_FAIL;
     }
 
     /* to do: gp support enter enclave debugging */
