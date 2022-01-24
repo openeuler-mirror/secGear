@@ -42,5 +42,7 @@ mkdir debug && cd debug && cmake -DENCLAVE=GP ..&& make && sudo make install
 ```
 4. For more complex examples, see `examples` directory.
 
+## Build with RSIC-V Penglai
+refer to [riscv_tee.md](./riscv_tee.md)
 
 
