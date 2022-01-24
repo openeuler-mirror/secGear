@@ -1,7 +1,7 @@
 # Quick start
  
 ## Quick start with Intel SGX
-Ensure your system have installed sgx driver, sgx sdk and sgx psw. You can download and install [intel released version](https://01.org/intel-software-guard-extensions/downloads) or install from [linux-sgx](https://github.com/intel/linux-sgx) source code.
+Ensure your system have installed sgx driver, sgx sdk and sgx psw. You can install by [released version](https://01.org/intel-software-guard-extensions/downloads) or [linux-sgx](https://github.com/intel/linux-sgx) source code.
 1. Clone the secGear repository:
 
 ```
@@ -44,5 +44,17 @@ mkdir debug && cd debug && cmake -DENCLAVE=GP ..&& make && sudo make install
 
 ## Build with RSIC-V Penglai
 refer to [riscv_tee.md](./riscv_tee.md)
+
+## Note
+The build cmd `cmake ..` used default sdk installed path and enclave ssl installed path(if necessary).
+If you install them by customize, you need input your customize path by cmake such as：
+
+```
+cmake -DSDK_PATH="sdk installed path" -DSSL_PATH="enclave ssl installed path" ..
+
+// for example by default path
+cmake -DSDK_PATH=/opt/intel/sgxsdk -DSSL_PATH=/opt/intel/sgxssl ..
+```
+
 
 
