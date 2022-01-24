@@ -50,10 +50,12 @@ The build cmd `cmake ..` used default sdk installed path and enclave ssl install
 If you install them by customize, you need input your customize path by cmake such as：
 
 ```
-cmake -DSDK_PATH="sdk installed path" -DSSL_PATH="enclave ssl installed path" ..
-
-// for example by default path
+// the following two cmd is same
+cmake .. 
 cmake -DSDK_PATH=/opt/intel/sgxsdk -DSSL_PATH=/opt/intel/sgxssl ..
+
+// input your customize path
+cmake -DSDK_PATH="sdk installed path" -DSSL_PATH="enclave ssl installed path" ..
 ```
 
 
