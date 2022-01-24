@@ -1,35 +1,46 @@
-Install secGear
+# Quick start
  
-openEuler x86
+## Quick start with Intel SGX
+Ensure your system have installed sgx driver, sgx sdk and sgx psw. You can download and install [intel released version](https://01.org/intel-software-guard-extensions/downloads) or install from [linux-sgx](https://github.com/intel/linux-sgx) source code.
+1. Clone the secGear repository:
 
-1. Refer to https://01.org/intel-software-guard-extensions/downloads download and install the 2.11 
-   sgx  driver, sgx psw, sgx sdk. In the directory of sgx sdk, source environment(for use sgx-sign)
-   
-2. Refer to https://github.com/ocaml/opam/releases download and install the  opam-2.0.7-x86_64-linux.
-   Run "./opam-2.0.7-x86_64-linux init"
-   Copy the output of "./opam-2.0.7-x86_64-linux env" to ~/.bashrc, then run "source ~/.bashrc"
-   Run "./opam-2.0.7-x86_64-linux install dune"
-   
-3. source environment && mkdir debug && cd debug 
-   && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK="sgx_sdk path" .. &&  make && sudo make install
+```
+git clone https://gitee.com/openeuler/secGear.git
+```
+2. Build secGear and examples
 
-4. To run example tls_enclave, refer to https://gitee.com/src-openeuler/intel-sgx-ssl 
-   download and install intel-sgx-ssl firstly.
-   source environment && mkdir debug && cd debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK="sgx_sdk path"
-   && -DENCLAVE_SSL="sgxssl path" .. &&  make && sudo make install
-   
-openEuler arm
+```
+cd secGear
+source /opt/intel/sgxsdk/environment && source environment
+mkdir debug && cd debug && cmake ..&& make && sudo make install
+```
+3. Run Helloword
 
-1. The itrustee OS is not released. Therefore, no installation description is provided.
-   How to install and configure the secGear on the platform where the itrustee OS is enabled will be provided
-   after the itrustee OS is released.
+```
+./examples/helloworld/host/secgear_helloworld
+```
+4. For more complex examples, see `examples` directory.
 
-2. Refer to https://github.com/ocaml/opam/releases download and install the  opam-2.0.7-arm64-linux.
-   Run "./opam-2.0.7-arm64-linux init"
-   Copy the output of "./opam-2.0.7-arm64-linux env" to ~/.bashrc, then run "source ~/.bashrc"
-   Run ./opam-2.0.7-arm64-linux install dune
+## Quick start with ARM TrustZone(Kunpeng itrustee)
+Now, itrustee TeeOS is only flashed on Kunpeng(such as Kunpeng 920).</br>
+Ensure your system have installed ocaml-dune, if installed ignore this step.
+Otherwise install refer to [ocaml-dune](https://github.com/ocaml/dune)
 
-3. source environment && mkdir debug && cd debug
-   && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_GP=ON -DiTrusteeSDK="iTrustee sdk path" .. && make && sudo make install
+1. Clone the secGear repository:
+```
+git clone https://gitee.com/openeuler/secGear.git
+```
+2. Build secGear and examples
+```
+cd secGear
+source environment
+mkdir debug && cd debug && cmake -DENCLAVE=GP ..&& make && sudo make install
+```
+3. Run Helloword
+```
+/vendor/bin/secgear_helloworld
+```
+4. For more complex examples, see `examples` directory.
+
 
 
