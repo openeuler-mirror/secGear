@@ -46,7 +46,7 @@ mkdir debug && cd debug && cmake -DENCLAVE=GP ..&& make && sudo make install
 refer to [riscv_tee.md](./riscv_tee.md)
 
 ## Note
-The build cmd `cmake ..` used default sdk installed path and enclave ssl installed path(if necessary).
+The build cmd `cmake ..` used default sdk installed path and enclave ssl installed path(if your application needs libssl).
 If you install them by customize, you need input your customize path by cmake such as：
 
 ```
