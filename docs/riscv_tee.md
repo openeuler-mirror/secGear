@@ -54,7 +54,7 @@ https://ipads.se.sjtu.edu.cn:1313/d/6a464e02cd3d4c1bafb0/
 
 	cd secGear
 	source environment && mkdir debug && cd debug
-	cmake -DCMAKE_BUILD_TYPE=Debug -DCC_PL=ON -DPLSDK=/root/dev/sdk .. && make && make install
+	cmake -DENCLAVE=PL .. && make && make install
 
 #### 4. 运行 helloworld 程序
 
