@@ -27,6 +27,9 @@ cc_enclave_result_t cc_enclave_generate_random(void *buffer, size_t size)
         case 1:
             res = CC_FAIL;
             break;
+        case CC_ERROR_NOT_SUPPORTED:
+            res = CC_ERROR_NOT_SUPPORTED;
+            break;
         default:
             res = CC_ERROR_UNEXPECTED;
             break;
