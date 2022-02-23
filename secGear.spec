@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	21%{?dist}
+Release:	22%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -48,6 +48,7 @@ Patch35:	0036-enclave-use-the-can-pull-image-from-hub.oepkgs.net.patch
 Patch36:	0037-add-description-about-file-parameter-path-for-sign_t.patch
 Patch37:	0038-fix-use-after-free-in-cc_enclave_create.patch
 Patch38:	0039-clean-memory-when-it-come-to-error_handle.patch
+Patch39:	0040-fix-double-free.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
@@ -163,6 +164,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Wed Feb 23 2022 houmingyong<houmingyong@huawei.com> - 0.1.0-22
+- DESC: fix double free bug
+
 * Tue Jan 11 2022 houmingyong<houmingyong@huawei.com> - 0.1.0-21
 - DESC: fix no secgear.log after install secGear-devel 
 
