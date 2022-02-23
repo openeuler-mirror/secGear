@@ -389,12 +389,9 @@ itrustee需要链接secgear_tee动态库，提供seal接口等。
 mainfest.txt.in:其中gpd.ta.appID 为动态生成uuid。其他配置参见itrustee开发文档。
 
 
-#### 5 构建 安装
+### 5 构建 安装
 
-进入开发目录：cd .../secGear/example/test/
-创建debug目录：mkdir debug && cd debug
-cmake构建：cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK=sgx_sdk path .. &&  make && sudo make install （sgx硬件环境）
-          cmake -DCMAKE_BUILD_TYPE=Debug -DCC_GP=ON -DiTrusteeSDK=gp_sdk path .. && make && sudo make install （itrustee硬件环境）
+[详见构建、安装](./docs/build_install.md)
 
 Log
 ---

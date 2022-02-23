@@ -423,10 +423,7 @@ and the other configuration items can refer to the iTrustee development document
 	
 ### 5 build and install test
 
-Enter the development directory .../secGear/examples/test/, then run mkdir debug && cd debug
-&& cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK=sgx_sdk path .. &&  make && sudo make install OR
-mkdir debug && cd debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_GP=ON -DiTrusteeSDK=gp_sdk path .. && make
-&& sudo make install
+[reference build & install](./docs/build_install.md)
 
 Log
 ---
