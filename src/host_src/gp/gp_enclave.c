@@ -255,10 +255,15 @@ static bool handle_ocall(uint32_t agent_id, int dev_fd, void *buffer, cc_ocall_f
     }
     ret = true;
 done:
-    free(tmp_input_buffer);
-    free(tmp_output_buffer);
-    tmp_input_buffer = NULL;
-    tmp_output_buffer = NULL;
+    if (tmp_input_buffer != NULL) {
+        free(tmp_input_buffer);
+        tmp_input_buffer = NULL;
+    }
+    if (tmp_output_buffer != NULL) {
+        free(tmp_output_buffer);
+        tmp_output_buffer = NULL;
+    }
+    
     return ret;
 }
 
