@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	23%{?dist}
+Release:	24%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -50,6 +50,10 @@ Patch37:	0038-fix-use-after-free-in-cc_enclave_create.patch
 Patch38:	0039-clean-memory-when-it-come-to-error_handle.patch
 Patch39:	0040-fix-double-free.patch
 Patch40:	0041-fix-logs-redirection-error-and-delete-rsa_public_key.patch
+Patch41:	0042-destroy-rwlock-when-create-enclave-failed.patch
+Patch42:	0043-fix-partial-resource-leak.patch
+Patch43:	0044-fix-pointer-without-init-or-check-NULL.patch
+Patch44:	0045-optimize-the-private-key-usage-of-the-single-step-si.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
@@ -61,7 +65,7 @@ BUildRequires:	itrustee_sdk
 
 Requires:		rsyslog
 %ifarch x86_64
-Requires:		linux-sgx-driver sgxsdk libsgx-launch libsgx-urts libsgx-aesm-launch-plugin
+Requires:		sgxsdk libsgx-launch libsgx-urts libsgx-aesm-launch-plugin
 %else
 Requires:		itrustee_sdk
 %endif
@@ -71,7 +75,12 @@ secGear is an SDK to develop confidential computing apps based on hardware encla
 
 %package		devel
 Summary:		Development files for %{name}
-Requires:		%{name}%{?isa} = %{version}-%{release} cmake ocaml-dune
+Requires:		%{name}%{?isa} = %{version}-%{release} cmake
+%ifarch x86_64
+Requires:		sgxsdk
+%else
+Requires:		itrustee_sdk-devel
+%endif
 %description	devel
 The %{name}-devel is package contains Header file for developing applications that
 us %{name}
@@ -162,6 +171,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Thu Mar 10 2022 wangcheng <wangcheng156@huawei.com> - 0.1.0-24
+* DESC: fix some bugs
+
 * Fri Mar 4 2022 gaoyusong <gaoyusong1@huawei.com> - 0.1.0-23
 - DESC: fix logs redirection error and del rsa_public_key_cloud.pem
 
