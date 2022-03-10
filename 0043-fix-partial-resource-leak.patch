@@ -1,0 +1,99 @@
+From c64400a742d292585f06590741ceb5b37837e4bc Mon Sep 17 00:00:00 2001
+From: houmingyong <houmingyong@huawei.com>
+Date: Mon, 17 Jan 2022 19:21:12 +0800
+Subject: [PATCH] fix partial resource leak
+
+Conflict:NA
+Reference:https://gitee.com/openeuler/secGear/pulls/79
+
+---
+ src/host_src/enclave.c | 49 ++++++++++++++++++------------------------
+ 1 file changed, 21 insertions(+), 28 deletions(-)
+
+diff --git a/src/host_src/enclave.c b/src/host_src/enclave.c
+index e163b58..36a50b9 100644
+--- a/src/host_src/enclave.c
++++ b/src/host_src/enclave.c
+@@ -264,7 +264,7 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
+ {
+     int32_t ires = 0;
+     cc_enclave_result_t res = CC_FAIL;
+-    p_tee_unregistered unregistered_funcc;
++    p_tee_unregistered unregistered_funcc = NULL;
+ 
+     /* check context and enclave engine context */
+     if (!context || !context->list_ops_node || !context->list_ops_node->ops_desc ||
+@@ -273,50 +273,43 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
+         return CC_ERROR_BAD_PARAMETERS;
+     }
+ 
+-    ires = pthread_rwlock_wrlock(&(context->rwlock));
+-    if (ires) {
+-        return CC_ERROR_BUSY;
+-    }
++    (void)pthread_rwlock_wrlock(&(context->rwlock));
+     if (context->list_ops_node->ops_desc->ops->cc_destroy_enclave != NULL) {
+         res = context->list_ops_node->ops_desc->ops->cc_destroy_enclave(context);
+-        SECGEAR_CHECK_RES(res);
+-    } else {
+-        print_error_goto("Enclave context no valid ops function\n");
++        if (res != CC_SUCCESS) {
++            print_warning("destory enclave error\n");
++        }
+     }
+ 
+     /* look up enclave engine unregistered */
+-    res = find_engine_registered(context->list_ops_node->ops_desc->handle, NULL, &unregistered_funcc);
+-    SECGEAR_CHECK_RES(res);
++    (void)find_engine_registered(context->list_ops_node->ops_desc->handle, NULL, &unregistered_funcc);
+ 
+     /* lock call unregistered func */
+-    ires = pthread_mutex_lock(&(g_list_ops.mutex_work));
+-    SECGEAR_CHECK_MUTEX_RES_CC(ires, res);
++    (void)pthread_mutex_lock(&(g_list_ops.mutex_work));
+     /* call enclave engine free node */
+-    res = (*unregistered_funcc)(context, context->list_ops_node->ops_desc->type_version);
+-    SECGEAR_CHECK_RES_UNLOCK(res);
++    if (unregistered_funcc) {
++        res = (*unregistered_funcc)(context, context->list_ops_node->ops_desc->type_version);
++        if (res != CC_SUCCESS) {
++            print_warning("unregister func error\n");
++        }
++    }
+     if (context->list_ops_node->ops_desc->count == 0) {
+         ires = dlclose(context->list_ops_node->ops_desc->handle);
+         if (ires != 0) {
+-            res = CC_FAIL;
+-            pthread_mutex_unlock(&(g_list_ops.mutex_work));
+-            print_error_goto("Close engine failure\n");
++            print_warning("close engine error\n");
+         }
+         context->list_ops_node = NULL;
+     }
+     /* free enclave number resources */
+     g_list_ops.enclaveState.enclave_count--;
+-    ires = pthread_mutex_unlock(&(g_list_ops.mutex_work));
+-    SECGEAR_CHECK_MUTEX_RES_CC(ires, res);
++    (void)pthread_mutex_unlock(&(g_list_ops.mutex_work));
+ 
+-    res = CC_SUCCESS;
+-done:
+-    if (context && context->path) {
++    if (context->path) {
+         free(context->path);
+     }
+-    if (context) {
+-        pthread_rwlock_unlock(&context->rwlock);
+-        pthread_rwlock_destroy(&context->rwlock);
+-        explicit_bzero(context, sizeof(cc_enclave_t));
+-    }
+-    return res;
++    pthread_rwlock_unlock(&context->rwlock);
++    pthread_rwlock_destroy(&context->rwlock);
++    explicit_bzero(context, sizeof(cc_enclave_t));
++
++    return CC_SUCCESS;
+ }
+-- 
+2.23.0
+

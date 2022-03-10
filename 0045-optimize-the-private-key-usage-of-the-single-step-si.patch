@@ -1,0 +1,69 @@
+From 4320c1816627fbeff32c4388c36b31eeea24d629 Mon Sep 17 00:00:00 2001
+From: gaoyusong <gaoyusong1@huawei.com>
+Date: Mon, 15 Nov 2021 12:39:39 +0800
+Subject: [PATCH] optimize the private key usage of the single-step signature
+ method
+
+Signed-off-by: gaoyusong <gaoyusong1@huawei.com>
+---
+ docs/sign_tool.md                            | 3 ++-
+ examples/helloworld/enclave/config_cloud.ini | 1 +
+ examples/seal_data/enclave/config_cloud.ini  | 1 +
+ tools/sign_tool/sign_tool.sh                 | 3 ++-
+ 4 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/docs/sign_tool.md b/docs/sign_tool.md
+index a092f19..1da6d06 100644
+--- a/docs/sign_tool.md
++++ b/docs/sign_tool.md
+@@ -47,7 +47,8 @@ The tool supports the following two modes:
+ 		            The dump command is used to generate metadata for sgx signed enclave.
+ 	-i <file>       input parameter, which is enclave to be signed for digest/sign command, and signed enclave for
+ 	                dump command.
+-	-k <file>       private key required for single-step method.
++	-k <file>       private key required for single-step method. NOTE: single-step method is only for the dubug mode,
++	                plaintext private key does exist in the production environment.
+ 	-m <file>       additional config_cloud.ini for trustzone.
+ 	-o <file>       output parameter, the sign command outputs signed enclave, the digest command outputs signing
+ 	                material, the dump command outputs data containing the SIGStruct metadata for the SGX signed
+diff --git a/examples/helloworld/enclave/config_cloud.ini b/examples/helloworld/enclave/config_cloud.ini
+index 552f59c..0960436 100644
+--- a/examples/helloworld/enclave/config_cloud.ini
++++ b/examples/helloworld/enclave/config_cloud.ini
+@@ -27,6 +27,7 @@ encryptKeyLen = 3072
+ signType = 1
+ ;;;
+ ;private key for signing TA
++;this private key is only for the dubug mode so plaintext private key does exist in the production environment
+ ;[private key owned by yourself]
+ signKey = ../../examples/helloworld/enclave/cert/private_key.pem
+ ;;;
+diff --git a/examples/seal_data/enclave/config_cloud.ini b/examples/seal_data/enclave/config_cloud.ini
+index f0c0e39..2b8a79c 100644
+--- a/examples/seal_data/enclave/config_cloud.ini
++++ b/examples/seal_data/enclave/config_cloud.ini
+@@ -27,6 +27,7 @@ encryptKeyLen = 3072
+ signType = 1
+ ;;;
+ ;private key for signing TA
++;this private key is only for the dubug mode so plaintext private key does exist in the production environment
+ ;[private key owned by yourself]
+ signKey = ../../examples/seal_data/enclave/cert/private_key.pem
+ ;;;
+diff --git a/tools/sign_tool/sign_tool.sh b/tools/sign_tool/sign_tool.sh
+index 0435a67..daca711 100755
+--- a/tools/sign_tool/sign_tool.sh
++++ b/tools/sign_tool/sign_tool.sh
+@@ -31,7 +31,8 @@ print_help(){
+     echo "                The dump command is used to generate metadata for sgx signed enclave."
+     echo "-i <file>       input parameter, which is enclave to be signed for digest/sign command, and signed enclave for"
+     echo "                dump command."
+-    echo "-k <file>       private key required for single-step method."
++    echo "-k <file>       private key required for single-step method. NOTE: single-step method is only for the dubug mode,"
++    echo "                plaintext private key does exist in the production environment."
+     echo "-m <file>       additional config_cloud.ini for trustzone."
+     echo "-o <file>       output parameter, the sign command outputs signed enclave, the digest command outputs signing"
+     echo "                material, the dump command outputs data containing the SIGStruct metadata for the SGX signed"
+-- 
+2.23.0
+
