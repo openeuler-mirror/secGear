@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	24%{?dist}
+Release:	25%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -58,14 +58,14 @@ Patch44:	0045-optimize-the-private-key-usage-of-the-single-step-si.patch
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
 %ifarch x86_64
-BUildRequires:	linux-sgx-driver sgxsdk libsgx-launch libsgx-urts openssl
+BUildRequires:	sgxsdk libsgx-launch libsgx-urts openssl
 %else
-BUildRequires:	itrustee_sdk
+BUildRequires:	itrustee_sdk itrustee_sdk-devel
 %endif
 
 Requires:		rsyslog
 %ifarch x86_64
-Requires:		sgxsdk libsgx-launch libsgx-urts libsgx-aesm-launch-plugin
+Requires:		linux-sgx-driver sgxsdk libsgx-launch libsgx-urts libsgx-aesm-launch-plugin
 %else
 Requires:		itrustee_sdk
 %endif
@@ -171,6 +171,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Tue Mar 15 2022 wangcheng <wangcheng156@huawei.com> - 0.1.0-25
+* DESC: fix the building failure in arm
+
 * Thu Mar 10 2022 wangcheng <wangcheng156@huawei.com> - 0.1.0-24
 * DESC: fix some bugs
 
