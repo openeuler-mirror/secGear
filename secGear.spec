@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	20%{?dist}
+Release:	21%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -48,6 +48,7 @@ Patch35:	0036-enclave-use-the-can-pull-image-from-hub.oepkgs.net.patch
 Patch36:	0037-add-description-about-file-parameter-path-for-sign_t.patch
 Patch37:	0038-fix-use-after-free-in-cc_enclave_create.patch
 Patch38:	0039-clean-memory-when-it-come-to-error_handle.patch
+Patch39:	0040-fix-logs-redirection-error-and-delete-rsa_public_key.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
@@ -104,10 +105,8 @@ install -d %{buildroot}/%{_includedir}/secGear
 install -d %{buildroot}/%{_bindir}
 install -pm 751 bin/codegen %{buildroot}/%{_bindir}
 install -pm 751 tools/sign_tool/sign_tool.sh %{buildroot}/%{_bindir}
-install -d %{buildroot}/%{_sysconfdir}/secGear/cloud
 install -d %{buildroot}/lib/secGear/
 install -pm 751 tools/sign_tool/*.py %{buildroot}/lib/secGear
-install -pm 644 tools/sign_tool/cloud/rsa_public_key_cloud.pem %{buildroot}/%{_sysconfdir}/secGear/cloud
 %ifarch x86_64
 install -pm 644 inc/host_inc/*.h %{buildroot}/%{_includedir}/secGear
 install -pm 644 inc/host_inc/sgx/*.h %{buildroot}/%{_includedir}/secGear
@@ -149,7 +148,6 @@ popd
 %{_bindir}/*
 %{_includedir}/secGear/*
 /lib/secGear/*
-%{_sysconfdir}/secGear/cloud/rsa_public_key_cloud.pem
 
 %ifarch x86_64
 %files sim
@@ -160,6 +158,9 @@ popd
 %endif
 
 %changelog
+* Mon Mar 14 2022 gaoyusong<gaoyusong1@huawei.com> - 0.1.0-21
+- DESC: fix logs redirection error and del rsa_pub.key
+
 * Mon Jul 19 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-20
 - DESC: add requires for secGear: libsgx-aesm-launch-plugin ocaml-dune
 
