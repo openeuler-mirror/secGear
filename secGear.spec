@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	25%{?dist}
+Release:	26
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -171,6 +171,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Thu Mar 24 2022 baizhonggui <baizhonggui@huawei.com> - 0.1.0-26
+* DESC: delete %{dist}
+
 * Tue Mar 15 2022 wangcheng <wangcheng156@huawei.com> - 0.1.0-25
 * DESC: fix the building failure in arm
 
