@@ -23,7 +23,7 @@ if(CC_SGX)
 		COMMAND cp ${LOCAL_ROOT_PATH}/inc/enclave_inc/sgx/*.h ${CMAKE_BINARY_DIR}/inc/secGear/)
 	add_subdirectory(seal_data)
 	add_subdirectory(helloworld)
-	add_subdirectory(tls_enclave)
+	#add_subdirectory(tls_enclave)
 	#add_subdirectory(lrt)
 endif()
 
