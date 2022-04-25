@@ -156,7 +156,7 @@ let set_ecall_func (tf : trusted_func) =
         else    
                 "    /* There is no parameters point */"; 
         "";
-        "    if (in_buf == NULL || out_buf == NULL)";
+        "    if (in_buf == NULL)";
         "        goto done;";
         sprintf "    %s_size_t *args_size = (%s_size_t *)in_buf;" tfd.fname tfd.fname;
         "    in_buf_offset += size_to_aligned_size(sizeof(*args_size));";
