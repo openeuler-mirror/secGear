@@ -196,7 +196,7 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
         if (l_path) {
             free(l_path);
         }
-        return CC_FAIL;
+        return res;
     }
 
     /* to do: gp support enter enclave debugging */
