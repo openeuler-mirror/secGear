@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	26
+Release:	27
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -54,6 +54,7 @@ Patch41:	0042-destroy-rwlock-when-create-enclave-failed.patch
 Patch42:	0043-fix-partial-resource-leak.patch
 Patch43:	0044-fix-pointer-without-init-or-check-NULL.patch
 Patch44:	0045-optimize-the-private-key-usage-of-the-single-step-si.patch
+Patch45:	0046-fix-return-value.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
@@ -171,6 +172,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Sun May 15 2022 zhengxiaoxiao <zhengxiaoxiao2@huawei.com> - 0.1.0-27
+* DESC: fix return value
+
 * Thu Mar 24 2022 baizhonggui <baizhonggui@huawei.com> - 0.1.0-26
 * DESC: delete %{dist}
 
