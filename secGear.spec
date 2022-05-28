@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	24
+Release:	25
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -66,7 +66,7 @@ BUildRequires:	itrustee_sdk
 
 Requires:		rsyslog
 %ifarch x86_64
-Requires:		linux-sgx-driver sgxsdk libsgx-launch libsgx-urts libsgx-aesm-launch-plugin
+Requires:		linux-sgx-driver libsgx-launch libsgx-urts libsgx-aesm-launch-plugin
 %else
 Requires:		itrustee_sdk
 %endif
@@ -172,6 +172,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Thu May 19 2022 wangyu <wangyu283@huawei.com> - 0.1.0-25
+- DESC: change requires for secGear
+
 * Thu Apr 28 2022 gaoyusong<gaoyusong2@huawei.com> - 0.1.0-24
 - DESC: backport some patches from openEuler
 
