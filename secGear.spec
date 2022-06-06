@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	27
+Release:	28
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -55,6 +55,7 @@ Patch42:	0043-fix-partial-resource-leak.patch
 Patch43:	0044-fix-pointer-without-init-or-check-NULL.patch
 Patch44:	0045-optimize-the-private-key-usage-of-the-single-step-si.patch
 Patch45:	0046-fix-return-value.patch
+Patch46:        0047-del-print-uncontrol-form-string.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
@@ -172,6 +173,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Mon Jun 6 2022 zhengxiaoxiao <zhengxiaoxiao2@huawei.com> - 0.1.0-28
+* DESC: del print uncontrol form string
+
 * Sun May 15 2022 zhengxiaoxiao <zhengxiaoxiao2@huawei.com> - 0.1.0-27
 * DESC: fix return value
 
