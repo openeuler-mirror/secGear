@@ -21,6 +21,7 @@
 #define POS_IN 0
 #define POS_OUT 1
 #define POS_IN_OUT 2
+#define POS_SHARED_MEN 3
 
 extern const cc_ecall_func_t cc_ecall_tables[];
 extern const size_t ecall_table_size;
@@ -190,6 +191,7 @@ static TEE_Result handle_ecall_function(uint32_t param_types, TEE_Param params[P
                tmp_input_buffer_size,
                tmp_output_buffer,
                tmp_output_buffer_size,
+               params[POS_SHARED_MEN].sharedmem.buffer,
                &output_bytes_written);
     if (res != CC_SUCCESS) {
         goto done;

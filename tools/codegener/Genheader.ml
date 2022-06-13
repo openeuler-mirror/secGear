@@ -241,15 +241,26 @@ let generate_args_header (ec: enclave_content) =
     in
     String.concat "\n" untrust_fstruct_pre
         in
+    let tfunc_decls = List.filter is_not_switchless_function ec.tfunc_decls in
+    let sl_tfunc_decls = List.filter is_switchless_function ec.tfunc_decls in
     let trust_fid_com = "/**** Trusted function IDs ****/\n" in
+    let sl_trust_fid_com = "\n/**** Trusted switchless function IDs ****/\n" in
     let untrust_fid_com = "/**** Untrusted function IDs ****/\n" in
     let trust_fid_body =
         let trust_fid_pre =
             List.mapi
-        (fun i f -> sprintf "    %s = %d," (generate_function_id f.tf_fdecl) i) ec.tfunc_decls
+        (fun i f -> sprintf "    %s = %d," (generate_function_id f.tf_fdecl) (i + 2)) tfunc_decls
     in
     String.concat "\n" trust_fid_pre
         in
+    let sl_trust_fid_body = 
+        let sl_trust_fid_pre =
+            List.mapi
+        (fun i f -> sprintf "    %s = %d," (generate_function_id f.uf_fdecl) i) sl_tfunc_decls
+        in
+        String.concat "\n" sl_trust_fid_pre
+    in
+    let sl_trust_fid_max = "     fid_trusted_switchless_call_id_max = SECGEAR_ENUM_MAX\n" in
     let untrust_fid_body = 
         let untrust_fid_pre = 
             List.mapi
@@ -264,6 +275,7 @@ let generate_args_header (ec: enclave_content) =
         "    fid_trusted_call_id_max = SECGEAR_ENUM_MAX\n"
     in
     let trust_fid = "enum\n{\n" ^ trust_fid_body ^ "\n" ^ trust_fid_max ^ "};" in
+    let sl_trust_fid = "enum\n{\n" ^ sl_trust_fid_body ^ "\n" ^ sl_trust_fid_max ^ "};" in
     let untrust_fid = "enum\n{\n" ^ untrust_fid_body ^ "\n" ^ untrust_fid_max ^ "};" in
     [
         hfile_start ^ hfile_include;
@@ -273,6 +285,7 @@ let generate_args_header (ec: enclave_content) =
       trust_fstruct_com ^ trust_fstruct;
       untrust_fstruct_com ^ untrust_fstruct;
       trust_fid_com ^ trust_fid; 
+      sl_trust_fid_com ^ sl_trust_fid;
       untrust_fid_com ^ untrust_fid;
       c_end; 
       hfile_end;

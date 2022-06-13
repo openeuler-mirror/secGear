@@ -147,6 +147,7 @@ typedef struct _call_cc_enclave_function_args {
     size_t output_buffer_size;
     size_t output_bytes_written;
     cc_enclave_result_t result;
+    cc_enclave_t *enclave;
 } cc_enclave_call_function_args_t;
 
 typedef struct _ocall_cc_enclave_function_args {
@@ -178,6 +179,12 @@ typedef struct _ocall_table {
     uint64_t num;
     cc_ocall_func_t ocalls[];
 } ocall_enclave_table_t;
+
+/* Enclave feature flag */
+typedef enum {
+    ENCLAVE_FEATURE_SWITCHLESS = 1,
+    ENCLAVE_FEATURE_PROTECTED_CODE_LOADER
+} enclave_features_flag_t;
 
 # ifdef  __cplusplus
 }

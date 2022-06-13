@@ -263,6 +263,46 @@ let set_call_user_func (fd : func_decl) =
                 pl) ^ ");";
     ]
 
+let set_call_user_sl_func (fd : func_decl) =
+    let is_ptr_type (t : atype) = match t with Ptr t -> true | _ -> false in
+    let pl = fd.plist in
+    [
+        (match fd.rtype with Void -> "" | _ -> (get_tystr2 fd.rtype) ^ (if (is_ptr_type fd.rtype) then "*" else "") ^ " ret = ") ^ fd.fname ^ "(";
+        "    " ^ concat ",\n    "
+                (List.map
+                        (fun(ptype, decl) ->
+                            match ptype with
+                            | PTVal _ -> sprintf "    %s" decl.identifier
+                            | PTPtr (t, a) ->
+                                if is_array decl then
+                                    sprintf "    *(%s(*)%s)%s" (get_tystr t) (get_array_dims decl.array_dims) decl.identifier
+                                else if params_is_foreign_array ptype then
+                                    sprintf "    *(%s*)%s" (get_tystr t) decl.identifier
+                                else if a.pa_rdonly then
+                                    sprintf "    (const %s)%s" (get_tystr t) decl.identifier
+                                else if a.pa_chkptr=false then
+                                    sprintf "    &%s" decl.identifier
+                                else sprintf "    %s" decl.identifier)
+                pl) ^ ");";
+    ]
+
+let set_sl_call_params (fd : func_decl) =
+    let pl = fd.plist in
+    [
+        "/* get switchless function params from task buf */\n    " ^ concat "\n    "
+        (List.map
+            (fun(ptype, decl) ->
+                let var_type = get_tystr2 (get_param_atype ptype) in
+                let var_name = decl.identifier in
+                    match ptype with
+                    | PTVal _ ->
+                        sprintf "%s %s = SL_GET_VAL_PARAM_FROM_TASK_BUF(%s);" var_type var_name var_type
+                    | PTPtr (t, a) ->
+                        sprintf "%s *%s = SL_GET_PTR_PARAM_FROM_TASK_BUF(%s *);" var_type var_name var_type)
+            pl) ^ "\n";
+    ]
+
+
 let set_args_size (fd : func_decl) =
     let deep_copy = List.filter is_deep_copy fd.plist in
     let argment_size = 
@@ -472,3 +512,5 @@ let set_out_memcpy (fd : func_decl) =
         else "/* There is no out_buf to out_params */"
     ]
 
+let is_switchless_function (tf : trust_func) = tf.tf_is_switchless == true
+let is_not_switchless_function (tf : trust_func) = tf.tf_is_switchless == false

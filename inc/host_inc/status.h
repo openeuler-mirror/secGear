@@ -153,6 +153,19 @@ typedef enum _enclave_result_t
     CC_ERROR_INVALID_HANDLE,			   /*Invalid sdk or engine handler*/
     CC_ERROR_NO_FIND_REGFUNC,			   /*can't find register function*/
     CC_ERROR_NO_FIND_UNREGFUNC,			   /*can't find unregister function*/
+/* Enclave feature */
+    CC_ERROR_FEATURE_FUNC_NOT_EXIST = 0xFFFF9200,		/* The feature processing function does not exist */
+    CC_ERROR_SWITCHLESS_DISABLED = 0xFFFF9220,			/* Switchless is disabled */
+    CC_ERROR_SWITCHLESS_TASK_POOL_FULL,			        /* Switchless task pool is full */
+    CC_ERROR_SWITCHLESS_INVALID_ARG_NUM,			    /* The number of switchless parameters is invalid */
+    CC_ERROR_SWITCHLESS_INVALID_FUNCTION_ID,			/* The function id of switchless call is invalid */
+    CC_ERROR_SWITCHLESS_FUNCTION_NOT_EXIST,			    /* Switchless call is not exist */
+    CC_ERROR_SWITCHLESS_REINIT,			                /* Switchless repeated initialization */
+    CC_ERROR_TSWITCHLESS_INIT_FAILED,			        /* Trust switchless init failed */
+    CC_ERROR_SHARED_MEMORY_REPEAT_REGISTER, 	        /* The shared memory is repeatedly registered */
+    CC_ERROR_SHARED_MEMORY_START_ADD_INVAILD, 	        /* Invalid start address of the shared memory */
+    CC_ERROR_SHARED_MEMORY_NOT_REGISTERED, 	            /* Unregistered shared memory */
+    CC_ERROR_SHARED_ADDDRESS_UNACCESSABLE, 	            /* Memory address is not within enclave */
     CC_MAXIMUM_ERROR,
 } cc_enclave_result_t;
 

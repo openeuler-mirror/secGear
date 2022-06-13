@@ -134,7 +134,37 @@ let get_array_dims (il : int list) =
             else sprintf "[%d]" n)
     il)
 
+let set_switchless_ecall_func (tf : trusted_func) =
+    let tfd = tf.tf_fdecl in 
+    let out_task_params = if tfd.plist <> [] then "    uint64_t *task_params = (uint64_t *)task_buf + 2;" else "" in
+    let unused_params = if tfd.plist == [] && tfd.rtype == Void then "    INGORE(task_buf);" else "" in
+    let out_retval =
+        match tfd.rtype with
+            | Void -> ""
+            | _ -> "    uint64_t *retval = (uint64_t *)task_buf + 1;" in
+    let write_back_retval = 
+        match tfd.rtype with
+            | Void -> ""
+            | _ -> "    (void)memcpy(retval, &ret, sizeof(ret));" in
+    [
+        sprintf "\nvoid sl_ecall_%s(void *task_buf)" tfd.fname;
+        "{";
+        out_task_params;
+        unused_params;
+        out_retval;
+        "";
+        "    " ^ concat "    \n" (Commonfunc.set_sl_call_params tfd);
+        "\n    /* call user-define function */";
+        "    " ^ concat "\n" (Commonfunc.set_call_user_sl_func tfd);
+        "\n    /* write back ret-val */";
+        write_back_retval;
+        "}";
+    ]
+
 let set_ecall_func (tf : trusted_func) =
+    if tf.tf_is_switchless then
+        set_switchless_ecall_func tf
+    else
     let tfd = tf.tf_fdecl in 
     let params_point = set_parameters_point tfd in
     let out_params = set_out_params tfd in
@@ -144,11 +174,13 @@ let set_ecall_func (tf : trusted_func) =
         "    size_t in_buf_size,";
         "    uint8_t* out_buf,";
         "    size_t out_buf_size,";
+        "    uint8_t* register_buf,";
         "    size_t* output_bytes_written)";
         "{";
         "    cc_enclave_result_t result = CC_FAIL;";
         "    size_t in_buf_offset = 0;";
         "    size_t out_buf_offset = 0;";
+        "    (void)register_buf;";
         "";
         "    /* Prepare parameters point */";
         if not (params_point = ["";""]) then (
@@ -351,18 +383,36 @@ let g_caller_ca_owner =
 let gen_trusted(ec : enclave_content) = 
     let trust_funcs = ec.tfunc_decls in
     let untrust_funcs = ec.ufunc_decls in
-    let ecall_func = List.flatten (List.map set_ecall_func trust_funcs) in
     let ocall_func = List.flatten (List.map set_ocall_func untrust_funcs) in
+    let ecall_func = List.flatten (List.map set_ecall_func trust_funcs) in
     let ecall_table = 
         [
+            "extern cc_enclave_result_t ecall_register_shared_memory(uint8_t *in_buf, size_t in_buf_size,";
+            "    uint8_t *out_buf, size_t out_buf_size, uint8_t *shared_buf, size_t *output_bytes_written);";
+            "extern cc_enclave_result_t ecall_unregister_shared_memory(uint8_t *in_buf, size_t in_buf_size,";
+            "    uint8_t *out_buf, size_t out_buf_size, size_t *output_bytes_written);\n";
             "cc_ecall_func_t cc_ecall_tables[] = {";
+            "    (cc_ecall_func_t) ecall_register_shared_memory,";
+            "    (cc_ecall_func_t) ecall_unregister_shared_memory,";
             "        "^ concat ",\n    " 
                 (List.map (fun (tf) ->
                     sprintf "(cc_ecall_func_t) ecall_%s" tf.tf_fdecl.fname)
-                trust_funcs);
+                (List.filter (fun tf -> not tf.tf_is_switchless) trust_funcs));
             "};";
             "";
-            "size_t ecall_table_size = COUNT(cc_ecall_tables);";
+            "size_t ecall_table_size = ARRAY_LEN(cc_ecall_tables);\n";
+        ]
+    in
+    let sl_ecall_table = 
+        [
+            "\n/* switchless ECALL table */";
+            "sl_ecall_func_t sl_ecall_func_table[] = {";
+            "    " ^ concat ",\n    "
+                (List.map
+                    (fun (tf) -> sprintf "(sl_ecall_func_t) sl_ecall_%s" tf.tf_fdecl.fname)
+                    (List.filter (fun tf -> tf.tf_is_switchless) trust_funcs));
+            "};\n";
+            "size_t sl_ecall_func_table_size = ARRAY_LEN(sl_ecall_func_table);\n";
         ]
     in
     [
@@ -371,7 +421,20 @@ let gen_trusted(ec : enclave_content) =
         "";
         "#include <stdio.h>";
         "#include <string.h>";
+        "#include \"secgear_defs.h\"";
         "";
+        "/*";
+        " * Summary: Switchless bridge function prototype on the security side";
+        " * Parameters:";
+        " *      task_buf: task_buf, refer to sl_task_t";
+        " * Return: NA";
+        " */";
+        "typedef void (*sl_ecall_func_t)(void *task_buf);\n";
+        "extern size_t address_host_to_enclave(size_t addr);";
+        "#define SL_GET_VAL_PARAM_FROM_TASK_BUF(var_type) \\";
+        "    (var_type)(*(var_type *)(task_params++))";
+        "#define SL_GET_PTR_PARAM_FROM_TASK_BUF(var_type) \\";
+        "    (var_type)address_host_to_enclave((size_t)((var_type)(*(var_type *)(task_params++))))\n";
         " /* ECALL FUNCTIONs */";
         concat "\n" ecall_func;
         "";
@@ -382,5 +445,6 @@ let gen_trusted(ec : enclave_content) =
         if (List.length untrust_funcs <> 0 ) then concat "\n" ocall_func ^"\n"
         else "/* There is no ocall functions */\n";
         concat "\n" ecall_table;
+        concat "\n" sl_ecall_table;
         "";
     ]

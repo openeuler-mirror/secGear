@@ -8,11 +8,17 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-set(SOURCE_FILES ${SOURCE_FILES} ../gp.c ../gp_ocall.c itrustee_seal_data.c error_conversion.c bottom_memory_check.c itrustee_random.c)
+set(CNAKE_C_FLAGS "-w -wall -fno-short-enums -fno-omit-frame-pointer -fstack-protector-strong -Wstack-protector \
+				   --param ssp-buffer-size-4 -frecord-gcc-switches -Wextra -nostdinc -nodefaultlibs -fno-peephole \
+				   -fno-peephole2 -Wno-main -Wno-error=unused-parameter -Wno-error=unused-but-set-variable \
+				   -Wno-error=format-truncation= -D_FORTIFY_SOURCE=2 -O2")
+set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro, -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs, -nostratfiles")
+set(SOURCE_FILES ${SOURCE_FILES} ../gp.c ../gp_ocall.c itrustee_seal_data.c error_conversion.c bottom_memory_check.c 
+				 itrustee_random.c itrustee_tswitchless.c itrustee_shared_memory.c)
 
 set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
 set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
-set(CMAKE_C_FLAGS "${COMMON_C_FLAGS}  -march=armv8-a -fPIC")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -march=armv8-a -fPIC")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
 
 add_library(${target_lib} STATIC  ${SOURCE_FILES})
@@ -26,7 +32,9 @@ target_include_directories(${target_lib} PRIVATE
 	${ITRUSTEE_LIBC}/arch/generic
 	${ITRUSTEE_LIBC}/arch/arm
 	${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/
-	${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee)
+	${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee
+	${ITRUSTEE_TEEDIR}/include/CA
+	${LOCAL_ROOT_PATH}/inc/common_inc)
 
 install(TARGETS  ${target_lib}
         ARCHIVE

@@ -14,6 +14,7 @@
 #define FINAL_SECGEAR_GP_ENCLAVE_H
 
 #include "tee_client_api.h"
+#include "switchless_defs.h"
 
 enum
 {
@@ -24,6 +25,7 @@ typedef struct _gp_context{
     TEEC_UUID uuid;
     TEEC_Context ctx;
     TEEC_Session session;
+    sl_task_pool_t *sl_task_pool;
 } gp_context_t;
 
 typedef struct _thread_param {

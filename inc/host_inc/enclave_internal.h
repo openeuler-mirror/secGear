@@ -30,6 +30,12 @@ typedef enum _enclave_state {
     ENCLAVE_INITIALIZED,
 } enclave_state_t;
 
+typedef struct {
+    uint32_t func_id,
+    uint32_t argc,
+    void *args,
+} sl_ecall_func_info_t;
+
 /*the ops function structure is used to ecall, create, and destroy specific enclave*/
 struct cc_enclave_ops {
     cc_enclave_result_t (*cc_create_enclave)(
@@ -48,6 +54,18 @@ struct cc_enclave_ops {
 		    size_t output_buffer_size, 
 		    void *ms, 
 		    const void *ocall_table);
+
+    /* switchless ecall */
+    cc_enclave_result_t (*cc_sl_ecall_enclave)(cc_enclave_t *enclave, 
+                                               void *retval, 
+                                               size_t retval_size, 
+                                               sl_ecall_func_info_t *func_info);
+
+    /* shared memory */
+    void *(*cc_malloc_shared_memory)(cc_enclave_t *enclave, size_t size, bool is_control_buf);
+    void (*cc_free_shared_memory)(cc_enclave_t *enclave, void *ptr);
+    cc_enclave_result_t (*cc_register_shared_memory)(cc_enclave_t *enclave, void *ptr);
+    cc_enclave_result_t (*cc_unregister_shared_memory)(cc_enclave_t *enclave, void *ptr);            
 };
 
 struct cc_enclave_ops_desc {

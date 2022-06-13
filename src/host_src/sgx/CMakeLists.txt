@@ -17,8 +17,8 @@ if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
 	    ${CMAKE_BINARY_DIR}/lib)
 endif()
 
-add_library(${sgx_engine}  SHARED sgx_enclave.c sgx_enclave.h )
-add_library(${sgxsim_engine}  SHARED sgx_enclave.c sgx_enclave.h )
+add_library(${sgx_engine}  SHARED sgx_enclave.c sgx_enclave.h sgx_shared_memory.c)
+add_library(${sgxsim_engine}  SHARED sgx_enclave.c sgx_enclave.h sgx_shared_memory.c)
 
 target_include_directories(${sgx_engine} PRIVATE
 	${SGXSDK}/include)

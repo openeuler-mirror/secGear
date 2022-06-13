@@ -20,10 +20,12 @@ endif()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=implicit-function-declaration")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
 
-add_library(${gp_engine}  SHARED gp_enclave.h gp_enclave.c)
+add_library(${gp_engine}  SHARED gp_enclave.h gp_enclave.c gp_uswitchless.c gp_shared_memory.c)
 
 target_include_directories(${gp_engine} PRIVATE
-	${iTrusteeSDK}/include/CA)
+	${iTrusteeSDK}/include/CA
+    ${LOCAL_ROOT_PATH}/inc/common_inc
+    ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
 	
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0") 
     target_link_directories(${gp_engine} PRIVATE ${CMAKE_BINARY_DIR}/lib)
