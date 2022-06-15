@@ -19,6 +19,7 @@
 extern "C" {
 #endif
 
+
 typedef struct {
     /* number of untrusted (for ocalls) worker threads */
     uint32_t num_uworkers;
@@ -26,7 +27,7 @@ typedef struct {
     /* number of trusted (for ecalls) worker threads */
     uint32_t num_tworkers;
 
-    /* number of switchless calls pool size. (actual number is x64) */
+    /* number of switchless calls pool size. (actual number is x 64) */
     uint32_t sl_call_pool_size_qwords;
 
     /* max number of parameters, only for GP */
@@ -34,7 +35,7 @@ typedef struct {
 
     /*
      * how many times to execute assembly pause instruction while waiting for worker thread to start executing
-     * switchless call before failing back to direct ECall/OCall, only for SGX
+     * switchless call before falling back to direct ECall/OCall, only for SGX
      */
     uint32_t retries_before_fallback;
 
@@ -44,6 +45,8 @@ typedef struct {
      */
     uint32_t retries_before_sleep;
 } cc_sl_config_t;
+
+#define CC_USWITCHLESS_CONFIG_INITIALIZER   {1, 1, 1, 16, 0, 0}
 
 #ifdef __cplusplus
 }

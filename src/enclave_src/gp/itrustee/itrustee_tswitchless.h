@@ -24,9 +24,9 @@ extern "C" {
 /*
  * Summary: Switchless initalization on the TA side
  * Parameters:
- *      pool_buf: address of the task pool buffer
- *          pool: task pool management data structure
- *          tids: thread id for tworkers
+ *     pool_buf: address of the task pool buffer
+ *     pool: task pool management data structure
+ *     tids: thread id for tworkers
  * Return: CC_SUCCESS, success; others failed.
  */
 cc_enclave_result_t tswitchless_init(void *pool_buf, sl_task_pool_t **pool, pthread_t **tids);
@@ -34,13 +34,13 @@ cc_enclave_result_t tswitchless_init(void *pool_buf, sl_task_pool_t **pool, pthr
 /*
  * Summary: Switchless deinitalization on the TA side
  * Parameters:
- *          pool: task pool management data structure
- *          tids: thread id for tworkers
+ *     pool: task pool management data structure
+ *     tids: thread id for tworkers
  * Return: CC_SUCCESS, success; others failed.
  */
-void tswitchless_fini(sl_task_pool_t **pool, pthread_t **tids);
+void tswitchless_fini(sl_task_pool_t *pool, pthread_t *tids);
 
-# ifdef  __cplusplus
+#ifdef __cplusplus
 }
-# endif
+#endif
 #endif 

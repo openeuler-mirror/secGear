@@ -18,13 +18,16 @@ extern "C" {
 #endif
 
 #define ARRAY_LEN(ARRAY) (sizeof(ARRAY) / sizeof(ARRAY[0]))
+
 #define IGNORE(param) (void)(param)
+
 #define CC_API_SPEC __attribute__ ((visbility("default")))
+
 #define RWLOCK_LOCK_WR(lock) IGNORE(pthread_rwlock_wrlock(lock))
 #define RWLOCK_LOCK_RD(lock) IGNORE(pthread_rwlock_rdlock(lock))
 #define RWLOCK_UNLOCK(lock) IGNORE(pthread_rwlock_unlock(lock))
 #define MUTEX_INIT(lock, attr) IGNORE(pthread_mutex_init(lock, attr))
-#define MUTEX_DESTROY(lock) IGNORE(pthread_mutex_destroy(lock)
+#define MUTEX_DESTROY(lock) IGNORE(pthread_mutex_destroy(lock))
 #define MUTEX_LOCK(lock) IGNORE(pthread_mutex_lock(lock))
 #define MUTEX_UNLOCK(lock) IGNORE(pthread_mutex_unlock(lock))
 #define COND_INIT(cond, attr) IGNORE(pthread_cond_init(cond, attr))

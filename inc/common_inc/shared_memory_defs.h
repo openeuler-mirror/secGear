@@ -34,14 +34,14 @@ typedef struct {
 } gp_unregister_shared_memory_size_t;
 
 enum {
-    fid_register_shared_memory = 0;
-    fid_unregister_shared_memory = 1;
+    fid_register_shared_memory = 0,
+    fid_unregister_shared_memory = 1,
 }
 
 typedef struct {
-    TEEC_SharedMemory_shared_mem;
+    TEEC_SharedMemory shared_mem;
     bool is_control_buf;
-    bool is_registed;
+    bool is_registered;
     void *enclave; // refer to cc_enclave_t
     pthread_t register_tid;
     list_node_t node;
@@ -51,7 +51,7 @@ typedef struct {
     ((gp_shared_memory_t *)((char *)ptr - sizeof(gp_shared_memory_t)))
 
 #define TEEC_SHARED_MEMORY_ENTRY(ptr) \
-    (TEEC_SharedMemory *)((char *)ptr - sizeof(gp_shared_memory_t)))
+    ((TEEC_SharedMemory *)((char *)ptr - sizeof(gp_shared_memory_t)))
 
 #ifdef __cplusplus
 }

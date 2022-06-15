@@ -30,7 +30,7 @@ extern "C" {
  *      is_control_buf: whether it is a control area buffer
  * Return: A pointer to the allocated memory. On error, return NULL.
  */
-void *gp_malloc_shared_memory(cc_enclave_t *context, size_t size, bool is_control_bufs);
+void *gp_malloc_shared_memory(cc_enclave_t *context, size_t size, bool is_control_buf);
 
 /*
  * Summary: Frees the memory space pointed to by ptr, which must have been returned by gp_malloc_shared_memory.
@@ -48,7 +48,7 @@ void gp_free_shared_memory(cc_enclave_t *context, void *ptr);
  *          ptr: buffer address
  * Return: CC_SUCCESS, success; others failed.
  */
-cc_enclave_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr);
+cc_enclave_result_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr);
 
 /*
  * Summary: Unregister a pointer from enclave, which must have been returned by gp_malloc_shared_memory.
@@ -57,9 +57,9 @@ cc_enclave_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr);
  *          ptr: buffer address
  * Return: CC_SUCCESS, success; others failed.
  */
-cc_enclave_t gp_unregister_shared_memory(cc_enclave_t *enclave, void *ptr);
+cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void *ptr);
 
-# ifdef  __cplusplus
+#ifdef __cplusplus
 }
-# endif
-#endif 
+#endif
+#endif

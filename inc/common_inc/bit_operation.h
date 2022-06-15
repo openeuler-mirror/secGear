@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 /*
- * Returns the number of trailing 0-bits in x, starting at the least significant bit postion.
+ * Returns the number of trailing 0-bits in x, starting at the least significant bit position.
  * If x is 0, the result is undefined.
  */
 static inline uint32_t count_tailing_zeroes(uint64_t value)
@@ -32,13 +32,13 @@ static inline uint32_t count_tailing_zeroes(uint64_t value)
 }
 
 /*
- * Returns the number of leading 0-bits in x, starting at the most significant bit postion.
+ * Returns the number of leading 0-bits in x, starting at the most significant bit position.
  * If x is 0, the result is undefined.
  */
 static inline uint32_t count_leading_zeroes(uint64_t value)
 {
     assert(value != 0);
-    return (uint32_t)__builtin_ctzll(value);
+    return (uint32_t)__builtin_clzll(value);
 }
 
 /*
@@ -70,10 +70,11 @@ static inline bool test_and_clear_bit(volatile uint64_t *addr, uint32_t i)
  */
 static inline void set_bit(volatile uint64_t *addr, uint32_t i)
 {
-    (void)__atomic_or_fetch(addr, 1UL << i, __ATOMIC_ACQUIRE);
+    (void)__atomic_or_fetch(addr, 1ULL << i, __ATOMIC_ACQUIRE);
 }
 
-# ifdef  __cplusplus
+#ifdef __cplusplus
 }
-# endif
+#endif
+
 #endif 

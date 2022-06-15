@@ -386,7 +386,7 @@ cc_enclave_result_t init_uswitchless(cc_enclave_t *enclave, const enclave_featur
 
     // Layout task pool
     sl_task_pool_t *pool = uswitchless_create_task_pool(pool_buf, cfg);
-    if (pool_buf == NULL) {
+    if (pool == NULL) {
         gp_free_shared_memory(enclave, pool_buf);
         return CC_ERROR_OUT_OF_MEMORY;
     }
@@ -456,9 +456,9 @@ cc_enclave_result_t init_features(cc_enclave_t *enclave, const enclave_features_
         if (ret != CC_SUCCESS) {
             return ret;
         }
-
-        return CC_SUCCESS;
     }
+    
+    return CC_SUCCESS;
 }
 
 void fini_features(cc_enclave_t *enclave)
@@ -502,7 +502,7 @@ cc_enclave_result_t _gp_create(cc_enclave_t *enclave, const enclave_features_t *
     print_debug("TEEC open session success\n");
     enclave->private_data = (void *)gp_context;
 
-    result_cc = list_features(enclave, features, features_count);
+    result_cc = init_features(enclave, features, features_count);
     if (result_cc != CC_SUCCESS) {
         goto cleanup;
     }
@@ -619,7 +619,7 @@ void *handle_ecall_function_with_new_session(void *data)
     TEEC_Session session;
     TEEC_Result result = TEEC_OpenSession(&gp->ctx, &session, &gp->uuid, TEEC_LOGIN_IDENTIFY, NULL, &oper, &origin);
     if (result != TEEC_SUCCESS) {
-        print_error_goto("Handle ecall with new session, failed to open session, ret:%x, origin:%x", result, origin);
+        print_error_goto("Handle ecall with new session, failed to open session, ret:%x, origin:%x\n", result, origin);
     }
 
     cc_enclave_result_t cc_res = init_operation(&oper, args);
@@ -642,7 +642,7 @@ void *handle_ecall_function_with_new_session(void *data)
 }
 
 cc_enclave_result_t handle_ecall_function_register_shared_memory(cc_enclave_t *enclave,
-    cc_enclave_call_function_args_t *args)
+                                                                 cc_enclave_call_function_args_t *args)
 {
     IGNORE(enclave);
 
@@ -660,7 +660,8 @@ cc_enclave_result_t handle_ecall_function_register_shared_memory(cc_enclave_t *e
     (void)memcpy(buf + sizeof(cc_enclave_call_function_args_t), args->input_buffer, args->input_buffer_size);
 
     tmpArgs->output_buffer = buf + sizeof(cc_enclave_call_function_args_t) + args->input_buffer_size;
-    (void)memcpy(buf + sizeof(cc_enclave_call_function_args_t) + args->output_buffer, args->output_buffer_size);
+    (void)memcpy(buf + sizeof(cc_enclave_call_function_args_t) + args->input_buffer_size, args->output_buffer,
+        args->output_buffer_size);
 
     gp_shared_memory_t *shared_mem = GP_SHARED_MEMORY_ENTRY(GET_HOST_BUF_FROM_INPUT_PARAMS(args->input_buffer));
     if (pthread_create(&shared_mem->register_tid, NULL, handle_ecall_function_with_new_session, tmpArgs) != 0) {
@@ -672,6 +673,7 @@ cc_enclave_result_t handle_ecall_function_register_shared_memory(cc_enclave_t *e
     while (*(volatile bool *)(&shared_mem->is_registered) == false) {
         __asm__ __volatile__("yield":::"memory");
     }
+
     return CC_SUCCESS;
 }
 
@@ -820,18 +822,19 @@ cc_enclave_result_t cc_sl_enclave_call_function(cc_enclave_t *enclave,
     uswitchless_submit_task(enclave, task_index);
     cc_enclave_result_t ret = uswitchless_get_task_result(enclave, task_index, retval, retval_size);
     uswitchless_put_idle_task_by_index(enclave, task_index);
+
     return ret;
 }
 
 const struct cc_enclave_ops g_ops = {
-        .cc_create_enclave  = _gp_create,
-        .cc_destroy_enclave = _gp_destroy,
-        .cc_ecall_enclave =  cc_enclave_call_function,
-        .cc_sl_ecall_enclave = cc_sl_enclave_call_function,
-        .cc_malloc_shared_memory = gp_malloc_shared_memory,
-        .cc_free_shared_memory = gp_free_shared_memory,
-        .cc_register_shared_memory = gp_register_shared_memory,
-        .cc_unregister_shared_memory = gp_unregister_shared_memory
+    .cc_create_enclave  = _gp_create,
+    .cc_destroy_enclave = _gp_destroy,
+    .cc_ecall_enclave =  cc_enclave_call_function,
+    .cc_sl_ecall_enclave = cc_sl_enclave_call_function,
+    .cc_malloc_shared_memory = gp_malloc_shared_memory,
+    .cc_free_shared_memory = gp_free_shared_memory,
+    .cc_register_shared_memory = gp_register_shared_memory,
+    .cc_unregister_shared_memory = gp_unregister_shared_memory
 };
 
 struct cc_enclave_ops_desc g_name = {

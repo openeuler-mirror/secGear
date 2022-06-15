@@ -15,25 +15,27 @@
 
 #include <stdint.h>
 #include "status.h"
+#include "enclave.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 
 /*
  * Summary: Allocate size bytes and returns a pointer to the allocated memory.
  * Parameters:
  *      enclave: enclave
  *      size: buffer length
- * Return: A pointer to the allocated memory On error, return NUll.
+ * Return: A pointer to the allocated memory On error, return NULL.
  */
 CC_API_SPEC void *cc_malloc_shared_memory(cc_enclave_t *enclave, size_t size);
 
 /*
- * Summary: Frees the memory space pointed to by ptr, which must have been returned by cc_malloc_shared_memory. 
+ * Summary: Frees the memory space pointed to by ptr, which must have been returned by cc_malloc_shared_memory.
  * Parameters:
- *      enclave: enclave
- *      ptr: buffer address
+ *     enclave: enclave
+ *     ptr: buffer address
  * Return: CC_SUCCESS, success; others failed.
  */
 CC_API_SPEC cc_enclave_result_t cc_free_shared_memory(cc_enclave_t *enclave, void *ptr);
@@ -41,8 +43,8 @@ CC_API_SPEC cc_enclave_result_t cc_free_shared_memory(cc_enclave_t *enclave, voi
 /*
  * Summary: Register a pointer to enclave, which must have been returned by  cc_malloc_shared_memory.
  * Parameters:
- *      enclave: enclave
- *      ptr: buffer address
+ *     enclave: enclave
+ *     ptr: buffer address
  * Return: CC_SUCCESS, success; others failed.
  */
 CC_API_SPEC cc_enclave_result_t cc_register_shared_memory(cc_enclave_t *enclave, void *ptr);
@@ -50,13 +52,14 @@ CC_API_SPEC cc_enclave_result_t cc_register_shared_memory(cc_enclave_t *enclave,
 /*
  * Summary: Unregister a pointer from enclave, which must have been returned by  cc_malloc_shared_memory.
  * Parameters:
- *      enclave: enclave
- *      ptr: buffer address
+ *     enclave: enclave
+ *     ptr: buffer address
  * Return: CC_SUCCESS, success; others failed.
  */
 CC_API_SPEC cc_enclave_result_t cc_unregister_shared_memory(cc_enclave_t *enclave, void *ptr);
 
-# ifdef  __cplusplus
+#ifdef __cplusplus
 }
-# endif
+#endif
+
 #endif 

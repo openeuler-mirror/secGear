@@ -18,7 +18,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include "enclave.h"
-#include "secgear_defs.h"
+#include "switchless_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -126,7 +126,7 @@ bool uswitchless_is_valid_param_num(cc_enclave_t *enclave, uint32_t argc);
  */
 void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_id, uint32_t argc, void *args);
 
-# ifdef  __cplusplus
+#ifdef __cplusplus
 }
-# endif
+#endif
 #endif 

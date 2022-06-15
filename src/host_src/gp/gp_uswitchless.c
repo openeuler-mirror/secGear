@@ -28,7 +28,7 @@
 
 #define SWITCHLESS_MAX_UWORKERS 512
 #define SWITCHLESS_MAX_TWORKERS 512
-#define SWITCHLESS_MAX_PARAMTER_NUM 16
+#define SWITCHLESS_MAX_PARAMETER_NUM 16
 #define SWITCHLESS_MAX_POOL_SIZE_QWORDS 1000
 #define SWITCHLESS_DEFAULT_UWORKERS 8
 #define SWITCHLESS_DEFAULT_TWORKERS 8
@@ -38,12 +38,12 @@ bool uswitchless_is_valid_config(sl_task_pool_config_t *cfg)
 {
     if (cfg->num_uworkers > SWITCHLESS_MAX_UWORKERS) ||
        (cfg->num_tworkers > SWITCHLESS_MAX_TWORKERS) ||
-       (cfg->num_max_params > SWITCHLESS_MAX_PARAMTER_NUM) ||
+       (cfg->num_max_params > SWITCHLESS_MAX_PARAMETER_NUM) ||
        (cfg->call_pool_size_qwords > SWITCHLESS_MAX_POOL_SIZE_QWORDS) {
         return false;
-       }
+    }
 
-       return true;
+    return true;
 }
 
 void uswitchless_adjust_config(sl_task_pool_config_t *cfg)
@@ -71,7 +71,7 @@ sl_task_pool_t *uswitchless_create_task_pool(void *pool_buf, sl_task_pool_config
 
     pool->pool_cfg = *pool_cfg;
     pool->bit_buf_size = bit_buf_size;
-    pool->task_buf = SL_CALCULATE_PER_TASK_SIZE(pool_cfg);
+    pool->task_size = SL_CALCULATE_PER_TASK_SIZE(pool_cfg);
 
     pool->pool_buf = (char *)pool_buf;
     pool->free_bit_buf = (uint64_t *)((char *)pool + sizeof(sl_task_pool_t));
@@ -104,7 +104,7 @@ int uswitchless_get_idle_task_index(cc_enclave_t *enclave)
     int start_bit = 0;
     int end_bit = 0;
     uint64_t *element_ptr = NULL;
-    uint64_t *element_val = 0;
+    uint64_t element_val = 0;
 
     for (int i = 0; i < call_pool_size_qwords; ++i) {
         element_ptr = free_bit_buf + i;
@@ -117,7 +117,7 @@ int uswitchless_get_idle_task_index(cc_enclave_t *enclave)
         start_bit = count_tailing_zeroes(element_val);
         end_bit = SWITCHLESS_BITS_IN_QWORD - count_leading_zeroes(element_val);
 
-        for (int j = start_bit; j < end_bit; ++i) {
+        for (int j = start_bit; j < end_bit; ++j) {
             if (test_and_clear_bit(element_ptr, j) != 0) {
                 return i * SWITCHLESS_BITS_IN_QWORD + j;
             }
@@ -145,7 +145,7 @@ static inline sl_task_t *uswitchless_get_task_by_index(cc_enclave_t *enclave, in
 
 void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_id, uint32_t argc, void *args)
 {
-    sl_task_t *task = uswitchless_get_idle_task_index(enclave, task_index);
+    sl_task_t *task = uswitchless_get_idle_task_by_index(enclave, task_index);
 
     task->func_id = func_id;
     __atomic_store_n(&task->status, SL_TASK_INIT, __ATOMIC_RELEASE);
@@ -155,8 +155,7 @@ void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_
 void uswitchless_submit_task(cc_enclave_t *enclave, int task_index)
 {
     sl_task_t *task = uswitchless_get_task_by_index(enclave, task_index);
-    __atomic_store_n(&task->status, SL_TASK_SUBMIDTTED, __ATOMIC_RELEASE);
-    memcpy(&task->params[0], args, sizeof(uint64_t) * argc);
+    __atomic_store_n(&task->status, SL_TASK_SUBMITTED, __ATOMIC_RELEASE);
 
     int i = task_index / SWITCHLESS_BITS_IN_QWORD;
     int j = task_index % SWITCHLESS_BITS_IN_QWORD;
@@ -168,15 +167,15 @@ void uswitchless_submit_task(cc_enclave_t *enclave, int task_index)
 cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_index, void *retval, size_t retval_size)
 {
     sl_task_t *task = uswitchless_get_task_by_index(enclave, task_index);
-    unit32_t cur_status;
+    uint32_t cur_status;
     int count = 0;
     struct timespec start;
     struct timespec end;
-    
+ 
     clock_gettime(CLOCK_MONOTONIC_COARSE, &start);
 
     while (true) {
-        cur_status = __atomic_load_n(&task->status, __ATOMIC_RELAXED);
+        cur_status = __atomic_load_n(&task->status, __ATOMIC_ACQUIRE);
 
         if (cur_status == SL_TASK_DONE_SUCCESS) {
             if ((retval != NULL) && (retval_size != 0)) {
@@ -197,6 +196,6 @@ cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_
         }
         ++count;
     }
-    
+
     return CC_ERROR_TIMEOUT;
 }

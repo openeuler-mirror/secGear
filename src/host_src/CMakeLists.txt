@@ -9,7 +9,7 @@
 # See the Mulan PSL v2 for more details.
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden -fPIC -Wno-stringop-overflow -fstack-protector-strong \
-                  -D_FORTIEY_SOURCE=2 -O2")
+                  -D_FORTIFY_SOURCE=2 -O2")
 
 set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
 

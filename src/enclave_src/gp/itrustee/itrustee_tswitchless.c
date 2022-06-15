@@ -23,65 +23,49 @@
 #include "secgear_log.h"
 #include "tee_log.h"
 
-#ifndef
-TEESMP_THREAD_ATTR_CA_WILDCARD
-#define
-TEESMP_THREAD_ATTR_CA_WILDCARD 0
+#ifndef TEESMP_THREAD_ATTR_CA_WILDCARD
+#define TEESMP_THREAD_ATTR_CA_WILDCARD 0
 #endif
 
-#ifndef
-TEESMP_THREAD_ATTR_CA_INHERIT
-#define
-TEESMP_THREAD_ATTR_CA_INHERIT (-1U)
+#ifndef TEESMP_THREAD_ATTR_CA_INHERIT
+#define TEESMP_THREAD_ATTR_CA_INHERIT (-1U)
 #endif
 
-#ifndef
-TEESMP_THREAD_ATTR_TASK_ID_INHERIT
-#define
-TEESMP_THREAD_ATTR_TASK_ID_INHERIT (-1U)
+#ifndef TEESMP_THREAD_ATTR_TASK_ID_INHERIT
+#define TEESMP_THREAD_ATTR_TASK_ID_INHERIT (-1U)
 #endif
 
-#ifndef
-TEESMP_THREAD_ATTR_INVALID
-#define
-TEESMP_THREAD_ATTR_INVALID (1U << 31)
+#ifndef TEESMP_THREAD_ATTR_INVALID
+#define TEESMP_THREAD_ATTR_INVALID (1U << 31)
 #endif
 
-#ifndef
-TEESMP_THREAD_ATTR_F_SHADOW
-#define
-TEESMP_THREAD_ATTR_F_SHADOW (1U << 24)
+#ifndef TEESMP_THREAD_ATTR_F_SHADOW
+#define TEESMP_THREAD_ATTR_F_SHADOW (1U << 24)
 #endif
 
-#ifndef
-TEESMP_THREAD_ATTR_HAS_SHADOW
-#define
-TEESMP_THREAD_ATTR_HAS_SHADOW 0x1
+#ifndef TEESMP_THREAD_ATTR_HAS_SHADOW
+#define TEESMP_THREAD_ATTR_HAS_SHADOW 0x1
 #endif
 
-#ifndef
-TEESMP_THREAD_ATTR_NO_SHADOW
-#define
-TEESMP_THREAD_ATTR_NO_SHADOW 0x0
+#ifndef TEESMP_THREAD_ATTR_NO_SHADOW
+#define TEESMP_THREAD_ATTR_NO_SHADOW 0x0
 #endif
 
-#ifndef
-TEESMP_THREAD_ATTR_TASK_ID
-#define
-TEESMP_THREAD_ATTR_TASK_ID  TEESMP_THREAD_ATTR_TASK_ID_INHERIT
+#ifndef TEESMP_THREAD_ATTR_TASK_ID
+#define TEESMP_THREAD_ATTR_TASK_ID  TEESMP_THREAD_ATTR_TASK_ID_INHERIT
 #endif
 
-static sl_task_pool_t *tswitchless_init_pool(void* pool_buf)
+static sl_task_pool_t *tswitchless_init_pool(void *pool_buf)
 {
     sl_task_pool_t *pool = (sl_task_pool_t *)calloc(sizeof(sl_task_pool_t), sizeof(char));
     if (pool == NULL) {
-        SlogError("Malloc memory for tpool failed.");
+        SLogError("Malloc memory for tpool failed.");
         return NULL;
     }
 
     sl_task_pool_config_t *pool_cfg = (sl_task_pool_config_t *)pool_buf;
 
-    pool_pool_cfg = *pool_cfg;
+    pool->pool_cfg = *pool_cfg;
     pool->bit_buf_size = pool_cfg->call_pool_size_qwords * sizeof(uint64_t);
     pool->task_size = SL_CALCULATE_PER_TASK_SIZE(pool_cfg);
 
@@ -98,11 +82,11 @@ static void tswitchless_fini_workers(sl_task_pool_t *pool, pthread_t *tids)
     uint32_t thread_num = pool->pool_cfg.num_tworkers;
     pool->need_stop_tworkers = true;
 
-    for (uint32_t i = 0; i < thread_num; ++i) [
+    for (uint32_t i = 0; i < thread_num; ++i) {
         if (tids[i] != NULL) {
             ret = pthread_join(tids[i], NULL);
             if (ret != 0) {
-                SlogWarning("Failed to exit the tworker thread, ret = %d.", ret);
+                SLogWarning("Failed to exit the tworker thread, ret=%d.", ret);
             }
         }
     ]
@@ -127,11 +111,11 @@ static int tswitchless_get_pending_task(sl_task_pool_t *pool)
         element_val = *element_ptr;
 
         if (element_val == 0) {
-            continuel;
+            continue;
         }
 
         start_bit = count_tailing_zeroes(element_val);
-        end_bit = SWITCHLESS_BITS_IN_QWORD - count_leading_zeroed(element_val);
+        end_bit = SWITCHLESS_BITS_IN_QWORD - count_leading_zeroes(element_val);
 
         for (int j = start_bit; j < end_bit; ++j) {
             if (test_and_clear_bit(element_ptr, j) != 0) {
@@ -149,10 +133,10 @@ static void tswitchless_proc_task(sl_task_t *task)
 {
     uint32_t function_id = task->func_id;
     if (function_id >= sl_ecall_func_table_size) {
-        task->ret_val = CC_ERROR_SWITCHLESS_INVALID_FUNCITON_ID;
+        task->ret_val = CC_ERROR_SWITCHLESS_INVALID_FUNCTION_ID;
         __atomic_store_n(&task->status, SL_TASK_DONE_FAILED, __ATOMIC_RELEASE);
 
-        SlogError("Invalid switchless function index:%u.", function_id);
+        SLogError("Invalid switchless function index:%u.", function_id);
         return;
     }
 
@@ -161,7 +145,7 @@ static void tswitchless_proc_task(sl_task_t *task)
         task->ret_val = CC_ERROR_SWITCHLESS_FUNCTION_NOT_EXIST;
         __atomic_store_n(&task->status, SL_TASK_DONE_FAILED, __ATOMIC_RELEASE);
 
-        SlogError("The switchless function with index:%u does not exist.", function_id);
+        SLogError("The switchless function with index:%u does not exist.", function_id);
         return;
     }
 
@@ -197,7 +181,7 @@ static void *tswitchless_thread_routine(void *data)
         processed_count++;
     }
 
-    SlogTrace("Exit tworkers: %d. processed: %d", thread_index, processed_count);
+    SLogTrace("Exit tworkers: %d. processed: %d", thread_index, processed_count);
     (void)__atomic_sub_fetch(&thread_num, 1, __ATOMIC_ACQ_REL);
     return NULL;
 }
@@ -208,19 +192,21 @@ static pthread_t *tswitchless_init_workers(sl_task_pool_t *pool)
     sl_task_pool_config_t *pool_cfg = &pool->pool_cfg;
     pthread_t *tids = (pthread_t *)calloc(pool_cfg->num_tworkers * sizeof(pthread_t), sizeof(char));
     if (tids == NULL) {
-        SlogError("Malloc memory for tworkers failed.");
+        SLogError("Malloc memory for tworkers failed.");
         return NULL;
     }
 
     pthread_attr_t attr;
     THREAD_ATTR_INIT(&attr);
-    ret = pthread_attr_settee(&attr, TEESMP_THREAD_ATTR_CA_INHERIT, TEESMP_THREAD_ATTR_TASK_ID_INHERIT,
+    ret = pthread_attr_settee(&attr,
+                              TEESMP_THREAD_ATTR_CA_INHERIT,
+                              TEESMP_THREAD_ATTR_TASK_ID_INHERIT,
                               TEESMP_THREAD_ATTR_HAS_SHADOW);
     if (ret != 0) {
         free(tids);
         THREAD_ATTR_DESTROY(&attr);
 
-        SlogError("Set tee thread attr failed, ret: %d.", ret);
+        SLogError("Set tee thread attr failed, ret: %d.", ret);
         return NULL;
     }
 
@@ -231,7 +217,7 @@ static pthread_t *tswitchless_init_workers(sl_task_pool_t *pool)
             free(tids);
             THREAD_ATTR_DESTROY(&attr);
 
-            SlogError("Create tee thread failed, index:%u, ret:%d.", i, ret);
+            SLogError("Create tee thread failed, index:%u, ret:%d.", i, ret);
             return NULL;
         }
     }
@@ -249,7 +235,7 @@ cc_enclave_result_t tswitchless_init(void *pool_buf, sl_task_pool_t **pool, pthr
     }
 
     pthread_t *tmp_tids = tswitchless_init_workers(tmp_pool);
-    if (tmp_tids ==NULL) {
+    if (tmp_tids == NULL) {
         free(tmp_pool);
         return CC_FAIL;
     }

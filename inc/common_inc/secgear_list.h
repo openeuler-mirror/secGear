@@ -24,6 +24,8 @@ typedef struct _list_node_t {
     struct _list_node_t *next;
 } list_node_t;
 
+typedef list_node_t list_head_t;
+
 /*
  * Initialize the linked list.
  */
@@ -34,7 +36,7 @@ static inline void list_init(list_node_t *head)
 }
 
 /*
- * Add a new node to the front of the current node
+ * Add a new node to the front of the current node.
  */
 static inline void list_add_before(list_node_t *new_node, list_node_t *cur_node)
 {
@@ -47,6 +49,17 @@ static inline void list_add_before(list_node_t *new_node, list_node_t *cur_node)
 /*
  * Add a new node after the current node
  */
+static inline void list_add_after(list_node_t *new_node, list_node_t *cur_node)
+{
+    new_node->prev = cur_node;
+    new_node->next = cur_node->next;
+    cur_node->next = new_node;
+    new_node->next->prev = new_node;
+}
+
+/*
+ * Remove a node from list.
+ */
 static inline void list_remove(list_node_t *node)
 {
     node->prev->next = node->next;
@@ -54,7 +67,7 @@ static inline void list_remove(list_node_t *node)
 }
 
 /*
- * Whether the linked list is empty
+ * Whether the linked list is empty.
  */
 static inline bool list_is_empty(list_head_t *head)
 {
@@ -71,7 +84,8 @@ static inline bool list_is_empty(list_head_t *head)
     for (cur = (head)->next, tmp = cur->next; cur != (head); cur = tmp, tmp = cur->next)
 
 
-# ifdef  __cplusplus
+#ifdef __cplusplus
 }
-# endif
+#endif
+
 #endif 

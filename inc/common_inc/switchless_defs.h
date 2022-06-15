@@ -22,28 +22,10 @@ extern "C" {
 
 #define SWITCHLESS_BITS_IN_QWORD 64
 
-/**********************************************
-***********************************************
-*************                         *********
-*******   switchless task pool layout   *******
-
-sl_task_pool_config_t
-sl_task_t
-+---------------------------------------------
-
-
-
-
-
-
-
-
-*/
-
 typedef struct {
-    uint32_t nu_uworkers;  // number of untrusted (for ocalls) worker threads
+    uint32_t num_uworkers;  // number of untrusted (for ocalls) worker threads
     uint32_t num_tworkers; // number of trusted (for ecalls) worker threads
-    uint32_t call_pool_size_qwords; // number of switchless calls pool size (actual number is x64)
+    uint32_t call_pool_size_qwords; // number of switchless calls pool size (actual number is x 64)
     uint32_t num_max_params; // max number of parameters
 } sl_task_pool_config_t;
 
@@ -53,7 +35,7 @@ typedef struct {
     char *task_buf;
     uint64_t *free_bit_buf; // idle task flag
     uint64_t *signal_bit_buf; // to-be-processed task flag
-    uint32_t bit_buf_sizel; // size of each task flag area
+    uint32_t bit_buf_size; // size of each task flag area
     uint32_t task_size; // size of each task
     volatile bool need_stop_tworkers;
 } sl_task_pool_t;
@@ -70,8 +52,8 @@ typedef struct {
 
 typedef enum {
     SL_TASK_INIT = 0,
-    SL_TASK_SUBMIDTTED,
-    SL_TASK_ACCEPTER,
+    SL_TASK_SUBMITTED,
+    SL_TASK_ACCEPTED,
     SL_TASK_DONE_SUCCESS,
     SL_TASK_DONE_FAILED
 } sl_task_status_t;
@@ -79,13 +61,13 @@ typedef enum {
 /*
  * Summary: get pool buf size by config
  * Parameters:
- *      pool_cfg: configuration information of the task pool
+ *     pool_cfg: configuration information of the task pool
  * Return: 
- *      pool size in bytes
+ *     pool size in bytes
  */
 inline size_t sl_get_pool_buf_len_by_config(sl_task_pool_config_t *pool_cfg)
 {
-    size_t signal_bit_buf_size = pool_cfg->call_pool_size_qwords *sizeof(uint64_t);
+    size_t signal_bit_buf_size = pool_cfg->call_pool_size_qwords * sizeof(uint64_t);
     size_t each_task_size = SL_CALCULATE_PER_TASK_SIZE(pool_cfg);
     size_t task_buf_size = each_task_size * pool_cfg->call_pool_size_qwords * SWITCHLESS_BITS_IN_QWORD;
     return sizeof(sl_task_pool_config_t) + signal_bit_buf_size + task_buf_size;
@@ -94,7 +76,7 @@ inline size_t sl_get_pool_buf_len_by_config(sl_task_pool_config_t *pool_cfg)
 /*
  * Summary: Switchless bridge function prototype on the security side
  * Parameters:
- *      task_buf: task_buf, refer to sl_task_t
+ *     task_buf: task_buf, refer to sl_task_t
  * Return: NA
  */
 typedef void (*sl_ecall_func_t)(void *task_buf);
