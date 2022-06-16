@@ -52,7 +52,7 @@
 #endif
 
 #ifndef TEESMP_THREAD_ATTR_TASK_ID
-#define TEESMP_THREAD_ATTR_TASK_ID  TEESMP_THREAD_ATTR_TASK_ID_INHERIT
+#define TEESMP_THREAD_ATTR_TASK_ID TEESMP_THREAD_ATTR_TASK_ID_INHERIT
 #endif
 
 static sl_task_pool_t *tswitchless_init_pool(void *pool_buf)
@@ -89,7 +89,7 @@ static void tswitchless_fini_workers(sl_task_pool_t *pool, pthread_t *tids)
                 SLogWarning("Failed to exit the tworker thread, ret=%d.", ret);
             }
         }
-    ]
+    }
 }
 
 static inline sl_task_t *tswitchless_get_task_by_index(sl_task_pool_t *pool, int task_index)
@@ -123,6 +123,7 @@ static int tswitchless_get_pending_task(sl_task_pool_t *pool)
             }
         }
     }
+
     return -1;
 }
 
@@ -154,10 +155,11 @@ static void tswitchless_proc_task(sl_task_t *task)
 }
 
 static int thread_num = 0;
+
 static void *tswitchless_thread_routine(void *data)
 {
     int thread_index = __atomic_add_fetch(&thread_num, 1, __ATOMIC_ACQ_REL);
-    SlogTrace("Enter tworkers: %d.", thread_index);
+    SLogTrace("Enter tworkers: %d.", thread_index);
 
     int task_index;
     sl_task_t *task_buf = NULL;
@@ -181,8 +183,9 @@ static void *tswitchless_thread_routine(void *data)
         processed_count++;
     }
 
-    SLogTrace("Exit tworkers: %d. processed: %d", thread_index, processed_count);
+    SLogTrace("Exit tworkers: %d, processed: %d.", thread_index, processed_count);
     (void)__atomic_sub_fetch(&thread_num, 1, __ATOMIC_ACQ_REL);
+
     return NULL;
 }
 
@@ -190,6 +193,7 @@ static pthread_t *tswitchless_init_workers(sl_task_pool_t *pool)
 {
     int ret;
     sl_task_pool_config_t *pool_cfg = &pool->pool_cfg;
+
     pthread_t *tids = (pthread_t *)calloc(pool_cfg->num_tworkers * sizeof(pthread_t), sizeof(char));
     if (tids == NULL) {
         SLogError("Malloc memory for tworkers failed.");

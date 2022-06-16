@@ -21,7 +21,7 @@ extern "C" {
 
 #define IGNORE(param) (void)(param)
 
-#define CC_API_SPEC __attribute__ ((visbility("default")))
+#define CC_API_SPEC __attribute__((visibility("default")))
 
 #define RWLOCK_LOCK_WR(lock) IGNORE(pthread_rwlock_wrlock(lock))
 #define RWLOCK_LOCK_RD(lock) IGNORE(pthread_rwlock_rdlock(lock))

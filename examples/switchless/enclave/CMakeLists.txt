@@ -99,10 +99,8 @@ if(CC_GP)
                                                   ${ITRUSTEE_LIBC}/arch/arm)
 
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-target_link_directories(${PREFIX} PUBLIC /usr/lib64)
-#target_link_directories(${PREFIX} PRIVATE ${CMAKE_BINARY_DIR}/lib/)
+        target_link_directories(${PREFIX} PUBLIC /usr/lib64)
     endif()
-    target_link_directories(${PREFIX} PUBLIC /usr/lib64)
 
     foreach(WHITE_LIST ${WHITELIST})
         add_definitions(-D${WHITE_LIST}="${${WHITE_LIST}}")

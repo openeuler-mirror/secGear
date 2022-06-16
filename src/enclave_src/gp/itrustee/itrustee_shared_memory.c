@@ -45,6 +45,7 @@ static shared_memory_block_t *create_shared_memory_block(void *host_buf, size_t 
     if (shared_mem == NULL) {
         return NULL;
     }
+
     list_init(&shared_mem->node);
     MUTEX_INIT(&shared_mem->mtx_lock, NULL);
     COND_INIT(&shared_mem->unregister_cond, NULL);
@@ -95,8 +96,8 @@ static cc_enclave_result_t itrustee_register_shared_memory(void *host_buf,
         ret = tswitchless_init((void *)shared_mem->enclave_addr, &shared_mem->pool, &shared_mem->tid_arr);
         if (ret != CC_SUCCESS) {
             destroy_shared_memory_block(shared_mem);
+            return CC_ERROR_TSWITCHLESS_INIT_FAILED;
         }
-        return CC_ERROR_TSWITCHLESS_INIT_FAILED;
     }
 
     add_shared_memory_block_to_list(shared_mem);
@@ -162,6 +163,7 @@ size_t addr_host_to_enclave(size_t host_addr)
     size_t ptr = 0;
 
     RWLOCK_LOCK_RD(&g_shared_memory_list_lock);
+
     list_for_each(cur, &g_shared_memory_list) {
         mem_block = list_entry(cur, shared_memory_block_t, node);
 
@@ -172,6 +174,7 @@ size_t addr_host_to_enclave(size_t host_addr)
     }
 
     RWLOCK_UNLOCK(&g_shared_memory_list_lock);
+
     return ptr;
 }
 
@@ -217,7 +220,6 @@ cc_enclave_result_t ecall_unregister_shared_memory(uint8_t *in_buf,
 
     /* Fill in and in-out parameters */
     size_t in_buf_offset = size_to_aligned_size(sizeof(gp_unregister_shared_memory_size_t));
-
     gp_unregister_shared_memory_size_t *args_size = (gp_unregister_shared_memory_size_t *)in_buf;
 
     uint8_t *host_addr_p;

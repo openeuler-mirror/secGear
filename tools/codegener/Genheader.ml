@@ -253,14 +253,14 @@ let generate_args_header (ec: enclave_content) =
     in
     String.concat "\n" trust_fid_pre
         in
-    let sl_trust_fid_body = 
+    let sl_trust_fid_body =
         let sl_trust_fid_pre =
             List.mapi
-        (fun i f -> sprintf "    %s = %d," (generate_function_id f.uf_fdecl) i) sl_tfunc_decls
+        (fun i f -> sprintf "    %s = %d," (generate_function_id f.tf_fdecl) i) sl_tfunc_decls
         in
         String.concat "\n" sl_trust_fid_pre
     in
-    let sl_trust_fid_max = "     fid_trusted_switchless_call_id_max = SECGEAR_ENUM_MAX\n" in
+    let sl_trust_fid_max = "    fid_trusted_switchless_call_id_max = SECGEAR_ENUM_MAX\n" in
     let untrust_fid_body = 
         let untrust_fid_pre = 
             List.mapi
@@ -284,7 +284,7 @@ let generate_args_header (ec: enclave_content) =
       def_types_com ^ def_types;
       trust_fstruct_com ^ trust_fstruct;
       untrust_fstruct_com ^ untrust_fstruct;
-      trust_fid_com ^ trust_fid; 
+      trust_fid_com ^ trust_fid;
       sl_trust_fid_com ^ sl_trust_fid;
       untrust_fid_com ^ untrust_fid;
       c_end; 

@@ -97,7 +97,7 @@ let set_ecall_func_arguments (fd : func_decl) =
             fd.plist)
         else "")
     ]
-    
+
 let set_sl_ecall_func (tf : trusted_func) =
     let tfd = tf.tf_fdecl in
     let init_point = set_init_pointer tfd in
@@ -105,7 +105,7 @@ let set_sl_ecall_func (tf : trusted_func) =
     (*let is_ptr_type (ptype) =
         match ptype with
             | PTVal _ -> false
-            | PTPtr (_, a) ->true
+            | PTPtr (_, a) -> true
     in
     let get_param_type_str (ptype, _) = if (is_ptr_type ptype) == true
         then
@@ -115,27 +115,27 @@ let set_sl_ecall_func (tf : trusted_func) =
     in*)
     let get_param_type_str (ptype, _) = (get_tystr (get_param_atype ptype))
     in
-    let out_retval 
+    let out_retval =
         match tfd.rtype with
             | Void -> "NULL"
             | _ -> "retval" in
-    let out_retval_size = 
+    let out_retval_size =
         match tfd.rtype with
             | Void -> "0"
             | _ -> "sizeof(" ^ get_tystr tfd.rtype ^ ")" in
     let num_params = if tfd.plist <> [] then "" ^ string_of_int (List.length tfd.plist) else "0" in
     let params = if tfd.plist <> [] then
-            "   void *params_buf = calloc(sizeof(uint64_t) * " ^ num_params ^ ", sizeof(char));\n" ^
-            "   if (params_buf == NULL) {\n" ^
-                    pthread_rwlock_unlock(&enclave->rwlock);\n" ^
-                    return CC_ERROR_OUT_OF_MEMORY;\n" ^
-                }\n\n" ^
-                uint64_t *params_offset = (uint64_t *)params_buf;\n" ^
-                (concat ""
-                    (List.map
-                        (fun p ->
-                            "   (void)memcpy(params_offset++, &" ^ (get_params_name p) ^ ", sizeof(" ^ get_param_type_str p ^ "));\n")
-                        tfd.plist))
+            "    void *params_buf = calloc(sizeof(uint64_t) * " ^ num_params ^ ", sizeof(char));\n" ^
+            "    if (params_buf == NULL) {\n" ^
+            "        pthread_rwlock_unlock(&enclave->rwlock);\n" ^
+            "        return CC_ERROR_OUT_OF_MEMORY;\n" ^
+            "    }\n\n" ^
+            "    uint64_t *params_offset = (uint64_t *)params_buf;\n" ^
+            (concat ""
+                (List.map
+                    (fun p ->
+                        "    (void)memcpy(params_offset++, &" ^ (get_param_name p) ^ ", sizeof(" ^ get_param_type_str p ^ "));\n")
+                    tfd.plist))
         else
             ""
     in
@@ -144,9 +144,12 @@ let set_sl_ecall_func (tf : trusted_func) =
         "";
         concat ",\n    " (set_ecall_func_arguments tfd) ^ ")";
         "{";
-        "   cc_enclave_result_t ret;\n";
+        "    cc_enclave_result_t ret;\n";
         "    if (enclave == NULL) {";
         "        return CC_ERROR_BAD_PARAMETERS;";
+        "    }\n";
+        "    if (pthread_rwlock_rdlock(&enclave->rwlock)) {";
+        "        return CC_ERROR_BUSY;";
         "    }\n";
         "    if (enclave->list_ops_node == NULL ||\n        enclave->list_ops_node->ops_desc == NULL ||";
         "        enclave->list_ops_node->ops_desc->ops == NULL ||";
@@ -156,24 +159,24 @@ let set_sl_ecall_func (tf : trusted_func) =
         "    }";
         "";
         params;
-        "   /* Call the cc_enclave function */";
+        "    /* Call the cc_enclave function */";
 
-        "   sl_ecall_func_info_t func_info = {";
-        "       .func_id = " ^ "fid_" ^ tfd.fname ^ ",";
-        "       .args = " ^ num_params ^ ",";
-        "       .args = " ^ out_params ^ ",";
-        "   };";
+        "    sl_ecall_func_info_t func_info = {";
+        "         .func_id = " ^ "fid_" ^ tfd.fname ^ ",";
+        "         .argc = " ^ num_params ^ ",";
+        "         .args = " ^ out_params ^ ",";
+        "    };";
 
-        "   ret = enclave->list_ops_node->ops_desc->ops->cc_sl_ecall_enclave(enclave,";
-        "                                                                    " ^ out_retval ^ ",";
-        "                                                                    " ^ out_retval_size ^ ",";
-        "                                                                    &func_info);\n";
+        "    ret = enclave->list_ops_node->ops_desc->ops->cc_sl_ecall_enclave(enclave,";
+        "                                                                     " ^ out_retval ^ ",";
+        "                                                                     " ^ out_retval_size ^ ",";
+        "                                                                     &func_info);\n";
 
-        "   pthread_rwlock_unlock(&enclave->rwlock);";
+        "    pthread_rwlock_unlock(&enclave->rwlock);";
         (if tfd.plist <> [] then "    free(params_buf);" else "");
-        "   return ret;";
+        "    return ret;";
         "}";
-    ] 
+    ]
 
 let set_ecall_func (tf : trusted_func) =
     if tf.tf_is_switchless then

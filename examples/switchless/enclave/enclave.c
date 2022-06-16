@@ -22,8 +22,8 @@ void test_toupper(char *buf, int len)
     }
 
     for (int i = 0; i < len; ++i) {
-        if (buf[i] >= a && buf[i] <= z) {
-            buf[i] = buf[i] - (a - A);
+        if (buf[i] >= 'a' && buf[i] <= 'z') {
+            buf[i] = buf[i] - ('a' - 'A');
         }
     }
 }

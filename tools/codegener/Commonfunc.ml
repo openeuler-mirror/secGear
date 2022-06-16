@@ -288,20 +288,19 @@ let set_call_user_sl_func (fd : func_decl) =
 
 let set_sl_call_params (fd : func_decl) =
     let pl = fd.plist in
-    [
-        "/* get switchless function params from task buf */\n    " ^ concat "\n    "
-        (List.map
-            (fun(ptype, decl) ->
-                let var_type = get_tystr2 (get_param_atype ptype) in
-                let var_name = decl.identifier in
-                    match ptype with
-                    | PTVal _ ->
-                        sprintf "%s %s = SL_GET_VAL_PARAM_FROM_TASK_BUF(%s);" var_type var_name var_type
-                    | PTPtr (t, a) ->
-                        sprintf "%s *%s = SL_GET_PTR_PARAM_FROM_TASK_BUF(%s *);" var_type var_name var_type)
-            pl) ^ "\n";
-    ]
-
+        [
+            "/* get switchless function params from task buf */\n    " ^ concat "\n    "
+            (List.map
+                (fun(ptype, decl) ->
+                    let var_type = get_tystr2 (get_param_atype ptype) in
+                    let var_name = decl.identifier in
+                        match ptype with
+                        | PTVal _ ->
+                            sprintf "%s %s = SL_GET_VAL_PARAM_FROM_TASK_BUF(%s);" var_type var_name var_type
+                        | PTPtr (t, a) ->
+                            sprintf "%s *%s = SL_GET_PTR_PARAM_FROM_TASK_BUF(%s *);" var_type var_name var_type)
+                pl) ^ "\n";
+        ]
 
 let set_args_size (fd : func_decl) =
     let deep_copy = List.filter is_deep_copy fd.plist in
@@ -512,5 +511,5 @@ let set_out_memcpy (fd : func_decl) =
         else "/* There is no out_buf to out_params */"
     ]
 
-let is_switchless_function (tf : trust_func) = tf.tf_is_switchless == true
-let is_not_switchless_function (tf : trust_func) = tf.tf_is_switchless == false
+let is_switchless_function (tf : trusted_func) = tf.tf_is_switchless == true
+let is_not_switchless_function (tf : trusted_func) = tf.tf_is_switchless == false

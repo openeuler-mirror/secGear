@@ -36,10 +36,10 @@
 
 bool uswitchless_is_valid_config(sl_task_pool_config_t *cfg)
 {
-    if (cfg->num_uworkers > SWITCHLESS_MAX_UWORKERS) ||
-       (cfg->num_tworkers > SWITCHLESS_MAX_TWORKERS) ||
-       (cfg->num_max_params > SWITCHLESS_MAX_PARAMETER_NUM) ||
-       (cfg->call_pool_size_qwords > SWITCHLESS_MAX_POOL_SIZE_QWORDS) {
+    if ((cfg->num_uworkers > SWITCHLESS_MAX_UWORKERS) ||
+        (cfg->num_tworkers > SWITCHLESS_MAX_TWORKERS) ||
+        (cfg->num_max_params > SWITCHLESS_MAX_PARAMETER_NUM) ||
+        (cfg->call_pool_size_qwords > SWITCHLESS_MAX_POOL_SIZE_QWORDS)) {
         return false;
     }
 
@@ -145,7 +145,7 @@ static inline sl_task_t *uswitchless_get_task_by_index(cc_enclave_t *enclave, in
 
 void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_id, uint32_t argc, void *args)
 {
-    sl_task_t *task = uswitchless_get_idle_task_by_index(enclave, task_index);
+    sl_task_t *task = uswitchless_get_task_by_index(enclave, task_index);
 
     task->func_id = func_id;
     __atomic_store_n(&task->status, SL_TASK_INIT, __ATOMIC_RELEASE);
@@ -171,7 +171,7 @@ cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_
     int count = 0;
     struct timespec start;
     struct timespec end;
- 
+
     clock_gettime(CLOCK_MONOTONIC_COARSE, &start);
 
     while (true) {

@@ -77,4 +77,4 @@ static inline void set_bit(volatile uint64_t *addr, uint32_t i)
 }
 #endif
 
-#endif 
+#endif

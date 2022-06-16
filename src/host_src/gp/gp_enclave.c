@@ -457,7 +457,7 @@ cc_enclave_result_t init_features(cc_enclave_t *enclave, const enclave_features_
             return ret;
         }
     }
-    
+ 
     return CC_SUCCESS;
 }
 
@@ -472,7 +472,7 @@ cc_enclave_result_t _gp_create(cc_enclave_t *enclave, const enclave_features_t *
     TEEC_Result result_tee;
     cc_enclave_result_t result_cc;
 
-    if ((enclave ==NULL) || (features_count > 0 && features == NULL)) {
+    if ((enclave == NULL) || (features_count > 0 && features == NULL)) {
         print_error_term("Context parameter error\n");
         return CC_ERROR_BAD_PARAMETERS;
     }
@@ -564,7 +564,6 @@ done:
         ptr; \
     })
 
-
 static cc_enclave_result_t init_operation(TEEC_Operation *operation, cc_enclave_call_function_args_t *args)
 {
     const int input_pos = 0;
@@ -636,7 +635,7 @@ void *handle_ecall_function_with_new_session(void *data)
 
     TEEC_CloseSession(&session);
 
-    done:
+done:
     free(args);
     return NULL;
 }
@@ -671,7 +670,7 @@ cc_enclave_result_t handle_ecall_function_register_shared_memory(cc_enclave_t *e
 
     /* Waiting for registration success */
     while (*(volatile bool *)(&shared_mem->is_registered) == false) {
-        __asm__ __volatile__("yield":::"memory");
+        __asm__ __volatile__("yield" : : : "memory");
     }
 
     return CC_SUCCESS;

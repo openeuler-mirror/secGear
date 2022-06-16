@@ -19,10 +19,9 @@ void *sgx_malloc_shared_memory(cc_enclave_t *enclave, size_t size, bool is_contr
 {
     IGNORE(enclave);
     IGNORE(is_control_buf);
- 
+
     return malloc(size);
 }
-
 
 void sgx_free_shared_memory(cc_enclave_t *enclave, void *ptr)
 {
@@ -31,15 +30,15 @@ void sgx_free_shared_memory(cc_enclave_t *enclave, void *ptr)
     free(ptr);
 }
 
-cc_enclave_result_t sgx_register_shared_memory(cc_enclave_t *enclave. void *ptr)
+cc_enclave_result_t sgx_register_shared_memory(cc_enclave_t *enclave, void *ptr)
 {
     IGNORE(enclave);
     IGNORE(ptr);
- 
+
     return CC_SUCCESS;
 }
 
-cc_enclave_result_t sgx_unregister_shared_memory(cc_enclave_t *enclave, void* ptr)
+cc_enclave_result_t sgx_unregister_shared_memory(cc_enclave_t *enclave, void *ptr)
 {
     IGNORE(enclave);
     IGNORE(ptr);

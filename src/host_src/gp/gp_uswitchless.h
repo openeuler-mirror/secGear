@@ -129,4 +129,4 @@ void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_
 #ifdef __cplusplus
 }
 #endif
-#endif 
+#endif

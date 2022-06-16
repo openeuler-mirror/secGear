@@ -88,4 +88,4 @@ static inline bool list_is_empty(list_head_t *head)
 }
 #endif
 
-#endif 
+#endif

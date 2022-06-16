@@ -21,9 +21,9 @@
 /*
  * Summary: Allocates size bytes and returns a pointer to the allocated memory.
  * Parameters:
- *      context: enclave
- *      size: buffer length
- *      is_control_buf: whether it is a control area buffer
+ *     context: enclave
+ *     size: buffer length
+ *     is_control_buf: whether it is a control area buffer
  * Return: A pointer to the allocated memory. On error, return NULL.
  */
 void *sgx_malloc_shared_memory(cc_enclave_t *context, size_t size, bool is_control_buf);
@@ -31,8 +31,8 @@ void *sgx_malloc_shared_memory(cc_enclave_t *context, size_t size, bool is_contr
 /*
  * Summary: Frees the memory space pointed to by ptr, which must have been returned by sgx_malloc_shared_memory.
  * Parameters:
- *          context: enclave
- *          ptr: buffer address
+ *     context: enclave
+ *     ptr: buffer address
  * Return: NA
  */
 void sgx_free_shared_memory(cc_enclave_t *context, void *ptr);
@@ -40,8 +40,8 @@ void sgx_free_shared_memory(cc_enclave_t *context, void *ptr);
 /*
  * Summary: Register a pointer to enclave, which must have been returned by sgx_malloc_shared_memory.
  * Parameters:
- *          enclave: enclave
- *          ptr: buffer address
+ *     enclave: enclave
+ *     ptr: buffer address
  * Return: CC_SUCCESS, success; others failed.
  */
 cc_enclave_result_t sgx_register_shared_memory(cc_enclave_t *enclave, void *ptr);
@@ -49,8 +49,8 @@ cc_enclave_result_t sgx_register_shared_memory(cc_enclave_t *enclave, void *ptr)
 /*
  * Summary: Unregister a pointer from enclave, which must have been returned by sgx_malloc_shared_memory.
  * Parameters:
- *          enclave: enclave
- *          ptr: buffer address
+ *     enclave: enclave
+ *     ptr: buffer address
  * Return: CC_SUCCESS, success; others failed.
  */
 cc_enclave_result_t sgx_unregister_shared_memory(cc_enclave_t *enclave, void *ptr);

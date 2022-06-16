@@ -163,9 +163,9 @@ typedef enum _enclave_result_t
     CC_ERROR_SWITCHLESS_REINIT,			                /* Switchless repeated initialization */
     CC_ERROR_TSWITCHLESS_INIT_FAILED,			        /* Trust switchless init failed */
     CC_ERROR_SHARED_MEMORY_REPEAT_REGISTER, 	        /* The shared memory is repeatedly registered */
-    CC_ERROR_SHARED_MEMORY_START_ADD_INVAILD, 	        /* Invalid start address of the shared memory */
+    CC_ERROR_SHARED_MEMORY_START_ADDR_INVALID, 	        /* Invalid start address of the shared memory */
     CC_ERROR_SHARED_MEMORY_NOT_REGISTERED, 	            /* Unregistered shared memory */
-    CC_ERROR_SHARED_ADDDRESS_UNACCESSABLE, 	            /* Memory address is not within enclave */
+    CC_ERROR_ADDRESS_UNACCESSABLE, 	            /* Memory address is not within enclave */
     CC_MAXIMUM_ERROR,
 } cc_enclave_result_t;
 

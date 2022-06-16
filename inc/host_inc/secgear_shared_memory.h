@@ -62,4 +62,4 @@ CC_API_SPEC cc_enclave_result_t cc_unregister_shared_memory(cc_enclave_t *enclav
 }
 #endif
 
-#endif 
+#endif

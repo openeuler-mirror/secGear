@@ -79,7 +79,7 @@ static bool gp_is_shared_mem_start_addr(void *ptr)
     RWLOCK_LOCK_RD(&g_shared_mem_list_lock);
     list_for_each(cur, &g_shared_mem_list) {
         mem = list_entry(cur, gp_shared_memory_t, node);
-        
+ 
         if (addr == (size_t)((char *)mem + sizeof(gp_shared_memory_t))) {
             isExist = true;
             break;
@@ -110,8 +110,8 @@ void gp_free_shared_memory(cc_enclave_t *enclave, void *ptr)
 #endif
 
 #define PARAM_OFFSET_MOVE(cur_param_offset, offset_var_name, cur_param_size) \
-                          size_t offset_var_name = cur_param_offset; \
-                          cur_param_offset += cur_param_size
+    size_t offset_var_name = cur_param_offset; \
+    cur_param_offset += cur_param_size
 
 cc_enclave_result_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr)
 {
@@ -146,7 +146,7 @@ cc_enclave_result_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr)
     /* Calculate the output parameter offset. */
     size_t out_param_buf_size = 0;
     PARAM_OFFSET_MOVE(out_param_buf_size, retval_offset, args_size.retval_size);
-    
+ 
     /* Allocate in_buf and out_buf */
     char *param_buf = (char *)calloc(in_param_buf_size + out_param_buf_size, sizeof(char));
     if (param_buf == NULL) {
@@ -201,7 +201,7 @@ cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void* ptr
         .retval_size = size_to_aligned_size(sizeof(int)),
         .shared_buf_size = size_to_aligned_size(sizeof(void *))
     };
-    
+ 
     /* Calculate the input parameter offset. */
     size_t in_param_buf_size = size_to_aligned_size(sizeof(args_size));
     PARAM_OFFSET_MOVE(in_param_buf_size, ptr_offset, args_size.shared_buf_size);

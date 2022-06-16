@@ -36,7 +36,7 @@ typedef struct {
 enum {
     fid_register_shared_memory = 0,
     fid_unregister_shared_memory = 1,
-}
+};
 
 typedef struct {
     TEEC_SharedMemory shared_mem;
