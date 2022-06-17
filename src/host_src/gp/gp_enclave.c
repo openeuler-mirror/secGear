@@ -593,8 +593,8 @@ static cc_enclave_result_t init_operation(TEEC_Operation *operation, cc_enclave_
     /* Fill shared buffer */
     if (args->function_id == fid_register_shared_memory) {
         gp_shared_memory_t *shared_mem = GP_SHARED_MEMORY_ENTRY(GET_HOST_BUF_FROM_INPUT_PARAMS(args->input_buffer));
-        operation->params[other_pos].sharedmem.parent = &shared_mem->shared_mem;
-        operation->params[other_pos].sharedmem.size = shared_mem->shared_mem.size;
+        operation->params[other_pos].memref.parent = &shared_mem->shared_mem;
+        operation->params[other_pos].memref.size = shared_mem->shared_mem.size;
         paramtypes[other_pos] = TEEC_MEMREF_SHARED_INOUT;
     }
 

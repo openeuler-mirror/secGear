@@ -191,7 +191,7 @@ static TEE_Result handle_ecall_function(uint32_t param_types, TEE_Param params[P
                tmp_input_buffer_size,
                tmp_output_buffer,
                tmp_output_buffer_size,
-               params[POS_SHARED_MEM].sharedmem.buffer,
+               params[POS_SHARED_MEM].memref.buffer,
                &output_bytes_written);
     if (res != CC_SUCCESS) {
         goto done;
