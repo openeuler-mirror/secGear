@@ -14,7 +14,9 @@
 #define __SHARED_MEMORY_DEFS_H__
 
 #include <stdint.h>
+#ifdef CC_GP
 #include <tee_client_type.h>
+#endif
 #include "secgear_list.h"
 
 #ifdef __cplusplus
@@ -38,6 +40,8 @@ enum {
     fid_unregister_shared_memory = 1,
 };
 
+#ifdef CC_GP
+
 typedef struct {
     TEEC_SharedMemory shared_mem;
     bool is_control_buf;
@@ -52,6 +56,8 @@ typedef struct {
 
 #define TEEC_SHARED_MEMORY_ENTRY(ptr) \
     ((TEEC_SharedMemory *)((char *)ptr - sizeof(gp_shared_memory_t)))
+
+#endif
 
 #ifdef __cplusplus
 }

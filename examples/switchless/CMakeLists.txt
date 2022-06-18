@@ -83,10 +83,6 @@ if(CC_SGX)
     add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/enclave.signed.so")
 endif()
 
-if(CC_PL)
-    set(CODETYPE penglai)
-    add_definitions(-DPATH="${CMAKE_CURRENT_SOURCE_DIR}/enclave/penglai-ELF")
-endif()
 
 add_subdirectory(${CURRENT_ROOT_PATH}/enclave)
 add_subdirectory(${CURRENT_ROOT_PATH}/host)

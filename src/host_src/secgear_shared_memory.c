@@ -52,9 +52,11 @@ cc_enclave_result_t cc_free_shared_memory(cc_enclave_t *enclave, void *ptr)
         return CC_ERROR_BAD_PARAMETERS;
     }
 
+#ifdef CC_GP
     if (GP_SHARED_MEMORY_ENTRY(ptr)->enclave != enclave) {
         return CC_ERROR_INVALID_HANDLE;
     }
+#endif
 
     RWLOCK_LOCK_RD(&enclave->rwlock);
 
@@ -76,9 +78,11 @@ cc_enclave_result_t cc_register_shared_memory(cc_enclave_t *enclave, void *ptr)
         return CC_ERROR_BAD_PARAMETERS;
     }
 
+#ifdef CC_GP
     if (GP_SHARED_MEMORY_ENTRY(ptr)->enclave != enclave) {
         return CC_ERROR_INVALID_HANDLE;
     }
+#endif
 
     RWLOCK_LOCK_RD(&enclave->rwlock);
 
@@ -100,9 +104,11 @@ cc_enclave_result_t cc_unregister_shared_memory(cc_enclave_t *enclave, void *ptr
         return CC_ERROR_BAD_PARAMETERS;
     }
 
+#ifdef CC_GP
     if (GP_SHARED_MEMORY_ENTRY(ptr)->enclave != enclave) {
         return CC_ERROR_INVALID_HANDLE;
     }
+#endif
 
     RWLOCK_LOCK_RD(&enclave->rwlock);
 
