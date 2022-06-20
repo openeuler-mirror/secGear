@@ -14,6 +14,7 @@
 
 #include <stdlib.h>
 #include <pthread.h>
+#include <tee_client_type.h>
 #include "secgear_defs.h"
 #include "shared_memory_defs.h"
 #include "enclave_internal.h"
@@ -22,6 +23,9 @@
 #include "secgear_list.h"
 #include "enclave_log.h"
 #include "status.h"
+
+#define TEEC_SHARED_MEMORY_ENTRY(ptr) \
+    ((TEEC_SharedMemory *)((char *)ptr - sizeof(gp_shared_memory_t)))
 
 static pthread_rwlock_t g_shared_mem_list_lock = PTHREAD_RWLOCK_INITIALIZER;
 static list_node_t g_shared_mem_list = {
@@ -47,26 +51,25 @@ void *gp_malloc_shared_memory(cc_enclave_t *context, size_t size, bool is_contro
 {
     gp_context_t *gp_context = (gp_context_t *)context->private_data;
     gp_shared_memory_t gp_shared_mem = {
-        .shared_mem = {
-            .size = size + sizeof(gp_shared_memory_t),
-            .flags = TEEC_MEM_SHARED_INOUT
-        },
         .is_control_buf = is_control_buf,
         .is_registered = false,
         .enclave = (void *) context,
         .register_tid = 0
     };
+    TEEC_SharedMemory *teec_shared_mem = (TEEC_SharedMemory *)(&gp_shared_mem.shared_mem);
+    teec_shared_mem->size = size + sizeof(gp_shared_memory_t);
+    teec_shared_mem->flags = TEEC_MEM_SHARED_INOUT;
 
-    TEEC_Result result = TEEC_AllocateSharedMemory(&gp_context->ctx, &gp_shared_mem.shared_mem);
+    TEEC_Result result = TEEC_AllocateSharedMemory(&gp_context->ctx, teec_shared_mem);
     if (result != TEEC_SUCCESS) {
         return NULL;
     }
 
     // save meta data
-    (void)memcpy(gp_shared_mem.shared_mem.buffer, &gp_shared_mem, sizeof(gp_shared_mem));
+    (void)memcpy(teec_shared_mem->buffer, &gp_shared_mem, sizeof(gp_shared_mem));
 
-    gp_add_shared_mem_to_list((gp_shared_memory_t *)gp_shared_mem.shared_mem.buffer);
-    return (char *)gp_shared_mem.shared_mem.buffer + sizeof(gp_shared_mem);
+    gp_add_shared_mem_to_list((gp_shared_memory_t *)teec_shared_mem->buffer);
+    return (char *)teec_shared_mem->buffer + sizeof(gp_shared_mem);
 }
 
 static bool gp_is_shared_mem_start_addr(void *ptr)
@@ -122,7 +125,7 @@ cc_enclave_result_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr)
     }
 
     gp_shared_memory_t *gp_shared_mem = GP_SHARED_MEMORY_ENTRY(ptr);
-    if (gp_shared_mem->is_registered) {
+    if (__atomic_load_n(&gp_shared_mem->is_registered, __ATOMIC_ACQUIRE)) {
         return CC_ERROR_SHARED_MEMORY_REPEAT_REGISTER;
     }
 
@@ -159,7 +162,7 @@ cc_enclave_result_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr)
     /* Copy in_params to in_buf */
     memcpy(in_param_buf, &args_size, size_to_aligned_size(sizeof(args_size)));
     memcpy(in_param_buf + ptr_offset, &ptr, sizeof(void*));
-    size_t shared_mem_size = gp_shared_mem->shared_mem.size - sizeof(gp_shared_memory_t);
+    size_t shared_mem_size = ((TEEC_SharedMemory *)(&gp_shared_mem->shared_mem))->size - sizeof(gp_shared_memory_t);
     memcpy(in_param_buf + ptr_len_offset, &shared_mem_size, sizeof(size_t));
     memcpy(in_param_buf + is_control_buf_offset, &gp_shared_mem->is_control_buf, sizeof(bool));
 
@@ -192,7 +195,7 @@ cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void* ptr
     }
 
     gp_shared_memory_t *gp_shared_mem = GP_SHARED_MEMORY_ENTRY(ptr);
-    if (!gp_shared_mem->is_registered) {
+    if (!__atomic_load_n(&gp_shared_mem->is_registered, __ATOMIC_ACQUIRE)) {
         return CC_ERROR_SHARED_MEMORY_NOT_REGISTERED;
     }
 

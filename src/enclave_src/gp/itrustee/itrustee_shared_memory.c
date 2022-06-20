@@ -101,14 +101,14 @@ static cc_enclave_result_t itrustee_register_shared_memory(void *host_buf,
     }
 
     add_shared_memory_block_to_list(shared_mem);
-    ((gp_shared_memory_t *)registered_buf)->is_registered = true;
+    __atomic_store_n(&(((gp_shared_memory_t *)registered_buf)->is_registered), true, __ATOMIC_RELEASE);
 
     // Waiting for the deregistration signal
     MUTEX_LOCK(&shared_mem->mtx_lock);
     COND_WAIT(&shared_mem->unregister_cond, &shared_mem->mtx_lock);
     MUTEX_UNLOCK(&shared_mem->mtx_lock);
 
-    ((gp_shared_memory_t *)registered_buf)->is_registered = false;
+    __atomic_store_n(&(((gp_shared_memory_t *)registered_buf)->is_registered), false, __ATOMIC_RELEASE);
     remove_shared_memory_block_from_list(shared_mem);
 
     if (is_control_buf) {

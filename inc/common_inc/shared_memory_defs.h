@@ -14,9 +14,7 @@
 #define __SHARED_MEMORY_DEFS_H__
 
 #include <stdint.h>
-#ifdef CC_GP
-#include <tee_client_type.h>
-#endif
+#include <pthread.h>
 #include "secgear_list.h"
 
 #ifdef __cplusplus
@@ -40,10 +38,12 @@ enum {
     fid_unregister_shared_memory = 1,
 };
 
-#ifdef CC_GP
+// #if defined(ENCLAVE) && ENCLAVE == GP
+
+#define GP_SHARED_MEMORY_SIZE            64
 
 typedef struct {
-    TEEC_SharedMemory shared_mem;
+    char shared_mem[GP_SHARED_MEMORY_SIZE]; // refer to TEEC_SharedMemory
     bool is_control_buf;
     bool is_registered;
     void *enclave; // refer to cc_enclave_t
@@ -54,10 +54,7 @@ typedef struct {
 #define GP_SHARED_MEMORY_ENTRY(ptr) \
     ((gp_shared_memory_t *)((char *)ptr - sizeof(gp_shared_memory_t)))
 
-#define TEEC_SHARED_MEMORY_ENTRY(ptr) \
-    ((TEEC_SharedMemory *)((char *)ptr - sizeof(gp_shared_memory_t)))
-
-#endif
+// #endif
 
 #ifdef __cplusplus
 }

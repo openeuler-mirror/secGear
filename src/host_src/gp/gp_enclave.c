@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <pthread.h>
+#include <tee_client_type.h>
 
 #include "secgear_defs.h"
 #include "enclave.h"
@@ -499,7 +500,6 @@ cc_enclave_result_t _gp_create(cc_enclave_t *enclave, const enclave_features_t *
         print_error_term("TEEC open session failed\n");
         goto cleanup;
     }
-    print_debug("TEEC open session success\n");
     enclave->private_data = (void *)gp_context;
 
     result_cc = init_features(enclave, features, features_count);
@@ -593,8 +593,9 @@ static cc_enclave_result_t init_operation(TEEC_Operation *operation, cc_enclave_
     /* Fill shared buffer */
     if (args->function_id == fid_register_shared_memory) {
         gp_shared_memory_t *shared_mem = GP_SHARED_MEMORY_ENTRY(GET_HOST_BUF_FROM_INPUT_PARAMS(args->input_buffer));
-        operation->params[other_pos].memref.parent = &shared_mem->shared_mem;
-        operation->params[other_pos].memref.size = shared_mem->shared_mem.size;
+        TEEC_SharedMemory *teec_shared_mem = (TEEC_SharedMemory *)(&shared_mem->shared_mem);
+        operation->params[other_pos].memref.parent = teec_shared_mem;
+        operation->params[other_pos].memref.size = teec_shared_mem->size;
         paramtypes[other_pos] = TEEC_MEMREF_SHARED_INOUT;
     }
 
@@ -669,7 +670,7 @@ cc_enclave_result_t handle_ecall_function_register_shared_memory(cc_enclave_t *e
     }
 
     /* Waiting for registration success */
-    while (*(volatile bool *)(&shared_mem->is_registered) == false) {
+    while (__atomic_load_n(&shared_mem->is_registered, __ATOMIC_ACQUIRE) == false) {
         __asm__ __volatile__("yield" : : : "memory");
     }
 
