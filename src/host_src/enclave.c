@@ -143,14 +143,14 @@ static bool check_transform_path(cc_enclave_result_t *res, const char *path, cha
     /* check file exists and get absolute pathname */
     if (realpath(path, real_p) == NULL) {
         *res = CC_ERROR_INVALID_PATH;
-        print_error_term("Path %s error %s\n", path, strerror(errno));
+        print_error_term("Path error %s\n", strerror(errno));
         return false;
     }
 
     /* check file permission */
     if (access(real_p, R_OK) != 0) {
         *res = CC_ERROR_ACCESS_DENIED;
-        print_error_term("Path %s error %s\n", path, strerror(errno));
+        print_error_term("Path error %s\n", strerror(errno));
         return false;
     }
     size_t len = strlen(real_p) + 1;
