@@ -1,0 +1,4 @@
+version_control: gitee
+src_repo: openEuler/secGear
+tag_prefix: ^v 
+seperator: .
