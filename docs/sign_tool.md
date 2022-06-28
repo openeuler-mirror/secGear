@@ -47,7 +47,8 @@ The tool supports the following two modes:
 		            The dump command is used to generate metadata for sgx signed enclave.
 	-i <file>       input parameter, which is enclave to be signed for digest/sign command, and signed enclave for
 	                dump command.
-	-k <file>       private key required for single-step method.
+	-k <file>       private key required for single-step method. Note: single-step method is only for the debug mode,
+                        plaintext private key does exist in the production environment.
 	-m <file>       additional config_cloud.ini for trustzone.
 	-o <file>       output parameter, the sign command outputs signed enclave, the digest command outputs signing
 	                material, the dump command outputs data containing the SIGStruct metadata for the SGX signed
