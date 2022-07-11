@@ -17,31 +17,31 @@
 
 void *sgx_malloc_shared_memory(cc_enclave_t *enclave, size_t size, bool is_control_buf)
 {
-    IGNORE(enclave);
-    IGNORE(is_control_buf);
+    CC_IGNORE(enclave);
+    CC_IGNORE(is_control_buf);
 
     return malloc(size);
 }
 
 void sgx_free_shared_memory(cc_enclave_t *enclave, void *ptr)
 {
-    IGNORE(enclave);
+    CC_IGNORE(enclave);
 
     free(ptr);
 }
 
 cc_enclave_result_t sgx_register_shared_memory(cc_enclave_t *enclave, void *ptr)
 {
-    IGNORE(enclave);
-    IGNORE(ptr);
+    CC_IGNORE(enclave);
+    CC_IGNORE(ptr);
 
     return CC_SUCCESS;
 }
 
 cc_enclave_result_t sgx_unregister_shared_memory(cc_enclave_t *enclave, void *ptr)
 {
-    IGNORE(enclave);
-    IGNORE(ptr);
+    CC_IGNORE(enclave);
+    CC_IGNORE(ptr);
 
     return CC_SUCCESS;
 }

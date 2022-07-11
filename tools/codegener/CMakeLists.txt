@@ -21,9 +21,14 @@ endif()
 set(code codegen)
 
 ExternalProject_Add(codegen
-		SOURCE_DIR ${LOCAL_ROOT_PATH}/tools/codegener
-		CONFIGURE_COMMAND ""
-		BUILD_COMMAND  dune build
-		BUILD_IN_SOURCE	TRUE
-		INSTALL_COMMAND mv ${CMAKE_CURRENT_SOURCE_DIR}/_build/default/main.exe ${LOCAL_ROOT_PATH}/bin/${code}
+        SOURCE_DIR ${LOCAL_ROOT_PATH}/tools/codegener
+        CONFIGURE_COMMAND ""
+        BUILD_COMMAND dune build
+        BUILD_IN_SOURCE TRUE
+        INSTALL_COMMAND mv ${CMAKE_CURRENT_SOURCE_DIR}/_build/default/main.exe ${LOCAL_ROOT_PATH}/bin/${code}
+)
+
+install(FILES ${LOCAL_ROOT_PATH}/bin/${code}
+        DESTINATION /usr/bin/
+        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
 )

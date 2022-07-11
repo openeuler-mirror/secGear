@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <pthread.h>
+#include <time.h>
 #include <tee_client_type.h>
 
 #include "secgear_defs.h"
@@ -388,7 +389,7 @@ cc_enclave_result_t init_uswitchless(cc_enclave_t *enclave, const enclave_featur
     // Layout task pool
     sl_task_pool_t *pool = uswitchless_create_task_pool(pool_buf, cfg);
     if (pool == NULL) {
-        gp_free_shared_memory(enclave, pool_buf);
+        (void)gp_free_shared_memory(enclave, pool_buf);
         return CC_ERROR_OUT_OF_MEMORY;
     }
 
@@ -396,7 +397,7 @@ cc_enclave_result_t init_uswitchless(cc_enclave_t *enclave, const enclave_featur
     cc_enclave_result_t ret = gp_register_shared_memory(enclave, pool_buf);
     if (ret != CC_SUCCESS) {
         free(pool);
-        gp_free_shared_memory(enclave, pool_buf);
+        (void)gp_free_shared_memory(enclave, pool_buf);
         return ret;
     }
 
@@ -415,7 +416,7 @@ void fini_uswitchless(cc_enclave_t *enclave)
         if (ret != CC_SUCCESS) {
             print_error_term("finish uswitchless, failed to unregister task pool, ret=%d\n", ret);
         }
-        gp_free_shared_memory(enclave, pool->pool_buf);
+        (void)gp_free_shared_memory(enclave, pool->pool_buf);
         free(pool);
         gp_ctx->sl_task_pool = NULL;
     }
@@ -433,7 +434,7 @@ static const struct {
 
 func_init_feature get_handle_feature_func(enclave_features_flag_t feature_flag)
 {
-    for (size_t i = 0; i < ARRAY_LEN(g_gp_handle_feature_func_array); ++i) {
+    for (size_t i = 0; i < CC_ARRAY_LEN(g_gp_handle_feature_func_array); ++i) {
         if (g_gp_handle_feature_func_array[i].flag == feature_flag) {
             return g_gp_handle_feature_func_array[i].init_func;
         }
@@ -641,10 +642,16 @@ done:
     return NULL;
 }
 
+#define REGISTER_SHAREDMEM_GETTIME_PER_CNT 100000000
+#define REGISTER_SHAREDMEM_TIMEOUT_IN_SEC 3
+
 cc_enclave_result_t handle_ecall_function_register_shared_memory(cc_enclave_t *enclave,
                                                                  cc_enclave_call_function_args_t *args)
 {
-    IGNORE(enclave);
+    CC_IGNORE(enclave);
+    int count = 0;
+    struct timespec start;
+    struct timespec end;
 
     size_t buf_len = sizeof(cc_enclave_call_function_args_t) + args->input_buffer_size + args->output_buffer_size;
     char *buf = (char *)calloc(buf_len, sizeof(char));
@@ -670,8 +677,18 @@ cc_enclave_result_t handle_ecall_function_register_shared_memory(cc_enclave_t *e
     }
 
     /* Waiting for registration success */
+    clock_gettime(CLOCK_MONOTONIC_COARSE, &start);
     while (__atomic_load_n(&shared_mem->is_registered, __ATOMIC_ACQUIRE) == false) {
         __asm__ __volatile__("yield" : : : "memory");
+
+        if (count > REGISTER_SHAREDMEM_GETTIME_PER_CNT) {
+            clock_gettime(CLOCK_MONOTONIC_COARSE, &end);
+            if (end.tv_sec - start.tv_sec > REGISTER_SHAREDMEM_TIMEOUT_IN_SEC) {
+                return CC_ERROR_TIMEOUT;
+            }
+            count = 0;
+        }
+        ++count;
     }
 
     return CC_SUCCESS;

@@ -47,8 +47,8 @@ static shared_memory_block_t *create_shared_memory_block(void *host_buf, size_t 
     }
 
     list_init(&shared_mem->node);
-    MUTEX_INIT(&shared_mem->mtx_lock, NULL);
-    COND_INIT(&shared_mem->unregister_cond, NULL);
+    CC_MUTEX_INIT(&shared_mem->mtx_lock, NULL);
+    CC_COND_INIT(&shared_mem->unregister_cond, NULL);
 
     shared_mem->host_addr = (size_t)host_buf;
     shared_mem->enclave_addr = (size_t)((char *)registered_buf + sizeof(gp_shared_memory_t));
@@ -60,24 +60,24 @@ static shared_memory_block_t *create_shared_memory_block(void *host_buf, size_t 
 static void destroy_shared_memory_block(shared_memory_block_t *shared_mem)
 {
     if (shared_mem != NULL) {
-        MUTEX_DESTROY(&shared_mem->mtx_lock);
-        COND_DESTROY(&shared_mem->unregister_cond);
+        CC_MUTEX_DESTROY(&shared_mem->mtx_lock);
+        CC_COND_DESTROY(&shared_mem->unregister_cond);
         free(shared_mem);
     }
 }
 
 static void add_shared_memory_block_to_list(shared_memory_block_t *shared_mem)
 {
-    RWLOCK_LOCK_WR(&g_shared_memory_list_lock);
+    CC_RWLOCK_LOCK_WR(&g_shared_memory_list_lock);
     list_add_after(&shared_mem->node, &g_shared_memory_list);
-    RWLOCK_UNLOCK(&g_shared_memory_list_lock);
+    CC_RWLOCK_UNLOCK(&g_shared_memory_list_lock);
 }
 
 static void remove_shared_memory_block_from_list(shared_memory_block_t *shared_mem)
 {
-    RWLOCK_LOCK_WR(&g_shared_memory_list_lock);
+    CC_RWLOCK_LOCK_WR(&g_shared_memory_list_lock);
     list_remove(&shared_mem->node);
-    RWLOCK_UNLOCK(&g_shared_memory_list_lock);
+    CC_RWLOCK_UNLOCK(&g_shared_memory_list_lock);
 }
 
 static cc_enclave_result_t itrustee_register_shared_memory(void *host_buf,
@@ -104,9 +104,9 @@ static cc_enclave_result_t itrustee_register_shared_memory(void *host_buf,
     __atomic_store_n(&(((gp_shared_memory_t *)registered_buf)->is_registered), true, __ATOMIC_RELEASE);
 
     // Waiting for the deregistration signal
-    MUTEX_LOCK(&shared_mem->mtx_lock);
-    COND_WAIT(&shared_mem->unregister_cond, &shared_mem->mtx_lock);
-    MUTEX_UNLOCK(&shared_mem->mtx_lock);
+    CC_MUTEX_LOCK(&shared_mem->mtx_lock);
+    CC_COND_WAIT(&shared_mem->unregister_cond, &shared_mem->mtx_lock);
+    CC_MUTEX_UNLOCK(&shared_mem->mtx_lock);
 
     __atomic_store_n(&(((gp_shared_memory_t *)registered_buf)->is_registered), false, __ATOMIC_RELEASE);
     remove_shared_memory_block_from_list(shared_mem);
@@ -162,7 +162,7 @@ size_t addr_host_to_enclave(size_t host_addr)
     shared_memory_block_t *mem_block = NULL;
     size_t ptr = 0;
 
-    RWLOCK_LOCK_RD(&g_shared_memory_list_lock);
+    CC_RWLOCK_LOCK_RD(&g_shared_memory_list_lock);
 
     list_for_each(cur, &g_shared_memory_list) {
         mem_block = list_entry(cur, shared_memory_block_t, node);
@@ -173,7 +173,7 @@ size_t addr_host_to_enclave(size_t host_addr)
         }
     }
 
-    RWLOCK_UNLOCK(&g_shared_memory_list_lock);
+    CC_RWLOCK_UNLOCK(&g_shared_memory_list_lock);
 
     return ptr;
 }
@@ -184,21 +184,21 @@ static cc_enclave_result_t itrustee_unregister_shared_memory(size_t host_addr)
     list_node_t *cur = NULL;
     shared_memory_block_t *mem_block = NULL;
 
-    RWLOCK_LOCK_RD(&g_shared_memory_list_lock);
+    CC_RWLOCK_LOCK_RD(&g_shared_memory_list_lock);
 
     list_for_each(cur, &g_shared_memory_list) {
         mem_block = list_entry(cur, shared_memory_block_t, node);
 
         if (host_addr == mem_block->host_addr) {
-            MUTEX_LOCK(&mem_block->mtx_lock);
-            COND_SIGNAL(&mem_block->unregister_cond);
-            MUTEX_UNLOCK(&mem_block->mtx_lock);
+            CC_MUTEX_LOCK(&mem_block->mtx_lock);
+            CC_COND_SIGNAL(&mem_block->unregister_cond);
+            CC_MUTEX_UNLOCK(&mem_block->mtx_lock);
             ret = CC_SUCCESS;
             break;
         }
     }
 
-    RWLOCK_UNLOCK(&g_shared_memory_list_lock);
+    CC_RWLOCK_UNLOCK(&g_shared_memory_list_lock);
 
     return ret;
 }
@@ -210,7 +210,7 @@ cc_enclave_result_t ecall_unregister_shared_memory(uint8_t *in_buf,
                                                    uint8_t *shared_buf,
                                                    size_t *output_bytes_written)
 {
-    IGNORE(shared_buf);
+    CC_IGNORE(shared_buf);
 
     /* Check if the input and output buffers can be visited */
     if ((!in_buf || !cc_is_within_enclave(in_buf, in_buf_size)) ||

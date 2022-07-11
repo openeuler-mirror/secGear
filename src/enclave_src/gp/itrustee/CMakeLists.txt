@@ -18,7 +18,7 @@ set(SOURCE_FILES ${SOURCE_FILES} ../gp.c ../gp_ocall.c itrustee_seal_data.c erro
 
 set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
 set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a -fPIC")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a -mno-outline-atomics -fPIC")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
 
 add_library(${target_lib} STATIC  ${SOURCE_FILES})
@@ -40,3 +40,11 @@ install(TARGETS  ${target_lib}
         ARCHIVE
         DESTINATION ${LIBRARY_INSTALL}
         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)
+
+file(GLOB GP_ENCLAVE_HEADERS_1 ${LOCAL_ROOT_PATH}/inc/enclave_inc/*.h)
+file(GLOB GP_ENCLAVE_HEADERS_2 ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/*.h)
+file(GLOB GP_ENCLAVE_HEADERS_3 ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee/*.h)
+
+install(FILES ${GP_ENCLAVE_HEADERS_1} ${GP_ENCLAVE_HEADERS_2} ${GP_ENCLAVE_HEADERS_3}
+        DESTINATION /usr/include/secGear
+        PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)

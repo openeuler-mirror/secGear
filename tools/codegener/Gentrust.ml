@@ -137,7 +137,7 @@ let get_array_dims (il : int list) =
 let set_switchless_ecall_func (tf : trusted_func) =
     let tfd = tf.tf_fdecl in
     let out_task_params = if tfd.plist <> [] then "    uint64_t *task_params = (uint64_t *)task_buf + 2;" else "" in
-    let unused_params = if tfd.plist == [] && tfd.rtype == Void then "    IGNORE(task_buf);" else "" in
+    let unused_params = if tfd.plist == [] && tfd.rtype == Void then "    CC_IGNORE(task_buf);" else "" in
     let out_retval =
         match tfd.rtype with
             | Void -> ""
@@ -400,7 +400,7 @@ let gen_trusted(ec : enclave_content) =
                 (List.filter (fun tf -> not tf.tf_is_switchless) trust_funcs));
             "};";
             "";
-            "size_t ecall_table_size = ARRAY_LEN(cc_ecall_tables);\n";
+            "size_t ecall_table_size = CC_ARRAY_LEN(cc_ecall_tables);\n";
         ]
     in
     let sl_ecall_table =
@@ -412,7 +412,7 @@ let gen_trusted(ec : enclave_content) =
                     (fun (tf) -> sprintf "(sl_ecall_func_t) sl_ecall_%s" tf.tf_fdecl.fname)
                     (List.filter (fun tf -> tf.tf_is_switchless) trust_funcs));
             "};\n";
-            "size_t sl_ecall_func_table_size = ARRAY_LEN(sl_ecall_func_table);\n";
+            "size_t sl_ecall_func_table_size = CC_ARRAY_LEN(sl_ecall_func_table);\n";
         ]
     in
     [

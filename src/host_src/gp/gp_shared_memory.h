@@ -37,9 +37,9 @@ void *gp_malloc_shared_memory(cc_enclave_t *context, size_t size, bool is_contro
  * Parameters:
  *     context: enclave
  *     ptr: buffer address
- * Return: NA
+ * Return: CC_SUCCESS, success; others failed.
  */
-void gp_free_shared_memory(cc_enclave_t *context, void *ptr);
+cc_enclave_result_t gp_free_shared_memory(cc_enclave_t *context, void *ptr);
 
 /*
  * Summary: Register a pointer to enclave, which must have been returned by gp_malloc_shared_memory.

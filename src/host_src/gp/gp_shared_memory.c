@@ -35,16 +35,16 @@ static list_node_t g_shared_mem_list = {
 
 static void gp_remove_shared_mem_from_list(gp_shared_memory_t *shared_mem)
 {
-    RWLOCK_LOCK_WR(&g_shared_mem_list_lock);
+    CC_RWLOCK_LOCK_WR(&g_shared_mem_list_lock);
     list_remove(&shared_mem->node);
-    RWLOCK_UNLOCK(&g_shared_mem_list_lock);
+    CC_RWLOCK_UNLOCK(&g_shared_mem_list_lock);
 }
 
 static void gp_add_shared_mem_to_list(gp_shared_memory_t *shared_mem)
 {
-    RWLOCK_LOCK_WR(&g_shared_mem_list_lock);
+    CC_RWLOCK_LOCK_WR(&g_shared_mem_list_lock);
     list_add_after(&shared_mem->node, &g_shared_mem_list);
-    RWLOCK_UNLOCK(&g_shared_mem_list_lock);
+    CC_RWLOCK_UNLOCK(&g_shared_mem_list_lock);
 }
 
 void *gp_malloc_shared_memory(cc_enclave_t *context, size_t size, bool is_control_buf)
@@ -79,7 +79,7 @@ static bool gp_is_shared_mem_start_addr(void *ptr)
     list_node_t *cur = NULL;
     gp_shared_memory_t *mem = NULL;
 
-    RWLOCK_LOCK_RD(&g_shared_mem_list_lock);
+    CC_RWLOCK_LOCK_RD(&g_shared_mem_list_lock);
     list_for_each(cur, &g_shared_mem_list) {
         mem = list_entry(cur, gp_shared_memory_t, node);
  
@@ -88,24 +88,26 @@ static bool gp_is_shared_mem_start_addr(void *ptr)
             break;
         }
     }
-    RWLOCK_UNLOCK(&g_shared_mem_list_lock);
+    CC_RWLOCK_UNLOCK(&g_shared_mem_list_lock);
 
     return isExist;
 }
 
-void gp_free_shared_memory(cc_enclave_t *enclave, void *ptr)
+cc_enclave_result_t gp_free_shared_memory(cc_enclave_t *enclave, void *ptr)
 {
-    IGNORE(enclave);
+    CC_IGNORE(enclave);
 
     if (!gp_is_shared_mem_start_addr(ptr)) {
         print_error_term("GP free shared memory failed: invalid shared memory start address.\n");
-        return;
+        return CC_ERROR_SHARED_MEMORY_NOT_REGISTERED;
     }
 
     gp_remove_shared_mem_from_list(GP_SHARED_MEMORY_ENTRY(ptr));
 
     TEEC_SharedMemory sharedMem = *TEEC_SHARED_MEMORY_ENTRY(ptr);
     TEEC_ReleaseSharedMemory(&sharedMem);
+
+    return CC_SUCCESS;
 }
 
 #ifndef TEE_SECE_AGENT_ID
@@ -125,12 +127,16 @@ cc_enclave_result_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr)
     }
 
     gp_shared_memory_t *gp_shared_mem = GP_SHARED_MEMORY_ENTRY(ptr);
-    if (__atomic_load_n(&gp_shared_mem->is_registered, __ATOMIC_ACQUIRE)) {
-        return CC_ERROR_SHARED_MEMORY_REPEAT_REGISTER;
-    }
-
     if (!gp_shared_mem->is_control_buf && !uswitchless_is_switchless_enabled(enclave)) {
         return CC_ERROR_SWITCHLESS_DISABLED;
+    }
+
+    if (GP_SHARED_MEMORY_ENTRY(ptr)->enclave != enclave) {
+        return CC_ERROR_INVALID_HANDLE;
+    }
+
+    if (__atomic_load_n(&gp_shared_mem->is_registered, __ATOMIC_ACQUIRE)) {
+        return CC_ERROR_SHARED_MEMORY_REPEAT_REGISTER;
     }
 
     gp_register_shared_memory_size_t args_size = {
@@ -192,6 +198,10 @@ cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void* ptr
 
     if (!gp_is_shared_mem_start_addr(ptr)) {
         return CC_ERROR_SHARED_MEMORY_START_ADDR_INVALID;
+    }
+
+    if (GP_SHARED_MEMORY_ENTRY(ptr)->enclave != enclave) {
+        return CC_ERROR_INVALID_HANDLE;
     }
 
     gp_shared_memory_t *gp_shared_mem = GP_SHARED_MEMORY_ENTRY(ptr);

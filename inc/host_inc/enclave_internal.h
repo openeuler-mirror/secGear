@@ -63,7 +63,7 @@ struct cc_enclave_ops {
 
     /* shared memory */
     void *(*cc_malloc_shared_memory)(cc_enclave_t *enclave, size_t size, bool is_control_buf);
-    void (*cc_free_shared_memory)(cc_enclave_t *enclave, void *ptr);
+    cc_enclave_result_t (*cc_free_shared_memory)(cc_enclave_t *enclave, void *ptr);
     cc_enclave_result_t (*cc_register_shared_memory)(cc_enclave_t *enclave, void *ptr);
     cc_enclave_result_t (*cc_unregister_shared_memory)(cc_enclave_t *enclave, void *ptr);
 };

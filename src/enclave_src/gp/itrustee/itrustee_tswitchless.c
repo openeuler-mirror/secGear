@@ -201,14 +201,14 @@ static pthread_t *tswitchless_init_workers(sl_task_pool_t *pool)
     }
 
     pthread_attr_t attr;
-    THREAD_ATTR_INIT(&attr);
+    CC_THREAD_ATTR_INIT(&attr);
     ret = pthread_attr_settee(&attr,
                               TEESMP_THREAD_ATTR_CA_INHERIT,
                               TEESMP_THREAD_ATTR_TASK_ID_INHERIT,
                               TEESMP_THREAD_ATTR_HAS_SHADOW);
     if (ret != 0) {
         free(tids);
-        THREAD_ATTR_DESTROY(&attr);
+        CC_THREAD_ATTR_DESTROY(&attr);
 
         SLogError("Set tee thread attr failed, ret: %d.", ret);
         return NULL;
@@ -219,14 +219,14 @@ static pthread_t *tswitchless_init_workers(sl_task_pool_t *pool)
         if (ret != 0) {
             tswitchless_fini_workers(pool, tids);
             free(tids);
-            THREAD_ATTR_DESTROY(&attr);
+            CC_THREAD_ATTR_DESTROY(&attr);
 
             SLogError("Create tee thread failed, index:%u, ret:%d.", i, ret);
             return NULL;
         }
     }
 
-    THREAD_ATTR_DESTROY(&attr);
+    CC_THREAD_ATTR_DESTROY(&attr);
 
     return tids;
 }
