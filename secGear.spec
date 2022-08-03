@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	23
+Release:	29
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -48,19 +48,21 @@ Patch35:	0036-enclave-use-the-can-pull-image-from-hub.oepkgs.net.patch
 Patch36:	0037-add-description-about-file-parameter-path-for-sign_t.patch
 Patch37:	0038-fix-use-after-free-in-cc_enclave_create.patch
 Patch38:	0039-clean-memory-when-it-come-to-error_handle.patch
-Patch39:	0040-fix-context-without-free-error.patch
+Patch39:	0040-fix-double-free.patch
 Patch40:	0041-fix-logs-redirection-error-and-delete-rsa_public_key.patch
-Patch41:	0042-Fix-format-and-non-standard-coding-of-sigh_tool.sh-s.patch
-Patch42:	0043-Optimize-README-in-English.patch
-Patch43:	0044-Optimize-Engilish-version-readme-file.patch
-Patch44:	0045-Corrected-some-spelling-and-grammar-mistakes.patch
+Patch41:	0042-destroy-rwlock-when-create-enclave-failed.patch
+Patch42:	0043-fix-partial-resource-leak.patch
+Patch43:	0044-fix-pointer-without-init-or-check-NULL.patch
+Patch44:	0045-optimize-the-private-key-usage-of-the-single-step-si.patch
+Patch45:	0046-fix-return-value.patch
+Patch46:        0047-del-print-uncontrol-form-string.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
 %ifarch x86_64
-BUildRequires:	linux-sgx-driver sgxsdk libsgx-launch libsgx-urts openssl
+BUildRequires:	sgxsdk libsgx-launch libsgx-urts openssl
 %else
-BUildRequires:	itrustee_sdk
+BUildRequires:	itrustee_sdk itrustee_sdk-devel
 %endif
 
 Requires:		rsyslog
@@ -75,7 +77,12 @@ secGear is an SDK to develop confidential computing apps based on hardware encla
 
 %package		devel
 Summary:		Development files for %{name}
-Requires:		%{name}%{?isa} = %{version}-%{release} cmake ocaml-dune
+Requires:		%{name}%{?isa} = %{version}-%{release} cmake
+%ifarch x86_64
+Requires:		sgxsdk
+%else
+Requires:		itrustee_sdk-devel
+%endif
 %description	devel
 The %{name}-devel is package contains Header file for developing applications that
 us %{name}
@@ -166,14 +173,32 @@ popd
 systemctl restart rsyslog
 
 %changelog
-* Tue Mar 15 2022 duyiwei<duyiwei@kylinos.cn> - 0.1.0-23
-- DESC: delete %{?dist}
+* Wed Aug 3 2022 zhengxiaoxiao <zhengxiaoxiao2@huawei.com> - 0.1.0-29
+* DESC: override with 22.03
 
-* Tue Jan 11 2022 houmingyong<houmingyong@huawei.com> - 0.1.0-22
+* Mon Jun 6 2022 zhengxiaoxiao <zhengxiaoxiao2@huawei.com> - 0.1.0-28
+* DESC: del print uncontrol form string
+
+* Sun May 15 2022 zhengxiaoxiao <zhengxiaoxiao2@huawei.com> - 0.1.0-27
+* DESC: fix return value
+
+* Thu Mar 24 2022 baizhonggui <baizhonggui@huawei.com> - 0.1.0-26
+* DESC: delete %{dist}
+
+* Tue Mar 15 2022 wangcheng <wangcheng156@huawei.com> - 0.1.0-25
+* DESC: fix the building failure in arm
+
+* Thu Mar 10 2022 wangcheng <wangcheng156@huawei.com> - 0.1.0-24
+* DESC: fix some bugs
+
+* Fri Mar 4 2022 gaoyusong <gaoyusong1@huawei.com> - 0.1.0-23
+- DESC: fix logs redirection error and del rsa_public_key_cloud.pem
+
+* Wed Feb 23 2022 houmingyong<houmingyong@huawei.com> - 0.1.0-22
+- DESC: fix double free bug
+
+* Tue Jan 11 2022 houmingyong<houmingyong@huawei.com> - 0.1.0-21
 - DESC: fix no secgear.log after install secGear-devel 
-
-* Mon Oct 25 2021 gaoyusong<gaoyusong1@huawei.com> - 0.1.0-21
-- DESC: backport some patches from openeuler secGear
 
 * Mon Jul 19 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-20
 - DESC: add requires for secGear: libsgx-aesm-launch-plugin ocaml-dune

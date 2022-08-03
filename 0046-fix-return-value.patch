@@ -1,0 +1,25 @@
+From 1f6f2ff01317c6f04de7cab7c3a126e7ce485df7 Mon Sep 17 00:00:00 2001
+From: zhengxiaoxiao <zhengxiaoxiao2@huawei.com>
+Date: Sun, 15 May 2022 22:00:33 +0800
+Subject: [PATCH] fix return value
+
+---
+ src/host_src/enclave.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/host_src/enclave.c b/src/host_src/enclave.c
+index 36a50b9..87a984f 100644
+--- a/src/host_src/enclave.c
++++ b/src/host_src/enclave.c
+@@ -196,7 +196,7 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
+         if (l_path) {
+             free(l_path);
+         }
+-        return CC_FAIL;
++        return res;
+     }
+ 
+     /* to do: gp support enter enclave debugging */
+-- 
+2.36.0.windows.1
+
