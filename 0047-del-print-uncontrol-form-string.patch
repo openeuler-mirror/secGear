@@ -1,0 +1,33 @@
+From 8877dd937ccb482ab830b9a9d4ca02f6a31045b7 Mon Sep 17 00:00:00 2001
+From: zhengxiaoxiao <zhengxiaoxiao2@huawei.com>
+Date: Sun, 5 Jun 2022 21:29:41 +0800
+Subject: [PATCH] del print uncontrol form string
+
+---
+ src/host_src/enclave.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/host_src/enclave.c b/src/host_src/enclave.c
+index 8d6c8a6..6fd7510 100644
+--- a/src/host_src/enclave.c
++++ b/src/host_src/enclave.c
+@@ -142,14 +142,14 @@ static bool check_transform_path(cc_enclave_result_t *res, const char *path, cha
+     /* check file exists and get absolute pathname */
+     if (realpath(path, real_p) == NULL) {
+         *res = CC_ERROR_INVALID_PATH;
+-        print_error_term("Path %s error %s\n", path, strerror(errno));
++        print_error_term("Path error %s\n", strerror(errno));
+         return false;
+     }
+ 
+     /* check file permission */
+     if (access(real_p, R_OK) != 0) {
+         *res = CC_ERROR_ACCESS_DENIED;
+-        print_error_term("Path %s error %s\n", path, strerror(errno));
++        print_error_term("Path error %s\n", strerror(errno));
+         return false;
+     }
+     size_t len = strlen(real_p) + 1;
+-- 
+2.33.0
+
