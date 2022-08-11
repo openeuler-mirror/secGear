@@ -23,11 +23,12 @@ void *sgx_malloc_shared_memory(cc_enclave_t *enclave, size_t size, bool is_contr
     return malloc(size);
 }
 
-void sgx_free_shared_memory(cc_enclave_t *enclave, void *ptr)
+cc_enclave_result_t sgx_free_shared_memory(cc_enclave_t *enclave, void *ptr)
 {
     CC_IGNORE(enclave);
 
     free(ptr);
+    return CC_SUCCESS;
 }
 
 cc_enclave_result_t sgx_register_shared_memory(cc_enclave_t *enclave, void *ptr)

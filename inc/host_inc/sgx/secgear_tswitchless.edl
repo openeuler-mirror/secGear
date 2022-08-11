@@ -1,4 +1,6 @@
 // To do: develop key libraries of secGear version, to be compatible with SGX and GP.
 enclave {
+    include "sgx_error.h"
+    include "sgx_edger8r.h"
     from "sgx_tswitchless.edl" import *;
 };

@@ -52,12 +52,6 @@ cc_enclave_result_t cc_free_shared_memory(cc_enclave_t *enclave, void *ptr)
         return CC_ERROR_BAD_PARAMETERS;
     }
 
-// #if defined(ENCLAVE) && ENCLAVE == GP
-    if (GP_SHARED_MEMORY_ENTRY(ptr)->enclave != enclave) {
-        return CC_ERROR_INVALID_HANDLE;
-    }
-// #endif
-
     CC_RWLOCK_LOCK_RD(&enclave->rwlock);
 
     if (enclave->list_ops_node == NULL || FUNC_FREE_SHARED_MEM(enclave) == NULL) {

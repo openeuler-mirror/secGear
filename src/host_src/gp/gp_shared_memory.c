@@ -102,6 +102,10 @@ cc_enclave_result_t gp_free_shared_memory(cc_enclave_t *enclave, void *ptr)
         return CC_ERROR_SHARED_MEMORY_NOT_REGISTERED;
     }
 
+    if (GP_SHARED_MEMORY_ENTRY(ptr)->enclave != enclave) {
+        return CC_ERROR_INVALID_HANDLE;
+    }
+
     gp_remove_shared_mem_from_list(GP_SHARED_MEMORY_ENTRY(ptr));
 
     TEEC_SharedMemory sharedMem = *TEEC_SHARED_MEMORY_ENTRY(ptr);

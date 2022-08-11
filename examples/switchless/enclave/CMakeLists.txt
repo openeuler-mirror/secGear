@@ -149,7 +149,7 @@ if(CC_SGX)
         target_link_directories(${PREFIX} PRIVATE ${LINK_LIBRARY_PATH})
     endif()
 
-    target_link_libraries(${PREFIX} -Wl,--whole-archive ${Trts_Library_Name} -Wl,--no-whole-archive -Wl,--start-group
+    target_link_libraries(${PREFIX} -Wl,--whole-archive -lsgx_tswitchless ${Trts_Library_Name} -Wl,--no-whole-archive -Wl,--start-group
         -lsgx_tstdc -lsgx_tcxx -l${Crypto_Library_Name} -l${Service_Library_Name} -Wl,--end-group)
     add_custom_command(TARGET ${PREFIX}
                        POST_BUILD

@@ -22,6 +22,7 @@
 #include "sgx_edger8r.h"
 #include "sgx_urts.h"
 #include "secgear_uswitchless.h"
+#include "sgx_shared_memory.h"
  
 extern list_ops_management g_list_ops;
  
@@ -209,11 +210,37 @@ cc_enclave_result_t cc_enclave_sgx_call_function(
     cc_status = conversion_res_status(status, enclave->type);
     return cc_status;
 }
+
+cc_enclave_result_t cc_enclave_sgx_call_function_switchless(
+    cc_enclave_t *enclave,
+    uint32_t function_id,
+    const void *input_buffer,
+    size_t input_buffer_size,
+    void *output_buffer,
+    size_t output_buffer_size,
+    void *ms,
+    const void *ocall_table)
+{
+    (void)input_buffer;
+    (void)input_buffer_size;
+    (void)output_buffer;
+    (void)output_buffer_size;
+    sgx_status_t status;
+    cc_enclave_result_t cc_status;
+    status = sgx_ecall_switchless(((sgx_context_t *)(enclave->private_data))->edi, (int)function_id, ocall_table, ms);
+    cc_status = conversion_res_status(status, enclave->type);
+    return cc_status;
+}
  
 const struct cc_enclave_ops sgx_ops = {
     .cc_create_enclave = _sgx_create,
     .cc_destroy_enclave = _sgx_destroy,
     .cc_ecall_enclave = cc_enclave_sgx_call_function,
+    .cc_ecall_enclave_switchless = cc_enclave_sgx_call_function_switchless,
+    .cc_malloc_shared_memory = sgx_malloc_shared_memory,
+    .cc_free_shared_memory = sgx_free_shared_memory,
+    .cc_register_shared_memory = sgx_register_shared_memory,
+    .cc_unregister_shared_memory = sgx_unregister_shared_memory
 };
 
 struct cc_enclave_ops_desc sgx_ops_name = {

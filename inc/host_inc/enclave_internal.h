@@ -55,6 +55,16 @@ struct cc_enclave_ops {
 		    void *ms, 
 		    const void *ocall_table);
 
+    cc_enclave_result_t (*cc_ecall_enclave_switchless)(
+		    cc_enclave_t *enclave, 
+		    uint32_t function_id, 
+		    const void *input_buffer,
+		    size_t input_buffer_size, 
+		    void *output_buffer, 
+		    size_t output_buffer_size, 
+		    void *ms, 
+		    const void *ocall_table);
+
     /* switchless ecall */
     cc_enclave_result_t (*cc_sl_ecall_enclave)(cc_enclave_t *enclave,
                                                void *retval,

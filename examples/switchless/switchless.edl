@@ -13,6 +13,7 @@
 enclave {
     include "secgear_urts.h"
     from "secgear_tstdc.edl" import *;
+    from "secgear_tswitchless.edl" import *;
     trusted {
         public void ecall_empty(void);
         public void ecall_empty_switchless(void) transition_using_threads;
