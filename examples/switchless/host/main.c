@@ -95,24 +95,10 @@ void transfer_data_using_shared_memory()
         return;
     }
 
-    ret = cc_register_shared_memory(&g_enclave, buf);
-    if (ret != CC_SUCCESS) {
-        (void)cc_free_shared_memory(&g_enclave, buf);
-        printf("Error: register shared memory failed:%x.\n", ret);
-        return;
-    }
-
     (void)strcpy(buf, TEST_STR);
     printf("before test_toupper, buf=%s\n", buf);
     test_toupper(&g_enclave, buf, strlen(TEST_STR));
     printf("after test_toupper, buf=%s\n\n", buf);
-
-    ret = cc_unregister_shared_memory(&g_enclave, buf);
-    if (ret != CC_SUCCESS) {
-        (void)cc_free_shared_memory(&g_enclave, buf);
-        printf("Error: unregister shared memory failed:%x.\n", ret);
-        return;
-    }
 
     ret = cc_free_shared_memory(&g_enclave, buf);
     if (ret != CC_SUCCESS) {

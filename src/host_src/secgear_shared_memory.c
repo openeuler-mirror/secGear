@@ -34,12 +34,24 @@ void *cc_malloc_shared_memory(cc_enclave_t *enclave, size_t size)
 
     CC_RWLOCK_LOCK_RD(&enclave->rwlock);
 
-    if (enclave->list_ops_node == NULL || FUNC_CREATE_SHARED_MEM(enclave) == NULL) {
+    if (enclave->list_ops_node == NULL || FUNC_CREATE_SHARED_MEM(enclave) == NULL ||
+        FUNC_REGISTER_SHARED_MEM(enclave) == NULL || FUNC_FREE_SHARED_MEM(enclave) == NULL) {
         CC_RWLOCK_UNLOCK(&enclave->rwlock);
         return NULL;
     }
 
     void *ptr = FUNC_CREATE_SHARED_MEM(enclave)(enclave, size, false);
+    if (ptr == NULL) {
+        CC_RWLOCK_UNLOCK(&enclave->rwlock);
+        return NULL;
+    }
+
+    cc_enclave_result_t ret = FUNC_REGISTER_SHARED_MEM(enclave)(enclave, ptr);
+    if (ret != CC_SUCCESS) {
+        CC_IGNORE(FUNC_FREE_SHARED_MEM(enclave)(enclave, ptr));
+        CC_RWLOCK_UNLOCK(&enclave->rwlock);
+        return NULL;
+    }
 
     CC_RWLOCK_UNLOCK(&enclave->rwlock);
 
@@ -54,52 +66,19 @@ cc_enclave_result_t cc_free_shared_memory(cc_enclave_t *enclave, void *ptr)
 
     CC_RWLOCK_LOCK_RD(&enclave->rwlock);
 
-    if (enclave->list_ops_node == NULL || FUNC_FREE_SHARED_MEM(enclave) == NULL) {
-        CC_RWLOCK_UNLOCK(&enclave->rwlock);
-        return CC_ERROR_NOT_IMPLEMENTED;
-    }
-
-    cc_enclave_result_t ret = FUNC_FREE_SHARED_MEM(enclave)(enclave, ptr);
-
-    CC_RWLOCK_UNLOCK(&enclave->rwlock);
-
-    return ret;
-}
-
-cc_enclave_result_t cc_register_shared_memory(cc_enclave_t *enclave, void *ptr)
-{
-    if (enclave == NULL || ptr == NULL) {
-        return CC_ERROR_BAD_PARAMETERS;
-    }
-
-    CC_RWLOCK_LOCK_RD(&enclave->rwlock);
-
-    if (enclave->list_ops_node == NULL || FUNC_REGISTER_SHARED_MEM(enclave) == NULL) {
-        CC_RWLOCK_UNLOCK(&enclave->rwlock);
-        return CC_ERROR_NOT_IMPLEMENTED;
-    }
-
-    cc_enclave_result_t ret = FUNC_REGISTER_SHARED_MEM(enclave)(enclave, ptr);
-
-    CC_RWLOCK_UNLOCK(&enclave->rwlock);
-
-    return ret;
-}
-
-cc_enclave_result_t cc_unregister_shared_memory(cc_enclave_t *enclave, void *ptr)
-{
-    if (enclave == NULL || ptr == NULL) {
-        return CC_ERROR_BAD_PARAMETERS;
-    }
-
-    CC_RWLOCK_LOCK_RD(&enclave->rwlock);
-
-    if (enclave->list_ops_node == NULL || FUNC_UNREGISTER_SHARED_MEM(enclave) == NULL) {
+    if (enclave->list_ops_node == NULL || FUNC_FREE_SHARED_MEM(enclave) == NULL ||
+        FUNC_UNREGISTER_SHARED_MEM(enclave) == NULL) {
         CC_RWLOCK_UNLOCK(&enclave->rwlock);
         return CC_ERROR_NOT_IMPLEMENTED;
     }
 
     cc_enclave_result_t ret = FUNC_UNREGISTER_SHARED_MEM(enclave)(enclave, ptr);
+    if (ret != CC_SUCCESS) {
+        CC_RWLOCK_UNLOCK(&enclave->rwlock);
+        return ret;
+    }
+
+    ret = FUNC_FREE_SHARED_MEM(enclave)(enclave, ptr);
 
     CC_RWLOCK_UNLOCK(&enclave->rwlock);
 

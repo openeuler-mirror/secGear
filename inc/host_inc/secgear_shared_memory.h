@@ -40,23 +40,6 @@ CC_API_SPEC void *cc_malloc_shared_memory(cc_enclave_t *enclave, size_t size);
  */
 CC_API_SPEC cc_enclave_result_t cc_free_shared_memory(cc_enclave_t *enclave, void *ptr);
 
-/*
- * Summary: Register a pointer to enclave, which must have been returned by  cc_malloc_shared_memory.
- * Parameters:
- *     enclave: enclave
- *     ptr: buffer address
- * Return: CC_SUCCESS, success; others failed.
- */
-CC_API_SPEC cc_enclave_result_t cc_register_shared_memory(cc_enclave_t *enclave, void *ptr);
-
-/*
- * Summary: Unregister a pointer from enclave, which must have been returned by  cc_malloc_shared_memory.
- * Parameters:
- *     enclave: enclave
- *     ptr: buffer address
- * Return: CC_SUCCESS, success; others failed.
- */
-CC_API_SPEC cc_enclave_result_t cc_unregister_shared_memory(cc_enclave_t *enclave, void *ptr);
 
 #ifdef __cplusplus
 }
