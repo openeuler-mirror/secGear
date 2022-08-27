@@ -14,24 +14,17 @@
 #include <string.h>
 #include "switchless_t.h"
 
-
-void test_toupper(char *buf, int len)
+#define TA_HELLO_WORLD        "secgear hello world!"
+#define BUF_MAX 32
+int get_string(char *buf)
 {
-    if (buf == NULL || len < 0) {
-        return;
-    }
-
-    for (int i = 0; i < len; ++i) {
-        if (buf[i] >= 'a' && buf[i] <= 'z') {
-            buf[i] = buf[i] - ('a' - 'A');
-        }
-    }
+    strncpy(buf, TA_HELLO_WORLD, strlen(TA_HELLO_WORLD) + 1);
+    return 0;
 }
 
-void ecall_empty(void)
+int get_string_switchless(char *shared_buf)
 {
+    strncpy(shared_buf, TA_HELLO_WORLD, strlen(TA_HELLO_WORLD) + 1);
+    return 0;
 }
 
-void ecall_empty_switchless(void)
-{
-}

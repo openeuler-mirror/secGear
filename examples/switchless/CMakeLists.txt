@@ -8,62 +8,9 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-
-project(switchless C)
+project(Switchless C)
 
 set(CMAKE_C_STANDARD 99)
-
-if (NOT DEFINED ENCLAVE)
-set(ENCLAVE "SGX")
-endif()
-set(SGX_SDK_DEFAULT_PATH /opt/intel/sgxsdk)
-set(GP_SDK_DEFAULT_PATH /opt/itrustee_sdk)
-set(PL_SDK_DEFAULT_PATH /root/dev/sdk)
-
-set(SGX_SSL_DEFAULT_PATH /opt/intel/sgxssl)
-set(GP_SSL_DEFAULT_PATH /opt/itrustee_sdk/itrustee_sdk_ssl)
-
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-
-if(${ENCLAVE} STREQUAL "GP")
-if (NOT DEFINED SDK_PATH)
-set(iTrusteeSDK ${GP_SDK_DEFAULT_PATH})
-else()
-set(iTrusteeSDK ${SDK_PATH})
-endif()
-message("Current Platform: ARM Trustzone, iTrustee SDK PATH:${iTrusteeSDK}")
-if(NOT IS_DIRECTORY ${iTrusteeSDK})
-message(FATAL_ERROR "Please provide the correct iTrusteeSDK path")
-endif()
-set(CC_GP ON)
-endif()
-
-if(${ENCLAVE} STREQUAL "SGX")
-if (NOT DEFINED SDK_PATH)
-set(SGXSDK ${SGX_SDK_DEFAULT_PATH})
-else()
-set(SGXSDK ${SDK_PATH})
-endif()
-message("Current Platform: Intel SGX, SGX SDK PATH:${SGXSDK}")
-if(NOT IS_DIRECTORY ${SGXSDK})
-message(FATAL_ERROR "Please provide the correct SGXSDK path")
-endif()
-set(CC_SGX ON)
-endif()
-
-if(${ENCLAVE} STREQUAL "PL")
-if (NOT DEFINED SDK_PATH)
-set(PLSDK ${PL_SDK_DEFAULT_PATH})
-        else()
-set(PLSDK ${SDK_PATH})
-endif()
-message("Current Platform: RISC-V, Penglai SDK PATH:${PLSDK}")
-if(NOT IS_DIRECTORY ${PLSDK})
-message(FATAL_ERROR "Please provide the correct Penglai SDK path")
-endif()
-set(CC_PL ON)
-endif()
 
 set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -73,9 +20,8 @@ set(CODEGEN codegen)
 
 if(CC_GP)
     set(CODETYPE trustzone)
-    set(UUID ebc87fc2-05dc-41b3-85b9-f9f0ef481bad)
-    #add_definitions(-DPATH="/data/${UUID}.sec")
-    add_definitions(-DPATH="${LOCAL_ROOT_PATH_INSTALL}/data/${UUID}.sec")
+    set(UUID 7763a15a-0a9e-4e86-90cd-e4262583948a)
+    add_definitions(-DPATH="/data/${UUID}.sec")
 endif()
 
 if(CC_SGX)
@@ -83,6 +29,9 @@ if(CC_SGX)
     add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/enclave.signed.so")
 endif()
 
+if(CC_PL)
+    message(FATAL_ERROR "The PL platform does not support switchless.")
+endif()
 
 add_subdirectory(${CURRENT_ROOT_PATH}/enclave)
 add_subdirectory(${CURRENT_ROOT_PATH}/host)

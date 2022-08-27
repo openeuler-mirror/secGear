@@ -10,13 +10,28 @@
  * See the Mulan PSL v2 for more details.
  */
 
-enclave {
-    include "secgear_urts.h"
-    from "secgear_tstdc.edl" import *;
-    from "secgear_tswitchless.edl" import *;
-    trusted {
-        public int get_string([out, size=32]char *buf);
-        public int get_string_switchless([out, size=32]char *buf) transition_using_threads;
-    };
-};
+#include <stdio.h>
+#include <string.h>
+#include "switchless_t.h"
 
+
+void test_toupper(char *buf, int len)
+{
+    if (buf == NULL || len < 0) {
+        return;
+    }
+
+    for (int i = 0; i < len; ++i) {
+        if (buf[i] >= 'a' && buf[i] <= 'z') {
+            buf[i] = buf[i] - ('a' - 'A');
+        }
+    }
+}
+
+void ecall_empty(void)
+{
+}
+
+void ecall_empty_switchless(void)
+{
+}

@@ -15,8 +15,10 @@ enclave {
     from "secgear_tstdc.edl" import *;
     from "secgear_tswitchless.edl" import *;
     trusted {
-        public int get_string([out, size=32]char *buf);
-        public int get_string_switchless([out, size=32]char *buf) transition_using_threads;
+        public void ecall_empty(void);
+        public void ecall_empty_switchless(void) transition_using_threads;
+
+        public void test_toupper([in, out, size=len]char *buf, int len) transition_using_threads;
     };
 };
 

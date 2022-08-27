@@ -24,7 +24,7 @@ if(CC_GP)
                        DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
                        COMMAND ${CODEGEN} --${CODETYPE}
                                           --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
-                                          --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
+                                          --search-path /usr/include/secGear)
 endif()
 
 if(CC_SGX)
@@ -33,28 +33,23 @@ if(CC_SGX)
                        DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
                        COMMAND ${CODEGEN} --${CODETYPE}
                                           --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
-                                          --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
+                                          --search-path /usr/include/secGear
                                           --search-path ${SGXSDK}/include)
 endif()
 
-if(CC_PL)
-    message(FATAL_ERROR "The PL platform does not support switchless.")
-endif()
-
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -L/usr/lib64")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -s")
 
 if(CC_GP)
     if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
-        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+         link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
     endif()
     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
-    target_include_directories(${OUTPUT} PRIVATE ${CMAKE_BINARY_DIR}/inc
-                                                 ${LOCAL_ROOT_PATH}/inc/host_inc
-                                                 ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+    target_include_directories(${OUTPUT} PRIVATE ${CMAKE_BINARY_DIR}/host
+                                                 /usr/include/secGear
                                                  ${CMAKE_CURRENT_BINARY_DIR})
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-        target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+        target_link_directories(${OUTPUT} PRIVATE /usr/lib64 ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
     endif()
 endif()
 
@@ -63,17 +58,12 @@ if(CC_SGX)
         link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
     endif()
     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
-    target_include_directories(${OUTPUT} PRIVATE ${LOCAL_ROOT_PATH}/inc/host_inc
-                                                 ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
-                                                 ${SGXSDK}/include
+    target_include_directories(${OUTPUT} PRIVATE /usr/include/secGear
+                                                /opt/intel/sgxsdk/include
                                                  ${CMAKE_CURRENT_BINARY_DIR})
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGXSDK}/lib64)
     endif()
-endif()
-
-if(CC_PL)
-    message(FATAL_ERROR "The PL platform does not support switchless.")
 endif()
 
 if(CC_SIM)
@@ -91,7 +81,7 @@ set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
 if(CC_GP)
     install(TARGETS ${OUTPUT}
             RUNTIME
-            DESTINATION /vendor/bin/
+            DESTINATION ${LOCAL_ROOT_PATH_INSTALL}/vendor/bin/
             PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)
 endif()
 
@@ -100,9 +90,5 @@ if(CC_SGX)
             RUNTIME
             DESTINATION ${CMAKE_BINARY_DIR}/bin/
             PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)
-endif()
-
-if(CC_PL)
-    message(FATAL_ERROR "The PL platform does not support switchless.")
 endif()
 
