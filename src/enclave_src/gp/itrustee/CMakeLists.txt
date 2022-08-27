@@ -18,7 +18,22 @@ set(SOURCE_FILES ${SOURCE_FILES} ../gp.c ../gp_ocall.c itrustee_seal_data.c erro
 
 set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
 set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a -mno-outline-atomics -fPIC")
+
+if (CMAKE_COMPILER_IS_GNUCC)
+    execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpfullversion -dumpversion
+                    OUTPUT_VARIABLE GCC_VERSION)
+    string(REGEX MATCHALL "[0-9]+" GCC_VERSION_COMPONENTS ${GCC_VERSION})
+    list(GET GCC_VERSION_COMPONENTS 0 GCC_MAJOR)
+    list(GET GCC_VERSION_COMPONENTS 1 GCC_MINOR)
+    set(GCC_VERSION "${GCC_MAJOR}.${GCC_MINOR}")
+endif()
+
+if (GCC_VERSION GREATER_EQUAL "9.4")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a -mno-outline-atomics -fPIC")
+else()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a -fPIC")
+endif()
+
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
 
 add_library(${target_lib} STATIC  ${SOURCE_FILES})
