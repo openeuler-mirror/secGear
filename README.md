@@ -8,8 +8,16 @@ secGear
 
 secGear是面向计算产业的机密计算安全应用开发套件，旨在方便开发者在不同的硬件设备上提供统一开发框架。目前secGear支持intel SGX硬件，Trustzone itrustee，以及RISC-V 蓬莱TEE。
 
+
+编译依赖
+----------------
+
+依赖 git cmake …… ocaml-dune （待补充）
+
+
 HelloWorld运行样例
 ----------------
+
 ### Quick start with Intel SGX
 #### 环境要求
 - 处理器：需要支持 Intel SGX （Intel Software Guard Extensions）功能
@@ -48,7 +56,6 @@ mkdir debug && cd debug && cmake -DENCLAVE=GP .. && make && sudo make install
 // run helloworld
 /vendor/bin/secgear_helloworld
 ```
-
 
 HelloWorld开发流程
 ------------------------------
@@ -135,6 +142,61 @@ test_t.h：该头文件为自动生成代码工具codegen通过edl文件生成�
 使用SIGN_TOOL对编译出的.so文件进行签名。
 
 
+switchless特性
+-------------------------
+
+### 1 switchless特性介绍
+switchless方案是通过共享内存减少安全侧与非安全侧交互中数据拷贝次数来实现，将调用的数据写入共享内存，安全侧去访问并监控共享内存，发现有变化了，线程就去处理，这样减少上下文切换和数据拷贝的开销，大幅提升性能。
+- 支持Intel SGX平台和ARM TrustZone平台
+- ARM TrustZone平台仅支持ECALL
+
+### 2 约束限制
+虽然开启switchless节省了一定时间，但它们需要额外的线程来为调用提供服务。如果工作线程忙于等待消息，将会消耗大量CPU，另外，更多的工作线程通常意味着更多的CPU资源竞争和更多的线程上下文切换，反而可能损害性能，所以工作线程数量必须经过权衡。
+- 为了确定某个函数是否需要使用switchless特性，也必须进行权衡，一般来说switchless函数通常满足如下条件：
+    1. 短，上下文切换占调用总执行时间的比例较高。
+    2. 频繁调用，节省的切换时间累加起来将会很可观。
+
+强烈建议在开发周期中引入性能度量和调优。
+
+### 3 特性配置项规格
+用户调用cc_enclave_create创建Enclave时，需在feature参数中传入switchless的特性配置，配置项如下：
+```
+typedef struct _cc_sl_config_t {	
+	uint32_t num_uworkers;
+	uint32_t num_tworkers;
+	uint32_t switchless_calls_pool_size;
+	uint32_t retries_before_fallback;
+	uint32_t retries_before_sleep;
+	uint32_t parameter_num;
+} cc_sl_config_t;
+```
+各配置项规格如下表：
+
+| 配置项 |   说明   |
+| ------------ | ---- |
+|       num_uworkers       |   非安全侧代理工作线程数，用于执行switchless OCALL，当前该字段仅在SGX平台生效，ARM平台可以配置，但是因ARM平台暂不支持OCALL，所以配置后不会生效。<br>规格： <br>ARM：最大值：512；最小值：1；默认值：8（配置为0时） <br>SGX：最大值：4294967295；最小值：1|
+|      num_tworkers        |   安全侧代理工作线程数，用于执行switchless ECALL。<br>规格： <br>ARM：最大值：512；最小值：1；默认值：8（配置为0时） <br>SGX：最大值：4294967295；最小值：1|
+|     switchless_calls_pool_size         |    switchless调用任务池的大小，实际可容纳switchless_calls_pool_size * 64个switchless调用任务（例：switchless_calls_pool_size=1，可容纳64个switchless调用任务）。<br>规格：<br>ARM：最大值：8；最小值：1；默认值：1（配置为0时）<br>SGX：最大值：8；最小值：1；默认值：1（配置为0时）|
+|        retries_before_fallback      |    执行retries_before_fallback次汇编pause指令后，若switchless调用仍没有被另一侧的代理工作线程执行，就回退到switch调用模式，该字段仅在SGX平台生效。<br>规格：br>SGX：最大值：4294967295；最小值：1；默认值：20000（配置为0时）|
+|      retries_before_sleep        |   执行retries_before_sleep次汇编pause指令后，若代理工作线程一直没有等到有任务来，则进入休眠状态，该字段仅在SGX平台生效。<br>规格：<br>SGX：最大值：4294967295；最小值：1；默认值：20000（配置为0时）|
+|       parameter_num       |   switchless函数支持的最大参数个数，该字段仅在ARM平台生效，SGX平台无此限制。<br>规格：<br>ARM：最大值：16；最小值：0|
+
+### 4 switchless开发流程
+[参考 switchless README.md文件](./examples/switchless/README.md)
+
+### 5 常见问题
+- sgx环境下开启switchless特性创建enclave后，直接销毁enclave，再使用enclave会产生core dump
+
+    sgx开启switchless需有一下两步：
+    
+    1. cc_enclave_create时传入switchless feature参数
+    2. 在第一次ecall调用中初始化switchless线程调度
+    
+    如果没有调用ecall函数，就直接调用cc_enclave_destroy，会在sgx库中销毁switchless调度线程时异常。
+    
+    由于switchless的实际应用场景是存在频繁ecall调用，所以初始化switchless特性后，通常会有ecall调用，不会存在问题。
+    
+
 中间层组件使用指导
 -------------------------
 
@@ -195,6 +257,7 @@ int compare_num(const int A) {
 
 API清单
 ------------------------------
+
 ### 函数接口
 - host侧接口
 
@@ -203,6 +266,8 @@ API清单
 | cc_enclave_create()  | 用于创建安全侧的安全进程，针对安全区进程进行内存和相关上下文的初始化 |
 | cc_enclave_destroy()  | 用于销毁相关安全进程，对安全内存进行释放 |
 | cc_enclave_get_sealed_data_size()  | 用于获取加密后 sealed_data 数据占用的总大小，主要用于解密后需要分配的内存空间，安全侧与非安全侧皆可调用 |
+| cc_malloc_shared_memory()  | 用于开启switchless特性后，创建共享内存 |
+| cc_free_shared_memory()  | 用于开启switchless特性后，释放共享内存 |
 
 - enclave侧接口
 
