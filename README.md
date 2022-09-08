@@ -9,12 +9,6 @@ secGear
 secGear是面向计算产业的机密计算安全应用开发套件，旨在方便开发者在不同的硬件设备上提供统一开发框架。目前secGear支持intel SGX硬件，Trustzone itrustee，以及RISC-V 蓬莱TEE。
 
 
-编译依赖
-----------------
-
-依赖 git cmake …… ocaml-dune （待补充）
-
-
 HelloWorld运行样例
 ----------------
 
@@ -25,6 +19,9 @@ HelloWorld运行样例
 
 #### Build and Run
 ```
+// intall build require
+sudo yum install -y cmake ocaml-dune linux-sgx-driver sgxsdk libsgx-launch libsgx-urts
+
 // clone secGear repository
 git clone https://gitee.com/openeuler/secGear.git
 
@@ -45,6 +42,9 @@ mkdir debug && cd debug && cmake .. && make && sudo make install
 
 #### Build and Run
 ```
+// intall build require
+sudo yum install -y cmake ocaml-dune itrustee_sdk
+
 // clone secGear repository
 git clone https://gitee.com/openeuler/secGear.git
 
@@ -146,17 +146,21 @@ switchless特性
 -------------------------
 
 ### 1 switchless特性介绍
-switchless方案是通过共享内存减少安全侧与非安全侧交互中数据拷贝次数来实现，将调用的数据写入共享内存，安全侧去访问并监控共享内存，发现有变化了，线程就去处理，这样减少上下文切换和数据拷贝的开销，大幅提升性能。
-- 支持Intel SGX平台和ARM TrustZone平台
-- ARM TrustZone平台仅支持ECALL
+**技术定义：** switchless是一种通过共享内存减少REE与TEE上下文切换及数据拷贝次数，优化REE与TEE交互性能的技术。
+
+ **典型应用场景：** 传统应用做机密计算改造拆分成非安全侧CA与安全侧TA后
+
+- 当CA业务逻辑中存在频繁调用TA接口时，调用中间过程耗时占比较大，严重影响业务性能。
+- 当CA与TA存在频繁大块数据交换时，普通ECALL调用底层会有多次内存拷贝，导致性能低下。
+  针对以上两种典型场景，可以通过switchless优化交互性能，降低机密计算拆分带来的性能损耗，最佳效果可达到与拆分前同等数量级。
+
+ **支持硬件平台：** 
+
+- Intel SGX
+- ARM TrustZone 鲲鹏920
 
 ### 2 约束限制
-虽然开启switchless节省了一定时间，但它们需要额外的线程来为调用提供服务。如果工作线程忙于等待消息，将会消耗大量CPU，另外，更多的工作线程通常意味着更多的CPU资源竞争和更多的线程上下文切换，反而可能损害性能，所以工作线程数量必须经过权衡。
-- 为了确定某个函数是否需要使用switchless特性，也必须进行权衡，一般来说switchless函数通常满足如下条件：
-    1. 短，上下文切换占调用总执行时间的比例较高。
-    2. 频繁调用，节省的切换时间累加起来将会很可观。
-
-强烈建议在开发周期中引入性能度量和调优。
+虽然开启switchless节省了一定时间，但它们需要额外的线程来为调用提供服务。如果工作线程忙于等待消息，将会消耗大量CPU，另外更多的工作线程通常意味着更多的CPU资源竞争和更多的线程上下文切换，反而可能损害性能，所以switchless的最佳配置是经过实际业务模型与性能测试，在资源占用与性能要求中选出平衡点。
 
 ### 3 特性配置项规格
 用户调用cc_enclave_create创建Enclave时，需在feature参数中传入switchless的特性配置，配置项如下：
@@ -185,7 +189,7 @@ typedef struct _cc_sl_config_t {
 [参考 switchless README.md文件](./examples/switchless/README.md)
 
 ### 5 常见问题
-- sgx环境下开启switchless特性创建enclave后，直接销毁enclave，再使用enclave会产生core dump
+- sgx环境下开启switchless特性创建enclave后，直接销毁enclave会产生core dump
 
     sgx开启switchless需有一下两步：
     
