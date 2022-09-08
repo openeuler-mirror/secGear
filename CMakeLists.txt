@@ -100,8 +100,8 @@ add_subdirectory(examples)
 
 
 install(FILES ${LOCAL_ROOT_PATH}/conf/logrotate.d/secgear
-        DESTINATION /etc/logrotate.d/)
+        DESTINATION ${LOCAL_ROOT_PATH_INSTALL}/etc/logrotate.d/)
 
 install(FILES ${LOCAL_ROOT_PATH}/conf/rsyslog.d/secgear.conf
-        DESTINATION /etc/rsyslog.d/)
+        DESTINATION ${LOCAL_ROOT_PATH_INSTALL}/etc/rsyslog.d/)
 

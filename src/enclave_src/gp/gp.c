@@ -21,6 +21,7 @@
 #define POS_IN 0
 #define POS_OUT 1
 #define POS_IN_OUT 2
+#define POS_SHARED_MEM 3
 
 extern const cc_ecall_func_t cc_ecall_tables[];
 extern const size_t ecall_table_size;
@@ -91,8 +92,7 @@ void TA_DestroyEntryPoint(void)
 }
 
 static cc_enclave_result_t get_params_buffer(TEE_Param params[PARAMNUM],
-                                               void **input_buffer,
-                                               void **output_buffer)
+    void **input_buffer, void **output_buffer)
 {
     void *tmp_input_buffer = NULL;
     void *tmp_output_buffer = NULL;
@@ -190,6 +190,7 @@ static TEE_Result handle_ecall_function(uint32_t param_types, TEE_Param params[P
                tmp_input_buffer_size,
                tmp_output_buffer,
                tmp_output_buffer_size,
+               params[POS_SHARED_MEM].memref.buffer,
                &output_bytes_written);
     if (res != CC_SUCCESS) {
         goto done;

@@ -21,6 +21,8 @@
 #include "sgx_uswitchless.h"
 #include "sgx_edger8r.h"
 #include "sgx_urts.h"
+#include "secgear_uswitchless.h"
+#include "sgx_shared_memory.h"
  
 extern list_ops_management g_list_ops;
  
@@ -79,16 +81,19 @@ cc_enclave_result_t _sgx_create_with_features(cc_enclave_t *enclave, const encla
     const void *enclave_ex_p[32] = { 0 };
 
     cesgx_plc_config_t *l_plc = NULL;
-    cesgx_switch_config_t *l_switch = NULL;
+    cc_sl_config_t *l_switch = NULL;
     if (features->setting_type & _CESGX_SWITCHLESS_FEATURES) {
         res = CC_ERROR_BAD_PARAMETERS;
-        l_switch = (cesgx_switch_config_t *)features->feature_desc;
+        l_switch = (cc_sl_config_t *)features->feature_desc;
         /* check host and worker configuration */
-        SECGEAR_CHECK_SIZE(l_switch->host_worker);
-        SECGEAR_CHECK_SIZE(l_switch->enclave_worker);
+        SECGEAR_CHECK_SIZE(l_switch->num_uworkers);
+        SECGEAR_CHECK_SIZE(l_switch->num_tworkers);
 
-        l_config.num_tworkers = l_switch->enclave_worker;
-        l_config.num_uworkers = l_switch->host_worker;
+        l_config.num_tworkers = l_switch->num_tworkers;
+        l_config.num_uworkers = l_switch->num_uworkers;
+        l_config.switchless_calls_pool_size_qwords = l_switch->sl_call_pool_size_qwords;
+        l_config.retries_before_fallback = l_switch->retries_before_fallback;
+        l_config.retries_before_sleep = l_switch->retries_before_sleep;
 
         enclave_ex_p[SGX_CREATE_ENCLAVE_EX_SWITCHLESS_BIT_IDX] = (const void *)&l_config;
         sgx_res = sgx_create_enclave_ex(enclave->path, (uint32_t)(enclave->flags & SECGEAR_DEBUG_FLAG), NULL,
@@ -205,11 +210,37 @@ cc_enclave_result_t cc_enclave_sgx_call_function(
     cc_status = conversion_res_status(status, enclave->type);
     return cc_status;
 }
+
+cc_enclave_result_t cc_enclave_sgx_call_function_switchless(
+    cc_enclave_t *enclave,
+    uint32_t function_id,
+    const void *input_buffer,
+    size_t input_buffer_size,
+    void *output_buffer,
+    size_t output_buffer_size,
+    void *ms,
+    const void *ocall_table)
+{
+    (void)input_buffer;
+    (void)input_buffer_size;
+    (void)output_buffer;
+    (void)output_buffer_size;
+    sgx_status_t status;
+    cc_enclave_result_t cc_status;
+    status = sgx_ecall_switchless(((sgx_context_t *)(enclave->private_data))->edi, (int)function_id, ocall_table, ms);
+    cc_status = conversion_res_status(status, enclave->type);
+    return cc_status;
+}
  
 const struct cc_enclave_ops sgx_ops = {
     .cc_create_enclave = _sgx_create,
     .cc_destroy_enclave = _sgx_destroy,
     .cc_ecall_enclave = cc_enclave_sgx_call_function,
+    .cc_ecall_enclave_switchless = cc_enclave_sgx_call_function_switchless,
+    .cc_malloc_shared_memory = sgx_malloc_shared_memory,
+    .cc_free_shared_memory = sgx_free_shared_memory,
+    .cc_register_shared_memory = sgx_register_shared_memory,
+    .cc_unregister_shared_memory = sgx_unregister_shared_memory
 };
 
 struct cc_enclave_ops_desc sgx_ops_name = {

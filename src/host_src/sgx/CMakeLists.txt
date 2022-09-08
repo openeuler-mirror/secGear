@@ -17,8 +17,8 @@ if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
 	    ${CMAKE_BINARY_DIR}/lib)
 endif()
 
-add_library(${sgx_engine}  SHARED sgx_enclave.c sgx_enclave.h )
-add_library(${sgxsim_engine}  SHARED sgx_enclave.c sgx_enclave.h )
+add_library(${sgx_engine}  SHARED sgx_enclave.c sgx_enclave.h sgx_shared_memory.c)
+add_library(${sgxsim_engine}  SHARED sgx_enclave.c sgx_enclave.h sgx_shared_memory.c)
 
 target_include_directories(${sgx_engine} PRIVATE
 	${SGXSDK}/include)
@@ -53,3 +53,11 @@ install(TARGETS ${sgxsim_engine}
         LIBRARY
         DESTINATION ${LIBRARY_INSTALL}
         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)
+file(GLOB GP_HOST_HEADERS_1 ${LOCAL_ROOT_PATH}/inc/host_inc/*.h)
+file(GLOB GP_HOST_HEADERS_2 ${LOCAL_ROOT_PATH}/inc/host_inc/sgx/*.h)
+file(GLOB GP_HOST_HEADERS_3 ${LOCAL_ROOT_PATH}/inc/host_inc/sgx/*.edl)
+
+install(FILES ${GP_HOST_HEADERS_1} ${GP_HOST_HEADERS_2} ${GP_HOST_HEADERS_3}
+        DESTINATION /usr/include/secGear
+        PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
+

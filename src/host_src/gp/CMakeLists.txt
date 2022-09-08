@@ -20,10 +20,13 @@ endif()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=implicit-function-declaration")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
 
-add_library(${gp_engine}  SHARED gp_enclave.h gp_enclave.c)
+add_library(${gp_engine} SHARED gp_enclave.h gp_enclave.c gp_uswitchless.c gp_shared_memory.c)
 
 target_include_directories(${gp_engine} PRIVATE
-	${iTrusteeSDK}/include/CA)
+    ${iTrusteeSDK}/include/CA
+    ${LOCAL_ROOT_PATH}/inc/common_inc
+    ${LOCAL_ROOT_PATH}/inc/common_inc/gp
+    ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
 	
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0") 
     target_link_directories(${gp_engine} PRIVATE ${CMAKE_BINARY_DIR}/lib)
@@ -37,3 +40,11 @@ install(TARGETS ${gp_engine}
         LIBRARY
         DESTINATION ${LIBRARY_INSTALL}
         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)
+
+file(GLOB GP_HOST_HEADERS_1 ${LOCAL_ROOT_PATH}/inc/host_inc/*.h)
+file(GLOB GP_HOST_HEADERS_2 ${LOCAL_ROOT_PATH}/inc/host_inc/gp/*.h)
+file(GLOB GP_HOST_HEADERS_3 ${LOCAL_ROOT_PATH}/inc/host_inc/gp/*.edl)
+
+install(FILES ${GP_HOST_HEADERS_1} ${GP_HOST_HEADERS_2} ${GP_HOST_HEADERS_3}
+        DESTINATION /usr/include/secGear
+        PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)

@@ -14,6 +14,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/utsname.h>
+#include <stdarg.h>
 
 #include "status.h"
 #include "enclave_internal.h"
@@ -217,17 +218,17 @@ cc_enclave_result_t find_engine_open(enclave_type_version_t type, void **handle)
     switch (type) {
         case SGX_ENCLAVE_TYPE_0:
 #ifdef CC_SIM
-            *handle = dlopen("/lib64/libsgxsim_0.so", RTLD_LAZY);
+            *handle = dlopen("libsgxsim_0.so", RTLD_LAZY);
 #else
-            *handle = dlopen("/lib64/libsgx_0.so", RTLD_LAZY);
+            *handle = dlopen("libsgx_0.so", RTLD_LAZY);
 #endif
             break;
         case GP_ENCLAVE_TYPE_0:
             /*todo: gp supported simulation*/
-            *handle = dlopen("/lib64/libgp_0.so", RTLD_LAZY);
+            *handle = dlopen("libgp_0.so", RTLD_LAZY);
             break;
         case PENGLAI_ENCLAVE_TYPE_0:
-            *handle = dlopen("/lib64/libpenglai_0.so", RTLD_LAZY);
+            *handle = dlopen("libpenglai_0.so", RTLD_LAZY);
             break;
         default:
             print_error_goto("Input type and version are not supported\n");

@@ -33,6 +33,7 @@ typedef cc_enclave_result_t (*cc_ecall_func_t)(
     size_t input_buffer_size,
     uint8_t *output_buffer,
     size_t  output_buffer_size,
+    uint8_t *shared_buffer,
     size_t *output_bytes_written);
 
 typedef struct _ecall_table

@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2011-2019 Intel Corporation. All rights reserved.
+ * Copyright (C) 2011-2021 Intel Corporation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,12 +57,16 @@ type enclave_content = Ast.enclave_content = {
  * sgx_ecall(). *)
 type sgx_fn_id = SGX_ECALL | SGX_OCALL | SGX_OCALLOC | SGX_OCFREE
 let get_sgx_fname fn_id is_switchless =
-    let func_name = match fn_id with
-                        SGX_ECALL -> "sgx_ecall"
-                      | SGX_OCALL -> "sgx_ocall"
-                      | SGX_OCALLOC -> "sgx_ocalloc"
-                      | SGX_OCFREE -> "sgx_ocfree" in
-    sprintf "%s%s" func_name (if is_switchless then "_switchless" else "")
+    let switchless_str = if is_switchless then "_switchless" else "" in
+    match fn_id with
+      SGX_ECALL -> "sgx_ecall" ^ switchless_str
+    | SGX_OCALL -> "sgx_ocall" ^ switchless_str
+    | SGX_OCALLOC -> "sgx_ocalloc"
+    | SGX_OCFREE -> "sgx_ocfree"
+
+let get_secgear_ecall_fname is_switchless =
+    let switchless_str = if is_switchless then "_switchless" else "" in
+      "cc_ecall_enclave" ^ switchless_str
 
 (* Whether to prefix untrusted proxy with Enclave name *)
 let g_use_prefix = ref false
@@ -83,6 +87,9 @@ let get_tf_fname (tf: Ast.trusted_func) =
 
 let is_priv_ecall (tf: Ast.trusted_func) =
   tf.Ast.tf_is_priv
+
+let is_switchless_ecall (tf: Ast.trusted_func) =
+  tf.Ast.tf_is_switchless
 
 let get_uf_fname (uf: Ast.untrusted_func) =
   uf.Ast.uf_fdecl.Ast.fname
@@ -265,11 +272,15 @@ let get_tsource_name (file_shortnm: string) =
 let mk_struct_decl (fs: string) (name: string) =
   sprintf "typedef struct %s {\n%s} %s;\n" name fs name
 
-(* Construct the string of union definition *)
-let mk_union_decl (fs: string) (name: string) =
-  sprintf "typedef union %s {\n%s} %s;\n" name fs name
+(* Construct the string of structure definition with #ifndef surrounded *)
+let mk_struct_decl_with_macro (fs: string) (name: string) =
+  sprintf "#ifndef _%s\n#define _%s\ntypedef struct %s {\n%s} %s;\n#endif\n" name name name fs name
 
-(* Generate a definition of enum *)
+(* Construct the string of union definition with #ifndef surrounded *)
+let mk_union_decl_with_macro (fs: string) (name: string) =
+  sprintf "#ifndef _%s\n#define _%s\ntypedef union %s {\n%s} %s;\n#endif\n" name name name fs name
+
+(* Generate a definition of enum with #ifndef surrounded *)
 let mk_enum_def (e: Ast.enum_def) =
   let gen_enum_ele_str (ele: Ast.enum_ele) =
     let k, v = ele in
@@ -396,6 +407,12 @@ let check_structure (ec: enclave_content) =
                       in
                       if deep_copy then 
                         failwithf "the structure declaration \"%s\" specifies a deep copy is expected. Referenced by value in function \"%s\" detected."s fd.Ast.fname
+                      else
+                        if List.exists (fun (pt, _) ->
+                           match pt with
+                             Ast.PTVal _        -> false
+                           | Ast.PTPtr _        -> true       )  struct_def.Ast.smlist
+                        then (eprintf "warning: the structure \"%s\" is referenced by value in function \"%s\". Part of the data may not be copied.\n"s fd.Ast.fname)
                       else ()
                  else ()
             | Ast.PTPtr (Ast.Ptr(Ast.Struct(s)), attr) ->
@@ -406,7 +423,16 @@ let check_structure (ec: enclave_content) =
                         failwithf "the structure declaration \"%s\" specifies a deep copy, should not be used with an `out' attribute in function \"%s\"."s fd.Ast.fname
                       else ()
                  else ()
-              | _ -> ()
+            | a -> let (found, name) = is_foreign_a_structure a
+              in
+                  if found then
+                    let (_, deep_copy) = get_struct_def name
+                    in
+                    if deep_copy then
+                      failwithf "`%s' in function `%s' is a structure and it specifies a deep copy. Use `struct %s' instead." name fd.Ast.fname name
+                    else
+                      (eprintf "warning: `%s' in function `%s' is a structure. Use `struct %s' instead.\n" name fd.Ast.fname name)
+              else ()
             ) fd.Ast.plist
         ) (trusted_fds @ untrusted_fds)
 
@@ -449,8 +475,8 @@ let gen_comp_def (st: Ast.composite_type) =
                 acc ^ mk_member_decl (Ast.get_param_atype pt) declr) "" mlist
   in
     match st with
-        Ast.StructDef s -> mk_struct_decl (gen_struct_member_list s.Ast.smlist) s.Ast.sname
-      | Ast.UnionDef  u -> mk_union_decl  (gen_union_member_list u.Ast.umlist) u.Ast.uname
+        Ast.StructDef s -> mk_struct_decl_with_macro (gen_struct_member_list s.Ast.smlist) s.Ast.sname
+      | Ast.UnionDef  u -> mk_union_decl_with_macro (gen_union_member_list u.Ast.umlist) u.Ast.uname
       | Ast.EnumDef   e -> mk_enum_def    e
 
 (* Generate a list of '#include' *)
@@ -503,9 +529,10 @@ let gen_parm_retval (rt: Ast.atype) =
        struct {
            void   *ecall_addr;
            uint8_t is_priv;
+           uint8_t is_switchless;
        } ecall_table [nr_ecall];
    } g_ecall_table = {
-       2, { {sgx_foo, 1}, {sgx_bar, 0} }
+       2, { {sgx_foo, 1, 0}, {sgx_bar, 0, 1} }
    };
 *)
 let gen_ecall_table (tfs: Ast.trusted_func list) =
@@ -515,16 +542,18 @@ let gen_ecall_table (tfs: Ast.trusted_func list) =
   let priv_bits = tf_list_to_priv_list tfs in
   let tbridge_names = List.map (fun (fd: Ast.func_decl) ->
                                   mk_tbridge_name fd.Ast.fname) trusted_fds in
+  let priv_switchless_bits = List.map (fun (tf: Ast.trusted_func ) ->
+                                (is_priv_ecall tf, is_switchless_ecall tf) ) tfs in
   let ecall_table =
     let bool_to_int b = if b then 1 else 0 in
     let inner_table =
-      List.fold_left2 (fun acc s b ->
-        sprintf "%s\t\t{(void*)(uintptr_t)%s, %d},\n" acc s (bool_to_int b)) "" tbridge_names priv_bits
+      List.fold_left2 (fun acc s (b1, b2) ->
+        sprintf "%s\t\t{(void*)(uintptr_t)%s, %d, %d},\n" acc s (bool_to_int b1) (bool_to_int b2)) "" tbridge_names priv_switchless_bits
     in "\t{\n" ^ inner_table ^ "\t}\n"
   in
     sprintf "SGX_EXTERNC const struct {\n\
 \tsize_t nr_ecall;\n\
-\tstruct {void* ecall_addr; uint8_t is_priv;} ecall_table[%d];\n\
+\tstruct {void* ecall_addr; uint8_t is_priv; uint8_t is_switchless;} ecall_table[%d];\n\
 } %s = {\n\
 \t%d,\n\
 %s};\n" ecall_table_size
@@ -625,7 +654,21 @@ let gen_tproxy_proto (fd: Ast.func_decl) =
  * with the `prefix' parameter.
  *
  *)
-let gen_uproxy_com_proto (fd: Ast.func_decl) (prefix: string) =
+let gen_uproxy_com_proto_sgx_inner_switchless (fd: Ast.func_decl) (prefix: string) =
+  let retval_parm_str = gen_parm_retval fd.Ast.rtype in
+
+  let eid_parm_str =
+    if fd.Ast.rtype = Ast.Void then sprintf "(sgx_enclave_id_t %s" eid_name
+    else sprintf "(sgx_enclave_id_t %s, " eid_name in
+  let parm_list =
+    List.fold_left (fun acc pd -> acc ^ ", " ^ gen_parm_str pd)
+      retval_parm_str fd.Ast.plist in
+  let fname =
+    if !g_use_prefix then sprintf "%s_%s" prefix fd.Ast.fname
+    else fd.Ast.fname
+  in "sgx_status_t " ^ fname ^ eid_parm_str ^ parm_list ^ ")"
+
+let gen_uproxy_com_proto_common (fd: Ast.func_decl) (prefix: string) =
   let retval_parm_str = gen_parm_retval fd.Ast.rtype in
 
   let eid_parm_str =
@@ -638,6 +681,14 @@ let gen_uproxy_com_proto (fd: Ast.func_decl) (prefix: string) =
     if !g_use_prefix then sprintf "%s_%s" prefix fd.Ast.fname
     else fd.Ast.fname
   in "cc_enclave_result_t " ^ fname ^ eid_parm_str ^ parm_list ^ ")"
+
+let gen_uproxy_com_proto (fd: Ast.func_decl) (prefix: string) =
+  if fd.fname = "sl_init_switchless" || fd.fname = "sl_run_switchless_tworker" then (
+    gen_uproxy_com_proto_sgx_inner_switchless fd prefix
+  )
+  else (
+    gen_uproxy_com_proto_common fd prefix
+  )
 
 let get_ret_tystr (fd: Ast.func_decl) = Ast.get_tystr fd.Ast.rtype
 let get_plist_str (fd: Ast.func_decl) =
@@ -856,8 +907,47 @@ let fill_ms_field (isptr: bool) (pd: Ast.pdecl) =
       let tystr = Ast.get_tystr (Ast.Ptr (Ast.get_param_atype pt)) in
       sprintf "%s%s%s = (%s)%s;" ms_struct_val accessor ms_member_name tystr param_name
 
+(* Generate untrusted proxy code for sgx inner switchless trusted function. *)
+let gen_func_uproxy_sgx_inner_switchless (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
+  let fd = tf.Ast.tf_fdecl in
+  let func_open  =
+    gen_uproxy_com_proto fd ec.enclave_name ^
+      "\n{\n\tsgx_status_t status;\n"
+  in
+  let func_close = "\treturn status;\n}\n" in
+  let ocall_table_name  = mk_ocall_table_name ec.enclave_name in
+  let ms_struct_name  = mk_ms_struct_name fd.Ast.fname in
+  let declare_ms_expr = sprintf "%s %s;" ms_struct_name ms_struct_val in
+  let ocall_table_ptr =
+    sprintf "&%s" ocall_table_name in
+  let sgx_ecall_fn = get_sgx_fname SGX_ECALL tf.Ast.tf_is_switchless in
+
+  (* Normal case - do ECALL with marshaling structure*)
+  let ecall_with_ms = sprintf "status = %s(%s, %d, %s, &%s);"
+                              sgx_ecall_fn eid_name idx ocall_table_ptr ms_struct_val in
+
+  (* Rare case - the trusted function doesn't have parameter nor return value.
+   * In this situation, no marshaling structure is required - passing in NULL.
+   *)
+  let ecall_null = sprintf "status = %s(%s, %d, %s, NULL);"
+                           sgx_ecall_fn eid_name idx ocall_table_ptr
+  in
+  let update_retval = sprintf "if (status == SGX_SUCCESS && %s) *%s = %s.%s;"
+                              retval_name retval_name ms_struct_val ms_retval_name in
+  let func_body = ref [] in
+    if is_naked_func fd then
+      sprintf "%s\t%s\n%s" func_open ecall_null func_close
+    else
+      begin
+        func_body := declare_ms_expr :: !func_body;
+        List.iter (fun pd -> func_body := fill_ms_field false pd :: !func_body) fd.Ast.plist;
+        func_body := ecall_with_ms :: !func_body;
+        if fd.Ast.rtype <> Ast.Void then func_body := update_retval :: !func_body;
+          List.fold_left (fun acc s -> acc ^ "\t" ^ s ^ "\n") func_open (List.rev !func_body) ^ func_close
+      end
+
 (* Generate untrusted proxy code for a given trusted function. *)
-let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
+let gen_func_uproxy_common (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
   let fd = tf.Ast.tf_fdecl in
   let func_open  =
     gen_uproxy_com_proto fd ec.enclave_name ^
@@ -869,7 +959,7 @@ let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
   let declare_ms_expr = sprintf "%s %s;" ms_struct_name ms_struct_val in
   let ocall_table_ptr =
     sprintf "&%s" ocall_table_name in
-  let sgx_ecall_fn = get_sgx_fname SGX_ECALL tf.Ast.tf_is_switchless in
+  let cc_ecall_fn = get_secgear_ecall_fname tf.Ast.tf_is_switchless in
 
   (* Normal case - do ECALL with marshaling structure*)
   let ecall_with_ms = sprintf "if(!enclave) \n\
@@ -878,9 +968,9 @@ let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
                     \t\treturn CC_ERROR_BUSY;
         if (!enclave->list_ops_node || !enclave->list_ops_node->ops_desc ||\n\
                     \t\t!enclave->list_ops_node->ops_desc->ops || \n\
-                    \t\t!enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave)\n\
+                    \t\t!enclave->list_ops_node->ops_desc->ops->%s)\n\
                     \t\treturn CC_ERROR_BAD_PARAMETERS;
-        result = enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave( \n\
+        result = enclave->list_ops_node->ops_desc->ops->%s( \n\
                     \t\tenclave,\n\
                     \t\t%d,\n\
                     \t\tNULL,\n\
@@ -889,7 +979,7 @@ let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
                     \t\t0,\n\
                     \t\t&%s,\n\
                     \t\t%s);
-        pthread_rwlock_unlock(&enclave->rwlock);\n" idx  ms_struct_val ocall_table_ptr in
+        pthread_rwlock_unlock(&enclave->rwlock);\n" cc_ecall_fn cc_ecall_fn idx  ms_struct_val ocall_table_ptr in
 
   (* Rare case - the trusted function doesn't have parameter nor return value.
    * In this situation, no marshaling structure is required - passing in NULL.
@@ -900,9 +990,9 @@ let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
                     \t\treturn CC_ERROR_BUSY;
         if(!enclave || !enclave->list_ops_node || !enclave->list_ops_node->ops_desc ||\n\
                     \t\t!enclave->list_ops_node->ops_desc->ops || \n\
-                    \t\t!enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave)\n\
+                    \t\t!enclave->list_ops_node->ops_desc->ops->%s)\n\
                     \t\treturn CC_ERROR_BAD_PARAMETERS;
-        result = enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave( \n\
+        result = enclave->list_ops_node->ops_desc->ops->%s( \n\
                     \t\tenclave,\n\
                     \t\t%d,\n\
                     \t\tNULL,\n\
@@ -911,7 +1001,7 @@ let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
                     \t\t0,\n\
                     \t\tNULL,\n\
                     \t\t%s);
-        pthread_rwlock_unlock(&enclave->rwlock);\n" idx ocall_table_ptr
+        pthread_rwlock_unlock(&enclave->rwlock);\n" cc_ecall_fn cc_ecall_fn idx ocall_table_ptr
   in
   let update_retval = sprintf "if (result == CC_SUCCESS && %s) *%s = %s.%s;"
                               retval_name retval_name ms_struct_val ms_retval_name in
@@ -926,6 +1016,14 @@ let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
         if fd.Ast.rtype <> Ast.Void then func_body := update_retval :: !func_body;
           List.fold_left (fun acc s -> acc ^ "\t" ^ s ^ "\n") func_open (List.rev !func_body) ^ func_close
       end
+
+let gen_func_uproxy (tf: Ast.trusted_func) (idx: int) (ec: enclave_content) =
+  if tf.Ast.tf_fdecl.fname = "sl_init_switchless" || tf.Ast.tf_fdecl.fname = "sl_run_switchless_tworker" then (
+    gen_func_uproxy_sgx_inner_switchless tf idx ec
+    )
+    else (
+      gen_func_uproxy_common tf idx ec
+    )
 
 (* Generate an expression to check the pointers. *)
 let mk_check_ptr (name: string) (lenvar: string) =
@@ -1761,6 +1859,49 @@ let tproxy_fill_ms_field (pd: Ast.pdecl) (is_ocall_switchless: bool) =
                        "\t}";
                     ]
                 in
+                let copy_out =
+                    let deep_copy_out =
+                        let pre struct_type name =
+                          let code_template =[
+                                           sprintf "for (i = 0; i < %s / sizeof(struct %s); i++){"  (mk_len_var name) struct_type;
+                                           sprintf "\t\tif (memcpy_s(&__local_%s, sizeof(__local_%s), %s + i, sizeof(struct %s))) {" name name name struct_type;
+                                           sprintf "\t\t\t%s();" sgx_ocfree_fn;
+                                           "\t\t\treturn SGX_ERROR_UNEXPECTED;";
+                                           "\t\t}";
+                                          ]
+                          in
+                          List.fold_left (fun acc s -> acc ^ "\t" ^ s ^ "\n") "" code_template
+                        in
+                        let clear_member(param_direction: Ast.ptr_direction) (struct_type: string) (struct_name: string)  (ty: Ast.atype) (attr: Ast.ptr_attr) (declr: Ast.declarator) =
+                            let member_name        = declr.Ast.identifier in
+                            sprintf "\t\t\t__local_%s.%s = NULL;\n" struct_name member_name
+                        in
+                        let post =
+                            let code_template =[
+                                             sprintf "\tif (memcpy_s((void *)((size_t)__tmp + sizeof(__local_%s) * i), sizeof(__local_%s), &__local_%s, sizeof(__local_%s))) {" name name name name;
+                                             sprintf "\t\t%s();" sgx_ocfree_fn;
+                                             "\t\treturn SGX_ERROR_UNEXPECTED;";
+                                             "\t}";
+                                             "}";
+                                             sprintf "memset(&__local_%s, 0, sizeof(__local_%s));" name name;
+                                            ]
+                            in
+                            List.fold_left (fun acc s -> acc ^ "\t\t" ^ s ^ "\n") "" code_template
+                        in
+                        invoke_if_struct ty attr.Ast.pa_direction name  pre clear_member post
+                    in
+                    let non_deep_copy_out =
+                        let code_template =
+                          [
+                           sprintf "if (memcpy_s(__tmp, ocalloc_size, %s, %s)) {"  name len_var;
+                           sprintf "\t\t%s();" sgx_ocfree_fn;
+                           "\t\treturn SGX_ERROR_UNEXPECTED;";
+                           "\t}";
+                          ]
+                        in List.fold_left (fun acc s -> acc ^ "\t" ^ s ^ "\n") "" code_template
+                    in
+                    if deep_copy_out = "" then non_deep_copy_out else deep_copy_out
+                in
                 match attr.Ast.pa_direction with
                   Ast.PtrOut ->
                     let code_template =
@@ -1790,7 +1931,7 @@ let tproxy_fill_ms_field (pd: Ast.pdecl) (is_ocall_switchless: bool) =
                        sprintf "\t\t%s();" sgx_ocfree_fn;
                        "\t\treturn SGX_ERROR_UNEXPECTED;";
                        "\t}";
-                       sprintf "\t__tmp = (void *)((size_t)__tmp + %s);" len_var;
+                       sprintf "%s\t\t__tmp = (void *)((size_t)__tmp + %s);"copy_out len_var;
                        sprintf "\tocalloc_size -= %s;" len_var;
                        "} else {";
                        sprintf "\t%s = NULL;" parm_accessor;
@@ -1808,7 +1949,7 @@ let tproxy_fill_ms_field (pd: Ast.pdecl) (is_ocall_switchless: bool) =
 					   sprintf "\t\t%s();" sgx_ocfree_fn;
 					   "\t\treturn SGX_ERROR_UNEXPECTED;";
 					   "\t}";
-					   sprintf "\t__tmp = (void *)((size_t)__tmp + %s);" len_var;
+					   sprintf "%s\t\t__tmp = (void *)((size_t)__tmp + %s);"copy_out len_var;
 					   sprintf "\tocalloc_size -= %s;" len_var;
 					   "} else {";
 					   sprintf "\t%s = NULL;" parm_accessor;
@@ -1884,7 +2025,12 @@ let gen_tproxy_local_vars (plist: Ast.pdecl list) =
            let in_len_ptr_name = mk_len_var2 struct_name member_name in
            sprintf "\tsize_t %s = 0;\n" in_len_ptr_name 
          in
-         invoke_if_struct ty attr.Ast.pa_direction name  (fun _ name -> if attr.Ast.pa_direction = Ast.PtrInOut then sprintf"\tvoid* __tmp_member_%s = NULL;\n" name else "") gen_in_ptr_struct_var ""
+         invoke_if_struct ty attr.Ast.pa_direction name  (fun struct_type name ->
+            sprintf "\tstruct %s __local_%s;\n" struct_type name ^
+            if attr.Ast.pa_direction = Ast.PtrInOut then
+                sprintf"\tvoid* __tmp_member_%s = NULL;\n" name else
+                ""
+         ) gen_in_ptr_struct_var ""
     in 
     (do_gen_local_var ^ in_ptr_struct_var, if in_ptr_struct_var <> "" then true else false)
   in

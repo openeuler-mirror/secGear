@@ -13,7 +13,6 @@
 #ifndef SECGEAR_ENCLAVE_LOG_H
 #define SECGEAR_ENCLAVE_LOG_H
 
-#include <stdarg.h>
 
 #ifdef  __cplusplus
 extern "C" {

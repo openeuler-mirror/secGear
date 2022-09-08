@@ -16,12 +16,18 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <pthread.h>
+#include <time.h>
+#include <tee_client_type.h>
 
+#include "secgear_defs.h"
 #include "enclave.h"
 #include "enclave_internal.h"
 #include "enclave_log.h"
 #include "gp_enclave.h"
 #include "register_agent.h"
+#include "gp_uswitchless.h"
+#include "gp_shared_memory_defs.h"
+#include "gp_shared_memory.h"
 
 #define OCALL_AGENT_REGISTER_SUCCESS 0
 #define OCALL_AGENT_REGISTER_FAIL    1
@@ -347,22 +353,130 @@ cleanup:
     return res_cc;
 }
 
+static void fini_context(gp_context_t *gp_context)
+{
+    if (gp_context != NULL) {
+        TEEC_CloseSession(&gp_context->session);
+        TEEC_FinalizeContext(&(gp_context->ctx));
+        free(gp_context->sl_task_pool);
+        free(gp_context);
+    }
+}
+
+cc_enclave_result_t init_uswitchless(cc_enclave_t *enclave, const enclave_features_t *feature)
+{
+    gp_context_t *gp_ctx = (gp_context_t *)enclave->private_data;
+    if (gp_ctx->sl_task_pool != NULL) {
+        return CC_ERROR_SWITCHLESS_REINIT;
+    }
+
+    sl_task_pool_config_t *cfg = (sl_task_pool_config_t *)feature->feature_desc;
+    if (!uswitchless_is_valid_config(cfg)) {
+        return CC_ERROR_BAD_PARAMETERS;
+    }
+    uswitchless_adjust_config(cfg);
+
+    size_t pool_buf_len = sl_get_pool_buf_len_by_config(cfg);
+    void *pool_buf = gp_malloc_shared_memory(enclave, pool_buf_len, true);
+    if (pool_buf == NULL) {
+        return CC_ERROR_OUT_OF_MEMORY;
+    }
+    (void)memset(pool_buf, 0, pool_buf_len);
+
+    // Fill config
+    (void)memcpy(pool_buf, cfg, sizeof(sl_task_pool_config_t));
+
+    // Layout task pool
+    sl_task_pool_t *pool = uswitchless_create_task_pool(pool_buf, cfg);
+    if (pool == NULL) {
+        (void)gp_free_shared_memory(enclave, pool_buf);
+        return CC_ERROR_OUT_OF_MEMORY;
+    }
+
+    // Registering a task pool
+    cc_enclave_result_t ret = gp_register_shared_memory(enclave, pool_buf);
+    if (ret != CC_SUCCESS) {
+        free(pool);
+        (void)gp_free_shared_memory(enclave, pool_buf);
+        return ret;
+    }
+
+    gp_ctx->sl_task_pool = pool;
+    return CC_SUCCESS;
+}
+
+void fini_uswitchless(cc_enclave_t *enclave)
+{
+    cc_enclave_result_t ret;
+    gp_context_t *gp_ctx = (gp_context_t *)enclave->private_data;
+    sl_task_pool_t *pool = gp_ctx->sl_task_pool;
+
+    if (pool != NULL) {
+        ret = gp_unregister_shared_memory(enclave, pool->pool_buf);
+        if (ret != CC_SUCCESS) {
+            print_error_term("finish uswitchless, failed to unregister task pool, ret=%d\n", ret);
+        }
+        (void)gp_free_shared_memory(enclave, pool->pool_buf);
+        free(pool);
+        gp_ctx->sl_task_pool = NULL;
+    }
+}
+
+typedef cc_enclave_result_t (*func_init_feature)(cc_enclave_t *enclave, const enclave_features_t *feature);
+
+
+static const struct {
+    enclave_features_flag_t flag;
+    func_init_feature init_func;
+} g_gp_handle_feature_func_array[] = {
+    {ENCLAVE_FEATURE_SWITCHLESS, init_uswitchless}
+};
+
+func_init_feature get_handle_feature_func(enclave_features_flag_t feature_flag)
+{
+    for (size_t i = 0; i < CC_ARRAY_LEN(g_gp_handle_feature_func_array); ++i) {
+        if (g_gp_handle_feature_func_array[i].flag == feature_flag) {
+            return g_gp_handle_feature_func_array[i].init_func;
+        }
+    }
+
+    return NULL;
+}
+
+cc_enclave_result_t init_features(cc_enclave_t *enclave, const enclave_features_t *features, const uint32_t count)
+{
+    cc_enclave_result_t ret;
+    func_init_feature init_func = NULL;
+
+    for (uint32_t i = 0; i < count; ++i) {
+        init_func = get_handle_feature_func((enclave_features_flag_t)features[i].setting_type);
+        if (init_func == NULL) {
+            return CC_ERROR_FEATURE_FUNC_NOT_EXIST;
+        }
+
+        ret = init_func(enclave, features + i);
+        if (ret != CC_SUCCESS) {
+            return ret;
+        }
+    }
+ 
+    return CC_SUCCESS;
+}
+
+void fini_features(cc_enclave_t *enclave)
+{
+    fini_uswitchless(enclave);
+}
+
 /* itrustee enclave engine create func */
-cc_enclave_result_t _gp_create(cc_enclave_t  *enclave,
-    const enclave_features_t *features, const uint32_t features_count)
+cc_enclave_result_t _gp_create(cc_enclave_t *enclave, const enclave_features_t *features, const uint32_t features_count)
 {
     TEEC_Result result_tee;
     cc_enclave_result_t result_cc;
 
-    if (!enclave) {
+    if ((enclave == NULL) || (features_count > 0 && features == NULL)) {
         print_error_term("Context parameter error\n");
         return CC_ERROR_BAD_PARAMETERS;
-    }
-
-    /* itrustee does not currently support feature */
-    if (features != NULL || features_count > 0) {
-        print_error_term("GP does not currently support additional features\n");
-        return CC_ERROR_NOT_SUPPORTED;
     }
 
     gp_context_t *gp_context = NULL;
@@ -387,13 +501,18 @@ cc_enclave_result_t _gp_create(cc_enclave_t  *enclave,
         print_error_term("TEEC open session failed\n");
         goto cleanup;
     }
-    print_debug("TEEC open session success\n");
     enclave->private_data = (void *)gp_context;
+
+    result_cc = init_features(enclave, features, features_count);
+    if (result_cc != CC_SUCCESS) {
+        goto cleanup;
+    }
+
     return CC_SUCCESS;
 cleanup:
-    TEEC_FinalizeContext(&(gp_context->ctx));
-    free(gp_context);
+    fini_context(gp_context);
     gp_context = NULL;
+    enclave->private_data = NULL;
     return result_cc;
 }
 
@@ -406,6 +525,8 @@ cc_enclave_result_t _gp_destroy(cc_enclave_t *context)
         print_error_term("The input parameters are wrong \n");
         return CC_ERROR_BAD_PARAMETERS;
     }
+
+    fini_features(context);
 
     gp_context_t *tmp = (gp_context_t*)context->private_data;
     TEEC_CloseSession(&tmp->session);
@@ -436,6 +557,14 @@ done:
     return CC_FAIL;
 }
 
+#define GET_HOST_BUF_FROM_INPUT_PARAMS(in_param_buf) \
+    ({ \
+        void *ptr = NULL; \
+        (void)memcpy(&ptr, (char *)(in_param_buf) + size_to_aligned_size(sizeof(gp_register_shared_memory_size_t)), \
+            sizeof(void *)); \
+        ptr; \
+    })
+
 static cc_enclave_result_t init_operation(TEEC_Operation *operation, cc_enclave_call_function_args_t *args)
 {
     const int input_pos = 0;
@@ -462,21 +591,121 @@ static cc_enclave_result_t init_operation(TEEC_Operation *operation, cc_enclave_
     operation->params[inout_pos].tmpref.size = sizeof(*args);
     paramtypes[inout_pos] = TEEC_MEMREF_TEMP_INOUT;
 
+    /* Fill shared buffer */
+    if (args->function_id == fid_register_shared_memory) {
+        gp_shared_memory_t *shared_mem = GP_SHARED_MEMORY_ENTRY(GET_HOST_BUF_FROM_INPUT_PARAMS(args->input_buffer));
+        TEEC_SharedMemory *teec_shared_mem = (TEEC_SharedMemory *)(&shared_mem->shared_mem);
+        operation->params[other_pos].memref.parent = teec_shared_mem;
+        operation->params[other_pos].memref.size = teec_shared_mem->size;
+        paramtypes[other_pos] = TEEC_MEMREF_SHARED_INOUT;
+    }
+
     operation->paramTypes = TEEC_PARAM_TYPES(
         paramtypes[input_pos], paramtypes[output_pos],
         paramtypes[inout_pos], paramtypes[other_pos]);
     return CC_SUCCESS;
 }
 
-static cc_enclave_result_t handle_ecall_function(
-    cc_enclave_t *enclave,
-    cc_enclave_call_function_args_t *args)
+void *handle_ecall_function_with_new_session(void *data)
+{
+    cc_enclave_call_function_args_t *args = (cc_enclave_call_function_args_t *)data;
+    gp_context_t *gp = (gp_context_t *)(((cc_enclave_t *)args->enclave)->private_data);
+
+    TEEC_Operation oper;
+    memset(&oper, 0, sizeof(oper));
+    oper.started = 1;
+    oper.paramTypes = TEEC_PARAM_TYPES(TEEC_NONE, TEEC_NONE, TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_INPUT);
+
+    uint32_t origin;
+    TEEC_Session session;
+    TEEC_Result result = TEEC_OpenSession(&gp->ctx, &session, &gp->uuid, TEEC_LOGIN_IDENTIFY, NULL, &oper, &origin);
+    if (result != TEEC_SUCCESS) {
+        print_error_goto("Handle ecall with new session, failed to open session, ret:%x, origin:%x\n", result, origin);
+    }
+
+    cc_enclave_result_t cc_res = init_operation(&oper, args);
+    if (cc_res != CC_SUCCESS) {
+        TEEC_CloseSession(&session);
+        print_error_goto("Handle ecall with new session, failed to init operation, ret:%x\n", cc_res);
+    }
+
+    result = TEEC_InvokeCommand(&session, SECGEAR_ECALL_FUNCTION, &oper, &origin);
+    if (result != TEEC_SUCCESS || args->result != CC_SUCCESS) {
+        TEEC_CloseSession(&session);
+        print_error_goto("Handle ecall with new session, failed to invoke cmd, ret:%x\n", result);
+    }
+
+    TEEC_CloseSession(&session);
+
+done:
+    free(args);
+    return NULL;
+}
+
+#define REGISTER_SHAREDMEM_GETTIME_PER_CNT 100000000
+#define REGISTER_SHAREDMEM_TIMEOUT_IN_SEC 3
+
+cc_enclave_result_t handle_ecall_function_register_shared_memory(cc_enclave_t *enclave,
+                                                                 cc_enclave_call_function_args_t *args)
+{
+    CC_IGNORE(enclave);
+    int count = 0;
+    struct timespec start;
+    struct timespec end;
+
+    size_t buf_len = sizeof(cc_enclave_call_function_args_t) + args->input_buffer_size + args->output_buffer_size;
+    char *buf = (char *)calloc(buf_len, sizeof(char));
+    if (buf == NULL) {
+        return CC_ERROR_OUT_OF_MEMORY;
+    }
+
+    /* Copy parameters */
+    cc_enclave_call_function_args_t *tmpArgs = (cc_enclave_call_function_args_t *)buf;
+    (void)memcpy(tmpArgs, args, sizeof(cc_enclave_call_function_args_t));
+
+    tmpArgs->input_buffer = buf + sizeof(cc_enclave_call_function_args_t);
+    (void)memcpy(buf + sizeof(cc_enclave_call_function_args_t), args->input_buffer, args->input_buffer_size);
+
+    tmpArgs->output_buffer = buf + sizeof(cc_enclave_call_function_args_t) + args->input_buffer_size;
+    (void)memcpy(buf + sizeof(cc_enclave_call_function_args_t) + args->input_buffer_size, args->output_buffer,
+        args->output_buffer_size);
+
+    gp_shared_memory_t *shared_mem = GP_SHARED_MEMORY_ENTRY(GET_HOST_BUF_FROM_INPUT_PARAMS(args->input_buffer));
+    if (pthread_create(&shared_mem->register_tid, NULL, handle_ecall_function_with_new_session, tmpArgs) != 0) {
+        free(buf);
+        return CC_FAIL;
+    }
+
+    /* Waiting for registration success */
+    clock_gettime(CLOCK_MONOTONIC_COARSE, &start);
+    while (__atomic_load_n(&shared_mem->is_registered, __ATOMIC_ACQUIRE) == false) {
+        __asm__ __volatile__("yield" : : : "memory");
+
+        if (count > REGISTER_SHAREDMEM_GETTIME_PER_CNT) {
+            clock_gettime(CLOCK_MONOTONIC_COARSE, &end);
+            if (end.tv_sec - start.tv_sec > REGISTER_SHAREDMEM_TIMEOUT_IN_SEC) {
+                return CC_ERROR_TIMEOUT;
+            }
+            count = 0;
+        }
+        ++count;
+    }
+
+    return CC_SUCCESS;
+}
+
+static cc_enclave_result_t handle_ecall_function(cc_enclave_t *enclave, cc_enclave_call_function_args_t *args)
 {
     cc_enclave_result_t cc_res;
     TEEC_Result result;
     TEEC_Operation operation;
     uint32_t origin;
     gp_context_t *gp = (gp_context_t*)enclave->private_data;
+
+    if (args->function_id == fid_register_shared_memory) {
+        return handle_ecall_function_register_shared_memory(enclave, args);
+    }
+
     cc_res = init_operation(&operation, args);
     if (cc_res != CC_SUCCESS) {
         goto done;
@@ -577,6 +806,7 @@ cc_enclave_result_t cc_enclave_call_function(
     args.output_buffer_size = output_buffer_size;
     args.output_bytes_written = 0;
     args.result = CC_FAIL;
+    args.enclave = enclave;
     result = handle_ecall_function(enclave, &args);
     if (result != CC_SUCCESS) {
         goto done;
@@ -587,10 +817,41 @@ done:
     return result;
 }
 
+cc_enclave_result_t cc_sl_enclave_call_function(cc_enclave_t *enclave,
+                                                void *retval,
+                                                size_t retval_size,
+                                                sl_ecall_func_info_t *func_info)
+{
+    if (!uswitchless_is_switchless_enabled(enclave)) {
+        return CC_ERROR_SWITCHLESS_DISABLED;
+    }
+
+    if (!uswitchless_is_valid_param_num(enclave, func_info->argc)) {
+        return CC_ERROR_SWITCHLESS_INVALID_ARG_NUM;
+    }
+
+    int task_index = uswitchless_get_idle_task_index(enclave);
+    if (task_index < 0) {
+        return CC_ERROR_SWITCHLESS_TASK_POOL_FULL;
+    }
+
+    uswitchless_fill_task(enclave, task_index, func_info->func_id, func_info->argc, func_info->args);
+    uswitchless_submit_task(enclave, task_index);
+    cc_enclave_result_t ret = uswitchless_get_task_result(enclave, task_index, retval, retval_size);
+    uswitchless_put_idle_task_by_index(enclave, task_index);
+
+    return ret;
+}
+
 const struct cc_enclave_ops g_ops = {
-        .cc_create_enclave  = _gp_create,
-        .cc_destroy_enclave = _gp_destroy,
-        .cc_ecall_enclave =  cc_enclave_call_function,
+    .cc_create_enclave  = _gp_create,
+    .cc_destroy_enclave = _gp_destroy,
+    .cc_ecall_enclave =  cc_enclave_call_function,
+    .cc_sl_ecall_enclave = cc_sl_enclave_call_function,
+    .cc_malloc_shared_memory = gp_malloc_shared_memory,
+    .cc_free_shared_memory = gp_free_shared_memory,
+    .cc_register_shared_memory = gp_register_shared_memory,
+    .cc_unregister_shared_memory = gp_unregister_shared_memory
 };
 
 struct cc_enclave_ops_desc g_name = {

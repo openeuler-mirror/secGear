@@ -82,9 +82,6 @@ let check_trust_funcs_method (tfs : trusted_func list) (ep : edger8r_params)=
             if t.tf_is_priv then
                 failwithf "%s :Trustzone mode is not support 'private' feature" 
                     t.tf_fdecl.fname;
-            if t.tf_is_switchless then
-                failwithf "%s :Trustzone mode is not support 'switchless' feature"
-                    t.tf_fdecl.fname;
             if check_is_user_check t.tf_fdecl then 
                 failwithf "%s :Trustzone mode is not support 'user_check' feature"
                     t.tf_fdecl.fname)
