@@ -92,8 +92,7 @@ void TA_DestroyEntryPoint(void)
 }
 
 static cc_enclave_result_t get_params_buffer(TEE_Param params[PARAMNUM],
-                                               void **input_buffer,
-                                               void **output_buffer)
+    void **input_buffer, void **output_buffer)
 {
     void *tmp_input_buffer = NULL;
     void *tmp_output_buffer = NULL;

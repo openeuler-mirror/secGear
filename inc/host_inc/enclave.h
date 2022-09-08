@@ -157,23 +157,23 @@ typedef struct _ocall_cc_enclave_function_args {
 } cc_enclave_ocall_function_args_t;
 
 cc_enclave_result_t oe_call_enclave_function_by_table_id(
-        cc_enclave_t *enclave,
-        uint64_t function_id,
-        const void *input_buffer,
-        size_t input_buffer_size,
-        void *output_buffer,
-        size_t output_buffer_size,
-        size_t *output_bytes_written);
+    cc_enclave_t *enclave,
+    uint64_t function_id,
+    const void *input_buffer,
+    size_t input_buffer_size,
+    void *output_buffer,
+    size_t output_buffer_size,
+    size_t *output_bytes_written);
 
 cc_enclave_result_t cc_enclave_call_function(
-        cc_enclave_t *enclave,
-        uint32_t function_id,
-        const void *input_buffer,
-        size_t input_buffer_size,
-        void *output_buffer,
-        size_t output_buffer_size,
-        void *ms,
-        const void *ocall_table);
+    cc_enclave_t *enclave,
+    uint32_t function_id,
+    const void *input_buffer,
+    size_t input_buffer_size,
+    void *output_buffer,
+    size_t output_buffer_size,
+    void *ms,
+    const void *ocall_table);
 
 typedef struct _ocall_table {
     uint64_t num;

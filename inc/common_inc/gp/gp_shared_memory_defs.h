@@ -10,8 +10,8 @@
  * See the Mulan PSL v2 for more details.
  */
 
-#ifndef __SHARED_MEMORY_DEFS_H__
-#define __SHARED_MEMORY_DEFS_H__
+#ifndef SHARED_MEMORY_DEFS_H
+#define SHARED_MEMORY_DEFS_H
 
 #include <stdint.h>
 #include <pthread.h>

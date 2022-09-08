@@ -106,7 +106,7 @@ void transfer_data_using_shared_memory()
     }
 }
 
-int main()
+int main(void)
 {
     cc_sl_config_t sl_cfg = CC_USWITCHLESS_CONFIG_INITIALIZER;
     sl_cfg.num_tworkers = 2; /* 2 tworkers */
