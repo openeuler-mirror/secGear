@@ -57,7 +57,7 @@
 
 static sl_task_pool_t *tswitchless_init_pool(void *pool_buf)
 {
-    sl_task_pool_t *pool = (sl_task_pool_t *)calloc(sizeof(sl_task_pool_t), sizeof(char));
+    sl_task_pool_t *pool = (sl_task_pool_t *)calloc(1, sizeof(sl_task_pool_t));
     if (pool == NULL) {
         SLogError("Malloc memory for tpool failed.");
         return NULL;
@@ -67,7 +67,7 @@ static sl_task_pool_t *tswitchless_init_pool(void *pool_buf)
 
     pool->pool_cfg = *pool_cfg;
     pool->bit_buf_size = pool_cfg->call_pool_size_qwords * sizeof(uint64_t);
-    pool->task_size = SL_CALCULATE_PER_TASK_SIZE(pool_cfg);
+    pool->per_task_size = SL_CALCULATE_PER_TASK_SIZE(pool_cfg);
 
     pool->pool_buf = (char *)pool_buf;
     pool->signal_bit_buf = (uint64_t *)(pool->pool_buf + sizeof(sl_task_pool_config_t));
@@ -94,7 +94,7 @@ static void tswitchless_fini_workers(sl_task_pool_t *pool, pthread_t *tids)
 
 static inline sl_task_t *tswitchless_get_task_by_index(sl_task_pool_t *pool, int task_index)
 {
-    return (sl_task_t *)(pool->task_buf + task_index * pool->task_size);
+    return (sl_task_t *)(pool->task_buf + task_index * pool->per_task_size);
 }
 
 static int tswitchless_get_pending_task(sl_task_pool_t *pool)
@@ -194,7 +194,7 @@ static pthread_t *tswitchless_init_workers(sl_task_pool_t *pool)
     int ret;
     sl_task_pool_config_t *pool_cfg = &pool->pool_cfg;
 
-    pthread_t *tids = (pthread_t *)calloc(pool_cfg->num_tworkers * sizeof(pthread_t), sizeof(char));
+    pthread_t *tids = (pthread_t *)calloc(pool_cfg->num_tworkers, sizeof(pthread_t));
     if (tids == NULL) {
         SLogError("Malloc memory for tworkers failed.");
         return NULL;

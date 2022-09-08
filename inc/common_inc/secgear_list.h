@@ -69,7 +69,7 @@ static inline void list_remove(list_node_t *node)
 /*
  * Whether the linked list is empty.
  */
-static inline bool list_is_empty(list_head_t *head)
+static inline bool list_is_empty(const list_head_t *head)
 {
     return (head->prev == head) && (head->next == head);
 }
@@ -78,10 +78,10 @@ static inline bool list_is_empty(list_head_t *head)
     ((type *)((unsigned long)(ptr) - (unsigned long)&((type *)0)->member))
 
 #define list_for_each(cur, head) \
-    for (cur = (head)->next; cur != (head); cur = cur->next)
+    for ((cur) = (head)->next; (cur) != (head); (cur) = (cur)->next)
 
 #define list_for_each_safe(cur, tmp, head) \
-    for (cur = (head)->next, tmp = cur->next; cur != (head); cur = tmp, tmp = cur->next)
+    for ((cur) = (head)->next, (tmp) = (cur)->next; (cur) != (head); (cur) = (tmp), (tmp) = (cur)->next)
 
 
 #ifdef __cplusplus

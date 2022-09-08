@@ -49,7 +49,8 @@ target_include_directories(${target_lib} PRIVATE
 	${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/
 	${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee
 	${ITRUSTEE_TEEDIR}/include/CA
-	${LOCAL_ROOT_PATH}/inc/common_inc)
+	${LOCAL_ROOT_PATH}/inc/common_inc
+	${LOCAL_ROOT_PATH}/inc/common_inc/gp)
 
 install(TARGETS  ${target_lib}
         ARCHIVE

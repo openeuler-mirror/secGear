@@ -30,14 +30,14 @@ typedef struct {
 } sl_task_pool_config_t;
 
 typedef struct {
-    sl_task_pool_config_t pool_cfg;
-    char *pool_buf;
-    char *task_buf;
+    char *pool_buf; // switchless task pool control area
+    char *task_buf; // part of pool_buf, stores invoking tasks
     uint64_t *free_bit_buf; // idle task flag
     uint64_t *signal_bit_buf; // to-be-processed task flag
     uint32_t bit_buf_size; // size of each task flag area
-    uint32_t task_size; // size of each task
-    volatile bool need_stop_tworkers;
+    uint32_t per_task_size; // size of each task
+    volatile bool need_stop_tworkers; // indicates whether to stop the trusted proxy thread
+    sl_task_pool_config_t pool_cfg;
 } sl_task_pool_t;
 
 typedef struct {
@@ -48,7 +48,7 @@ typedef struct {
 } sl_task_t;
 
 #define SL_CALCULATE_PER_TASK_SIZE(cfg) \
-    (sizeof(sl_task_t) + cfg->num_max_params * sizeof(uint64_t))
+    (sizeof(sl_task_t) + (cfg)->num_max_params * sizeof(uint64_t))
 
 typedef enum {
     SL_TASK_INIT = 0,
@@ -62,7 +62,7 @@ typedef enum {
  * Summary: get pool buf size by config
  * Parameters:
  *     pool_cfg: configuration information of the task pool
- * Return: 
+ * Return:
  *     pool size in bytes
  */
 inline size_t sl_get_pool_buf_len_by_config(sl_task_pool_config_t *pool_cfg)

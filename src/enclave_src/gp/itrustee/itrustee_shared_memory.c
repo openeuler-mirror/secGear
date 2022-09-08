@@ -18,19 +18,19 @@
 #include "status.h"
 #include "secgear_log.h"
 #include "itrustee_tswitchless.h"
-#include "shared_memory_defs.h"
+#include "gp_shared_memory_defs.h"
 #include "secgear_list.h"
 #include "secgear_defs.h"
 
 typedef struct {
     list_node_t node;
-    size_t host_addr;
-    size_t enclave_addr;
-    size_t buf_len;
+    size_t host_addr; // Memory address on the CA side
+    size_t enclave_addr; // TA-side memory address after mapping
+    size_t buf_len; // Shared Memory Length
     pthread_mutex_t mtx_lock;
     pthread_cond_t unregister_cond;
-    sl_task_pool_t *pool;
-    pthread_t *tid_arr;
+    sl_task_pool_t *pool; // switchless task pool control area
+    pthread_t *tid_arr; // Open a new TA session in a separate thread to register the shared memory
 } shared_memory_block_t;
 
 static pthread_rwlock_t g_shared_memory_list_lock = PTHREAD_RWLOCK_INITIALIZER;
@@ -39,9 +39,9 @@ static list_node_t g_shared_memory_list = {
     .prev = &g_shared_memory_list
 };
 
-static shared_memory_block_t *create_shared_memory_block(void *host_buf, size_t host_buf_len, void *registered_buf)
+static shared_memory_block_t *create_shared_memory_block(void *host_buf, size_t host_buf_len, const void *register_buf)
 {
-    shared_memory_block_t *shared_mem = calloc(sizeof(shared_memory_block_t), sizeof(char));
+    shared_memory_block_t *shared_mem = calloc(1, sizeof(shared_memory_block_t));
     if (shared_mem == NULL) {
         return NULL;
     }
@@ -51,7 +51,7 @@ static shared_memory_block_t *create_shared_memory_block(void *host_buf, size_t 
     CC_COND_INIT(&shared_mem->unregister_cond, NULL);
 
     shared_mem->host_addr = (size_t)host_buf;
-    shared_mem->enclave_addr = (size_t)((char *)registered_buf + sizeof(gp_shared_memory_t));
+    shared_mem->enclave_addr = (size_t)((char *)register_buf + sizeof(gp_shared_memory_t));
     shared_mem->buf_len = host_buf_len;
 
     return shared_mem;
@@ -66,14 +66,14 @@ static void destroy_shared_memory_block(shared_memory_block_t *shared_mem)
     }
 }
 
-static void add_shared_memory_block_to_list(shared_memory_block_t *shared_mem)
+static void add_shared_memory_block_to_list(const shared_memory_block_t *shared_mem)
 {
     CC_RWLOCK_LOCK_WR(&g_shared_memory_list_lock);
     list_add_after(&shared_mem->node, &g_shared_memory_list);
     CC_RWLOCK_UNLOCK(&g_shared_memory_list_lock);
 }
 
-static void remove_shared_memory_block_from_list(shared_memory_block_t *shared_mem)
+static void remove_shared_memory_block_from_list(const shared_memory_block_t *shared_mem)
 {
     CC_RWLOCK_LOCK_WR(&g_shared_memory_list_lock);
     list_remove(&shared_mem->node);
@@ -166,7 +166,6 @@ size_t addr_host_to_enclave(size_t host_addr)
 
     list_for_each(cur, &g_shared_memory_list) {
         mem_block = list_entry(cur, shared_memory_block_t, node);
-
         if ((host_addr >= mem_block->host_addr) && (host_addr < (mem_block->host_addr + mem_block->buf_len))) {
             ptr = mem_block->enclave_addr + (host_addr - mem_block->host_addr);
             break;
@@ -188,7 +187,6 @@ static cc_enclave_result_t itrustee_unregister_shared_memory(size_t host_addr)
 
     list_for_each(cur, &g_shared_memory_list) {
         mem_block = list_entry(cur, shared_memory_block_t, node);
-
         if (host_addr == mem_block->host_addr) {
             CC_MUTEX_LOCK(&mem_block->mtx_lock);
             CC_COND_SIGNAL(&mem_block->unregister_cond);

@@ -14,6 +14,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/utsname.h>
+#include <stdarg.h>
 
 #include "status.h"
 #include "enclave_internal.h"

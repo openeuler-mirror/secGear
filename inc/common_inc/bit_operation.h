@@ -21,13 +21,19 @@
 extern "C" {
 #endif
 
+#ifdef DEBUG
+    #define ASSERT(x) assert(x)
+#else
+    #define ASSERT(x) ((void)0)
+#endif
+
 /*
  * Returns the number of trailing 0-bits in x, starting at the least significant bit position.
  * If x is 0, the result is undefined.
  */
 static inline uint32_t count_tailing_zeroes(uint64_t value)
 {
-    assert(value != 0);
+    ASSERT(value != 0);
     return (uint32_t)__builtin_ctzll(value);
 }
 
@@ -37,7 +43,7 @@ static inline uint32_t count_tailing_zeroes(uint64_t value)
  */
 static inline uint32_t count_leading_zeroes(uint64_t value)
 {
-    assert(value != 0);
+    ASSERT(value != 0);
     return (uint32_t)__builtin_clzll(value);
 }
 

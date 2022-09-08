@@ -26,7 +26,7 @@
 #include "gp_enclave.h"
 #include "register_agent.h"
 #include "gp_uswitchless.h"
-#include "shared_memory_defs.h"
+#include "gp_shared_memory_defs.h"
 #include "gp_shared_memory.h"
 
 #define OCALL_AGENT_REGISTER_SUCCESS 0
@@ -560,7 +560,7 @@ done:
 #define GET_HOST_BUF_FROM_INPUT_PARAMS(in_param_buf) \
     ({ \
         void *ptr = NULL; \
-        (void)memcpy(&ptr, (char *)in_param_buf + size_to_aligned_size(sizeof(gp_register_shared_memory_size_t)), \
+        (void)memcpy(&ptr, (char *)(in_param_buf) + size_to_aligned_size(sizeof(gp_register_shared_memory_size_t)), \
             sizeof(void *)); \
         ptr; \
     })

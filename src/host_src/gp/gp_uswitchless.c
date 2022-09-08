@@ -24,7 +24,7 @@
 #include "gp_enclave.h"
 
 
-#define USWITCHLESS_TASK_POOL(enclave) (((gp_context_t *)enclave->private_data)->sl_task_pool)
+#define USWITCHLESS_TASK_POOL(enclave) (((gp_context_t *)((enclave)->private_data))->sl_task_pool)
 
 #define SWITCHLESS_MAX_UWORKERS 512
 #define SWITCHLESS_MAX_TWORKERS 512
@@ -71,7 +71,7 @@ sl_task_pool_t *uswitchless_create_task_pool(void *pool_buf, sl_task_pool_config
 
     pool->pool_cfg = *pool_cfg;
     pool->bit_buf_size = bit_buf_size;
-    pool->task_size = SL_CALCULATE_PER_TASK_SIZE(pool_cfg);
+    pool->per_task_size = SL_CALCULATE_PER_TASK_SIZE(pool_cfg);
 
     pool->pool_buf = (char *)pool_buf;
     pool->free_bit_buf = (uint64_t *)((char *)pool + sizeof(sl_task_pool_t));
@@ -140,10 +140,10 @@ static inline sl_task_t *uswitchless_get_task_by_index(cc_enclave_t *enclave, in
 {
     sl_task_pool_t *pool = USWITCHLESS_TASK_POOL(enclave);
 
-    return (sl_task_t *)(pool->task_buf + task_index * pool->task_size);
+    return (sl_task_t *)(pool->task_buf + task_index * pool->per_task_size);
 }
 
-void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_id, uint32_t argc, void *args)
+void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_id, uint32_t argc, const void *args)
 {
     sl_task_t *task = uswitchless_get_task_by_index(enclave, task_index);
 
@@ -176,7 +176,6 @@ cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_
 
     while (true) {
         cur_status = __atomic_load_n(&task->status, __ATOMIC_ACQUIRE);
-
         if (cur_status == SL_TASK_DONE_SUCCESS) {
             if ((retval != NULL) && (retval_size != 0)) {
                 (void)memcpy(retval, (void *)&task->ret_val, retval_size);

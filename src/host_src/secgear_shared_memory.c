@@ -14,17 +14,17 @@
 
 #include "status.h"
 #include "enclave_internal.h"
-#include "shared_memory_defs.h"
+#include "gp_shared_memory_defs.h"
 #include "secgear_defs.h"
 
 #define FUNC_CREATE_SHARED_MEM(enclave) \
-    enclave->list_ops_node->ops_desc->ops->cc_malloc_shared_memory
+    (enclave)->list_ops_node->ops_desc->ops->cc_malloc_shared_memory
 #define FUNC_FREE_SHARED_MEM(enclave) \
-    enclave->list_ops_node->ops_desc->ops->cc_free_shared_memory
+    (enclave)->list_ops_node->ops_desc->ops->cc_free_shared_memory
 #define FUNC_REGISTER_SHARED_MEM(enclave) \
-    enclave->list_ops_node->ops_desc->ops->cc_register_shared_memory
+    (enclave)->list_ops_node->ops_desc->ops->cc_register_shared_memory
 #define FUNC_UNREGISTER_SHARED_MEM(enclave) \
-    enclave->list_ops_node->ops_desc->ops->cc_unregister_shared_memory
+    (enclave)->list_ops_node->ops_desc->ops->cc_unregister_shared_memory
 
 void *cc_malloc_shared_memory(cc_enclave_t *enclave, size_t size)
 {

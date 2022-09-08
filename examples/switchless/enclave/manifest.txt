@@ -1,8 +1,7 @@
-gpd.ta.appID:                   7763a15a-0a9e-4e86-90cd-e4262583948a
-gpd.ta.service_name:            secgear-app1
-gpd.ta.singleInstance:          true
-gpd.ta.multiSession:            true
-gpd.ta.instanceKeepAlive:       false
-gpd.ta.dataSize:                802816
-gpd.ta.stackSize:               1792
-gpd.ta.mem_page_align:          true
+gpd.ta.appID:               f68fd704-6eb1-4d14-b218-722850eb3ef0
+gpd.ta.service_name:        rsa-demo
+gpd.ta.singleInstance:      true
+gpd.ta.multiSession:        true
+gpd.ta.instanceKeepAlive:   false
+gpd.ta.dataSize:            819200
+gpd.ta.stackSize:           40960

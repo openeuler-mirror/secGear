@@ -13,7 +13,6 @@
 #ifndef __SECGEAR_CEGENERATE_API_H
 #define __SECGEAR_CEGENERATE_API_H
 #include <stdio.h>
-#include <stdint.h>
 
 int _cc_generate_random(void * buffer, size_t size);
 

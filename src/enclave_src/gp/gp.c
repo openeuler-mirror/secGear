@@ -23,13 +23,6 @@
 #define POS_IN_OUT 2
 #define POS_SHARED_MEM 3
 
-TEE_Result _TA_CreateEntryPoint(void) __attribute__((weak));
-TEE_Result _TA_OpenSessionEntryPoint(uint32_t paramTypes,
-                                     TEE_Param params[PARAMNUM],
-                                     void **sessionContext) __attribute__((weak));
-void _TA_CloseSessionEntryPoint(void *sessionContext) __attribute__((weak));
-void _TA_DestroyEntryPoint(void) __attribute__((weak));
-
 extern const cc_ecall_func_t cc_ecall_tables[];
 extern const size_t ecall_table_size;
 bool cc_is_within_enclave(const void *ptr, size_t sz)
@@ -51,15 +44,6 @@ TEE_Result TA_CreateEntryPoint(void)
     SLogTrace("----- TA_CreateEntryPoint ----- ");
     SLogTrace("TA version: %s ", TA_TEMPLATE_VERSION);
     set_caller_ca_owner();
-
-    if (_TA_CreateEntryPoint) {
-        TEE_Result ret = _TA_CreateEntryPoint();
-        if (ret != TEE_SUCCESS) {
-            SLogError("Customize TA create failed: %x.", ret);
-            return ret;
-        }
-    }
-
     return TEE_SUCCESS;
 }
 
@@ -74,16 +58,11 @@ TEE_Result TA_CreateEntryPoint(void)
 TEE_Result TA_OpenSessionEntryPoint(uint32_t paramTypes,
     TEE_Param params[PARAMNUM], void **sessionContext)
 {
+    (void)paramTypes;  /* -Wunused-parameter */
+    (void)params;  /* -Wunused-parameter */
+    (void)sessionContext;  /* -Wunused-parameter */
     TEE_Result ret = TEE_SUCCESS;
     SLogTrace("---- TA_OpenSessionEntryPoint -------- ");
-
-    if (_TA_OpenSessionEntryPoint) {
-        ret = _TA_OpenSessionEntryPoint(paramTypes, params, sessionContext);
-        if (ret != TEE_SUCCESS) {
-            SLogError("Customize TA open session failed: %x.", ret);
-            return ret;
-        }
-    }
 
     return ret;
 }
@@ -97,10 +76,7 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t paramTypes,
  */
 void TA_CloseSessionEntryPoint(void *sessionContext)
 {
-    if (_TA_CloseSessionEntryPoint) {
-        _TA_CloseSessionEntryPoint(sessionContext);
-    }
-
+    (void)sessionContext;  /* -Wunused-parameter */
     SLogTrace("---- TA_CloseSessionEntryPoint ----- ");
 }
 
@@ -112,10 +88,6 @@ void TA_CloseSessionEntryPoint(void *sessionContext)
  */
 void TA_DestroyEntryPoint(void)
 {
-    if (_TA_DestroyEntryPoint) {
-        _TA_DestroyEntryPoint();
-    }
-
     SLogTrace("---- TA_DestroyEntryPoint ---- ");
 }
 

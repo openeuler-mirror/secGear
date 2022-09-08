@@ -16,6 +16,7 @@ set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
 include_directories(${LOCAL_ROOT_PATH}/inc/host_inc
                     ${LOCAL_ROOT_PATH}/inc/host_inc/gp
                     ${LOCAL_ROOT_PATH}/inc/common_inc
+                    ${LOCAL_ROOT_PATH}/inc/common_inc/gp
                     ${iTrusteeSDK}/include/CA)
 
 if(CC_GP)

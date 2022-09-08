@@ -124,7 +124,7 @@ bool uswitchless_is_valid_param_num(cc_enclave_t *enclave, uint32_t argc);
  *      args: parameter buffer
  * Return: NA
  */
-void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_id, uint32_t argc, void *args);
+void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_id, uint32_t argc, const void *args);
 
 #ifdef __cplusplus
 }

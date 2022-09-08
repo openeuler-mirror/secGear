@@ -16,7 +16,7 @@
 #include <pthread.h>
 #include <tee_client_type.h>
 #include "secgear_defs.h"
-#include "shared_memory_defs.h"
+#include "gp_shared_memory_defs.h"
 #include "enclave_internal.h"
 #include "gp_enclave.h"
 #include "gp_uswitchless.h"
@@ -25,7 +25,7 @@
 #include "status.h"
 
 #define TEEC_SHARED_MEMORY_ENTRY(ptr) \
-    ((TEEC_SharedMemory *)((char *)ptr - sizeof(gp_shared_memory_t)))
+    ((TEEC_SharedMemory *)((char *)(ptr) - sizeof(gp_shared_memory_t)))
 
 static pthread_rwlock_t g_shared_mem_list_lock = PTHREAD_RWLOCK_INITIALIZER;
 static list_node_t g_shared_mem_list = {
@@ -72,7 +72,7 @@ void *gp_malloc_shared_memory(cc_enclave_t *context, size_t size, bool is_contro
     return (char *)teec_shared_mem->buffer + sizeof(gp_shared_mem);
 }
 
-static bool gp_is_shared_mem_start_addr(void *ptr)
+static bool gp_is_shared_mem_start_addr(const void *ptr)
 {
     size_t addr = (size_t)ptr;
     bool isExist = false;
@@ -82,7 +82,6 @@ static bool gp_is_shared_mem_start_addr(void *ptr)
     CC_RWLOCK_LOCK_RD(&g_shared_mem_list_lock);
     list_for_each(cur, &g_shared_mem_list) {
         mem = list_entry(cur, gp_shared_memory_t, node);
- 
         if (addr == (size_t)((char *)mem + sizeof(gp_shared_memory_t))) {
             isExist = true;
             break;
@@ -120,7 +119,7 @@ cc_enclave_result_t gp_free_shared_memory(cc_enclave_t *enclave, void *ptr)
 
 #define PARAM_OFFSET_MOVE(cur_param_offset, offset_var_name, cur_param_size) \
     size_t offset_var_name = cur_param_offset; \
-    cur_param_offset += cur_param_size
+    cur_param_offset += (cur_param_size)
 
 cc_enclave_result_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr)
 {

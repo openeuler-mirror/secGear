@@ -21,7 +21,7 @@ enum
     SECGEAR_ECALL_FUNCTION = 0,
 };
 
-typedef struct _gp_context{
+typedef struct _gp_context {
     TEEC_UUID uuid;
     TEEC_Context ctx;
     TEEC_Session session;
