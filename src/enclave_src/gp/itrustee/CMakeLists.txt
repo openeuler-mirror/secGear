@@ -14,7 +14,7 @@ set(CMAKE_C_FLAGS "-W -Wall -fno-short-enums -fno-omit-frame-pointer -fstack-pro
                   -Wno-error=format-truncation= -D_FORTIFY_SOURCE=2 -O2")
 set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
 set(SOURCE_FILES ${SOURCE_FILES} ../gp.c ../gp_ocall.c itrustee_seal_data.c error_conversion.c bottom_memory_check.c 
-                                 itrustee_random.c itrustee_tswitchless.c itrustee_shared_memory.c)
+                                 itrustee_random.c itrustee_tswitchless.c itrustee_shared_memory.c  itrustee_tprotected.c)
 
 set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
 set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)

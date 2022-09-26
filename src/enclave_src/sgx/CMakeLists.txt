@@ -8,7 +8,7 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-set(SOURCE_FILES ${SOURCE_FILES} sgx_seal_data.c  bottom_memory_check.c error_conversion.c sgx_random.c)
+set(SOURCE_FILES ${SOURCE_FILES} sgx_seal_data.c  bottom_memory_check.c error_conversion.c sgx_random.c sgx_tprotected.c)
 
 set(SGX_DIR ${SGXSDK})
 
