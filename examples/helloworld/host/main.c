@@ -31,8 +31,6 @@ int main()
     }
     cc_enclave_result_t res = CC_FAIL;
 
-    printf("Create secgear enclave\n");
-
     char real_p[PATH_MAX];
     /* check file exists, if not exist then use absolute path */
     if (realpath(path, real_p) == NULL) {
@@ -47,22 +45,25 @@ int main()
         (void)strcat(real_p, "/enclave.signed.so");
     }
 
-    res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, context);
+    res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, 0, NULL, 0, context);
     if (res != CC_SUCCESS) {
-        printf("Create enclave error\n");
+        printf("host create enclave error\n");
         goto end; 
     }
+    printf("host create enclave success\n");
 
     res = get_string(context, &retval, buf);
     if (res != CC_SUCCESS || retval != (int)CC_SUCCESS) {
         printf("Ecall enclave error\n");
     } else {
-        printf("%s\n", buf);
+        printf("enclave say:%s\n", buf);
     }
 
     res = cc_enclave_destroy(context);
     if(res != CC_SUCCESS) {
-        printf("Destroy enclave error\n");
+        printf("host destroy enclave error\n");
+    } else {
+        printf("host destroy enclave success\n");
     }
 end:
     free(context);
