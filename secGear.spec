@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	25
+Release:	26
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -54,19 +54,21 @@ Patch41:	0042-destroy-rwlock-when-create-enclave-failed.patch
 Patch42:	0043-fix-partial-resource-leak.patch
 Patch43:	0044-fix-pointer-without-init-or-check-NULL.patch
 Patch44:	0045-optimize-the-private-key-usage-of-the-single-step-si.patch
-Patch45:	0046-Delete-the-null-determination-of-out_buf-in-codegene.patch
+Patch45:        0046-fix-return-value.patch
+Patch46:        0047-del-print-uncontrol-form-string.patch
+Patch47:	0048-Delete-the-null-determination-of-out_buf-in-codegene.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
 %ifarch x86_64
 BUildRequires:	sgxsdk libsgx-launch libsgx-urts openssl
 %else
-BUildRequires:	itrustee_sdk
+BUildRequires:	itrustee_sdk itrustee_sdk-devel
 %endif
 
 Requires:		rsyslog
 %ifarch x86_64
-Requires:		linux-sgx-driver libsgx-launch libsgx-urts libsgx-aesm-launch-plugin
+Requires:		linux-sgx-driver sgxsdk libsgx-launch libsgx-urts libsgx-aesm-launch-plugin
 %else
 Requires:		itrustee_sdk
 %endif
@@ -80,7 +82,7 @@ Requires:		%{name}%{?isa} = %{version}-%{release} cmake
 %ifarch x86_64
 Requires:		sgxsdk
 %else
-Requires:		itrustee_sdk
+Requires:		itrustee_sdk-devel
 %endif
 %description	devel
 The %{name}-devel is package contains Header file for developing applications that
@@ -172,6 +174,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Tue Oct 18 2022 zhengxiaoxiao <zhengxiaoxiao2@huawei.com> - 0.1.0-26
+- DESC: backport some patches
+
 * Thu May 19 2022 wangyu <wangyu283@huawei.com> - 0.1.0-25
 - DESC: change requires for secGear
 
