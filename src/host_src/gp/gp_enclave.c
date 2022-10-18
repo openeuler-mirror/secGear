@@ -10,6 +10,8 @@
  * See the Mulan PSL v2 for more details.
  */
 
+#include "gp_enclave.h"
+
 #include <stdint.h>
 #include <malloc.h>
 #include <string.h>
@@ -20,10 +22,8 @@
 #include <tee_client_type.h>
 
 #include "secgear_defs.h"
-#include "enclave.h"
-#include "enclave_internal.h"
 #include "enclave_log.h"
-#include "gp_enclave.h"
+#include "secgear_uswitchless.h"
 #include "register_agent.h"
 #include "gp_uswitchless.h"
 #include "gp_shared_memory_defs.h"
@@ -370,13 +370,13 @@ cc_enclave_result_t init_uswitchless(cc_enclave_t *enclave, const enclave_featur
         return CC_ERROR_SWITCHLESS_REINIT;
     }
 
-    sl_task_pool_config_t *cfg = (sl_task_pool_config_t *)feature->feature_desc;
-    if (!uswitchless_is_valid_config(cfg)) {
+    cc_sl_config_t cfg = *((cc_sl_config_t *)feature->feature_desc);
+    if (!uswitchless_is_valid_config(&cfg)) {
         return CC_ERROR_BAD_PARAMETERS;
     }
-    uswitchless_adjust_config(cfg);
+    uswitchless_adjust_config(&cfg);
 
-    size_t pool_buf_len = sl_get_pool_buf_len_by_config(cfg);
+    size_t pool_buf_len = sl_get_pool_buf_len_by_config(&cfg);
     void *pool_buf = gp_malloc_shared_memory(enclave, pool_buf_len, true);
     if (pool_buf == NULL) {
         return CC_ERROR_OUT_OF_MEMORY;
@@ -384,10 +384,10 @@ cc_enclave_result_t init_uswitchless(cc_enclave_t *enclave, const enclave_featur
     (void)memset(pool_buf, 0, pool_buf_len);
 
     // Fill config
-    (void)memcpy(pool_buf, cfg, sizeof(sl_task_pool_config_t));
+    (void)memcpy(pool_buf, &cfg, sizeof(cc_sl_config_t));
 
     // Layout task pool
-    sl_task_pool_t *pool = uswitchless_create_task_pool(pool_buf, cfg);
+    sl_task_pool_t *pool = uswitchless_create_task_pool(pool_buf, &cfg);
     if (pool == NULL) {
         (void)gp_free_shared_memory(enclave, pool_buf);
         return CC_ERROR_OUT_OF_MEMORY;

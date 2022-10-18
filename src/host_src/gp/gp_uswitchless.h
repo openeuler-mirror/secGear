@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include "enclave.h"
 #include "switchless_defs.h"
+#include "secgear_uswitchless.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,7 +33,7 @@ extern "C" {
  *      true: valid
  *      false: invalid
  */
-bool uswitchless_is_valid_config(sl_task_pool_config_t *cfg);
+bool uswitchless_is_valid_config(cc_sl_config_t *cfg);
 
 /*
  * Summary: Adjusting default configurations
@@ -40,7 +41,7 @@ bool uswitchless_is_valid_config(sl_task_pool_config_t *cfg);
  *      cfg: configuration information of the task pool
  * Return: NA
  */
-void uswitchless_adjust_config(sl_task_pool_config_t *cfg);
+void uswitchless_adjust_config(cc_sl_config_t *cfg);
 
 /*
  * Summary: initializing the switchless invoking task pool
@@ -49,7 +50,7 @@ void uswitchless_adjust_config(sl_task_pool_config_t *cfg);
  *      pool_cfg: configuration information of the task pool
  * Return: NA
  */
-sl_task_pool_t *uswitchless_create_task_pool(void *pool_buf, sl_task_pool_config_t *pool_cfg);
+sl_task_pool_t *uswitchless_create_task_pool(void *pool_buf, cc_sl_config_t *pool_cfg);
 
 /*
  * Summary: obtains the index of an idle task area from specified enclave

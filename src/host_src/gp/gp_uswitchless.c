@@ -34,19 +34,20 @@
 #define SWITCHLESS_DEFAULT_TWORKERS 8
 #define SWITCHLESS_DEFAULT_POOL_SIZE_QWORDS 1
 
-bool uswitchless_is_valid_config(sl_task_pool_config_t *cfg)
+bool uswitchless_is_valid_config(cc_sl_config_t *cfg)
 {
     if ((cfg->num_uworkers > SWITCHLESS_MAX_UWORKERS) ||
         (cfg->num_tworkers > SWITCHLESS_MAX_TWORKERS) ||
         (cfg->num_max_params > SWITCHLESS_MAX_PARAMETER_NUM) ||
-        (cfg->call_pool_size_qwords > SWITCHLESS_MAX_POOL_SIZE_QWORDS)) {
+        (cfg->sl_call_pool_size_qwords > SWITCHLESS_MAX_POOL_SIZE_QWORDS) ||
+        (cfg->workers_policy >= WORKERS_POLICY_MAX)) {
         return false;
     }
 
     return true;
 }
 
-void uswitchless_adjust_config(sl_task_pool_config_t *cfg)
+void uswitchless_adjust_config(cc_sl_config_t *cfg)
 {
     if (cfg->num_uworkers == 0) {
         cfg->num_uworkers = SWITCHLESS_DEFAULT_UWORKERS;
@@ -56,14 +57,14 @@ void uswitchless_adjust_config(sl_task_pool_config_t *cfg)
         cfg->num_tworkers = SWITCHLESS_DEFAULT_TWORKERS;
     }
 
-    if (cfg->call_pool_size_qwords == 0) {
-        cfg->call_pool_size_qwords = SWITCHLESS_DEFAULT_POOL_SIZE_QWORDS;
+    if (cfg->sl_call_pool_size_qwords == 0) {
+        cfg->sl_call_pool_size_qwords = SWITCHLESS_DEFAULT_POOL_SIZE_QWORDS;
     }
 }
 
-sl_task_pool_t *uswitchless_create_task_pool(void *pool_buf, sl_task_pool_config_t *pool_cfg)
+sl_task_pool_t *uswitchless_create_task_pool(void *pool_buf, cc_sl_config_t *pool_cfg)
 {
-    size_t bit_buf_size = pool_cfg->call_pool_size_qwords * sizeof(uint64_t);
+    size_t bit_buf_size = pool_cfg->sl_call_pool_size_qwords * sizeof(uint64_t);
     sl_task_pool_t *pool = (sl_task_pool_t *)calloc(sizeof(sl_task_pool_t) + bit_buf_size, sizeof(char));
     if (pool == NULL) {
         return NULL;
@@ -76,7 +77,7 @@ sl_task_pool_t *uswitchless_create_task_pool(void *pool_buf, sl_task_pool_config
     pool->pool_buf = (char *)pool_buf;
     pool->free_bit_buf = (uint64_t *)((char *)pool + sizeof(sl_task_pool_t));
     (void)memset(pool->free_bit_buf, 0xFF, bit_buf_size);
-    pool->signal_bit_buf = (uint64_t *)(pool->pool_buf + sizeof(sl_task_pool_config_t));
+    pool->signal_bit_buf = (uint64_t *)(pool->pool_buf + sizeof(cc_sl_config_t));
     pool->task_buf = (char *)pool->signal_bit_buf + pool->bit_buf_size;
 
     return pool;
@@ -99,7 +100,7 @@ bool uswitchless_is_valid_param_num(cc_enclave_t *enclave, uint32_t argc)
 int uswitchless_get_idle_task_index(cc_enclave_t *enclave)
 {
     sl_task_pool_t *pool = USWITCHLESS_TASK_POOL(enclave);
-    int call_pool_size_qwords = (int)pool->pool_cfg.call_pool_size_qwords;
+    int call_pool_size_qwords = (int)pool->pool_cfg.sl_call_pool_size_qwords;
     uint64_t *free_bit_buf = pool->free_bit_buf;
     int start_bit = 0;
     int end_bit = 0;
