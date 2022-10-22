@@ -161,9 +161,6 @@ if(CC_SGX)
     endif()
 
 #添加
-#    target_link_libraries(${PREFIX}  -Wl,--whole-archive ${Trts_Library_Name} -Wl,--no-whole-archive 
-#    target_link_libraries(${PREFIX} -lsecgear_tee -Wl,--whole-archive ${Trts_Library_Name} -Wl,--no-whole-archive -Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l${Crypto_Library_Name} -l${Service_Library_Name}   -Wl,--end-group)
-#    target_link_libraries(${PREFIX} -lsecgear_tee -Wl,--whole-archive ${Trts_Library_Name} -lsgx_tprotected_fs -Wl,--no-whole-archive -Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l${Crypto_Library_Name} -l${Service_Library_Name}   -Wl,--end-group)
     target_link_libraries(${PREFIX} -lsecgear_tee -Wl,--whole-archive ${Trts_Library_Name} -Wl,--no-whole-archive -Wl,--start-group -lsgx_tstdc -lsgx_tcxx -lsgx_tprotected_fs -l${Crypto_Library_Name} -l${Service_Library_Name}   -Wl,--end-group)
     add_custom_command(TARGET ${PREFIX} 
     POST_BUILD

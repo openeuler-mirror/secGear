@@ -23,15 +23,15 @@ int read_string(char *filename,char *str)
 	 char str_r[BUF_MAX];
 
 	 PrintInfo(0, "Open file\n");
-	 flie_ptr = cc_enclave_get_fopen_auto_key(filename, "r");
+	 flie_ptr = cc_enclave_fopen_auto_key(filename, "r");
 	 if(flie_ptr == NULL){
 		PrintInfo(0, "Open file error\n");
 		strncpy(str, "File_Fail", strlen("File_Fail") + 1);
 	 	return CC_FAIL;
 	 }
 	 PrintInfo(0, "Read file\n");
-	 cc_enclave_fread_data(str_r,sizeof(char),strlen("File_SUCCESS") + 1, flie_ptr);
-	 cc_enclave_get_fclose(flie_ptr);
+	 cc_enclave_fread(str_r,sizeof(char),strlen("File_SUCCESS") + 1, flie_ptr);
+	 cc_enclave_fclose(flie_ptr);
 
     strncpy(str, str_r, strlen(str_r) + 1);
 
@@ -42,14 +42,14 @@ int write_string(char *filename,char *str)
 	 void *flie_ptr = NULL;
 
 	 PrintInfo(0, "Create file\n");
-	 flie_ptr = cc_enclave_get_fopen_auto_key(filename, "w");
+	 flie_ptr = cc_enclave_fopen_auto_key(filename, "w");
 	 if(flie_ptr == NULL){
 		PrintInfo(0, "Create file error\n");
 	 	return CC_FAIL;
 	 }
 	 PrintInfo(0, "Write file\n");
-	 cc_enclave_fwrite_data(str,sizeof(char), strlen(str) + 1, flie_ptr);
-	 cc_enclave_get_fclose(flie_ptr);
+	 cc_enclave_fwrite(str,sizeof(char), strlen(str) + 1, flie_ptr);
+	 cc_enclave_fclose(flie_ptr);
 
     return 0;
 }

@@ -13,7 +13,7 @@ if(CC_GP)
 	add_subdirectory(seal_data)
 	add_subdirectory(helloworld)
 	add_subdirectory(switchless)
-	add_subdirectory(tprotected_test)
+	#add_subdirectory(tprotected_test)
 	#add_subdirectory(lrt)
 endif()
 
