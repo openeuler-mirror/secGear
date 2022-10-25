@@ -28,11 +28,7 @@ int main()
     int  retval = 0;
     char *path = PATH;
     char buf[BUF_LEN];
-    cc_enclave_t *context = NULL;
-    context = (cc_enclave_t *)malloc(sizeof(cc_enclave_t));
-    if (!context) {
-        return CC_ERROR_OUT_OF_MEMORY;
-    }
+    cc_enclave_t context = {0};
     cc_enclave_result_t res = CC_FAIL;
 
     printf("Create secgear enclave\n");
@@ -57,20 +53,20 @@ int main()
     sl_cfg.sl_call_pool_size_qwords = 2; /* 2 * 64 tasks */
     enclave_features_t features = {ENCLAVE_FEATURE_SWITCHLESS, (void *)&sl_cfg};
 
-    res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, &features, 1, context);
+    res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, &features, 1, &context);
     if (res != CC_SUCCESS) {
         printf("Create enclave error\n");
         goto end;
     }
 
-    char *shared_buf = (char *)cc_malloc_shared_memory(context, BUF_LEN);
+    char *shared_buf = (char *)cc_malloc_shared_memory(&context, BUF_LEN);
     if (shared_buf == NULL) {
         printf("Malloc shared memory failed.\n");
         goto error;
     }
 
     /* normal ecall */
-    res = get_string(context, &retval, buf);
+    res = get_string(&context, &retval, buf);
     if (res != CC_SUCCESS || retval != (int)CC_SUCCESS) {
         printf("Normal ecall error\n");
     } else {
@@ -78,25 +74,24 @@ int main()
     }
 
     /* switchless ecall */
-    res = get_string_switchless(context, &retval, shared_buf);
+    res = get_string_switchless(&context, &retval, shared_buf);
     if (res != CC_SUCCESS || retval != (int)CC_SUCCESS) {
         printf("Switchless ecall error\n");
     } else {
         printf("shared_buf: %s\n", shared_buf);
     }
 
-    res = cc_free_shared_memory(context, shared_buf);
+    res = cc_free_shared_memory(&context, shared_buf);
     if (res != CC_SUCCESS) {
         printf("Free shared memory failed:%x.\n", res);
     }
 
 error:
-    res = cc_enclave_destroy(context);
+    res = cc_enclave_destroy(&context);
     if(res != CC_SUCCESS) {
         printf("Destroy enclave error\n");
     }
 end:
-    free(context);
     return res;
 }
 
