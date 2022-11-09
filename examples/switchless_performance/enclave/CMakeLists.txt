@@ -62,7 +62,21 @@ set(COMMON_C_FLAGS "-W -Wall -Werror -fno-short-enums -fno-omit-frame-pointer -f
 set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
 
 if(CC_GP)
-    set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -march=armv8-a")
+    if (CMAKE_COMPILER_IS_GNUCC)
+        execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpfullversion -dumpversion
+                        OUTPUT_VARIABLE GCC_VERSION)
+        string(REGEX MATCHALL "[0-9]+" GCC_VERSION_COMPONENTS ${GCC_VERSION})
+        list(GET GCC_VERSION_COMPONENTS 0 GCC_MAJOR)
+        list(GET GCC_VERSION_COMPONENTS 1 GCC_MINOR)
+        set(GCC_VERSION "${GCC_MAJOR}.${GCC_MINOR}")
+    endif()
+
+    if (GCC_VERSION GREATER_EQUAL "9.4")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a -mno-outline-atomics")
+    else()
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a")
+    endif()
+
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -s -fPIC")
     set(CMAKE_SHARED_LINKER_FLAGS "${COMMON_C_LINK_FLAGS} -Wl,-s")
 
