@@ -31,6 +31,14 @@ let generate_args_include (ufs: untrusted_func list) =
     "#include \"enclave.h\"\n" ^
     error_include ^ "\n"
 
+let generate_function_id_ex (tf: trusted_func) =
+    let f = tf.tf_fdecl in
+    let f_name = f.fname in
+    if tf.tf_is_switchless then
+        "fid_sl_async_" ^ f_name
+    else
+        "fid_" ^ f_name
+
 let generate_function_id (f: func_decl) =
     let f_name = f.fname in
     "fid_" ^ f_name
@@ -77,7 +85,8 @@ let generate_rproxy_prototype_sl_async (tf: trusted_func) =
   else
     let fd = tf.tf_fdecl in
     let func_name = fd.fname ^ "_async" in
-    let enclave_decl = "(\n    cc_enclave_t *enclave,\n    int *task_id" in
+    let enclave_decl =
+        "(\n    " ^  (match fd.rtype with Void -> "cc_enclave_t *enclave,\n    int *task_id" | _ -> "cc_enclave_t *enclave,\n    int *task_id,\n    " ^ (get_tystr fd.rtype ^ " *retval")) in
     let func_args =
       let func_args_list =
           List.map (fun f -> gen_parm_str f) fd.plist
@@ -270,7 +279,7 @@ let generate_args_header (ec: enclave_content) =
     let trust_fid_body =
         let trust_fid_pre =
             List.mapi
-        (fun i f -> sprintf "    %s = %d," (generate_function_id f.tf_fdecl) (i + 2)) tfunc_decls
+        (fun i f -> sprintf "    %s = %d," (generate_function_id_ex f) (i + 2)) ec.tfunc_decls
     in
     String.concat "\n" trust_fid_pre
         in

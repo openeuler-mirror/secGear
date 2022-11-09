@@ -168,6 +168,7 @@ typedef enum _enclave_result_t
     CC_ERROR_ADDRESS_UNACCESSABLE,                      /* Memory address is not within enclave */
     CC_ERROR_SWITCHLESS_INVALID_TASK_ID,                /* Invalid invoking task ID */
     CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED,          /* The asynchronous invoking task is not completed */
+    CC_ERROR_SWITCHLESS_ROLLBACK2COMMON,                /* rollback to common invoking when async invoking fails */
     CC_MAXIMUM_ERROR,
 } cc_enclave_result_t;
 

@@ -135,6 +135,16 @@ bool uswitchless_is_valid_param_num(cc_enclave_t *enclave, uint32_t argc);
 bool uswitchless_is_valid_task_index(cc_enclave_t *enclave, int task_index);
 
 /*
+ * Summary: whether to roll back to common invoking when asynchronous switchless invoking fails
+ * Parameters:
+ *      enclave: enclave
+ * Return:
+ *      true: yes
+ *      false: no
+ */
+bool uswitchless_need_rollback_to_common(cc_enclave_t *enclave);
+
+/*
  * Summary: fill a task
  * Parameters:
  *      enclave: enclave

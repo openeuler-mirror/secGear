@@ -80,6 +80,40 @@ let set_call_user_func (fd : func_decl) =
         "}";
     ]
 
+let sl_async_set_call_user_func (fd : func_decl) =
+    [
+        "/* Call the cc_enclave function */";
+        "if (!enclave) {";
+        "    ret = CC_ERROR_BAD_PARAMETERS;";
+        "    goto exit;";
+        "}";
+        "if (pthread_rwlock_rdlock(&enclave->rwlock)) {";
+        "    ret = CC_ERROR_BUSY;";
+        "    goto exit;";
+        "}";
+        "if (!enclave->list_ops_node || !enclave->list_ops_node->ops_desc ||";
+        "         !enclave->list_ops_node->ops_desc->ops ||";
+        "         !enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave) {";
+        "    ret = CC_ERROR_BAD_PARAMETERS;";
+        "    goto exit;";
+        "}";
+        "if ((ret = enclave->list_ops_node->ops_desc->ops->cc_ecall_enclave(";
+        "         enclave,";
+        sprintf "         fid_sl_async_%s," fd.fname;
+        "         in_buf,";
+        "         in_buf_size,";
+        "         out_buf,";
+        "         out_buf_size,";
+        "         &ms,";
+        "         &ocall_table)) != CC_SUCCESS) {";
+        "    pthread_rwlock_unlock(&enclave->rwlock);";
+        "    goto exit; }";
+        "if (pthread_rwlock_unlock(&enclave->rwlock)) {";
+        "    ret = CC_ERROR_BUSY;";
+        "    goto exit;";
+        "}";
+    ]
+
 let set_ecall_func_arguments (fd : func_decl) =
     [
         sprintf "cc_enclave_result_t %s(\n    %s" fd.fname  (match fd.rtype with Void -> "cc_enclave_t *enclave" | _ -> "cc_enclave_t *enclave,\n    " ^ (get_tystr fd.rtype ^ "* retval"))
@@ -100,7 +134,7 @@ let set_ecall_func_arguments (fd : func_decl) =
 
 let set_sl_async_ecall_func_arguments (fd : func_decl) =
     [
-        sprintf "cc_enclave_result_t %s(\n    %s" (fd.fname ^ "_async")  "cc_enclave_t *enclave,\n    int *task_id"
+        sprintf "cc_enclave_result_t %s(\n    %s" (fd.fname ^ "_async") (match fd.rtype with Void -> "cc_enclave_t *enclave,\n    int *task_id" | _ -> "cc_enclave_t *enclave,\n    int *task_id,\n    " ^ (get_tystr fd.rtype ^ " *retval"))
         ^ (if fd.plist <> [] then
             ",\n    " ^
             concat ",\n    "
@@ -119,6 +153,7 @@ let set_sl_async_ecall_func_arguments (fd : func_decl) =
 let set_sl_ecall_func (tf : trusted_func) =
     let tfd = tf.tf_fdecl in
     let init_point = set_init_pointer tfd in
+    let arg_size = set_args_size tfd in
     let get_param_name (_, decl) = decl.identifier in
     (*let is_ptr_type (ptype) =
         match ptype with
@@ -224,6 +259,61 @@ let set_sl_ecall_func (tf : trusted_func) =
 
         "    pthread_rwlock_unlock(&enclave->rwlock);";
         (if tfd.plist <> [] then "    free(params_buf);" else "");
+        "    if (ret != CC_ERROR_SWITCHLESS_ROLLBACK2COMMON) {\n        return ret;\n    }";
+        "\n    /* rollback to common invoking when async invoking fails */";
+        "    ret = CC_FAIL;";
+        "    *task_id = -1;";
+        "";
+        "    /* Init buffer and size  */";
+        "    size_t in_buf_size = 0;";
+        "    size_t out_buf_size = 0;";
+        "    uint8_t* in_buf = NULL;";
+        "    uint8_t* out_buf = NULL;";
+        "    uint32_t ms = TEE_SECE_AGENT_ID;";
+        sprintf "    %s_size_t args_size;" tfd.fname;
+        "";
+        "    /* Init pointer */";
+        if init_point <> ["";"";""] then
+            concat "\n" init_point
+        else "    /* There is no pointer */";
+        "";
+        "    memset(&args_size, 0, sizeof(args_size));";
+        "    /* Fill argments size */";
+        if arg_size <> [""] then
+            "    " ^ concat "\n    " (set_args_size tfd)
+        else "/* There is no argments size */";
+        "";
+        sprintf "    in_buf_size += size_to_aligned_size(sizeof(%s_size_t));"
+          tfd.fname;
+
+        "    " ^ concat "\n    " (set_data_in tfd);
+        "";
+
+        "    " ^ concat "\n    " (set_data_out tfd);
+        "";
+        "    /* Allocate in_buf and out_buf */";
+        "    in_buf = (uint8_t*)malloc(in_buf_size);";
+        "    out_buf = (uint8_t*)malloc(out_buf_size);";
+        "    if (in_buf == NULL || out_buf == NULL) {";
+        "        ret = CC_ERROR_OUT_OF_MEMORY;";
+        "        goto exit;";
+        "    }";
+
+        "";
+        "    " ^ concat "\n    " (set_in_memcpy tfd);
+        "";
+        "    " ^ concat "\n    " (sl_async_set_call_user_func tfd);
+        "";
+        "    " ^ concat "\n    " (set_out_memcpy tfd);
+        "    ret = CC_SUCCESS;";
+        "";
+
+        "exit:";
+        "    if (in_buf)";
+        "        free(in_buf);";
+        "    if (out_buf)";
+        "        free(out_buf);";
+        "";
         "    return ret;";
         "}";
     ]

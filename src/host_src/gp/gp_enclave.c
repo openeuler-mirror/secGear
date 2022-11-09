@@ -857,6 +857,11 @@ cc_enclave_result_t cc_sl_async_ecall(cc_enclave_t *enclave, int *task_id, sl_ec
 
     int task_index = uswitchless_get_idle_task_index(enclave);
     if (task_index < 0) {
+        /* Need roll back to common invoking when asynchronous invoking fails. */
+        if (uswitchless_need_rollback_to_common(enclave)) {
+            return CC_ERROR_SWITCHLESS_ROLLBACK2COMMON;
+        }
+
         return CC_ERROR_SWITCHLESS_TASK_POOL_FULL;
     }
 

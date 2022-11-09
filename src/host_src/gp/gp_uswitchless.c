@@ -112,6 +112,11 @@ bool uswitchless_is_valid_task_index(cc_enclave_t *enclave, int task_index)
     return !((*(pool->free_bit_buf + i)) & (1UL << j));
 }
 
+bool uswitchless_need_rollback_to_common(cc_enclave_t *enclave)
+{
+    return USWITCHLESS_TASK_POOL(enclave)->pool_cfg.rollback_to_common > 0;
+}
+
 int uswitchless_get_idle_task_index(cc_enclave_t *enclave)
 {
     sl_task_pool_t *pool = USWITCHLESS_TASK_POOL(enclave);
