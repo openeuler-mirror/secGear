@@ -97,6 +97,21 @@ bool uswitchless_is_valid_param_num(cc_enclave_t *enclave, uint32_t argc)
     return argc <= USWITCHLESS_TASK_POOL(enclave)->pool_cfg.num_max_params;
 }
 
+bool uswitchless_is_valid_task_index(cc_enclave_t *enclave, int task_index)
+{
+    sl_task_pool_t *pool = USWITCHLESS_TASK_POOL(enclave);
+    int task_total = pool->pool_cfg.sl_call_pool_size_qwords * SWITCHLESS_BITS_IN_QWORD;
+
+    if (task_index < 0 || task_index >= task_total) {
+        return false;
+    }
+
+    int i = task_index / SWITCHLESS_BITS_IN_QWORD;
+    int j = task_index % SWITCHLESS_BITS_IN_QWORD;
+
+    return !((*(pool->free_bit_buf + i)) & (1UL << j));
+}
+
 int uswitchless_get_idle_task_index(cc_enclave_t *enclave)
 {
     sl_task_pool_t *pool = USWITCHLESS_TASK_POOL(enclave);
@@ -144,11 +159,13 @@ static inline sl_task_t *uswitchless_get_task_by_index(cc_enclave_t *enclave, in
     return (sl_task_t *)(pool->task_buf + task_index * pool->per_task_size);
 }
 
-void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_id, uint32_t argc, const void *args)
+void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint16_t func_id, uint16_t retval_size,
+    uint32_t argc, const void *args)
 {
     sl_task_t *task = uswitchless_get_task_by_index(enclave, task_index);
 
     task->func_id = func_id;
+    task->retval_size = retval_size;
     __atomic_store_n(&task->status, SL_TASK_INIT, __ATOMIC_RELEASE);
     memcpy(&task->params[0], args, sizeof(uint64_t) * argc);
 }
@@ -165,7 +182,7 @@ void uswitchless_submit_task(cc_enclave_t *enclave, int task_index)
 
 #define CA_TIMEOUT_IN_SEC 60
 #define CA_GETTIME_PER_CNT 100000000
-cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_index, void *retval, size_t retval_size)
+cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_index, void *retval)
 {
     sl_task_t *task = uswitchless_get_task_by_index(enclave, task_index);
     uint32_t cur_status;
@@ -178,8 +195,8 @@ cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_
     while (true) {
         cur_status = __atomic_load_n(&task->status, __ATOMIC_ACQUIRE);
         if (cur_status == SL_TASK_DONE_SUCCESS) {
-            if ((retval != NULL) && (retval_size != 0)) {
-                (void)memcpy(retval, (void *)&task->ret_val, retval_size);
+            if ((retval != NULL) && (task->retval_size > 0)) {
+                (void)memcpy(retval, (void *)&task->ret_val, task->retval_size);
             }
 
             return CC_SUCCESS;
@@ -198,4 +215,23 @@ cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_
     }
 
     return CC_ERROR_TIMEOUT;
+}
+
+cc_enclave_result_t uswitchless_get_async_task_result(cc_enclave_t *enclave, int task_index, void *retval)
+{
+    sl_task_t *task = uswitchless_get_task_by_index(enclave, task_index);
+    uint32_t cur_status;
+
+    cur_status = __atomic_load_n(&task->status, __ATOMIC_ACQUIRE);
+    if (cur_status == SL_TASK_DONE_SUCCESS) {
+        if ((retval != NULL) && (task->retval_size > 0)) {
+            (void)memcpy(retval, (void *)&task->ret_val, task->retval_size);
+        }
+
+        return CC_SUCCESS;
+    } else if (cur_status == SL_TASK_DONE_FAILED) {
+        return (cc_enclave_result_t)task->ret_val;
+    }
+
+    return CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED;
 }

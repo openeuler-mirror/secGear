@@ -87,6 +87,19 @@ CC_API_SPEC cc_enclave_result_t cc_enclave_create(
 
 CC_API_SPEC cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context);
 
+/*
+ * Summary: Obtains the result of the switchless asynchronous invoking task
+ * Parameters:
+ *     enclave: enclave
+ *     task_id: id of an asynchronous invoking task
+ *     retval: accepts the return value, NULL is required for functions of the void type or the return value is ignored
+ * Return:
+ *     CC_SUCCESS, success;
+ *     CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED, the asynchronous invoking task is not completed;
+ *     others failed.
+ */
+CC_API_SPEC cc_enclave_result_t cc_sl_get_async_result(cc_enclave_t *enclave, int task_id, void *retval);
+
 /*automatic file generation required: aligned bytes*/
 #define ALIGNMENT_SIZE (2 * sizeof(void*))
 

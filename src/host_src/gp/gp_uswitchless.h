@@ -81,18 +81,26 @@ void uswitchless_put_idle_task_by_index(cc_enclave_t *enclave, int task_index);
 void uswitchless_submit_task(cc_enclave_t *enclave, int task_index);
 
 /*
- * Summary: submitting a task
+ * Summary: Obtains the result of the switchless invoking task
  * Parameters:
  *      enclave: enclave
  *      task_index: index of an task area
  *      ret_val: address that accepts the return value
- *      ret_val_size: size of the return value
  * Return: CC_SUCCESS, success; others failed.
  */
-cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave,
-                                                int task_index,
-                                                void *ret_val,
-                                                size_t ret_val_size);
+cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_index, void *ret_val);
+
+/*
+ * Summary: Obtains the result of the switchless asynchronous invoking task
+ * Parameters:
+ *      enclave: enclave
+ *      task_index: index of an task area
+ *      ret_val: address that accepts the return value
+ * Return: CC_SUCCESS, success;
+           CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED, the asynchronous invoking task is not completed;
+           others failed.
+ */
+cc_enclave_result_t uswitchless_get_async_task_result(cc_enclave_t *enclave, int task_index, void *retval);
 
 /*
  * Summary: whether the switchless features is enabled
@@ -116,16 +124,29 @@ bool uswitchless_is_switchless_enabled(cc_enclave_t *enclave);
 bool uswitchless_is_valid_param_num(cc_enclave_t *enclave, uint32_t argc);
 
 /*
+ * Summary: whether the task index is valid
+ * Parameters:
+ *      enclave: enclave
+ *      argc: task index
+ * Return:
+ *      true: the task index is valid
+ *      false: invalid task index
+ */
+bool uswitchless_is_valid_task_index(cc_enclave_t *enclave, int task_index);
+
+/*
  * Summary: fill a task
  * Parameters:
  *      enclave: enclave
  *      task_index: index of an task area
  *      func_id: switchless function index
+ *      retval_size: size of the return value of the function
  *      argc: number of parameters
  *      args: parameter buffer
  * Return: NA
  */
-void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_id, uint32_t argc, const void *args);
+void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint16_t func_id, uint16_t retval_size,
+    uint32_t argc, const void *args);
 
 #ifdef __cplusplus
 }

@@ -165,7 +165,9 @@ typedef enum _enclave_result_t
     CC_ERROR_SHARED_MEMORY_REPEAT_REGISTER, 	        /* The shared memory is repeatedly registered */
     CC_ERROR_SHARED_MEMORY_START_ADDR_INVALID, 	        /* Invalid start address of the shared memory */
     CC_ERROR_SHARED_MEMORY_NOT_REGISTERED, 	            /* Unregistered shared memory */
-    CC_ERROR_ADDRESS_UNACCESSABLE, 	            /* Memory address is not within enclave */
+    CC_ERROR_ADDRESS_UNACCESSABLE,                      /* Memory address is not within enclave */
+    CC_ERROR_SWITCHLESS_INVALID_TASK_ID,                /* Invalid invoking task ID */
+    CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED,          /* The asynchronous invoking task is not completed */
     CC_MAXIMUM_ERROR,
 } cc_enclave_result_t;
 

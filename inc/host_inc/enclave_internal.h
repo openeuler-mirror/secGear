@@ -31,7 +31,8 @@ typedef enum _enclave_state {
 } enclave_state_t;
 
 typedef struct {
-    uint32_t func_id;
+    uint16_t func_id;
+    uint16_t retval_size;
     uint32_t argc;
     void *args;
 } sl_ecall_func_info_t;
@@ -66,10 +67,11 @@ struct cc_enclave_ops {
 		    const void *ocall_table);
 
     /* switchless ecall */
-    cc_enclave_result_t (*cc_sl_ecall_enclave)(cc_enclave_t *enclave,
-                                               void *retval,
-                                               size_t retval_size,
-                                               sl_ecall_func_info_t *func_info);
+    cc_enclave_result_t (*cc_sl_ecall_enclave)(cc_enclave_t *enclave, void *retval, sl_ecall_func_info_t *func_info);
+
+    /* switchless async ecall */
+    cc_enclave_result_t (*cc_sl_async_ecall)(cc_enclave_t *enclave, int *task_id, sl_ecall_func_info_t *func_info);
+    cc_enclave_result_t (*cc_sl_async_ecall_get_result)(cc_enclave_t *enclave, int task_id, void *retval);
 
     /* shared memory */
     void *(*cc_malloc_shared_memory)(cc_enclave_t *enclave, size_t size, bool is_control_buf);

@@ -59,7 +59,8 @@ typedef struct {
 
 typedef struct {
     volatile uint32_t status;
-    uint32_t func_id;
+    uint16_t func_id;
+    uint16_t retval_size;
     volatile uint64_t ret_val;
     uint64_t params[0];
 } sl_task_t;

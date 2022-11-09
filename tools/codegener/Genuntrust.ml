@@ -98,6 +98,24 @@ let set_ecall_func_arguments (fd : func_decl) =
         else "")
     ]
 
+let set_sl_async_ecall_func_arguments (fd : func_decl) =
+    [
+        sprintf "cc_enclave_result_t %s(\n    %s" (fd.fname ^ "_async")  "cc_enclave_t *enclave,\n    int *task_id"
+        ^ (if fd.plist <> [] then
+            ",\n    " ^
+            concat ",\n    "
+            (List.map
+                (fun (ptype, decl) ->
+                    match ptype with
+                    PTVal ty -> (sprintf "%s %s" (get_tystr ty) decl.identifier)
+                    | PTPtr (t, a) -> match (a.pa_rdonly, is_array decl) with
+                                      | (true, false) -> sprintf "const %s %s" (get_tystr t) decl.identifier
+                                      | (false, true) -> sprintf "%s %s%s" (get_tystr t) decl.identifier (set_array_dims_str decl.array_dims)
+                                      | (_, _) -> sprintf "%s %s" (get_tystr t) decl.identifier)
+            fd.plist)
+        else "")
+    ]
+
 let set_sl_ecall_func (tf : trusted_func) =
     let tfd = tf.tf_fdecl in
     let init_point = set_init_pointer tfd in
@@ -162,15 +180,47 @@ let set_sl_ecall_func (tf : trusted_func) =
         "    /* Call the cc_enclave function */";
 
         "    sl_ecall_func_info_t func_info = {";
-        "         .func_id = " ^ "fid_" ^ tfd.fname ^ ",";
+        "         .func_id = " ^ "fid_" ^ tfd.fname ^ ",\n         .retval_size= " ^ out_retval_size ^ ",";
         "         .argc = " ^ num_params ^ ",";
         "         .args = " ^ out_params ^ ",";
         "    };";
 
         "    ret = enclave->list_ops_node->ops_desc->ops->cc_sl_ecall_enclave(enclave,";
         "                                                                     " ^ out_retval ^ ",";
-        "                                                                     " ^ out_retval_size ^ ",";
         "                                                                     &func_info);\n";
+
+        "    pthread_rwlock_unlock(&enclave->rwlock);";
+        (if tfd.plist <> [] then "    free(params_buf);" else "");
+        "    return ret;";
+        "}";
+
+        "";
+        concat ",\n    " (set_sl_async_ecall_func_arguments tfd) ^ ")";
+        "{";
+        "    cc_enclave_result_t ret;\n";
+        "    if (enclave == NULL) {";
+        "        return CC_ERROR_BAD_PARAMETERS;";
+        "    }\n";
+        "    if (pthread_rwlock_rdlock(&enclave->rwlock)) {";
+        "        return CC_ERROR_BUSY;";
+        "    }\n";
+        "    if (enclave->list_ops_node == NULL ||\n        enclave->list_ops_node->ops_desc == NULL ||";
+        "        enclave->list_ops_node->ops_desc->ops == NULL ||";
+        "        enclave->list_ops_node->ops_desc->ops->cc_sl_async_ecall == NULL) {";
+        "        pthread_rwlock_unlock(&enclave->rwlock);";
+        "        return CC_ERROR_BAD_PARAMETERS;";
+        "    }";
+        "";
+        params;
+        "    /* Call the cc_enclave function */";
+
+        "    sl_ecall_func_info_t func_info = {";
+        "         .func_id = " ^ "fid_" ^ tfd.fname ^ ",\n         .retval_size= " ^ out_retval_size ^ ",";
+        "         .argc = " ^ num_params ^ ",";
+        "         .args = " ^ out_params ^ ",";
+        "    };";
+
+        "    ret = enclave->list_ops_node->ops_desc->ops->cc_sl_async_ecall(enclave, task_id, &func_info);\n";
 
         "    pthread_rwlock_unlock(&enclave->rwlock);";
         (if tfd.plist <> [] then "    free(params_buf);" else "");

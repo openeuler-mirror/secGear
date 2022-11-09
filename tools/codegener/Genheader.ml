@@ -71,6 +71,27 @@ let generate_rproxy_prototype (fd: func_decl) =
         "cc_enclave_result_t " ^ func_name ^ enclave_decl ^ func_args ^")";
     ]
 
+let generate_rproxy_prototype_sl_async (tf: trusted_func) =
+  if not tf.tf_is_switchless then
+    [""]
+  else
+    let fd = tf.tf_fdecl in
+    let func_name = fd.fname ^ "_async" in
+    let enclave_decl = "(\n    cc_enclave_t *enclave,\n    int *task_id" in
+    let func_args =
+      let func_args_list =
+          List.map (fun f -> gen_parm_str f) fd.plist
+    in
+    if List.length fd.plist > 0 then
+      let func_args_pre = String.concat ",\n    " func_args_list in
+        ",\n    " ^ func_args_pre
+    else
+      ""
+    in
+    [
+        "cc_enclave_result_t " ^ func_name ^ enclave_decl ^ func_args ^")";
+    ]
+
 let generate_parm_str (p: pdecl) =
     let (_, declr) = p in
     declr.identifier
@@ -344,14 +365,20 @@ let generate_untrusted_header (ec: enclave_content) =
     let r_proxy_proto =
         List.map (fun f -> generate_rproxy_prototype f.tf_fdecl) ec.tfunc_decls
     in
+    let r_proxy_proto_sl_async =
+        List.map (fun f -> generate_rproxy_prototype_sl_async f) ec.tfunc_decls
+    in
     let r_proxy =
         String.concat ";\n\n" (List.flatten r_proxy_proto)
+    in
+    let r_proxy_sl_async =
+        String.concat ";\n\n" (List.flatten r_proxy_proto_sl_async)
     in
     [
         hfile_start ^ hfile_include; 
         c_start;
         agent_id;
-        trust_fproto_com ^ r_proxy ^ ";";
+        trust_fproto_com ^ r_proxy ^ r_proxy_sl_async ^ ";";
         if (List.length ec.ufunc_decls <> 0) then untrust_fproto_com ^ untrust_func ^ ";"
         else "/**** There is no untrusted function ****/";
         c_end; 

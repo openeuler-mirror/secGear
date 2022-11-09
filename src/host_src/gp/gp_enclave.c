@@ -817,10 +817,7 @@ done:
     return result;
 }
 
-cc_enclave_result_t cc_sl_enclave_call_function(cc_enclave_t *enclave,
-                                                void *retval,
-                                                size_t retval_size,
-                                                sl_ecall_func_info_t *func_info)
+cc_enclave_result_t cc_sl_enclave_call_function(cc_enclave_t *enclave, void *retval, sl_ecall_func_info_t *func_info)
 {
     if (!uswitchless_is_switchless_enabled(enclave)) {
         return CC_ERROR_SWITCHLESS_DISABLED;
@@ -835,10 +832,56 @@ cc_enclave_result_t cc_sl_enclave_call_function(cc_enclave_t *enclave,
         return CC_ERROR_SWITCHLESS_TASK_POOL_FULL;
     }
 
-    uswitchless_fill_task(enclave, task_index, func_info->func_id, func_info->argc, func_info->args);
+    uswitchless_fill_task(enclave, task_index, func_info->func_id, func_info->retval_size, func_info->argc,
+        func_info->args);
     uswitchless_submit_task(enclave, task_index);
-    cc_enclave_result_t ret = uswitchless_get_task_result(enclave, task_index, retval, retval_size);
+    cc_enclave_result_t ret = uswitchless_get_task_result(enclave, task_index, retval);
     uswitchless_put_idle_task_by_index(enclave, task_index);
+
+    return ret;
+}
+
+cc_enclave_result_t cc_sl_async_ecall(cc_enclave_t *enclave, int *task_id, sl_ecall_func_info_t *func_info)
+{
+    if (task_id == NULL) {
+        return CC_ERROR_BAD_PARAMETERS;
+    }
+
+    if (!uswitchless_is_switchless_enabled(enclave)) {
+        return CC_ERROR_SWITCHLESS_DISABLED;
+    }
+
+    if (!uswitchless_is_valid_param_num(enclave, func_info->argc)) {
+        return CC_ERROR_SWITCHLESS_INVALID_ARG_NUM;
+    }
+
+    int task_index = uswitchless_get_idle_task_index(enclave);
+    if (task_index < 0) {
+        return CC_ERROR_SWITCHLESS_TASK_POOL_FULL;
+    }
+
+    uswitchless_fill_task(enclave, task_index, func_info->func_id, func_info->retval_size, func_info->argc,
+        func_info->args);
+    uswitchless_submit_task(enclave, task_index);
+    *task_id = task_index;
+
+    return CC_SUCCESS;
+}
+
+cc_enclave_result_t cc_sl_async_ecall_check_result(cc_enclave_t *enclave, int task_id, void *retval)
+{
+    if (!uswitchless_is_switchless_enabled(enclave)) {
+        return CC_ERROR_SWITCHLESS_DISABLED;
+    }
+
+    if (!uswitchless_is_valid_task_index(enclave, task_id)) {
+        return CC_ERROR_SWITCHLESS_INVALID_TASK_ID;
+    }
+
+    cc_enclave_result_t ret = uswitchless_get_async_task_result(enclave, task_id, retval);
+    if (ret != CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
+        uswitchless_put_idle_task_by_index(enclave, task_id);
+    }
 
     return ret;
 }
@@ -848,6 +891,8 @@ const struct cc_enclave_ops g_ops = {
     .cc_destroy_enclave = _gp_destroy,
     .cc_ecall_enclave =  cc_enclave_call_function,
     .cc_sl_ecall_enclave = cc_sl_enclave_call_function,
+    .cc_sl_async_ecall = cc_sl_async_ecall,
+    .cc_sl_async_ecall_get_result = cc_sl_async_ecall_check_result,
     .cc_malloc_shared_memory = gp_malloc_shared_memory,
     .cc_free_shared_memory = gp_free_shared_memory,
     .cc_register_shared_memory = gp_register_shared_memory,

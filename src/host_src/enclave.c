@@ -20,6 +20,7 @@
 #include "enclave.h"
 #include "enclave_log.h"
 #include "enclave_internal.h"
+#include "secgear_defs.h"
 
 extern list_ops_management  g_list_ops;
 
@@ -312,4 +313,21 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
     explicit_bzero(context, sizeof(cc_enclave_t));
 
     return CC_SUCCESS;
+}
+
+cc_enclave_result_t cc_sl_get_async_result(cc_enclave_t *enclave, int task_id, void *retval)
+{
+    cc_enclave_result_t ret;
+
+    if (enclave == NULL || task_id < 0 || !enclave->used_flag) {
+        return CC_ERROR_BAD_PARAMETERS;
+    }
+
+    CC_RWLOCK_LOCK_RD(&enclave->rwlock);
+
+    ret = enclave->list_ops_node->ops_desc->ops->cc_sl_async_ecall_get_result(enclave, task_id, retval);
+
+    CC_RWLOCK_UNLOCK(&enclave->rwlock);
+
+    return ret;
 }
