@@ -15,6 +15,8 @@
 
 #include "tee_client_api.h"
 #include "switchless_defs.h"
+#include "enclave.h"
+#include "enclave_internal.h"
 
 enum
 {

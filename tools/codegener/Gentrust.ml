@@ -146,6 +146,7 @@ let set_switchless_ecall_func (tf : trusted_func) =
         match tfd.rtype with
             | Void -> ""
             | _ -> "    (void)memcpy(retval, &ret, sizeof(ret));" in
+    if tf.tf_is_switchless then
     [
         sprintf "\nvoid sl_ecall_%s(void *task_buf)" tfd.fname;
         "{";
@@ -160,15 +161,15 @@ let set_switchless_ecall_func (tf : trusted_func) =
         write_back_retval;
         "}";
     ]
+    else ["";]
 
 let set_ecall_func (tf : trusted_func) =
-    if tf.tf_is_switchless then
-        set_switchless_ecall_func tf
-    else
+    let slfunc = String.concat " " (set_switchless_ecall_func tf) in
     let tfd = tf.tf_fdecl in 
     let params_point = set_parameters_point tfd in
     let out_params = set_out_params tfd in
     [
+        "" ^ slfunc;
         sprintf "cc_enclave_result_t ecall_%s (" tfd.fname;
         "    uint8_t* in_buf,";
         "    size_t in_buf_size,";
@@ -396,8 +397,7 @@ let gen_trusted(ec : enclave_content) =
             "    (cc_ecall_func_t) ecall_unregister_shared_memory,";
             "    " ^ concat ",\n    "
                 (List.map (fun (tf) ->
-                    sprintf "(cc_ecall_func_t) ecall_%s" tf.tf_fdecl.fname)
-                (List.filter (fun tf -> not tf.tf_is_switchless) trust_funcs));
+                    sprintf "(cc_ecall_func_t) ecall_%s" tf.tf_fdecl.fname) trust_funcs);
             "};";
             "";
             "size_t ecall_table_size = CC_ARRAY_LEN(cc_ecall_tables);\n";

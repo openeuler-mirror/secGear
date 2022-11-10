@@ -32,6 +32,7 @@ extern "C" {
 #define CC_MUTEX_UNLOCK(lock)           CC_IGNORE(pthread_mutex_unlock(lock))
 #define CC_COND_INIT(cond, attr)        CC_IGNORE(pthread_cond_init(cond, attr))
 #define CC_COND_SIGNAL(cond)            CC_IGNORE(pthread_cond_signal(cond))
+#define CC_COND_BROADCAST(cond)         CC_IGNORE(pthread_cond_broadcast(cond))
 #define CC_COND_WAIT(cond, mtx_lock)    CC_IGNORE(pthread_cond_wait(cond, mtx_lock))
 #define CC_COND_DESTROY(cond)           CC_IGNORE(pthread_cond_destroy(cond))
 #define CC_THREAD_ATTR_INIT(attr)       CC_IGNORE(pthread_attr_init(attr))

@@ -16,33 +16,51 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "secgear_uswitchless.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define SWITCHLESS_BITS_IN_QWORD 64
 
-typedef struct {
-    uint32_t num_uworkers;  // number of untrusted (for ocalls) worker threads
-    uint32_t num_tworkers; // number of trusted (for ecalls) worker threads
-    uint32_t call_pool_size_qwords; // number of switchless calls pool size (actual number is x 64)
-    uint32_t num_max_params; // max number of parameters
-} sl_task_pool_config_t;
+/*
+ *                        sl_task_pool_t      free_bit_buf
+ *                        |                   |
+ *                        v                   v
+ *                        +-------------------+-+-+--------+-+----------------+-+
+ *                  +---- | task_buf          | | |        | |                | |
+ *                  | +-- | pool_buf          |0|1|  ...   |1|       ...      |1|   normal memory
+ *                  | |   +-------------------+-+-+--------+-+----------------+-+
+ *                  | |
+ *                  | |                       signal_bit_buf
+ *                  | |                       |
+ *                  | |                       v
+ *                  | +-> +-------------------+-+-+--------+-+----------------+-+
+ *                  |     |                   | | |        | |                | |
+ *                  |     | cc_sl_config_t    |1|0|  ...   |0|       ...      |0|
+ *                  +---> +--------+---------++-+-+---+----+-+--+--------+----+-+
+ *                task[0] | status | func id | retval | params1 | prams2 | ...  |   shared memory
+ *                        +--------+---------+--------+---------+--------+------+
+ *                task[n] |                          ...                        |
+ *                        +-----------------------------------------------------+
+ */
 
 typedef struct {
-    char *pool_buf; // switchless task pool control area
+    char *pool_buf; // switchless task pool control area, includes configuration area, signal bit area, and task area
     char *task_buf; // part of pool_buf, stores invoking tasks
-    uint64_t *free_bit_buf; // idle task flag
-    uint64_t *signal_bit_buf; // to-be-processed task flag
-    uint32_t bit_buf_size; // size of each task flag area
-    uint32_t per_task_size; // size of each task
+    uint64_t *free_bit_buf; // length is bit_buf_size, the task indicated by the bit subscript is idle
+    uint64_t *signal_bit_buf; // length is bit_buf_size, the task indicated by the bit subscript is to be processed
+    uint32_t bit_buf_size; // size of each bit buf in bytes, determined by sl_call_pool_size_qwords in cc_sl_config_t
+    uint32_t per_task_size; // size of each task in bytes, for details, see task[0]
     volatile bool need_stop_tworkers; // indicates whether to stop the trusted proxy thread
-    sl_task_pool_config_t pool_cfg;
+    cc_sl_config_t pool_cfg;
 } sl_task_pool_t;
 
 typedef struct {
     volatile uint32_t status;
-    uint32_t func_id;
+    uint16_t func_id;
+    uint16_t retval_size;
     volatile uint64_t ret_val;
     uint64_t params[0];
 } sl_task_t;
@@ -65,12 +83,12 @@ typedef enum {
  * Return:
  *     pool size in bytes
  */
-inline size_t sl_get_pool_buf_len_by_config(sl_task_pool_config_t *pool_cfg)
+inline size_t sl_get_pool_buf_len_by_config(cc_sl_config_t *pool_cfg)
 {
-    size_t signal_bit_buf_size = pool_cfg->call_pool_size_qwords * sizeof(uint64_t);
+    size_t signal_bit_buf_size = pool_cfg->sl_call_pool_size_qwords * sizeof(uint64_t);
     size_t each_task_size = SL_CALCULATE_PER_TASK_SIZE(pool_cfg);
-    size_t task_buf_size = each_task_size * pool_cfg->call_pool_size_qwords * SWITCHLESS_BITS_IN_QWORD;
-    return sizeof(sl_task_pool_config_t) + signal_bit_buf_size + task_buf_size;
+    size_t task_buf_size = each_task_size * pool_cfg->sl_call_pool_size_qwords * SWITCHLESS_BITS_IN_QWORD;
+    return sizeof(cc_sl_config_t) + signal_bit_buf_size + task_buf_size;
 }
 
 /*

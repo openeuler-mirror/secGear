@@ -47,6 +47,13 @@
 extern "C" {
 #endif
 
+typedef enum {
+    /* Worker threads work all the time. */
+    WORKERS_POLICY_BUSY,
+    /* The worker thread is only woken up when the task arrives and goes to sleep after the task is processed. */
+    WORKERS_POLICY_WAKEUP,
+    WORKERS_POLICY_MAX
+} cc_workers_policy_t;
 
 typedef struct {
     /* number of untrusted (for ocalls) worker threads */
@@ -72,9 +79,15 @@ typedef struct {
      * before going to sleep, only for SGX
      */
     uint32_t retries_before_sleep;
+
+    /* Worker thread scheduling policy, refer to cc_workers_policy_t, only for GP */
+    uint32_t workers_policy;
+
+    /* Indicates whether to roll back to common invoking when asynchronous switchless invoking fails, only for GP */
+    uint32_t rollback_to_common;
 } cc_sl_config_t;
 
-#define CC_USWITCHLESS_CONFIG_INITIALIZER   {1, 1, 1, 16, 0, 0}
+#define CC_USWITCHLESS_CONFIG_INITIALIZER   {1, 1, 1, 16, 0, 0, WORKERS_POLICY_BUSY, 0}
 
 #ifdef __cplusplus
 }

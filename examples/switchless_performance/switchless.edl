@@ -16,7 +16,20 @@ enclave {
     from "secgear_tswitchless.edl" import *;
     trusted {
         public void ecall_empty(void);
+
+        /* test [in, out] params */
+        public int ecall_empty1([in, out, size=len]char *buf, int len);
+
+        /* test [in] and [out] params */
+        public int ecall_empty2([in, size=len1]char *buf1, int len1, [out, size=len2]char *buf2, int len2);
+
         public void ecall_empty_switchless(void) transition_using_threads;
+
+        /* test [in, out] params */
+        public int ecall_empty_switchless1([in, out, size=len]char *buf, int len) transition_using_threads;
+
+        /* test [in] and [out] params */
+        public int ecall_empty_switchless2([in, size=len1]char *buf1, int len1, [out, size=len2]char *buf2, int len2) transition_using_threads;
 
         public void test_toupper([in, out, size=len]char *buf, int len) transition_using_threads;
     };

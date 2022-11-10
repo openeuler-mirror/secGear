@@ -38,6 +38,15 @@ static inline uint32_t count_tailing_zeroes(uint64_t value)
 }
 
 /*
+ * Returns the number of 1-bits in value.
+ */
+static inline uint32_t count_ones(uint64_t value)
+{
+    ASSERT(value != 0);
+    return (uint32_t)__builtin_popcountll(value);
+}
+
+/*
  * Returns the number of leading 0-bits in x, starting at the most significant bit position.
  * If x is 0, the result is undefined.
  */

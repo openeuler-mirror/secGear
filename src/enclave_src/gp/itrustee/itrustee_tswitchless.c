@@ -16,6 +16,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/time.h>
 #include "secgear_defs.h"
 #include "switchless_defs.h"
 #include "bit_operation.h"
@@ -55,6 +56,9 @@
 #define TEESMP_THREAD_ATTR_TASK_ID TEESMP_THREAD_ATTR_TASK_ID_INHERIT
 #endif
 
+static pthread_mutex_t g_sched_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t g_sched_cond = PTHREAD_COND_INITIALIZER;
+
 static sl_task_pool_t *tswitchless_init_pool(void *pool_buf)
 {
     sl_task_pool_t *pool = (sl_task_pool_t *)calloc(1, sizeof(sl_task_pool_t));
@@ -63,17 +67,22 @@ static sl_task_pool_t *tswitchless_init_pool(void *pool_buf)
         return NULL;
     }
 
-    sl_task_pool_config_t *pool_cfg = (sl_task_pool_config_t *)pool_buf;
+    cc_sl_config_t *pool_cfg = (cc_sl_config_t *)pool_buf;
 
     pool->pool_cfg = *pool_cfg;
-    pool->bit_buf_size = pool_cfg->call_pool_size_qwords * sizeof(uint64_t);
+    pool->bit_buf_size = pool_cfg->sl_call_pool_size_qwords * sizeof(uint64_t);
     pool->per_task_size = SL_CALCULATE_PER_TASK_SIZE(pool_cfg);
 
     pool->pool_buf = (char *)pool_buf;
-    pool->signal_bit_buf = (uint64_t *)(pool->pool_buf + sizeof(sl_task_pool_config_t));
+    pool->signal_bit_buf = (uint64_t *)(pool->pool_buf + sizeof(cc_sl_config_t));
     pool->task_buf = (char *)pool->signal_bit_buf + pool->bit_buf_size;
 
     return pool;
+}
+
+static bool tswitchless_is_workers_policy_wakeup(cc_sl_config_t *cfg)
+{
+    return cfg->workers_policy == WORKERS_POLICY_WAKEUP;
 }
 
 static void tswitchless_fini_workers(sl_task_pool_t *pool, pthread_t *tids)
@@ -81,6 +90,15 @@ static void tswitchless_fini_workers(sl_task_pool_t *pool, pthread_t *tids)
     int ret;
     uint32_t thread_num = pool->pool_cfg.num_tworkers;
     pool->need_stop_tworkers = true;
+
+    if (tswitchless_is_workers_policy_wakeup(&(pool->pool_cfg))) {
+        thread_num += 1;
+
+        // Wakes all dormant worker threads and informs it to exit
+        CC_MUTEX_LOCK(&g_sched_lock);
+        CC_COND_BROADCAST(&g_sched_cond);
+        CC_MUTEX_UNLOCK(&g_sched_lock);
+    }
 
     for (uint32_t i = 0; i < thread_num; ++i) {
         if (tids[i] != NULL) {
@@ -99,7 +117,7 @@ static inline sl_task_t *tswitchless_get_task_by_index(sl_task_pool_t *pool, int
 
 static int tswitchless_get_pending_task(sl_task_pool_t *pool)
 {
-    int call_pool_size_qwords = (int)pool->pool_cfg.call_pool_size_qwords;
+    int call_pool_size_qwords = (int)pool->pool_cfg.sl_call_pool_size_qwords;
     uint64_t *signal_bit_buf = pool->signal_bit_buf;
     int start_bit = 0;
     int end_bit = 0;
@@ -156,6 +174,10 @@ static void tswitchless_proc_task(sl_task_t *task)
 
 static int thread_num = 0;
 
+#define TSWITCHLESS_TIMEOUT_IN_USEC 500000
+#define TSWITCHLESS_USEC_PER_SEC 1000000
+#define TSWITCHLESS_GETTIME_PER_CNT 10000000
+
 static void *tswitchless_thread_routine(void *data)
 {
     int thread_index = __atomic_add_fetch(&thread_num, 1, __ATOMIC_ACQ_REL);
@@ -165,14 +187,45 @@ static void *tswitchless_thread_routine(void *data)
     sl_task_t *task_buf = NULL;
     sl_task_pool_t *pool = (sl_task_pool_t *)data;
     int processed_count = 0;
+    bool is_workers_policy_wakeup = tswitchless_is_workers_policy_wakeup(&(pool->pool_cfg));
+    struct timeval tval_before;
+    struct timeval tval_after;
+    struct timeval duration;
+    int count = 0;
+    bool timeout = true;
 
     while (true) {
         if (pool->need_stop_tworkers) {
             break;
         }
 
+        count++;
         task_index = tswitchless_get_pending_task(pool);
         if (task_index == -1) {
+            /*
+             * If the scheduling policy is WORKERS_POLICY_WAKEUP, After the task is processed,
+             * wait for a period of time before exiting. A new task may arrive immediately.
+             * This reduces the performance loss caused by frequent sleep and wakeup between threads.
+             */
+            if (is_workers_policy_wakeup && count > TSWITCHLESS_GETTIME_PER_CNT) {
+                gettimeofday(&tval_after, NULL);
+                timersub(&tval_after, &tval_before, &duration);
+                timeout =
+                    (duration.tv_sec * TSWITCHLESS_USEC_PER_SEC + duration.tv_usec) >= TSWITCHLESS_TIMEOUT_IN_USEC;
+
+                count = 0;
+            }
+
+            if (is_workers_policy_wakeup && timeout) {
+                CC_MUTEX_LOCK(&g_sched_lock);
+                CC_COND_WAIT(&g_sched_cond, &g_sched_lock);
+                CC_MUTEX_UNLOCK(&g_sched_lock);
+
+                gettimeofday(&tval_before, NULL);
+                count = 0;
+                timeout = false;
+            }
+
             continue;
         }
 
@@ -189,12 +242,76 @@ static void *tswitchless_thread_routine(void *data)
     return NULL;
 }
 
+static inline int tswitchless_get_total_pending_task(sl_task_pool_t *pool)
+{
+    int count = 0;
+    int call_pool_size_qwords = (int)pool->pool_cfg.sl_call_pool_size_qwords;
+    uint64_t *signal_bit_buf = pool->signal_bit_buf;
+    uint64_t element_val = 0;
+
+    for (int i = 0; i < call_pool_size_qwords; ++i) {
+        element_val = *(signal_bit_buf + i);
+
+        if (element_val == 0) {
+            continue;
+        }
+
+        count += count_ones(element_val);
+    }
+
+    return count;
+}
+
+static void *tswitchless_thread_scheduler(void *data)
+{
+    SLogTrace("Enter scheduler tworker.");
+
+    int task_num;
+    sl_task_pool_t *pool = (sl_task_pool_t *)data;
+
+    while (true) {
+        if (pool->need_stop_tworkers) {
+            break;
+        }
+
+        task_num = tswitchless_get_total_pending_task(pool);
+        if (task_num == 0) {
+            continue;
+        } else {
+            CC_MUTEX_LOCK(&g_sched_lock);
+            CC_COND_BROADCAST(&g_sched_cond);
+            CC_MUTEX_UNLOCK(&g_sched_lock);
+        }
+    }
+
+    SLogTrace("Exit scheduler tworker.");
+
+    return NULL;
+}
+
+typedef void *(*TSWITCHLESS_THREAD_FUNC)(void *data);
+
+TSWITCHLESS_THREAD_FUNC tswitchless_get_thread_func(bool is_sched)
+{
+    if (is_sched) {
+        return tswitchless_thread_scheduler;
+    }
+
+    return tswitchless_thread_routine;
+}
+
 static pthread_t *tswitchless_init_workers(sl_task_pool_t *pool)
 {
     int ret;
-    sl_task_pool_config_t *pool_cfg = &pool->pool_cfg;
+    cc_sl_config_t *pool_cfg = &pool->pool_cfg;
+    uint32_t thread_count = pool_cfg->num_tworkers;
+    bool is_workers_policy_wakeup = tswitchless_is_workers_policy_wakeup(pool_cfg);
 
-    pthread_t *tids = (pthread_t *)calloc(pool_cfg->num_tworkers, sizeof(pthread_t));
+    if (is_workers_policy_wakeup) {
+        thread_count += 1;
+    }
+
+    pthread_t *tids = (pthread_t *)calloc(thread_count, sizeof(pthread_t));
     if (tids == NULL) {
         SLogError("Malloc memory for tworkers failed.");
         return NULL;
@@ -214,8 +331,9 @@ static pthread_t *tswitchless_init_workers(sl_task_pool_t *pool)
         return NULL;
     }
 
-    for (uint32_t i = 0; i < pool_cfg->num_tworkers; ++i) {
-        ret = pthread_create(tids + i, &attr, tswitchless_thread_routine, pool);
+    for (uint32_t i = 0; i < thread_count; ++i) {
+        // If the policy is WORKERS_POLICY_WAKEUP, the first is the scheduling thread.
+        ret = pthread_create(tids + i, &attr, tswitchless_get_thread_func(is_workers_policy_wakeup && i == 0), pool);
         if (ret != 0) {
             tswitchless_fini_workers(pool, tids);
             free(tids);
