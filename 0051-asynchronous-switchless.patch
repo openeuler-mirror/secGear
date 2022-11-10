@@ -1,0 +1,515 @@
+From f73e925c5bd78dff9c6398f62386c86d1e7aaf01 Mon Sep 17 00:00:00 2001
+From: modric <wangyu283@huawei.com>
+Date: Wed, 9 Nov 2022 15:14:08 +0800
+Subject: [PATCH 2/4] asynchronous switchless
+
+---
+ inc/common_inc/switchless_defs.h |  3 +-
+ inc/host_inc/enclave.h           | 13 ++++++++
+ inc/host_inc/enclave_internal.h  | 12 ++++---
+ inc/host_inc/status.h            |  4 ++-
+ src/host_src/enclave.c           | 18 ++++++++++
+ src/host_src/gp/gp_enclave.c     | 57 ++++++++++++++++++++++++++++----
+ src/host_src/gp/gp_uswitchless.c | 44 +++++++++++++++++++++---
+ src/host_src/gp/gp_uswitchless.h | 35 ++++++++++++++++----
+ tools/codegener/Genheader.ml     | 29 +++++++++++++++-
+ tools/codegener/Genuntrust.ml    | 54 ++++++++++++++++++++++++++++--
+ 10 files changed, 242 insertions(+), 27 deletions(-)
+
+diff --git a/inc/common_inc/switchless_defs.h b/inc/common_inc/switchless_defs.h
+index 84629c3..b525df0 100644
+--- a/inc/common_inc/switchless_defs.h
++++ b/inc/common_inc/switchless_defs.h
+@@ -59,7 +59,8 @@ typedef struct {
+ 
+ typedef struct {
+     volatile uint32_t status;
+-    uint32_t func_id;
++    uint16_t func_id;
++    uint16_t retval_size;
+     volatile uint64_t ret_val;
+     uint64_t params[0];
+ } sl_task_t;
+diff --git a/inc/host_inc/enclave.h b/inc/host_inc/enclave.h
+index 0dde8c3..94aedf4 100644
+--- a/inc/host_inc/enclave.h
++++ b/inc/host_inc/enclave.h
+@@ -87,6 +87,19 @@ CC_API_SPEC cc_enclave_result_t cc_enclave_create(
+ 
+ CC_API_SPEC cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context);
+ 
++/*
++ * Summary: Obtains the result of the switchless asynchronous invoking task
++ * Parameters:
++ *     enclave: enclave
++ *     task_id: id of an asynchronous invoking task
++ *     retval: accepts the return value, NULL is required for functions of the void type or the return value is ignored
++ * Return:
++ *     CC_SUCCESS, success;
++ *     CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED, the asynchronous invoking task is not completed;
++ *     others failed.
++ */
++CC_API_SPEC cc_enclave_result_t cc_sl_get_async_result(cc_enclave_t *enclave, int task_id, void *retval);
++
+ /*automatic file generation required: aligned bytes*/
+ #define ALIGNMENT_SIZE (2 * sizeof(void*))
+ 
+diff --git a/inc/host_inc/enclave_internal.h b/inc/host_inc/enclave_internal.h
+index 5a8af38..a66d1a3 100644
+--- a/inc/host_inc/enclave_internal.h
++++ b/inc/host_inc/enclave_internal.h
+@@ -31,7 +31,8 @@ typedef enum _enclave_state {
+ } enclave_state_t;
+ 
+ typedef struct {
+-    uint32_t func_id;
++    uint16_t func_id;
++    uint16_t retval_size;
+     uint32_t argc;
+     void *args;
+ } sl_ecall_func_info_t;
+@@ -66,10 +67,11 @@ struct cc_enclave_ops {
+ 		    const void *ocall_table);
+ 
+     /* switchless ecall */
+-    cc_enclave_result_t (*cc_sl_ecall_enclave)(cc_enclave_t *enclave,
+-                                               void *retval,
+-                                               size_t retval_size,
+-                                               sl_ecall_func_info_t *func_info);
++    cc_enclave_result_t (*cc_sl_ecall_enclave)(cc_enclave_t *enclave, void *retval, sl_ecall_func_info_t *func_info);
++
++    /* switchless async ecall */
++    cc_enclave_result_t (*cc_sl_async_ecall)(cc_enclave_t *enclave, int *task_id, sl_ecall_func_info_t *func_info);
++    cc_enclave_result_t (*cc_sl_async_ecall_get_result)(cc_enclave_t *enclave, int task_id, void *retval);
+ 
+     /* shared memory */
+     void *(*cc_malloc_shared_memory)(cc_enclave_t *enclave, size_t size, bool is_control_buf);
+diff --git a/inc/host_inc/status.h b/inc/host_inc/status.h
+index 15de9d1..4f982f8 100644
+--- a/inc/host_inc/status.h
++++ b/inc/host_inc/status.h
+@@ -165,7 +165,9 @@ typedef enum _enclave_result_t
+     CC_ERROR_SHARED_MEMORY_REPEAT_REGISTER, 	        /* The shared memory is repeatedly registered */
+     CC_ERROR_SHARED_MEMORY_START_ADDR_INVALID, 	        /* Invalid start address of the shared memory */
+     CC_ERROR_SHARED_MEMORY_NOT_REGISTERED, 	            /* Unregistered shared memory */
+-    CC_ERROR_ADDRESS_UNACCESSABLE, 	            /* Memory address is not within enclave */
++    CC_ERROR_ADDRESS_UNACCESSABLE,                      /* Memory address is not within enclave */
++    CC_ERROR_SWITCHLESS_INVALID_TASK_ID,                /* Invalid invoking task ID */
++    CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED,          /* The asynchronous invoking task is not completed */
+     CC_MAXIMUM_ERROR,
+ } cc_enclave_result_t;
+ 
+diff --git a/src/host_src/enclave.c b/src/host_src/enclave.c
+index 2e6a28a..d8b7d35 100644
+--- a/src/host_src/enclave.c
++++ b/src/host_src/enclave.c
+@@ -20,6 +20,7 @@
+ #include "enclave.h"
+ #include "enclave_log.h"
+ #include "enclave_internal.h"
++#include "secgear_defs.h"
+ 
+ extern list_ops_management  g_list_ops;
+ 
+@@ -313,3 +314,20 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
+ 
+     return CC_SUCCESS;
+ }
++
++cc_enclave_result_t cc_sl_get_async_result(cc_enclave_t *enclave, int task_id, void *retval)
++{
++    cc_enclave_result_t ret;
++
++    if (enclave == NULL || task_id < 0 || !enclave->used_flag) {
++        return CC_ERROR_BAD_PARAMETERS;
++    }
++
++    CC_RWLOCK_LOCK_RD(&enclave->rwlock);
++
++    ret = enclave->list_ops_node->ops_desc->ops->cc_sl_async_ecall_get_result(enclave, task_id, retval);
++
++    CC_RWLOCK_UNLOCK(&enclave->rwlock);
++
++    return ret;
++}
+\ No newline at end of file
+diff --git a/src/host_src/gp/gp_enclave.c b/src/host_src/gp/gp_enclave.c
+index f77cdd8..5345973 100644
+--- a/src/host_src/gp/gp_enclave.c
++++ b/src/host_src/gp/gp_enclave.c
+@@ -817,10 +817,7 @@ done:
+     return result;
+ }
+ 
+-cc_enclave_result_t cc_sl_enclave_call_function(cc_enclave_t *enclave,
+-                                                void *retval,
+-                                                size_t retval_size,
+-                                                sl_ecall_func_info_t *func_info)
++cc_enclave_result_t cc_sl_enclave_call_function(cc_enclave_t *enclave, void *retval, sl_ecall_func_info_t *func_info)
+ {
+     if (!uswitchless_is_switchless_enabled(enclave)) {
+         return CC_ERROR_SWITCHLESS_DISABLED;
+@@ -835,19 +832,67 @@ cc_enclave_result_t cc_sl_enclave_call_function(cc_enclave_t *enclave,
+         return CC_ERROR_SWITCHLESS_TASK_POOL_FULL;
+     }
+ 
+-    uswitchless_fill_task(enclave, task_index, func_info->func_id, func_info->argc, func_info->args);
++    uswitchless_fill_task(enclave, task_index, func_info->func_id, func_info->retval_size, func_info->argc,
++        func_info->args);
+     uswitchless_submit_task(enclave, task_index);
+-    cc_enclave_result_t ret = uswitchless_get_task_result(enclave, task_index, retval, retval_size);
++    cc_enclave_result_t ret = uswitchless_get_task_result(enclave, task_index, retval);
+     uswitchless_put_idle_task_by_index(enclave, task_index);
+ 
+     return ret;
+ }
+ 
++cc_enclave_result_t cc_sl_async_ecall(cc_enclave_t *enclave, int *task_id, sl_ecall_func_info_t *func_info)
++{
++    if (task_id == NULL) {
++        return CC_ERROR_BAD_PARAMETERS;
++    }
++
++    if (!uswitchless_is_switchless_enabled(enclave)) {
++        return CC_ERROR_SWITCHLESS_DISABLED;
++    }
++
++    if (!uswitchless_is_valid_param_num(enclave, func_info->argc)) {
++        return CC_ERROR_SWITCHLESS_INVALID_ARG_NUM;
++    }
++
++    int task_index = uswitchless_get_idle_task_index(enclave);
++    if (task_index < 0) {
++        return CC_ERROR_SWITCHLESS_TASK_POOL_FULL;
++    }
++
++    uswitchless_fill_task(enclave, task_index, func_info->func_id, func_info->retval_size, func_info->argc,
++        func_info->args);
++    uswitchless_submit_task(enclave, task_index);
++    *task_id = task_index;
++
++    return CC_SUCCESS;
++}
++
++cc_enclave_result_t cc_sl_async_ecall_check_result(cc_enclave_t *enclave, int task_id, void *retval)
++{
++    if (!uswitchless_is_switchless_enabled(enclave)) {
++        return CC_ERROR_SWITCHLESS_DISABLED;
++    }
++
++    if (!uswitchless_is_valid_task_index(enclave, task_id)) {
++        return CC_ERROR_SWITCHLESS_INVALID_TASK_ID;
++    }
++
++    cc_enclave_result_t ret = uswitchless_get_async_task_result(enclave, task_id, retval);
++    if (ret != CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++        uswitchless_put_idle_task_by_index(enclave, task_id);
++    }
++
++    return ret;
++}
++
+ const struct cc_enclave_ops g_ops = {
+     .cc_create_enclave  = _gp_create,
+     .cc_destroy_enclave = _gp_destroy,
+     .cc_ecall_enclave =  cc_enclave_call_function,
+     .cc_sl_ecall_enclave = cc_sl_enclave_call_function,
++    .cc_sl_async_ecall = cc_sl_async_ecall,
++    .cc_sl_async_ecall_get_result = cc_sl_async_ecall_check_result,
+     .cc_malloc_shared_memory = gp_malloc_shared_memory,
+     .cc_free_shared_memory = gp_free_shared_memory,
+     .cc_register_shared_memory = gp_register_shared_memory,
+diff --git a/src/host_src/gp/gp_uswitchless.c b/src/host_src/gp/gp_uswitchless.c
+index f1288c2..2a315ea 100644
+--- a/src/host_src/gp/gp_uswitchless.c
++++ b/src/host_src/gp/gp_uswitchless.c
+@@ -97,6 +97,21 @@ bool uswitchless_is_valid_param_num(cc_enclave_t *enclave, uint32_t argc)
+     return argc <= USWITCHLESS_TASK_POOL(enclave)->pool_cfg.num_max_params;
+ }
+ 
++bool uswitchless_is_valid_task_index(cc_enclave_t *enclave, int task_index)
++{
++    sl_task_pool_t *pool = USWITCHLESS_TASK_POOL(enclave);
++    int task_total = pool->pool_cfg.sl_call_pool_size_qwords * SWITCHLESS_BITS_IN_QWORD;
++
++    if (task_index < 0 || task_index >= task_total) {
++        return false;
++    }
++
++    int i = task_index / SWITCHLESS_BITS_IN_QWORD;
++    int j = task_index % SWITCHLESS_BITS_IN_QWORD;
++
++    return !((*(pool->free_bit_buf + i)) & (1UL << j));
++}
++
+ int uswitchless_get_idle_task_index(cc_enclave_t *enclave)
+ {
+     sl_task_pool_t *pool = USWITCHLESS_TASK_POOL(enclave);
+@@ -144,11 +159,13 @@ static inline sl_task_t *uswitchless_get_task_by_index(cc_enclave_t *enclave, in
+     return (sl_task_t *)(pool->task_buf + task_index * pool->per_task_size);
+ }
+ 
+-void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_id, uint32_t argc, const void *args)
++void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint16_t func_id, uint16_t retval_size,
++    uint32_t argc, const void *args)
+ {
+     sl_task_t *task = uswitchless_get_task_by_index(enclave, task_index);
+ 
+     task->func_id = func_id;
++    task->retval_size = retval_size;
+     __atomic_store_n(&task->status, SL_TASK_INIT, __ATOMIC_RELEASE);
+     memcpy(&task->params[0], args, sizeof(uint64_t) * argc);
+ }
+@@ -165,7 +182,7 @@ void uswitchless_submit_task(cc_enclave_t *enclave, int task_index)
+ 
+ #define CA_TIMEOUT_IN_SEC 60
+ #define CA_GETTIME_PER_CNT 100000000
+-cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_index, void *retval, size_t retval_size)
++cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_index, void *retval)
+ {
+     sl_task_t *task = uswitchless_get_task_by_index(enclave, task_index);
+     uint32_t cur_status;
+@@ -178,8 +195,8 @@ cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_
+     while (true) {
+         cur_status = __atomic_load_n(&task->status, __ATOMIC_ACQUIRE);
+         if (cur_status == SL_TASK_DONE_SUCCESS) {
+-            if ((retval != NULL) && (retval_size != 0)) {
+-                (void)memcpy(retval, (void *)&task->ret_val, retval_size);
++            if ((retval != NULL) && (task->retval_size > 0)) {
++                (void)memcpy(retval, (void *)&task->ret_val, task->retval_size);
+             }
+ 
+             return CC_SUCCESS;
+@@ -199,3 +216,22 @@ cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_
+ 
+     return CC_ERROR_TIMEOUT;
+ }
++
++cc_enclave_result_t uswitchless_get_async_task_result(cc_enclave_t *enclave, int task_index, void *retval)
++{
++    sl_task_t *task = uswitchless_get_task_by_index(enclave, task_index);
++    uint32_t cur_status;
++
++    cur_status = __atomic_load_n(&task->status, __ATOMIC_ACQUIRE);
++    if (cur_status == SL_TASK_DONE_SUCCESS) {
++        if ((retval != NULL) && (task->retval_size > 0)) {
++            (void)memcpy(retval, (void *)&task->ret_val, task->retval_size);
++        }
++
++        return CC_SUCCESS;
++    } else if (cur_status == SL_TASK_DONE_FAILED) {
++        return (cc_enclave_result_t)task->ret_val;
++    }
++
++    return CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED;
++}
+diff --git a/src/host_src/gp/gp_uswitchless.h b/src/host_src/gp/gp_uswitchless.h
+index 4d957ce..13ac14a 100644
+--- a/src/host_src/gp/gp_uswitchless.h
++++ b/src/host_src/gp/gp_uswitchless.h
+@@ -81,18 +81,26 @@ void uswitchless_put_idle_task_by_index(cc_enclave_t *enclave, int task_index);
+ void uswitchless_submit_task(cc_enclave_t *enclave, int task_index);
+ 
+ /*
+- * Summary: submitting a task
++ * Summary: Obtains the result of the switchless invoking task
+  * Parameters:
+  *      enclave: enclave
+  *      task_index: index of an task area
+  *      ret_val: address that accepts the return value
+- *      ret_val_size: size of the return value
+  * Return: CC_SUCCESS, success; others failed.
+  */
+-cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave,
+-                                                int task_index,
+-                                                void *ret_val,
+-                                                size_t ret_val_size);
++cc_enclave_result_t uswitchless_get_task_result(cc_enclave_t *enclave, int task_index, void *ret_val);
++
++/*
++ * Summary: Obtains the result of the switchless asynchronous invoking task
++ * Parameters:
++ *      enclave: enclave
++ *      task_index: index of an task area
++ *      ret_val: address that accepts the return value
++ * Return: CC_SUCCESS, success;
++           CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED, the asynchronous invoking task is not completed;
++           others failed.
++ */
++cc_enclave_result_t uswitchless_get_async_task_result(cc_enclave_t *enclave, int task_index, void *retval);
+ 
+ /*
+  * Summary: whether the switchless features is enabled
+@@ -115,17 +123,30 @@ bool uswitchless_is_switchless_enabled(cc_enclave_t *enclave);
+  */
+ bool uswitchless_is_valid_param_num(cc_enclave_t *enclave, uint32_t argc);
+ 
++/*
++ * Summary: whether the task index is valid
++ * Parameters:
++ *      enclave: enclave
++ *      argc: task index
++ * Return:
++ *      true: the task index is valid
++ *      false: invalid task index
++ */
++bool uswitchless_is_valid_task_index(cc_enclave_t *enclave, int task_index);
++
+ /*
+  * Summary: fill a task
+  * Parameters:
+  *      enclave: enclave
+  *      task_index: index of an task area
+  *      func_id: switchless function index
++ *      retval_size: size of the return value of the function
+  *      argc: number of parameters
+  *      args: parameter buffer
+  * Return: NA
+  */
+-void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint32_t func_id, uint32_t argc, const void *args);
++void uswitchless_fill_task(cc_enclave_t *enclave, int task_index, uint16_t func_id, uint16_t retval_size,
++    uint32_t argc, const void *args);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/tools/codegener/Genheader.ml b/tools/codegener/Genheader.ml
+index 9d0514c..e00157d 100644
+--- a/tools/codegener/Genheader.ml
++++ b/tools/codegener/Genheader.ml
+@@ -71,6 +71,27 @@ let generate_rproxy_prototype (fd: func_decl) =
+         "cc_enclave_result_t " ^ func_name ^ enclave_decl ^ func_args ^")";
+     ]
+ 
++let generate_rproxy_prototype_sl_async (tf: trusted_func) =
++  if not tf.tf_is_switchless then
++    [""]
++  else
++    let fd = tf.tf_fdecl in
++    let func_name = fd.fname ^ "_async" in
++    let enclave_decl = "(\n    cc_enclave_t *enclave,\n    int *task_id" in
++    let func_args =
++      let func_args_list =
++          List.map (fun f -> gen_parm_str f) fd.plist
++    in
++    if List.length fd.plist > 0 then
++      let func_args_pre = String.concat ",\n    " func_args_list in
++        ",\n    " ^ func_args_pre
++    else
++      ""
++    in
++    [
++        "cc_enclave_result_t " ^ func_name ^ enclave_decl ^ func_args ^")";
++    ]
++
+ let generate_parm_str (p: pdecl) =
+     let (_, declr) = p in
+     declr.identifier
+@@ -344,14 +365,20 @@ let generate_untrusted_header (ec: enclave_content) =
+     let r_proxy_proto =
+         List.map (fun f -> generate_rproxy_prototype f.tf_fdecl) ec.tfunc_decls
+     in
++    let r_proxy_proto_sl_async =
++        List.map (fun f -> generate_rproxy_prototype_sl_async f) ec.tfunc_decls
++    in
+     let r_proxy =
+         String.concat ";\n\n" (List.flatten r_proxy_proto)
+     in
++    let r_proxy_sl_async =
++        String.concat ";\n\n" (List.flatten r_proxy_proto_sl_async)
++    in
+     [
+         hfile_start ^ hfile_include; 
+         c_start;
+         agent_id;
+-        trust_fproto_com ^ r_proxy ^ ";";
++        trust_fproto_com ^ r_proxy ^ r_proxy_sl_async ^ ";";
+         if (List.length ec.ufunc_decls <> 0) then untrust_fproto_com ^ untrust_func ^ ";"
+         else "/**** There is no untrusted function ****/";
+         c_end; 
+diff --git a/tools/codegener/Genuntrust.ml b/tools/codegener/Genuntrust.ml
+index dc3010d..6fb4967 100644
+--- a/tools/codegener/Genuntrust.ml
++++ b/tools/codegener/Genuntrust.ml
+@@ -98,6 +98,24 @@ let set_ecall_func_arguments (fd : func_decl) =
+         else "")
+     ]
+ 
++let set_sl_async_ecall_func_arguments (fd : func_decl) =
++    [
++        sprintf "cc_enclave_result_t %s(\n    %s" (fd.fname ^ "_async")  "cc_enclave_t *enclave,\n    int *task_id"
++        ^ (if fd.plist <> [] then
++            ",\n    " ^
++            concat ",\n    "
++            (List.map
++                (fun (ptype, decl) ->
++                    match ptype with
++                    PTVal ty -> (sprintf "%s %s" (get_tystr ty) decl.identifier)
++                    | PTPtr (t, a) -> match (a.pa_rdonly, is_array decl) with
++                                      | (true, false) -> sprintf "const %s %s" (get_tystr t) decl.identifier
++                                      | (false, true) -> sprintf "%s %s%s" (get_tystr t) decl.identifier (set_array_dims_str decl.array_dims)
++                                      | (_, _) -> sprintf "%s %s" (get_tystr t) decl.identifier)
++            fd.plist)
++        else "")
++    ]
++
+ let set_sl_ecall_func (tf : trusted_func) =
+     let tfd = tf.tf_fdecl in
+     let init_point = set_init_pointer tfd in
+@@ -162,20 +180,52 @@ let set_sl_ecall_func (tf : trusted_func) =
+         "    /* Call the cc_enclave function */";
+ 
+         "    sl_ecall_func_info_t func_info = {";
+-        "         .func_id = " ^ "fid_" ^ tfd.fname ^ ",";
++        "         .func_id = " ^ "fid_" ^ tfd.fname ^ ",\n         .retval_size= " ^ out_retval_size ^ ",";
+         "         .argc = " ^ num_params ^ ",";
+         "         .args = " ^ out_params ^ ",";
+         "    };";
+ 
+         "    ret = enclave->list_ops_node->ops_desc->ops->cc_sl_ecall_enclave(enclave,";
+         "                                                                     " ^ out_retval ^ ",";
+-        "                                                                     " ^ out_retval_size ^ ",";
+         "                                                                     &func_info);\n";
+ 
+         "    pthread_rwlock_unlock(&enclave->rwlock);";
+         (if tfd.plist <> [] then "    free(params_buf);" else "");
+         "    return ret;";
+         "}";
++
++        "";
++        concat ",\n    " (set_sl_async_ecall_func_arguments tfd) ^ ")";
++        "{";
++        "    cc_enclave_result_t ret;\n";
++        "    if (enclave == NULL) {";
++        "        return CC_ERROR_BAD_PARAMETERS;";
++        "    }\n";
++        "    if (pthread_rwlock_rdlock(&enclave->rwlock)) {";
++        "        return CC_ERROR_BUSY;";
++        "    }\n";
++        "    if (enclave->list_ops_node == NULL ||\n        enclave->list_ops_node->ops_desc == NULL ||";
++        "        enclave->list_ops_node->ops_desc->ops == NULL ||";
++        "        enclave->list_ops_node->ops_desc->ops->cc_sl_async_ecall == NULL) {";
++        "        pthread_rwlock_unlock(&enclave->rwlock);";
++        "        return CC_ERROR_BAD_PARAMETERS;";
++        "    }";
++        "";
++        params;
++        "    /* Call the cc_enclave function */";
++
++        "    sl_ecall_func_info_t func_info = {";
++        "         .func_id = " ^ "fid_" ^ tfd.fname ^ ",\n         .retval_size= " ^ out_retval_size ^ ",";
++        "         .argc = " ^ num_params ^ ",";
++        "         .args = " ^ out_params ^ ",";
++        "    };";
++
++        "    ret = enclave->list_ops_node->ops_desc->ops->cc_sl_async_ecall(enclave, task_id, &func_info);\n";
++
++        "    pthread_rwlock_unlock(&enclave->rwlock);";
++        (if tfd.plist <> [] then "    free(params_buf);" else "");
++        "    return ret;";
++        "}";
+     ]
+ 
+ let set_ecall_func (tf : trusted_func) =
+-- 
+2.27.0
+
