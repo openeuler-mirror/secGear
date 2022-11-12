@@ -165,13 +165,15 @@ switchless特性
 ### 3 特性配置项规格
 用户调用cc_enclave_create创建Enclave时，需在feature参数中传入switchless的特性配置，配置项如下：
 ```
-typedef struct _cc_sl_config_t {	
+typedef struct {
 	uint32_t num_uworkers;
 	uint32_t num_tworkers;
 	uint32_t switchless_calls_pool_size;
 	uint32_t retries_before_fallback;
 	uint32_t retries_before_sleep;
 	uint32_t parameter_num;
+	uint32_t workers_policy;
+	uint32_t rollback_to_common;
 } cc_sl_config_t;
 ```
 各配置项规格如下表：
@@ -183,7 +185,9 @@ typedef struct _cc_sl_config_t {
 |     switchless_calls_pool_size         |    switchless调用任务池的大小，实际可容纳switchless_calls_pool_size * 64个switchless调用任务（例：switchless_calls_pool_size=1，可容纳64个switchless调用任务）。<br>规格：<br>ARM：最大值：8；最小值：1；默认值：1（配置为0时）<br>SGX：最大值：8；最小值：1；默认值：1（配置为0时）|
 |        retries_before_fallback      |    执行retries_before_fallback次汇编pause指令后，若switchless调用仍没有被另一侧的代理工作线程执行，就回退到switch调用模式，该字段仅在SGX平台生效。<br>规格：br>SGX：最大值：4294967295；最小值：1；默认值：20000（配置为0时）|
 |      retries_before_sleep        |   执行retries_before_sleep次汇编pause指令后，若代理工作线程一直没有等到有任务来，则进入休眠状态，该字段仅在SGX平台生效。<br>规格：<br>SGX：最大值：4294967295；最小值：1；默认值：20000（配置为0时）|
-|       parameter_num       |   switchless函数支持的最大参数个数，该字段仅在ARM平台生效，SGX平台无此限制。<br>规格：<br>ARM：最大值：16；最小值：0|
+|       parameter_num       |   switchless函数支持的最大参数个数，该字段仅在ARM平台生效。<br>规格：<br>ARM：最大值：16；最小值：0|
+|       workers_policy       |   switchless代理线程运行模式，该字段仅在ARM平台生效。<br>规格：<br>ARM：<br>WORKERS_POLICY_BUSY：代理线程一直占用CPU资源，无论是否有任务需要处理，适用于对性能要求极高且系统软硬件资源丰富的场景；<br>WORKERS_POLICY_WAKEUP：代理线程仅在有任务时被唤醒，处理完任务后进入休眠，等待再次被新任务唤醒|
+|       rollback_to_common       |   异步switchless调用失败时是否回退到普通调用，该字段仅在ARM平台生效。<br>规格：<br>ARM：0：否，失败时仅返回相应错误码；其他：是，失败时回退到普通调用|
 
 ### 4 switchless开发流程
 [参考 switchless README.md文件](./examples/switchless/README.md)
@@ -272,6 +276,7 @@ API清单
 | cc_enclave_get_sealed_data_size()  | 用于获取加密后 sealed_data 数据占用的总大小，主要用于解密后需要分配的内存空间，安全侧与非安全侧皆可调用 |
 | cc_malloc_shared_memory()  | 用于开启switchless特性后，创建共享内存 |
 | cc_free_shared_memory()  | 用于开启switchless特性后，释放共享内存 |
+| cc_sl_get_async_result()  | 检查异步调用结果并释放异步调用资源（当前仅支持ARM） |
 
 - enclave侧接口
 
