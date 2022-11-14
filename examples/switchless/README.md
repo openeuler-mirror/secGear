@@ -74,6 +74,19 @@ switchless函数需添加'transition_using_threads'标识。
     // 销毁enclave
     res = cc_enclave_destroy(context);
 ```
+[异步switchless调用](../switchless_performance/host/main.c)，在调用ecall函数处变化有如下2点：
+- 发起异步调用
+```
+    // 调用异步ecall函数，对应安全侧函数在enclave/enclave.c中
+    res = get_string_switchless_async(context, &task_id, &retval, shared_buf);
+    ...
+```
+- 查询异步调用结果
+```
+    // 根据第一步返回的task_id, 查询异步调用结果
+    ret = cc_sl_get_async_result(context, task_id, &retval);
+    ...
+```
 调用cc_enclave_create时，需传入switcheless特性对应参数“ENCLAVE_FEATURE_SWITCHLESS”，才能正常使用使用switchless特性。
 ### 3 调用codegen工具
 [参考 switchless host/CMakeLists.txt文件](./host/CMakeLists.txt)
@@ -116,3 +129,4 @@ switchless API清单
 |  ----  | ----  |
 | cc_malloc_shared_memory()  | 创建安全环境与非安全环境可同时访问的共享内存。<br>参数：<br>enclave，安全环境上下文句柄。因不同平台共享内存模型不同，同时保持接口跨平台的一致性，该参数仅在ARM平台被使用，SGX平台该入参会被忽略。<br>size，共享内存大小。<br>返回值：<br>NULL：共享内存申请失败。<br>其他：共享内存首地址<br> |
 | cc_free_shared_memory()  | 释放共享内存。<br>参数：<br>enclave，安全环境上下文句柄。因不同平台共享内存模型不同，同时保持接口跨平台的一致性，该参数仅在ARM平台被使用（该参数必须与调用cc_malloc_shared_memory接口时传入的enclave保持一致），SGX平台该入参会被忽略。<br>ptr：cc_malloc_shared_memory接口返回的共享内存地址。<br>返回值：<br>CC_ERROR_BAD_PARAMETERS，入参非法。 <br>CC_ERROR_INVALID_HANDLE， 无效enclave或者传入的enclave与ptr所对应的enclave不匹配（仅在ARM平台生效，SGX平台会忽略enclave，故不会对enclave进行检查）。 <br>CC_ERROR_NOT_IMPLEMENTED，该接口未实现。 <br>CC_ERROR_SHARED_MEMORY_START_ADDR_INVALID， <br>ptr不是cc_malloc_shared_memory接口返回的共享内存地址（仅在ARM平台生效）。 <br>CC_ERROR_OUT_OF_MEMORY，内存不足（仅在ARM平台生效）。 <br>CC_FAIL，一般性错误。 <br>CC_SUCCESS，成功。|
+| cc_sl_get_async_result()  | 检查异步调用结果并释放异步调用资源（当前仅支持ARM）。<br>参数：<br>enclave: 安全环境上下文句柄。<br>task_id: 异步调用任务编号。<br>retval: 用于接收返回值的缓冲区。<br>返回值：<br>CC_SUCCESS，异步调用成功。 <br>CC_ERROR_TASK_UNFINISH， 异步调用处理中。 <br>CC_ERROR_TASK_FAILED，异步调用框架执行失败。 <br>其他，一般性错误。|
