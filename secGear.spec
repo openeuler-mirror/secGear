@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	21%{?dist}
+Release:	22%{?dist}
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -165,6 +165,9 @@ popd
 %endif
 
 %changelog
+* Mon Nov 14 2022 zhengxiaoxiao<zhengxiaoxiao2@huawei.com> - 0.1.0-22
+- DESC: fix changelog error
+
 * Mon Jul 25 2022 gaoyusong<gaoyusong2@huawei.com> - 0.1.0-21
 - DESC: backport some patches to fix bugs
 
@@ -177,13 +180,13 @@ popd
 * Tue Jun 29 2021 zhangguangzhi<zhangguangzhi3@huawei.com> - 0.1.0-18
 - DESC: add some buildrequires gcc-c++ rpm
 
-* Fri June 4 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-17
+* Fri Jun 4 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-17
 - DESC: clean enclave memory when it comes to error_handle
 
-* Thu June 3 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-16
+* Thu Jun 3 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-16
 - DESC: backport some patches from openeuler secGear
 
-* Wed June 2 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-15
+* Wed Jun 2 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-15
 - DESC: fix uaf in cc_enclave_create
 
 * Thu May 20 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-14
@@ -192,7 +195,7 @@ popd
 * Wed May 12 2021 yanlu<yanlu14@huawei.com> - 0.1.0-13
 - DESC: update signtool and codegen
 
-* Thu Apr 27 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-12
+* Tue Apr 27 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-12
 - DESC: add cmake to Requires
 
 * Tue Apr 13 2021 wanghongzhe<wanghongzhe@huawei.com> - 0.1.0-11
@@ -201,7 +204,7 @@ popd
 * Sat Mar 20 2021 zhangguangzhi<zhangguangzhi3@huawei.com> - 0.1.0-10
 - DESC: backport patch
 
-* Thu Mar 19 2021 wanghongzhe<wanghongzhe@huawei.com> - 0.1.0-9
+* Fri Mar 19 2021 wanghongzhe<wanghongzhe@huawei.com> - 0.1.0-9
 - DESC: fix local compile error
 
 * Thu Mar 18 2021 gaoyusong<gaoyusong1@huawei.com> - 0.1.0-8
