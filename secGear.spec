@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	28
+Release:	29
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -102,7 +102,7 @@ The %{name}-sim is package contains simulation libraries for developing applicat
 %endif
 
 %prep
-%autosetup -n %{name} -p1
+%autosetup -n %{name}-v%{version} -p1
 
 %build
 source ./environment
@@ -180,6 +180,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Thu Nov 17 2022 zhengxiaoxiao <zhengxiaoxiao2@huawei.com> - 0.1.0-29
+- DESC:replace tar.gz
+
 * Thu Nov 10 2022 wangyu <wangyu283@huawei.com> - 0.1.0-28
 - DESC: support switchless scheduling plicies and asynchronous calls
 
