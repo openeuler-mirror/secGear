@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	30
+Release:	31
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -56,6 +56,8 @@ Patch43:	0044-fix-pointer-without-init-or-check-NULL.patch
 Patch44:	0045-optimize-the-private-key-usage-of-the-single-step-si.patch
 Patch45:	0046-fix-return-value.patch
 Patch46:        0047-del-print-uncontrol-form-string.patch
+Patch47:        0048-Delete-the-null-determination-of-out_buf-in-codegene.patch
+Patch48:        0049-support-switchless-feature.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
@@ -102,10 +104,10 @@ The %{name}-sim is package contains simulation libraries for developing applicat
 source ./environment
 %ifarch x86_64
 source /opt/intel/sgxsdk/environment
-cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=on -DSGXSDK=/opt/intel/sgxsdk
+cmake -DCMAKE_BUILD_TYPE=Debug
 make
 %else
-cmake -DCMAKE_BUILD_TYPE=Debug -DCC_GP=on -DiTrusteeSDK=/opt/itrustee_sdk
+cmake -DCMAKE_BUILD_TYPE=Debug -DENCLAVE=GP
 make
 %endif
 
@@ -137,6 +139,7 @@ install -pm 644 inc/enclave_inc/gp/itrustee/*.h %{buildroot}/%{_includedir}/secG
 pushd %{buildroot}
 rm `find . -name secgear_helloworld` -rf
 rm `find . -name secgear_seal_data` -rf
+rm `find . -name secgear_switchless` -rf
 %ifarch aarch64
 rm `find . -name libsecgearsim.so` -rf
 %endif
@@ -173,6 +176,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Sat Nov 12 2022 zhengxiaoxiao <zhengxiaoxiao2@huawei.com> - 0.1.0-31
+- add "Delete-the-null-determination-of-out_buf_in_codegene.patch" and "support-switchless-feature.patch" 
+
 * Wed Aug 03 2022 fushanqing <fushanqing@kylinos.cn> - 0.1.0-30
 - Unified license name specification
 

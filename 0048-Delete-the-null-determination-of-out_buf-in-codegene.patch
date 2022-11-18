@@ -1,0 +1,25 @@
+From 19595d5dea95ccd985fdc10d175e9520f7bb0cc1 Mon Sep 17 00:00:00 2001
+From: z30023234 <zhengxiaoxiao2@huawei.com>
+Date: Sun, 24 Apr 2022 15:23:40 +0800
+Subject: [PATCH] Delete the null determination of out_buf in codegener.
+
+---
+ tools/codegener/Gentrust.ml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/codegener/Gentrust.ml b/tools/codegener/Gentrust.ml
+index b62624e..58d6a8e 100644
+--- a/tools/codegener/Gentrust.ml
++++ b/tools/codegener/Gentrust.ml
+@@ -156,7 +156,7 @@ let set_ecall_func (tf : trusted_func) =
+         else    
+                 "    /* There is no parameters point */"; 
+         "";
+-        "    if (in_buf == NULL || out_buf == NULL)";
++        "    if (in_buf == NULL)";
+         "        goto done;";
+         sprintf "    %s_size_t *args_size = (%s_size_t *)in_buf;" tfd.fname tfd.fname;
+         "    in_buf_offset += size_to_aligned_size(sizeof(*args_size));";
+-- 
+1.8.3.1
+
