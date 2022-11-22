@@ -1,0 +1,559 @@
+From 5b5caa5bc583c4a7dec5e3050dae619fa00d8424 Mon Sep 17 00:00:00 2001
+From: modric <wangyu283@huawei.com>
+Date: Tue, 18 Oct 2022 21:54:45 +0800
+Subject: [PATCH 1/4] switchless schedule policy
+
+Signed-off-by: modric <wangyu283@huawei.com>
+---
+ inc/common_inc/bit_operation.h                |   9 ++
+ inc/common_inc/switchless_defs.h              |  49 ++++---
+ inc/host_inc/secgear_defs.h                   |   1 +
+ inc/host_inc/secgear_uswitchless.h            |  12 +-
+ .../gp/itrustee/itrustee_tswitchless.c        | 134 ++++++++++++++++--
+ src/host_src/gp/gp_enclave.c                  |  18 +--
+ src/host_src/gp/gp_enclave.h                  |   2 +
+ src/host_src/gp/gp_uswitchless.c              |  19 +--
+ src/host_src/gp/gp_uswitchless.h              |   7 +-
+ 9 files changed, 205 insertions(+), 46 deletions(-)
+
+diff --git a/inc/common_inc/bit_operation.h b/inc/common_inc/bit_operation.h
+index baa6a1b..ab20121 100644
+--- a/inc/common_inc/bit_operation.h
++++ b/inc/common_inc/bit_operation.h
+@@ -37,6 +37,15 @@ static inline uint32_t count_tailing_zeroes(uint64_t value)
+     return (uint32_t)__builtin_ctzll(value);
+ }
+ 
++/*
++ * Returns the number of 1-bits in value.
++ */
++static inline uint32_t count_ones(uint64_t value)
++{
++    ASSERT(value != 0);
++    return (uint32_t)__builtin_popcountll(value);
++}
++
+ /*
+  * Returns the number of leading 0-bits in x, starting at the most significant bit position.
+  * If x is 0, the result is undefined.
+diff --git a/inc/common_inc/switchless_defs.h b/inc/common_inc/switchless_defs.h
+index c7e9dfc..84629c3 100644
+--- a/inc/common_inc/switchless_defs.h
++++ b/inc/common_inc/switchless_defs.h
+@@ -16,28 +16,45 @@
+ #include <stdint.h>
+ #include <stdbool.h>
+ 
++#include "secgear_uswitchless.h"
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+ 
+ #define SWITCHLESS_BITS_IN_QWORD 64
+ 
+-typedef struct {
+-    uint32_t num_uworkers;  // number of untrusted (for ocalls) worker threads
+-    uint32_t num_tworkers; // number of trusted (for ecalls) worker threads
+-    uint32_t call_pool_size_qwords; // number of switchless calls pool size (actual number is x 64)
+-    uint32_t num_max_params; // max number of parameters
+-} sl_task_pool_config_t;
++/*
++ *                        sl_task_pool_t      free_bit_buf
++ *                        |                   |
++ *                        v                   v
++ *                        +-------------------+-+-+--------+-+----------------+-+
++ *                  +---- | task_buf          | | |        | |                | |
++ *                  | +-- | pool_buf          |0|1|  ...   |1|       ...      |1|   normal memory
++ *                  | |   +-------------------+-+-+--------+-+----------------+-+
++ *                  | |
++ *                  | |                       signal_bit_buf
++ *                  | |                       |
++ *                  | |                       v
++ *                  | +-> +-------------------+-+-+--------+-+----------------+-+
++ *                  |     |                   | | |        | |                | |
++ *                  |     | cc_sl_config_t    |1|0|  ...   |0|       ...      |0|
++ *                  +---> +--------+---------++-+-+---+----+-+--+--------+----+-+
++ *                task[0] | status | func id | retval | params1 | prams2 | ...  |   shared memory
++ *                        +--------+---------+--------+---------+--------+------+
++ *                task[n] |                          ...                        |
++ *                        +-----------------------------------------------------+
++ */
+ 
+ typedef struct {
+-    char *pool_buf; // switchless task pool control area
++    char *pool_buf; // switchless task pool control area, includes configuration area, signal bit area, and task area
+     char *task_buf; // part of pool_buf, stores invoking tasks
+-    uint64_t *free_bit_buf; // idle task flag
+-    uint64_t *signal_bit_buf; // to-be-processed task flag
+-    uint32_t bit_buf_size; // size of each task flag area
+-    uint32_t per_task_size; // size of each task
++    uint64_t *free_bit_buf; // length is bit_buf_size, the task indicated by the bit subscript is idle
++    uint64_t *signal_bit_buf; // length is bit_buf_size, the task indicated by the bit subscript is to be processed
++    uint32_t bit_buf_size; // size of each bit buf in bytes, determined by sl_call_pool_size_qwords in cc_sl_config_t
++    uint32_t per_task_size; // size of each task in bytes, for details, see task[0]
+     volatile bool need_stop_tworkers; // indicates whether to stop the trusted proxy thread
+-    sl_task_pool_config_t pool_cfg;
++    cc_sl_config_t pool_cfg;
+ } sl_task_pool_t;
+ 
+ typedef struct {
+@@ -65,12 +82,12 @@ typedef enum {
+  * Return:
+  *     pool size in bytes
+  */
+-inline size_t sl_get_pool_buf_len_by_config(sl_task_pool_config_t *pool_cfg)
++inline size_t sl_get_pool_buf_len_by_config(cc_sl_config_t *pool_cfg)
+ {
+-    size_t signal_bit_buf_size = pool_cfg->call_pool_size_qwords * sizeof(uint64_t);
++    size_t signal_bit_buf_size = pool_cfg->sl_call_pool_size_qwords * sizeof(uint64_t);
+     size_t each_task_size = SL_CALCULATE_PER_TASK_SIZE(pool_cfg);
+-    size_t task_buf_size = each_task_size * pool_cfg->call_pool_size_qwords * SWITCHLESS_BITS_IN_QWORD;
+-    return sizeof(sl_task_pool_config_t) + signal_bit_buf_size + task_buf_size;
++    size_t task_buf_size = each_task_size * pool_cfg->sl_call_pool_size_qwords * SWITCHLESS_BITS_IN_QWORD;
++    return sizeof(cc_sl_config_t) + signal_bit_buf_size + task_buf_size;
+ }
+ 
+ /*
+diff --git a/inc/host_inc/secgear_defs.h b/inc/host_inc/secgear_defs.h
+index 4ca11a8..183646d 100644
+--- a/inc/host_inc/secgear_defs.h
++++ b/inc/host_inc/secgear_defs.h
+@@ -32,6 +32,7 @@ extern "C" {
+ #define CC_MUTEX_UNLOCK(lock)           CC_IGNORE(pthread_mutex_unlock(lock))
+ #define CC_COND_INIT(cond, attr)        CC_IGNORE(pthread_cond_init(cond, attr))
+ #define CC_COND_SIGNAL(cond)            CC_IGNORE(pthread_cond_signal(cond))
++#define CC_COND_BROADCAST(cond)         CC_IGNORE(pthread_cond_broadcast(cond))
+ #define CC_COND_WAIT(cond, mtx_lock)    CC_IGNORE(pthread_cond_wait(cond, mtx_lock))
+ #define CC_COND_DESTROY(cond)           CC_IGNORE(pthread_cond_destroy(cond))
+ #define CC_THREAD_ATTR_INIT(attr)       CC_IGNORE(pthread_attr_init(attr))
+diff --git a/inc/host_inc/secgear_uswitchless.h b/inc/host_inc/secgear_uswitchless.h
+index bff563c..8e21fd9 100644
+--- a/inc/host_inc/secgear_uswitchless.h
++++ b/inc/host_inc/secgear_uswitchless.h
+@@ -47,6 +47,13 @@
+ extern "C" {
+ #endif
+ 
++typedef enum {
++    /* Worker threads work all the time. */
++    WORKERS_POLICY_BUSY,
++    /* The worker thread is only woken up when the task arrives and goes to sleep after the task is processed. */
++    WORKERS_POLICY_WAKEUP,
++    WORKERS_POLICY_MAX
++} cc_workers_policy_t;
+ 
+ typedef struct {
+     /* number of untrusted (for ocalls) worker threads */
+@@ -72,9 +79,12 @@ typedef struct {
+      * before going to sleep, only for SGX
+      */
+     uint32_t retries_before_sleep;
++
++    /* Worker thread scheduling policy, refer to cc_workers_policy_t, only for GP */
++    uint64_t workers_policy;
+ } cc_sl_config_t;
+ 
+-#define CC_USWITCHLESS_CONFIG_INITIALIZER   {1, 1, 1, 16, 0, 0}
++#define CC_USWITCHLESS_CONFIG_INITIALIZER   {1, 1, 1, 16, 0, 0, WORKERS_POLICY_BUSY}
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/src/enclave_src/gp/itrustee/itrustee_tswitchless.c b/src/enclave_src/gp/itrustee/itrustee_tswitchless.c
+index 5ccb519..3955ff9 100644
+--- a/src/enclave_src/gp/itrustee/itrustee_tswitchless.c
++++ b/src/enclave_src/gp/itrustee/itrustee_tswitchless.c
+@@ -16,6 +16,7 @@
+ #include <stdarg.h>
+ #include <stdlib.h>
+ #include <time.h>
++#include <sys/time.h>
+ #include "secgear_defs.h"
+ #include "switchless_defs.h"
+ #include "bit_operation.h"
+@@ -55,6 +56,9 @@
+ #define TEESMP_THREAD_ATTR_TASK_ID TEESMP_THREAD_ATTR_TASK_ID_INHERIT
+ #endif
+ 
++static pthread_mutex_t g_sched_lock = PTHREAD_MUTEX_INITIALIZER;
++static pthread_cond_t g_sched_cond = PTHREAD_COND_INITIALIZER;
++
+ static sl_task_pool_t *tswitchless_init_pool(void *pool_buf)
+ {
+     sl_task_pool_t *pool = (sl_task_pool_t *)calloc(1, sizeof(sl_task_pool_t));
+@@ -63,25 +67,39 @@ static sl_task_pool_t *tswitchless_init_pool(void *pool_buf)
+         return NULL;
+     }
+ 
+-    sl_task_pool_config_t *pool_cfg = (sl_task_pool_config_t *)pool_buf;
++    cc_sl_config_t *pool_cfg = (cc_sl_config_t *)pool_buf;
+ 
+     pool->pool_cfg = *pool_cfg;
+-    pool->bit_buf_size = pool_cfg->call_pool_size_qwords * sizeof(uint64_t);
++    pool->bit_buf_size = pool_cfg->sl_call_pool_size_qwords * sizeof(uint64_t);
+     pool->per_task_size = SL_CALCULATE_PER_TASK_SIZE(pool_cfg);
+ 
+     pool->pool_buf = (char *)pool_buf;
+-    pool->signal_bit_buf = (uint64_t *)(pool->pool_buf + sizeof(sl_task_pool_config_t));
++    pool->signal_bit_buf = (uint64_t *)(pool->pool_buf + sizeof(cc_sl_config_t));
+     pool->task_buf = (char *)pool->signal_bit_buf + pool->bit_buf_size;
+ 
+     return pool;
+ }
+ 
++static bool tswitchless_is_workers_policy_wakeup(cc_sl_config_t *cfg)
++{
++    return cfg->workers_policy == WORKERS_POLICY_WAKEUP;
++}
++
+ static void tswitchless_fini_workers(sl_task_pool_t *pool, pthread_t *tids)
+ {
+     int ret;
+     uint32_t thread_num = pool->pool_cfg.num_tworkers;
+     pool->need_stop_tworkers = true;
+ 
++    if (tswitchless_is_workers_policy_wakeup(&(pool->pool_cfg))) {
++        thread_num += 1;
++
++        // Wakes all dormant worker threads and informs it to exit
++        CC_MUTEX_LOCK(&g_sched_lock);
++        CC_COND_BROADCAST(&g_sched_cond);
++        CC_MUTEX_UNLOCK(&g_sched_lock);
++    }
++
+     for (uint32_t i = 0; i < thread_num; ++i) {
+         if (tids[i] != NULL) {
+             ret = pthread_join(tids[i], NULL);
+@@ -99,7 +117,7 @@ static inline sl_task_t *tswitchless_get_task_by_index(sl_task_pool_t *pool, int
+ 
+ static int tswitchless_get_pending_task(sl_task_pool_t *pool)
+ {
+-    int call_pool_size_qwords = (int)pool->pool_cfg.call_pool_size_qwords;
++    int call_pool_size_qwords = (int)pool->pool_cfg.sl_call_pool_size_qwords;
+     uint64_t *signal_bit_buf = pool->signal_bit_buf;
+     int start_bit = 0;
+     int end_bit = 0;
+@@ -156,6 +174,10 @@ static void tswitchless_proc_task(sl_task_t *task)
+ 
+ static int thread_num = 0;
+ 
++#define TSWITCHLESS_TIMEOUT_IN_USEC 500000
++#define TSWITCHLESS_USEC_PER_SEC 1000000
++#define TSWITCHLESS_GETTIME_PER_CNT 10000000
++
+ static void *tswitchless_thread_routine(void *data)
+ {
+     int thread_index = __atomic_add_fetch(&thread_num, 1, __ATOMIC_ACQ_REL);
+@@ -165,14 +187,45 @@ static void *tswitchless_thread_routine(void *data)
+     sl_task_t *task_buf = NULL;
+     sl_task_pool_t *pool = (sl_task_pool_t *)data;
+     int processed_count = 0;
++    bool is_workers_policy_wakeup = tswitchless_is_workers_policy_wakeup(&(pool->pool_cfg));
++    struct timeval tval_before;
++    struct timeval tval_after;
++    struct timeval duration;
++    int count = 0;
++    bool timeout = true;
+ 
+     while (true) {
+         if (pool->need_stop_tworkers) {
+             break;
+         }
+ 
++        count++;
+         task_index = tswitchless_get_pending_task(pool);
+         if (task_index == -1) {
++            /*
++             * If the scheduling policy is WORKERS_POLICY_WAKEUP, After the task is processed,
++             * wait for a period of time before exiting. A new task may arrive immediately.
++             * This reduces the performance loss caused by frequent sleep and wakeup between threads.
++             */
++            if (is_workers_policy_wakeup && count > TSWITCHLESS_GETTIME_PER_CNT) {
++                gettimeofday(&tval_after, NULL);
++                timersub(&tval_after, &tval_before, &duration);
++                timeout =
++                    (duration.tv_sec * TSWITCHLESS_USEC_PER_SEC + duration.tv_usec) >= TSWITCHLESS_TIMEOUT_IN_USEC;
++
++                count = 0;
++            }
++
++            if (is_workers_policy_wakeup && timeout) {
++                CC_MUTEX_LOCK(&g_sched_lock);
++                CC_COND_WAIT(&g_sched_cond, &g_sched_lock);
++                CC_MUTEX_UNLOCK(&g_sched_lock);
++
++                gettimeofday(&tval_before, NULL);
++                count = 0;
++                timeout = false;
++            }
++
+             continue;
+         }
+ 
+@@ -189,12 +242,76 @@ static void *tswitchless_thread_routine(void *data)
+     return NULL;
+ }
+ 
++static inline int tswitchless_get_total_pending_task(sl_task_pool_t *pool)
++{
++    int count = 0;
++    int call_pool_size_qwords = (int)pool->pool_cfg.sl_call_pool_size_qwords;
++    uint64_t *signal_bit_buf = pool->signal_bit_buf;
++    uint64_t element_val = 0;
++
++    for (int i = 0; i < call_pool_size_qwords; ++i) {
++        element_val = *(signal_bit_buf + i);
++
++        if (element_val == 0) {
++            continue;
++        }
++
++        count += count_ones(element_val);
++    }
++
++    return count;
++}
++
++static void *tswitchless_thread_scheduler(void *data)
++{
++    SLogTrace("Enter scheduler tworker.");
++
++    int task_num;
++    sl_task_pool_t *pool = (sl_task_pool_t *)data;
++
++    while (true) {
++        if (pool->need_stop_tworkers) {
++            break;
++        }
++
++        task_num = tswitchless_get_total_pending_task(pool);
++        if (task_num == 0) {
++            continue;
++        } else {
++            CC_MUTEX_LOCK(&g_sched_lock);
++            CC_COND_BROADCAST(&g_sched_cond);
++            CC_MUTEX_UNLOCK(&g_sched_lock);
++        }
++    }
++
++    SLogTrace("Exit scheduler tworker.");
++
++    return NULL;
++}
++
++typedef void *(*TSWITCHLESS_THREAD_FUNC)(void *data);
++
++TSWITCHLESS_THREAD_FUNC tswitchless_get_thread_func(bool is_sched)
++{
++    if (is_sched) {
++        return tswitchless_thread_scheduler;
++    }
++
++    return tswitchless_thread_routine;
++}
++
+ static pthread_t *tswitchless_init_workers(sl_task_pool_t *pool)
+ {
+     int ret;
+-    sl_task_pool_config_t *pool_cfg = &pool->pool_cfg;
++    cc_sl_config_t *pool_cfg = &pool->pool_cfg;
++    uint32_t thread_count = pool_cfg->num_tworkers;
++    bool is_workers_policy_wakeup = tswitchless_is_workers_policy_wakeup(pool_cfg);
++
++    if (is_workers_policy_wakeup) {
++        thread_count += 1;
++    }
+ 
+-    pthread_t *tids = (pthread_t *)calloc(pool_cfg->num_tworkers, sizeof(pthread_t));
++    pthread_t *tids = (pthread_t *)calloc(thread_count, sizeof(pthread_t));
+     if (tids == NULL) {
+         SLogError("Malloc memory for tworkers failed.");
+         return NULL;
+@@ -214,8 +331,9 @@ static pthread_t *tswitchless_init_workers(sl_task_pool_t *pool)
+         return NULL;
+     }
+ 
+-    for (uint32_t i = 0; i < pool_cfg->num_tworkers; ++i) {
+-        ret = pthread_create(tids + i, &attr, tswitchless_thread_routine, pool);
++    for (uint32_t i = 0; i < thread_count; ++i) {
++        // If the policy is WORKERS_POLICY_WAKEUP, the first is the scheduling thread.
++        ret = pthread_create(tids + i, &attr, tswitchless_get_thread_func(is_workers_policy_wakeup && i == 0), pool);
+         if (ret != 0) {
+             tswitchless_fini_workers(pool, tids);
+             free(tids);
+diff --git a/src/host_src/gp/gp_enclave.c b/src/host_src/gp/gp_enclave.c
+index 27952e7..f77cdd8 100644
+--- a/src/host_src/gp/gp_enclave.c
++++ b/src/host_src/gp/gp_enclave.c
+@@ -10,6 +10,8 @@
+  * See the Mulan PSL v2 for more details.
+  */
+ 
++#include "gp_enclave.h"
++
+ #include <stdint.h>
+ #include <malloc.h>
+ #include <string.h>
+@@ -20,10 +22,8 @@
+ #include <tee_client_type.h>
+ 
+ #include "secgear_defs.h"
+-#include "enclave.h"
+-#include "enclave_internal.h"
+ #include "enclave_log.h"
+-#include "gp_enclave.h"
++#include "secgear_uswitchless.h"
+ #include "register_agent.h"
+ #include "gp_uswitchless.h"
+ #include "gp_shared_memory_defs.h"
+@@ -370,13 +370,13 @@ cc_enclave_result_t init_uswitchless(cc_enclave_t *enclave, const enclave_featur
+         return CC_ERROR_SWITCHLESS_REINIT;
+     }
+ 
+-    sl_task_pool_config_t *cfg = (sl_task_pool_config_t *)feature->feature_desc;
+-    if (!uswitchless_is_valid_config(cfg)) {
++    cc_sl_config_t cfg = *((cc_sl_config_t *)feature->feature_desc);
++    if (!uswitchless_is_valid_config(&cfg)) {
+         return CC_ERROR_BAD_PARAMETERS;
+     }
+-    uswitchless_adjust_config(cfg);
++    uswitchless_adjust_config(&cfg);
+ 
+-    size_t pool_buf_len = sl_get_pool_buf_len_by_config(cfg);
++    size_t pool_buf_len = sl_get_pool_buf_len_by_config(&cfg);
+     void *pool_buf = gp_malloc_shared_memory(enclave, pool_buf_len, true);
+     if (pool_buf == NULL) {
+         return CC_ERROR_OUT_OF_MEMORY;
+@@ -384,10 +384,10 @@ cc_enclave_result_t init_uswitchless(cc_enclave_t *enclave, const enclave_featur
+     (void)memset(pool_buf, 0, pool_buf_len);
+ 
+     // Fill config
+-    (void)memcpy(pool_buf, cfg, sizeof(sl_task_pool_config_t));
++    (void)memcpy(pool_buf, &cfg, sizeof(cc_sl_config_t));
+ 
+     // Layout task pool
+-    sl_task_pool_t *pool = uswitchless_create_task_pool(pool_buf, cfg);
++    sl_task_pool_t *pool = uswitchless_create_task_pool(pool_buf, &cfg);
+     if (pool == NULL) {
+         (void)gp_free_shared_memory(enclave, pool_buf);
+         return CC_ERROR_OUT_OF_MEMORY;
+diff --git a/src/host_src/gp/gp_enclave.h b/src/host_src/gp/gp_enclave.h
+index e788ed3..2fdfc99 100644
+--- a/src/host_src/gp/gp_enclave.h
++++ b/src/host_src/gp/gp_enclave.h
+@@ -15,6 +15,8 @@
+ 
+ #include "tee_client_api.h"
+ #include "switchless_defs.h"
++#include "enclave.h"
++#include "enclave_internal.h"
+ 
+ enum
+ {
+diff --git a/src/host_src/gp/gp_uswitchless.c b/src/host_src/gp/gp_uswitchless.c
+index 8db756e..f1288c2 100644
+--- a/src/host_src/gp/gp_uswitchless.c
++++ b/src/host_src/gp/gp_uswitchless.c
+@@ -34,19 +34,20 @@
+ #define SWITCHLESS_DEFAULT_TWORKERS 8
+ #define SWITCHLESS_DEFAULT_POOL_SIZE_QWORDS 1
+ 
+-bool uswitchless_is_valid_config(sl_task_pool_config_t *cfg)
++bool uswitchless_is_valid_config(cc_sl_config_t *cfg)
+ {
+     if ((cfg->num_uworkers > SWITCHLESS_MAX_UWORKERS) ||
+         (cfg->num_tworkers > SWITCHLESS_MAX_TWORKERS) ||
+         (cfg->num_max_params > SWITCHLESS_MAX_PARAMETER_NUM) ||
+-        (cfg->call_pool_size_qwords > SWITCHLESS_MAX_POOL_SIZE_QWORDS)) {
++        (cfg->sl_call_pool_size_qwords > SWITCHLESS_MAX_POOL_SIZE_QWORDS) ||
++        (cfg->workers_policy >= WORKERS_POLICY_MAX)) {
+         return false;
+     }
+ 
+     return true;
+ }
+ 
+-void uswitchless_adjust_config(sl_task_pool_config_t *cfg)
++void uswitchless_adjust_config(cc_sl_config_t *cfg)
+ {
+     if (cfg->num_uworkers == 0) {
+         cfg->num_uworkers = SWITCHLESS_DEFAULT_UWORKERS;
+@@ -56,14 +57,14 @@ void uswitchless_adjust_config(sl_task_pool_config_t *cfg)
+         cfg->num_tworkers = SWITCHLESS_DEFAULT_TWORKERS;
+     }
+ 
+-    if (cfg->call_pool_size_qwords == 0) {
+-        cfg->call_pool_size_qwords = SWITCHLESS_DEFAULT_POOL_SIZE_QWORDS;
++    if (cfg->sl_call_pool_size_qwords == 0) {
++        cfg->sl_call_pool_size_qwords = SWITCHLESS_DEFAULT_POOL_SIZE_QWORDS;
+     }
+ }
+ 
+-sl_task_pool_t *uswitchless_create_task_pool(void *pool_buf, sl_task_pool_config_t *pool_cfg)
++sl_task_pool_t *uswitchless_create_task_pool(void *pool_buf, cc_sl_config_t *pool_cfg)
+ {
+-    size_t bit_buf_size = pool_cfg->call_pool_size_qwords * sizeof(uint64_t);
++    size_t bit_buf_size = pool_cfg->sl_call_pool_size_qwords * sizeof(uint64_t);
+     sl_task_pool_t *pool = (sl_task_pool_t *)calloc(sizeof(sl_task_pool_t) + bit_buf_size, sizeof(char));
+     if (pool == NULL) {
+         return NULL;
+@@ -76,7 +77,7 @@ sl_task_pool_t *uswitchless_create_task_pool(void *pool_buf, sl_task_pool_config
+     pool->pool_buf = (char *)pool_buf;
+     pool->free_bit_buf = (uint64_t *)((char *)pool + sizeof(sl_task_pool_t));
+     (void)memset(pool->free_bit_buf, 0xFF, bit_buf_size);
+-    pool->signal_bit_buf = (uint64_t *)(pool->pool_buf + sizeof(sl_task_pool_config_t));
++    pool->signal_bit_buf = (uint64_t *)(pool->pool_buf + sizeof(cc_sl_config_t));
+     pool->task_buf = (char *)pool->signal_bit_buf + pool->bit_buf_size;
+ 
+     return pool;
+@@ -99,7 +100,7 @@ bool uswitchless_is_valid_param_num(cc_enclave_t *enclave, uint32_t argc)
+ int uswitchless_get_idle_task_index(cc_enclave_t *enclave)
+ {
+     sl_task_pool_t *pool = USWITCHLESS_TASK_POOL(enclave);
+-    int call_pool_size_qwords = (int)pool->pool_cfg.call_pool_size_qwords;
++    int call_pool_size_qwords = (int)pool->pool_cfg.sl_call_pool_size_qwords;
+     uint64_t *free_bit_buf = pool->free_bit_buf;
+     int start_bit = 0;
+     int end_bit = 0;
+diff --git a/src/host_src/gp/gp_uswitchless.h b/src/host_src/gp/gp_uswitchless.h
+index e435ad1..4d957ce 100644
+--- a/src/host_src/gp/gp_uswitchless.h
++++ b/src/host_src/gp/gp_uswitchless.h
+@@ -19,6 +19,7 @@
+ #include <stdbool.h>
+ #include "enclave.h"
+ #include "switchless_defs.h"
++#include "secgear_uswitchless.h"
+ 
+ #ifdef __cplusplus
+ extern "C" {
+@@ -32,7 +33,7 @@ extern "C" {
+  *      true: valid
+  *      false: invalid
+  */
+-bool uswitchless_is_valid_config(sl_task_pool_config_t *cfg);
++bool uswitchless_is_valid_config(cc_sl_config_t *cfg);
+ 
+ /*
+  * Summary: Adjusting default configurations
+@@ -40,7 +41,7 @@ bool uswitchless_is_valid_config(sl_task_pool_config_t *cfg);
+  *      cfg: configuration information of the task pool
+  * Return: NA
+  */
+-void uswitchless_adjust_config(sl_task_pool_config_t *cfg);
++void uswitchless_adjust_config(cc_sl_config_t *cfg);
+ 
+ /*
+  * Summary: initializing the switchless invoking task pool
+@@ -49,7 +50,7 @@ void uswitchless_adjust_config(sl_task_pool_config_t *cfg);
+  *      pool_cfg: configuration information of the task pool
+  * Return: NA
+  */
+-sl_task_pool_t *uswitchless_create_task_pool(void *pool_buf, sl_task_pool_config_t *pool_cfg);
++sl_task_pool_t *uswitchless_create_task_pool(void *pool_buf, cc_sl_config_t *pool_cfg);
+ 
+ /*
+  * Summary: obtains the index of an idle task area from specified enclave
+-- 
+2.27.0
+
