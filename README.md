@@ -37,13 +37,13 @@ mkdir debug && cd debug && cmake .. && make && sudo make install
 
 ### Quick start with ARM TrustZone
 #### 环境搭建
-- 参考[鲲鹏官网](https://support.huaweicloud.com/dpmg-tz-kunpengcctrustzone/kunpengtrustzone_04_0005.html#:~:text=%E8%BF%90%E8%A1%8C%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA-,TA/CA%E5%BA%94%E7%94%A8%E8%BF%90%E8%A1%8C%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA,-%E6%9B%B4%E6%96%B0%E6%97%B6%E9%97%B4%EF%BC%9A2022)
+- 参考[鲲鹏官网](https://www.hikunpeng.com/document/detail/zh/kunpengcctrustzone/fg-tz/kunpengtrustzone_04_0006.html)
 - 操作系统：openEuler 21.03、openEuler 20.03 LTS SP2或更高版本
 
 #### Build and Run
 ```
 // intall build require
-sudo yum install -y cmake ocaml-dune itrustee_sdk
+sudo yum install -y cmake ocaml-dune itrustee_sdk-devel
 
 // clone secGear repository
 git clone https://gitee.com/openeuler/secGear.git
