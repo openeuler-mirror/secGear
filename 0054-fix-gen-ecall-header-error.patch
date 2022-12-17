@@ -1,0 +1,25 @@
+From c7e1d5815471a37761ba92b8ed750f2dd789d16e Mon Sep 17 00:00:00 2001
+From: houmingyong <houmingyong@huawei.com>
+Date: Sat, 17 Dec 2022 18:54:41 +0800
+Subject: [PATCH] fix gen ecall header error
+
+---
+ tools/codegener/Genheader.ml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/codegener/Genheader.ml b/tools/codegener/Genheader.ml
+index 0f244f3..24083d6 100644
+--- a/tools/codegener/Genheader.ml
++++ b/tools/codegener/Genheader.ml
+@@ -387,7 +387,7 @@ let generate_untrusted_header (ec: enclave_content) =
+         hfile_start ^ hfile_include; 
+         c_start;
+         agent_id;
+-        trust_fproto_com ^ r_proxy ^ r_proxy_sl_async ^ ";";
++        trust_fproto_com ^ r_proxy ^ ";\n\n" ^ r_proxy_sl_async ^ ";";
+         if (List.length ec.ufunc_decls <> 0) then untrust_fproto_com ^ untrust_func ^ ";"
+         else "/**** There is no untrusted function ****/";
+         c_end; 
+-- 
+2.27.0
+
