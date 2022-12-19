@@ -59,7 +59,7 @@ cc_enclave_result_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr);
  * Return: CC_SUCCESS, success; others failed.
  */
 cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void *ptr);
-
+cc_enclave_result_t gp_release_all_shared_memory(cc_enclave_t *enclave);
 #ifdef __cplusplus
 }
 #endif
