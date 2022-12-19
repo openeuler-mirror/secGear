@@ -520,10 +520,15 @@ cc_enclave_result_t _gp_destroy(cc_enclave_t *context)
 {
     int res;
     TEEC_Result ret;
+    cc_enclave_result_t cc_ret;
 
     if (!context || !context->private_data) {
         print_error_term("The input parameters are wrong \n");
         return CC_ERROR_BAD_PARAMETERS;
+    }
+    cc_ret = gp_release_all_shared_memory(context);
+    if (cc_ret != CC_SUCCESS) {
+        print_error_goto("Fail to release all shared memory, errno:%x\n", cc_ret);
     }
 
     fini_features(context);

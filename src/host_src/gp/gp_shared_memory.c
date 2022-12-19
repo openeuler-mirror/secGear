@@ -195,19 +195,10 @@ cc_enclave_result_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr)
     return CC_SUCCESS;
 }
 
-cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void* ptr)
+cc_enclave_result_t unregister_shared_memory(cc_enclave_t *enclave, gp_shared_memory_t* gp_shared_mem)
 {
     uint32_t ms = TEE_SECE_AGENT_ID;
 
-    if (!gp_is_shared_mem_start_addr(ptr)) {
-        return CC_ERROR_SHARED_MEMORY_START_ADDR_INVALID;
-    }
-
-    if (GP_SHARED_MEMORY_ENTRY(ptr)->enclave != enclave) {
-        return CC_ERROR_INVALID_HANDLE;
-    }
-
-    gp_shared_memory_t *gp_shared_mem = GP_SHARED_MEMORY_ENTRY(ptr);
     if (!__atomic_load_n(&gp_shared_mem->is_registered, __ATOMIC_ACQUIRE)) {
         return CC_ERROR_SHARED_MEMORY_NOT_REGISTERED;
     }
@@ -236,6 +227,7 @@ cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void* ptr
     char *out_param_buf = param_buf + in_param_buf_size;
 
     /* Copy in_params to in_buf */
+    void *ptr = (char *)gp_shared_mem + sizeof(gp_shared_memory_t);
     memcpy(in_param_buf, &args_size, size_to_aligned_size(sizeof(args_size)));
     memcpy(in_param_buf + ptr_offset, &ptr, sizeof(void*));
 
@@ -261,4 +253,46 @@ cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void* ptr
 
     free(param_buf);
     return CC_SUCCESS;
+}
+cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void* ptr)
+{
+
+    if (!gp_is_shared_mem_start_addr(ptr)) {
+        return CC_ERROR_SHARED_MEMORY_START_ADDR_INVALID;
+    }
+
+    if (GP_SHARED_MEMORY_ENTRY(ptr)->enclave != enclave) {
+        return CC_ERROR_INVALID_HANDLE;
+    }
+
+    gp_shared_memory_t *gp_shared_mem = GP_SHARED_MEMORY_ENTRY(ptr);
+    return unregister_shared_memory(enclave, gp_shared_mem);
+}
+
+cc_enclave_result_t gp_release_all_shared_memory(cc_enclave_t *enclave)
+{
+    list_node_t *cur = NULL;
+    list_node_t *tmp = NULL;
+    gp_shared_memory_t *mem = NULL;
+    cc_enclave_result_t step_ret;
+    cc_enclave_result_t ret = CC_SUCCESS;
+
+    CC_RWLOCK_LOCK_RD(&g_shared_mem_list_lock);
+    list_for_each_safe(cur, tmp, &g_shared_mem_list) {
+        mem = list_entry(cur, gp_shared_memory_t, node);
+        if (mem->is_control_buf) {
+            continue;
+        }
+        step_ret = unregister_shared_memory(enclave, mem);
+        if (step_ret != CC_SUCCESS) {
+            ret = step_ret;
+            continue;
+        }
+        list_remove(&mem->node);
+        TEEC_SharedMemory sharedMem = *(TEEC_SharedMemory *)mem;
+        TEEC_ReleaseSharedMemory(&sharedMem);
+    }
+    CC_RWLOCK_UNLOCK(&g_shared_mem_list_lock);
+
+    return ret; 
 }
