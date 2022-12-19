@@ -1,0 +1,21 @@
+From 6568766c40fbc343a3af68292b66899f6e3e921c Mon Sep 17 00:00:00 2001
+From: houmingyong <houmingyong@huawei.com>
+Date: Mon, 19 Dec 2022 11:13:21 +0800
+Subject: [PATCH] switchless readme add async interface
+
+---
+ examples/switchless/README.md | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/examples/switchless/README.md b/examples/switchless/README.md
+index f42a54e..13084d3 100644
+--- a/examples/switchless/README.md
++++ b/examples/switchless/README.md
+@@ -116,3 +116,4 @@ switchless API清单
+ |  ----  | ----  |
+ | cc_malloc_shared_memory()  | 创建安全环境与非安全环境可同时访问的共享内存。<br>参数：<br>enclave，安全环境上下文句柄。因不同平台共享内存模型不同，同时保持接口跨平台的一致性，该参数仅在ARM平台被使用，SGX平台该入参会被忽略。<br>size，共享内存大小。<br>返回值：<br>NULL：共享内存申请失败。<br>其他：共享内存首地址<br> |
+ | cc_free_shared_memory()  | 释放共享内存。<br>参数：<br>enclave，安全环境上下文句柄。因不同平台共享内存模型不同，同时保持接口跨平台的一致性，该参数仅在ARM平台被使用（该参数必须与调用cc_malloc_shared_memory接口时传入的enclave保持一致），SGX平台该入参会被忽略。<br>ptr：cc_malloc_shared_memory接口返回的共享内存地址。<br>返回值：<br>CC_ERROR_BAD_PARAMETERS，入参非法。 <br>CC_ERROR_INVALID_HANDLE， 无效enclave或者传入的enclave与ptr所对应的enclave不匹配（仅在ARM平台生效，SGX平台会忽略enclave，故不会对enclave进行检查）。 <br>CC_ERROR_NOT_IMPLEMENTED，该接口未实现。 <br>CC_ERROR_SHARED_MEMORY_START_ADDR_INVALID， <br>ptr不是cc_malloc_shared_memory接口返回的共享内存地址（仅在ARM平台生效）。 <br>CC_ERROR_OUT_OF_MEMORY，内存不足（仅在ARM平台生效）。 <br>CC_FAIL，一般性错误。 <br>CC_SUCCESS，成功。|
++| cc_sl_get_async_result()  | 检查异步调用结果并释放异步调用资源（当前仅支持ARM）。<br>参数：<br>enclave: 安全环境上下文句柄。<br>task_id: 异步调用任务编号。<br>retval: 用于接收返回值的缓冲区。<br>返回值：<br>CC_SUCCESS，异步调用成功。 <br>CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED， 异步调用处理中。 <br>CC_ERROR_SWITCHLESS_INVALID_TASK_ID，非法的task_id。 <br>其他，一般性错误。|
+-- 
+2.27.0
+
