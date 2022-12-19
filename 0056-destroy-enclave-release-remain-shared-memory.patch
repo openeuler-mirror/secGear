@@ -1,0 +1,127 @@
+From b722d85901dbe0906ddb8fed5f5aa9f0646ba9fb Mon Sep 17 00:00:00 2001
+From: houmingyong <houmingyong@huawei.com>
+Date: Mon, 19 Dec 2022 19:26:22 +0800
+Subject: [PATCH] destory enclave release remain shared memory
+
+---
+ src/host_src/gp/gp_enclave.c       |  5 +++
+ src/host_src/gp/gp_shared_memory.c | 54 ++++++++++++++++++++++++------
+ src/host_src/gp/gp_shared_memory.h |  2 +-
+ 3 files changed, 50 insertions(+), 11 deletions(-)
+
+diff --git a/src/host_src/gp/gp_enclave.c b/src/host_src/gp/gp_enclave.c
+index 521a850..952d584 100644
+--- a/src/host_src/gp/gp_enclave.c
++++ b/src/host_src/gp/gp_enclave.c
+@@ -520,11 +520,16 @@ cc_enclave_result_t _gp_destroy(cc_enclave_t *context)
+ {
+     int res;
+     TEEC_Result ret;
++    cc_enclave_result_t cc_ret;
+ 
+     if (!context || !context->private_data) {
+         print_error_term("The input parameters are wrong \n");
+         return CC_ERROR_BAD_PARAMETERS;
+     }
++    cc_ret = gp_release_all_shared_memory(context);
++    if (cc_ret != CC_SUCCESS) {
++        print_error_goto("Fail to release all shared memory, errno:%x\n", cc_ret);
++    }
+ 
+     fini_features(context);
+ 
+diff --git a/src/host_src/gp/gp_shared_memory.c b/src/host_src/gp/gp_shared_memory.c
+index 60520a4..b6a958d 100644
+--- a/src/host_src/gp/gp_shared_memory.c
++++ b/src/host_src/gp/gp_shared_memory.c
+@@ -195,19 +195,10 @@ cc_enclave_result_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr)
+     return CC_SUCCESS;
+ }
+ 
+-cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void* ptr)
++cc_enclave_result_t unregister_shared_memory(cc_enclave_t *enclave, gp_shared_memory_t* gp_shared_mem)
+ {
+     uint32_t ms = TEE_SECE_AGENT_ID;
+ 
+-    if (!gp_is_shared_mem_start_addr(ptr)) {
+-        return CC_ERROR_SHARED_MEMORY_START_ADDR_INVALID;
+-    }
+-
+-    if (GP_SHARED_MEMORY_ENTRY(ptr)->enclave != enclave) {
+-        return CC_ERROR_INVALID_HANDLE;
+-    }
+-
+-    gp_shared_memory_t *gp_shared_mem = GP_SHARED_MEMORY_ENTRY(ptr);
+     if (!__atomic_load_n(&gp_shared_mem->is_registered, __ATOMIC_ACQUIRE)) {
+         return CC_ERROR_SHARED_MEMORY_NOT_REGISTERED;
+     }
+@@ -236,6 +227,7 @@ cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void* ptr
+     char *out_param_buf = param_buf + in_param_buf_size;
+ 
+     /* Copy in_params to in_buf */
++    void *ptr = (char *)gp_shared_mem + sizeof(gp_shared_memory_t);
+     memcpy(in_param_buf, &args_size, size_to_aligned_size(sizeof(args_size)));
+     memcpy(in_param_buf + ptr_offset, &ptr, sizeof(void*));
+ 
+@@ -262,3 +254,45 @@ cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void* ptr
+     free(param_buf);
+     return CC_SUCCESS;
+ }
++cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void* ptr)
++{
++
++    if (!gp_is_shared_mem_start_addr(ptr)) {
++        return CC_ERROR_SHARED_MEMORY_START_ADDR_INVALID;
++    }
++
++    if (GP_SHARED_MEMORY_ENTRY(ptr)->enclave != enclave) {
++        return CC_ERROR_INVALID_HANDLE;
++    }
++
++    gp_shared_memory_t *gp_shared_mem = GP_SHARED_MEMORY_ENTRY(ptr);
++    return unregister_shared_memory(enclave, gp_shared_mem);
++}
++
++cc_enclave_result_t gp_release_all_shared_memory(cc_enclave_t *enclave)
++{
++    list_node_t *cur = NULL;
++    list_node_t *tmp = NULL;
++    gp_shared_memory_t *mem = NULL;
++    cc_enclave_result_t step_ret;
++    cc_enclave_result_t ret = CC_SUCCESS;
++
++    CC_RWLOCK_LOCK_RD(&g_shared_mem_list_lock);
++    list_for_each_safe(cur, tmp, &g_shared_mem_list) {
++        mem = list_entry(cur, gp_shared_memory_t, node);
++        if (mem->is_control_buf) {
++            continue;
++        }
++        step_ret = unregister_shared_memory(enclave, mem);
++        if (step_ret != CC_SUCCESS) {
++            ret = step_ret;
++            continue;
++        }
++        list_remove(&mem->node);
++        TEEC_SharedMemory sharedMem = *(TEEC_SharedMemory *)mem;
++        TEEC_ReleaseSharedMemory(&sharedMem);
++    }
++    CC_RWLOCK_UNLOCK(&g_shared_mem_list_lock);
++
++    return ret; 
++}
+diff --git a/src/host_src/gp/gp_shared_memory.h b/src/host_src/gp/gp_shared_memory.h
+index 2ec66a8..6914193 100644
+--- a/src/host_src/gp/gp_shared_memory.h
++++ b/src/host_src/gp/gp_shared_memory.h
+@@ -59,7 +59,7 @@ cc_enclave_result_t gp_register_shared_memory(cc_enclave_t *enclave, void *ptr);
+  * Return: CC_SUCCESS, success; others failed.
+  */
+ cc_enclave_result_t gp_unregister_shared_memory(cc_enclave_t *enclave, void *ptr);
+-
++cc_enclave_result_t gp_release_all_shared_memory(cc_enclave_t *enclave);
+ #ifdef __cplusplus
+ }
+ #endif
+-- 
+2.27.0
+
