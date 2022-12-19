@@ -387,7 +387,7 @@ let generate_untrusted_header (ec: enclave_content) =
         hfile_start ^ hfile_include; 
         c_start;
         agent_id;
-        trust_fproto_com ^ r_proxy ^ r_proxy_sl_async ^ ";";
+        trust_fproto_com ^ r_proxy ^ ";\n\n" ^ r_proxy_sl_async ^ ";";
         if (List.length ec.ufunc_decls <> 0) then untrust_fproto_com ^ untrust_func ^ ";"
         else "/**** There is no untrusted function ****/";
         c_end; 
