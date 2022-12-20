@@ -1,0 +1,860 @@
+From 508f9aed76b8f6788be60a8e39849ee6c1a32fcc Mon Sep 17 00:00:00 2001
+From: modric <wangyu283@huawei.com>
+Date: Wed, 9 Nov 2022 15:19:58 +0800
+Subject: [PATCH 4/4] asynchronous switchless example
+
+---
+ .../enclave/CMakeLists.txt                    |  16 +-
+ .../switchless_performance/enclave/enclave.c  |  77 ++
+ examples/switchless_performance/host/main.c   | 656 +++++++++++++++++-
+ .../switchless_performance/switchless.edl     |  13 +
+ 4 files changed, 750 insertions(+), 12 deletions(-)
+
+diff --git a/examples/switchless_performance/enclave/CMakeLists.txt b/examples/switchless_performance/enclave/CMakeLists.txt
+index 69aab4c..f7b72b1 100644
+--- a/examples/switchless_performance/enclave/CMakeLists.txt
++++ b/examples/switchless_performance/enclave/CMakeLists.txt
+@@ -62,7 +62,21 @@ set(COMMON_C_FLAGS "-W -Wall -Werror -fno-short-enums -fno-omit-frame-pointer -f
+ set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
+ 
+ if(CC_GP)
+-    set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -march=armv8-a")
++    if (CMAKE_COMPILER_IS_GNUCC)
++        execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpfullversion -dumpversion
++                        OUTPUT_VARIABLE GCC_VERSION)
++        string(REGEX MATCHALL "[0-9]+" GCC_VERSION_COMPONENTS ${GCC_VERSION})
++        list(GET GCC_VERSION_COMPONENTS 0 GCC_MAJOR)
++        list(GET GCC_VERSION_COMPONENTS 1 GCC_MINOR)
++        set(GCC_VERSION "${GCC_MAJOR}.${GCC_MINOR}")
++    endif()
++
++    if (GCC_VERSION GREATER_EQUAL "9.4")
++        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a -mno-outline-atomics")
++    else()
++        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a")
++    endif()
++
+     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -s -fPIC")
+     set(CMAKE_SHARED_LINKER_FLAGS "${COMMON_C_LINK_FLAGS} -Wl,-s")
+ 
+diff --git a/examples/switchless_performance/enclave/enclave.c b/examples/switchless_performance/enclave/enclave.c
+index 1320e53..8b1466f 100644
+--- a/examples/switchless_performance/enclave/enclave.c
++++ b/examples/switchless_performance/enclave/enclave.c
+@@ -28,10 +28,87 @@ void test_toupper(char *buf, int len)
+     }
+ }
+ 
++static int i = 0;
++static int j = 0;
++
+ void ecall_empty(void)
+ {
++    printf("normal %d\n", __atomic_add_fetch(&i, 1, __ATOMIC_ACQ_REL));
++}
++
++int ecall_empty1(char *buf, int len)
++{
++    printf("normal1 %d\n", __atomic_add_fetch(&i, 1, __ATOMIC_ACQ_REL));
++
++    if (buf == NULL || len < 0) {
++        return -1;
++    }
++
++    for (int i = 0; i < len; ++i) {
++        if (buf[i] >= 'a' && buf[i] <= 'z') {
++            buf[i] = buf[i] - ('a' - 'A');
++        }
++    }
++
++    return 1;
++}
++
++int ecall_empty2(char *buf1, int len1, char *buf2, int len2)
++{
++    printf("normal2 %d\n", __atomic_add_fetch(&i, 1, __ATOMIC_ACQ_REL));
++
++    if (buf1 == NULL || len1 < 0 || buf2 == NULL || len2 < 0) {
++        return -1;
++    }
++
++    for (int i = 0; i < len2; ++i) {
++        if (buf1[i] >= 'a' && buf1[i] <= 'z') {
++            buf2[i] = buf1[i] - ('a' - 'A');
++        } else {
++            buf2[i] = buf1[i];
++        }
++    }
++
++    return 2;
+ }
+ 
+ void ecall_empty_switchless(void)
+ {
++    printf("sl %d\n", __atomic_add_fetch(&j, 1, __ATOMIC_ACQ_REL));
++}
++
++int ecall_empty_switchless1(char *buf, int len)
++{
++    printf("sl1 %d\n", __atomic_add_fetch(&j, 1, __ATOMIC_ACQ_REL));
++
++    if (buf == NULL || len < 0) {
++        return -1;
++    }
++
++    for (int i = 0; i < len; ++i) {
++        if (buf[i] >= 'a' && buf[i] <= 'z') {
++            buf[i] = buf[i] - ('a' - 'A');
++        }
++    }
++
++    return 1;
++}
++
++int ecall_empty_switchless2(char *buf1, int len1, char *buf2, int len2)
++{
++    printf("sl2 %d\n", __atomic_add_fetch(&j, 1, __ATOMIC_ACQ_REL));
++
++    if (buf1 == NULL || len1 < 0 || buf2 == NULL || len2 < 0) {
++        return -1;
++    }
++
++    for (int i = 0; i < len2; ++i) {
++        if (buf1[i] >= 'a' && buf1[i] <= 'z') {
++            buf2[i] = buf1[i] - ('a' - 'A');
++        } else {
++            buf2[i] = buf1[i];
++        }
++    }
++
++    return 2;
+ }
+diff --git a/examples/switchless_performance/host/main.c b/examples/switchless_performance/host/main.c
+index f80db25..ea4994f 100644
+--- a/examples/switchless_performance/host/main.c
++++ b/examples/switchless_performance/host/main.c
+@@ -63,23 +63,600 @@ void fini_enclave(cc_enclave_t *enclave)
+ 
+ void benchmark_ecall_empty(bool is_switchless, unsigned long nrepeats)
+ {
+-    struct timespec time_start;
+-    struct timespec time_end;
+-    struct timespec duration = {0, 0};
++    struct timeval tval_before;
++    struct timeval tval_after;
++    struct timeval duration;
+     cc_enclave_result_t(*ecall_fn)(cc_enclave_t *) = is_switchless ? ecall_empty_switchless : ecall_empty;
+ 
+-    clock_gettime(CLOCK_REALTIME, &time_start);
++    gettimeofday(&tval_before, NULL);
+     unsigned long tmp_nrepeats = nrepeats;
+     while (tmp_nrepeats--) {
+         ecall_fn(&g_enclave);
+     }
+-    clock_gettime(CLOCK_REALTIME, &time_end);
+ 
+-    duration.tv_sec += time_end.tv_sec - time_start.tv_sec;
+-    duration.tv_nsec += time_end.tv_nsec - time_start.tv_nsec;
++    gettimeofday(&tval_after, NULL);
++    timersub(&tval_after, &tval_before, &duration);
+ 
+-    printf("Repeating an %s empty ecall for %lu times takes %lu.%09lus\n",
+-        is_switchless ? "[switchless]" : "[ ordinary ]", nrepeats, duration.tv_sec, duration.tv_nsec);
++    printf("Repeating an %s empty ecall for %lu times takes %ld.%06lds\n",
++        is_switchless ? "[switchless]" : "[ ordinary ]", nrepeats, (long)duration.tv_sec, (long)duration.tv_usec);
++}
++
++/* ecall_empty_switchless */
++void benchmark_ecall_empty_sl_async(unsigned long nrepeats)
++{
++    cc_enclave_result_t ret_code;
++    cc_enclave_result_t ret;
++    struct timeval tval_before;
++    struct timeval tval_after;
++    struct timeval duration;
++    int processed_cursor = 0;
++    int retry_count = 0;
++
++    int *arr = (int *)calloc(nrepeats, sizeof(int));
++    if (arr == NULL) {
++        return;
++    }
++
++    // BEGIN
++    gettimeofday(&tval_before, NULL);
++
++    for (int i = 0; i < nrepeats; ++i) {
++        ret_code = ecall_empty_switchless_async(&g_enclave, &arr[i]);
++        if (ret_code != CC_SUCCESS) {
++            if (ret_code == CC_ERROR_SWITCHLESS_TASK_POOL_FULL) {
++                // The task pool is full. You should try again later.
++                --i;
++                ++retry_count;
++            } else {
++                // Asynchronous invocation failed
++                printf("Asynchronous invocation failed, ret=%x\n", ret_code);
++            }
++        }
++
++        ret = cc_sl_get_async_result(&g_enclave, arr[processed_cursor], NULL);
++        if (ret == CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++            // Invoking processing
++        } else if (ret == CC_SUCCESS) {
++            // Obtaining the result succeeded
++            processed_cursor++;
++        } else {
++            // Failed to obtain the result
++            processed_cursor++;
++        }
++    }
++
++    while (processed_cursor < nrepeats) {
++        ret = cc_sl_get_async_result(&g_enclave, arr[processed_cursor], NULL);
++        if (ret == CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++            // Invoking processing
++            continue;
++        } else if (ret == CC_SUCCESS) {
++            // Obtaining the result succeeded
++            processed_cursor++;
++        } else {
++            // Failed to obtain the result
++            processed_cursor++;
++        }
++    }
++
++    // END
++    gettimeofday(&tval_after, NULL);
++    timersub(&tval_after, &tval_before, &duration);
++
++    free(arr);
++
++    printf("retry_count:%d, processed_cursor:%d\n", retry_count, processed_cursor);
++    printf("Repeating an empty sl async ecall for %lu times takes %ld.%06lds\n", nrepeats,
++        (long int)duration.tv_sec, (long int)duration.tv_usec);
++}
++
++void benchmark_ecall_empty_sl_async_rollback(unsigned long nrepeats)
++{
++    cc_enclave_result_t ret_code;
++    cc_enclave_result_t ret;
++    struct timeval tval_before;
++    struct timeval tval_after;
++    struct timeval duration;
++    int processed_cursor = 0;
++    int rollback_count = 0;
++    unsigned long tmp_nrepeats = nrepeats;
++
++    int *arr = (int *)calloc(nrepeats, sizeof(int));
++    if (arr == NULL) {
++        return;
++    }
++
++    // BEGIN
++    gettimeofday(&tval_before, NULL);
++
++    for (int i = 0; i < tmp_nrepeats; ++i) {
++        ret_code = ecall_empty_switchless_async(&g_enclave, &arr[i]);
++        if (ret_code == CC_SUCCESS) {
++            if (arr[i] == -1) {
++                // rollback to common invoking when asynchronous switchless fails, and the common call is successful now
++                --i;
++                --tmp_nrepeats;
++                rollback_count++;
++            }
++        } else {
++            // Asynchronous invocation failed
++            printf("Asynchronous invocation failed, ret=%x\n", ret_code);
++        }
++
++        ret = cc_sl_get_async_result(&g_enclave, arr[processed_cursor], NULL);
++        if (ret == CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++            // Invoking processing
++        } else if (ret == CC_SUCCESS) {
++            // Obtaining the result succeeded
++            processed_cursor++;
++        } else {
++            // Failed to obtain the result
++            processed_cursor++;
++        }
++    }
++
++    while (processed_cursor < tmp_nrepeats) {
++        ret = cc_sl_get_async_result(&g_enclave, arr[processed_cursor], NULL);
++        if (ret == CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++            // Invoking processing
++            continue;
++        } else if (ret == CC_SUCCESS) {
++            // Obtaining the result succeeded
++            processed_cursor++;
++        } else {
++            // Failed to obtain the result
++            processed_cursor++;
++        }
++    }
++
++    // END
++    gettimeofday(&tval_after, NULL);
++    timersub(&tval_after, &tval_before, &duration);
++
++    free(arr);
++
++    printf("rollback_count:%d, processed_cursor:%d\n", rollback_count, processed_cursor);
++    printf("Repeating an empty sl async ecall rollback for %lu times takes %ld.%06lds\n", nrepeats,
++        (long int)duration.tv_sec, (long int)duration.tv_usec);
++}
++
++
++/* ecall_empty_switchless1 */
++void benchmark_ecall_empty_sl_async1(unsigned long nrepeats)
++{
++    cc_enclave_result_t ret_code;
++    cc_enclave_result_t ret;
++    struct timeval tval_before;
++    struct timeval tval_after;
++    struct timeval duration;
++    int processed_cursor = 0;
++    int retry_count = 0;
++    int one_share_buf_len = 32;
++    int retval;
++
++    int *arr = (int *)calloc(nrepeats, sizeof(int));
++    if (arr == NULL) {
++        return;
++    }
++
++    char *sharebuf = (char *)cc_malloc_shared_memory(&g_enclave, nrepeats * one_share_buf_len);
++    if (sharebuf == NULL) {
++        free(arr);
++        printf("Error: malloc shared memory failed.\n");
++        return;
++    }
++
++    // BEGIN
++    gettimeofday(&tval_before, NULL);
++
++    for (int i = 0; i < nrepeats; ++i) {
++        strcpy(sharebuf + i * one_share_buf_len, "aAbBcCdD");
++        ret_code = ecall_empty_switchless1_async(&g_enclave, &arr[i], NULL, sharebuf + i * one_share_buf_len,
++            sizeof("aAbBcCdD"));
++        if (ret_code != CC_SUCCESS) {
++            if (ret_code == CC_ERROR_SWITCHLESS_TASK_POOL_FULL) {
++                // The task pool is full. You should try again later.
++                --i;
++                ++retry_count;
++            } else {
++                // Asynchronous invocation failed
++                printf("Asynchronous invocation failed, ret=%x\n", ret_code);
++            }
++        }
++
++        ret = cc_sl_get_async_result(&g_enclave, arr[processed_cursor], &retval);
++        if (ret == CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++            // Invoking processing
++        } else if (ret == CC_SUCCESS) {
++            // Obtaining the result succeeded, and check the execution result.
++            if (retval != 1) {
++                printf("get result retval err:%d, index:%d\n", retval, processed_cursor);
++            }
++
++            if (strcmp("AABBCCDD", sharebuf + processed_cursor * one_share_buf_len)) {
++                printf("get result buffer err:%s, index:%d\n", sharebuf + processed_cursor * one_share_buf_len,
++                    processed_cursor);
++            }
++
++            processed_cursor++;
++        } else {
++            // Failed to obtain the result
++            processed_cursor++;
++        }
++    }
++
++    while (processed_cursor < nrepeats) {
++        ret = cc_sl_get_async_result(&g_enclave, arr[processed_cursor], &retval);
++        if (ret == CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++            // Invoking processing
++            continue;
++        } else if (ret == CC_SUCCESS) {
++            // Obtaining the result succeeded, and check the execution result.
++            if (retval != 1) {
++                printf("get result retval err:%d, index:%d\n", retval, processed_cursor);
++            }
++
++            if (strcmp("AABBCCDD", sharebuf + processed_cursor * one_share_buf_len)) {
++                printf("get result buffer err:%s, index:%d\n", sharebuf + processed_cursor * one_share_buf_len,
++                    processed_cursor);
++            }
++
++            processed_cursor++;
++        } else {
++            // Failed to obtain the result
++            processed_cursor++;
++        }
++    }
++
++    // END
++    gettimeofday(&tval_after, NULL);
++    timersub(&tval_after, &tval_before, &duration);
++
++    free(arr);
++
++    ret = cc_free_shared_memory(&g_enclave, sharebuf);
++    if (ret != CC_SUCCESS) {
++        printf("Error: free shared memory failed:%x.\n", ret);
++    }
++
++    printf("retry_count:%d, processed_cursor:%d\n", retry_count, processed_cursor);
++    printf("Repeating an empty sl async ecall [1] for %lu times takes %ld.%06lds\n", nrepeats,
++        (long int)duration.tv_sec, (long int)duration.tv_usec);
++}
++
++void benchmark_ecall_empty_sl_async_rollback1(unsigned long nrepeats)
++{
++    cc_enclave_result_t ret_code;
++    cc_enclave_result_t ret;
++    struct timeval tval_before;
++    struct timeval tval_after;
++    struct timeval duration;
++    int processed_cursor = 0;
++    int one_share_buf_len = 32;
++    int rollback_count = 0;
++    int retval;
++    unsigned long tmp_nrepeats = nrepeats;
++
++    int *arr = (int *)calloc(nrepeats, sizeof(int));
++    if (arr == NULL) {
++        return;
++    }
++
++    char *sharebuf = (char *)cc_malloc_shared_memory(&g_enclave, nrepeats * one_share_buf_len);
++    if (sharebuf == NULL) {
++        free(arr);
++        printf("Error: malloc shared memory failed.\n");
++        return;
++    }
++
++    // BEGIN
++    gettimeofday(&tval_before, NULL);
++
++    for (int i = 0; i < tmp_nrepeats; ++i) {
++        strcpy(sharebuf + i * one_share_buf_len, "aAbBcCdD");
++        ret_code = ecall_empty_switchless1_async(&g_enclave, &arr[i], &retval, sharebuf + i * one_share_buf_len,
++            sizeof("aAbBcCdD"));
++        if (ret_code == CC_SUCCESS) {
++            if (arr[i] == -1) {
++                /*
++                 * rollback to common invoking when asynchronous switchless fails, and the common call
++                 * is successful now, check the execution result.
++                 */
++                if (retval != 1) {
++                    printf("get result retval err:%d, index:%d\n", retval, i);
++                }
++
++                if (strcmp("AABBCCDD", sharebuf + i * one_share_buf_len)) {
++                    printf("get result buffer err:%s, index:%d\n", sharebuf + i * one_share_buf_len, i);
++                }
++
++                --i;
++                --tmp_nrepeats;
++                rollback_count++;
++            }
++        } else {
++            // Asynchronous invocation failed
++            printf("Asynchronous invocation failed, ret=%x\n", ret_code);
++        }
++
++        ret = cc_sl_get_async_result(&g_enclave, arr[processed_cursor], &retval);
++        if (ret == CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++            // Invoking processing
++        } else if (ret == CC_SUCCESS) {
++            // Obtaining the result succeeded, check the execution result.
++            if (retval != 1) {
++                printf("get result retval err:%d, index:%d\n", retval, processed_cursor);
++            }
++
++            if (strcmp("AABBCCDD", sharebuf + processed_cursor * one_share_buf_len)) {
++                printf("get result buffer err:%s, index:%d\n", sharebuf + processed_cursor * one_share_buf_len,
++                    processed_cursor);
++            }
++
++            processed_cursor++;
++        } else {
++            // Failed to obtain the result
++            processed_cursor++;
++        }
++    }
++
++    while (processed_cursor < tmp_nrepeats) {
++        ret = cc_sl_get_async_result(&g_enclave, arr[processed_cursor], &retval);
++        if (ret == CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++            // Invoking processing
++            continue;
++        } else if (ret == CC_SUCCESS) {
++            // Obtaining the result succeeded, check the execution result.
++            if (retval != 1) {
++                printf("get result retval err:%d, index:%d\n", retval, processed_cursor);
++            }
++
++            if (strcmp("AABBCCDD", sharebuf + processed_cursor * one_share_buf_len)) {
++                printf("get result buffer err:%s, index:%d\n", sharebuf + processed_cursor * one_share_buf_len,
++                    processed_cursor);
++            }
++
++            processed_cursor++;
++        } else {
++            // Failed to obtain the result
++            processed_cursor++;
++        }
++    }
++
++    // END
++    gettimeofday(&tval_after, NULL);
++    timersub(&tval_after, &tval_before, &duration);
++
++    free(arr);
++    ret = cc_free_shared_memory(&g_enclave, sharebuf);
++    if (ret != CC_SUCCESS) {
++        printf("Error: free shared memory failed:%x.\n", ret);
++    }
++
++    printf("rollback_count:%d, processed_cursor:%d\n", rollback_count, processed_cursor);
++    printf("Repeating an empty sl async ecall rollback [1] for %lu times takes %ld.%06lds\n", nrepeats,
++        (long int)duration.tv_sec, (long int)duration.tv_usec);
++}
++
++/* ecall_empty_switchless2 */
++void benchmark_ecall_empty_sl_async2(unsigned long nrepeats)
++{
++    cc_enclave_result_t ret_code;
++    cc_enclave_result_t ret;
++    struct timeval tval_before;
++    struct timeval tval_after;
++    struct timeval duration;
++    int processed_cursor = 0;
++    int retry_count = 0;
++    int one_share_buf_len = 32;
++    int half_one_share_buf_len = 16;
++    int retval;
++
++    int *arr = (int *)calloc(nrepeats, sizeof(int));
++    if (arr == NULL) {
++        return;
++    }
++
++    char *sharebuf = (char *)cc_malloc_shared_memory(&g_enclave, nrepeats * one_share_buf_len);
++    if (sharebuf == NULL) {
++        free(arr);
++        printf("Error: malloc shared memory failed.\n");
++        return;
++    }
++    memset(sharebuf, 0, nrepeats * one_share_buf_len);
++
++    // BEGIN
++    gettimeofday(&tval_before, NULL);
++
++    for (int i = 0; i < nrepeats; ++i) {
++        strcpy(sharebuf + i * one_share_buf_len, "aAbBcCdD");
++        ret_code = ecall_empty_switchless2_async(&g_enclave, &arr[i], NULL, sharebuf + i * one_share_buf_len,
++            sizeof("aAbBcCdD"), sharebuf + i * one_share_buf_len + half_one_share_buf_len, sizeof("aAbBcCdD"));
++        if (ret_code != CC_SUCCESS) {
++            if (ret_code == CC_ERROR_SWITCHLESS_TASK_POOL_FULL) {
++                // The task pool is full. You should try again later.
++                --i;
++                ++retry_count;
++            } else {
++                // Asynchronous invocation failed
++                printf("Asynchronous invocation failed, ret=%x\n", ret_code);
++            }
++        }
++
++        ret = cc_sl_get_async_result(&g_enclave, arr[processed_cursor], &retval);
++        if (ret == CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++            // Invoking processing
++        } else if (ret == CC_SUCCESS) {
++            // Obtaining the result succeeded, check the execution result.
++            if (retval != 2) {
++                printf("get result retval err:%d, index:%d\n", retval, processed_cursor);
++            }
++
++            if (strcmp("AABBCCDD", sharebuf + processed_cursor * one_share_buf_len + half_one_share_buf_len)) {
++                printf("get result buffer err:%s, index:%d\n",
++                    sharebuf + processed_cursor * one_share_buf_len + half_one_share_buf_len, processed_cursor);
++            }
++
++            processed_cursor++;
++        } else {
++            // Failed to obtain the result
++            processed_cursor++;
++        }
++    }
++
++    while (processed_cursor < nrepeats) {
++        ret = cc_sl_get_async_result(&g_enclave, arr[processed_cursor], &retval);
++        if (ret == CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++            // Invoking processing
++            continue;
++        } else if (ret == CC_SUCCESS) {
++            // Obtaining the result succeeded, check the execution result.
++            if (retval != 2) {
++                printf("get result retval err:%d, index:%d\n", retval, processed_cursor);
++            }
++
++            if (strcmp("AABBCCDD", sharebuf + processed_cursor * one_share_buf_len + half_one_share_buf_len)) {
++                printf("get result buffer err:%s, index:%d\n",
++                    sharebuf + processed_cursor * one_share_buf_len + half_one_share_buf_len, processed_cursor);
++            }
++
++            processed_cursor++;
++        } else {
++            // Failed to obtain the result
++            processed_cursor++;
++        }
++    }
++
++    // END
++    gettimeofday(&tval_after, NULL);
++    timersub(&tval_after, &tval_before, &duration);
++
++    free(arr);
++
++    ret = cc_free_shared_memory(&g_enclave, sharebuf);
++    if (ret != CC_SUCCESS) {
++        printf("Error: free shared memory failed:%x.\n", ret);
++    }
++
++    printf("retry_count:%d, processed_cursor:%d\n", retry_count, processed_cursor);
++    printf("Repeating an empty sl async ecall [2] for %lu times takes %ld.%06lds\n", nrepeats,
++        (long int)duration.tv_sec, (long int)duration.tv_usec);
++}
++
++void benchmark_ecall_empty_sl_async_rollback2(unsigned long nrepeats)
++{
++    cc_enclave_result_t ret_code;
++    cc_enclave_result_t ret;
++    struct timeval tval_before;
++    struct timeval tval_after;
++    struct timeval duration;
++    int processed_cursor = 0;
++    int one_share_buf_len = 32;
++    int half_one_share_buf_len = 16;
++    int rollback_count = 0;
++    int retval;
++    unsigned long tmp_nrepeats = nrepeats;
++
++    int *arr = (int *)calloc(nrepeats, sizeof(int));
++    if (arr == NULL) {
++        return;
++    }
++
++    char *sharebuf = (char *)cc_malloc_shared_memory(&g_enclave, nrepeats * one_share_buf_len);
++    if (sharebuf == NULL) {
++        free(arr);
++        printf("Error: malloc shared memory failed.\n");
++        return;
++    }
++
++    // BEGIN
++    gettimeofday(&tval_before, NULL);
++
++    for (int i = 0; i < tmp_nrepeats; ++i) {
++        strcpy(sharebuf + i * one_share_buf_len, "aAbBcCdD");
++        ret_code = ecall_empty_switchless2_async(&g_enclave, &arr[i], &retval, sharebuf + i * one_share_buf_len,
++            sizeof("aAbBcCdD"), sharebuf + i * one_share_buf_len + half_one_share_buf_len, sizeof("aAbBcCdD"));
++        if (ret_code == CC_SUCCESS) {
++            if (arr[i] == -1) {
++                /*
++                 * rollback to common invoking when asynchronous switchless fails, and the common call
++                 * is successful now, check the execution result.
++                 */
++                if (retval != 2) {
++                    printf("get result retval err:%d, index:%d\n", retval, i);
++                }
++
++                if (strcmp("AABBCCDD", sharebuf + i * one_share_buf_len + half_one_share_buf_len)) {
++                    printf("get result buffer err:%s, index:%d\n",
++                        sharebuf + i * one_share_buf_len + half_one_share_buf_len, i);
++                }
++
++                --i;
++                --tmp_nrepeats;
++                rollback_count++;
++            }
++        } else {
++            // Asynchronous invocation failed
++            printf("Asynchronous invocation failed, ret=%x\n", ret_code);
++        }
++
++        ret = cc_sl_get_async_result(&g_enclave, arr[processed_cursor], &retval);
++        if (ret == CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++            // Invoking processing
++        } else if (ret == CC_SUCCESS) {
++            // Obtaining the result succeeded, check the execution result.
++            if (retval != 2) {
++                printf("get result retval err:%d, index:%d\n", retval, processed_cursor);
++            }
++
++            if (strcmp("AABBCCDD", sharebuf + processed_cursor * one_share_buf_len + half_one_share_buf_len)) {
++                printf("get result buffer err:%s, index:%d\n",
++                    sharebuf + processed_cursor * one_share_buf_len + half_one_share_buf_len, processed_cursor);
++            }
++
++            processed_cursor++;
++        } else {
++            // Failed to obtain the result
++            processed_cursor++;
++        }
++    }
++
++    while (processed_cursor < tmp_nrepeats) {
++        ret = cc_sl_get_async_result(&g_enclave, arr[processed_cursor], &retval);
++        if (ret == CC_ERROR_SWITCHLESS_ASYNC_TASK_UNFINISHED) {
++            // Invoking processing
++            continue;
++        } else if (ret == CC_SUCCESS) {
++            // Obtaining the result succeeded, check the execution result.
++            if (retval != 2) {
++                printf("get result retval err:%d, index:%d\n", retval, processed_cursor);
++            }
++
++            if (strcmp("AABBCCDD", sharebuf + processed_cursor * one_share_buf_len + half_one_share_buf_len)) {
++                printf("get result buffer err:%s, index:%d\n",
++                    sharebuf + processed_cursor * one_share_buf_len + half_one_share_buf_len, processed_cursor);
++            }
++
++            processed_cursor++;
++        } else {
++            // Failed to obtain the result
++            processed_cursor++;
++        }
++    }
++
++    // END
++    gettimeofday(&tval_after, NULL);
++    timersub(&tval_after, &tval_before, &duration);
++
++    free(arr);
++    ret = cc_free_shared_memory(&g_enclave, sharebuf);
++    if (ret != CC_SUCCESS) {
++        printf("Error: free shared memory failed:%x.\n", ret);
++    }
++
++    printf("rollback_count:%d, processed_cursor:%d\n", rollback_count, processed_cursor);
++    printf("Repeating an empty sl async ecall rollback [2] for %lu times takes %ld.%06lds\n", nrepeats,
++        (long int)duration.tv_sec, (long int)duration.tv_usec);
+ }
+ 
+ #define TEST_STR "switchless"
+@@ -106,11 +683,35 @@ void transfer_data_using_shared_memory()
+     }
+ }
+ 
++void onetime_normal(void)
++{
++    cc_enclave_result_t ret;
++    int retval;
++
++    char buf[] = "aAbBcCdD";
++    ret = ecall_empty1(&g_enclave, &retval, buf, sizeof(buf));
++    if (ret != CC_SUCCESS) {
++        printf("Error: ecall_empty1, ret:%x.\n", ret);
++        return;
++    }
++    printf("buf:%s, retval:%d\n", buf, retval);
++
++    char buf1[] = "aAbBcCdD";
++    char buf2[32] = {0};
++    ret = ecall_empty2(&g_enclave, &retval, buf1, sizeof(buf1), buf2, sizeof(buf1) - 3);
++    if (ret != CC_SUCCESS) {
++        printf("Error: ecall_empty2, ret:%x.\n", ret);
++        return;
++    }
++    printf("buf2:%s, retval:%d\n", buf2, retval);
++}
++
+ int main(void)
+ {
+     cc_sl_config_t sl_cfg = CC_USWITCHLESS_CONFIG_INITIALIZER;
+     sl_cfg.num_tworkers = 2; /* 2 tworkers */
+-    sl_cfg.sl_call_pool_size_qwords = 2; /* 2 * 64 tasks */
++    sl_cfg.sl_call_pool_size_qwords = 8; /* 2 * 64 tasks */
++    sl_cfg.rollback_to_common = false;
+     enclave_features_t features = {ENCLAVE_FEATURE_SWITCHLESS, (void *)&sl_cfg};
+ 
+     if (!init_enclave(&features)) {
+@@ -119,14 +720,47 @@ int main(void)
+     }
+ 
+     printf("\n1. Running a benchmark that compares [ordinary] and [switchless] ecall\n");
+-    unsigned long nrepeats = 100000;
++    unsigned long nrepeats = 10000;
++    benchmark_ecall_empty(false, nrepeats);
++    benchmark_ecall_empty(true, nrepeats);
++
++    benchmark_ecall_empty_sl_async(nrepeats);
++    benchmark_ecall_empty_sl_async1(nrepeats);
++    benchmark_ecall_empty_sl_async2(nrepeats);
++
++    printf("\n2. Transfer data using shared memory\n");
++    transfer_data_using_shared_memory();
++
++    printf("\n3. normal ecall\n");
++    onetime_normal();
++
++    fini_enclave(&g_enclave);
++
++#if 1
++    printf("\n=================================================\n");
++
++    sl_cfg.rollback_to_common = true;
++    if (!init_enclave(&features)) {
++        printf("Error: init enclave failed\n");
++        return -1;
++    }
++
++    printf("\n1. Running a benchmark that compares [ordinary] and [switchless] ecall\n");
+     benchmark_ecall_empty(false, nrepeats);
+     benchmark_ecall_empty(true, nrepeats);
+ 
++    benchmark_ecall_empty_sl_async_rollback(nrepeats);
++    benchmark_ecall_empty_sl_async_rollback1(nrepeats);
++    benchmark_ecall_empty_sl_async_rollback2(nrepeats);
++
+     printf("\n2. Transfer data using shared memory\n");
+     transfer_data_using_shared_memory();
+ 
++    printf("\n3. normal ecall\n");
++    onetime_normal();
++
+     fini_enclave(&g_enclave);
++#endif
+ 
+     return 0;
+ }
+diff --git a/examples/switchless_performance/switchless.edl b/examples/switchless_performance/switchless.edl
+index 344ee57..3c6f32e 100644
+--- a/examples/switchless_performance/switchless.edl
++++ b/examples/switchless_performance/switchless.edl
+@@ -16,8 +16,21 @@ enclave {
+     from "secgear_tswitchless.edl" import *;
+     trusted {
+         public void ecall_empty(void);
++
++        /* test [in, out] params */
++        public int ecall_empty1([in, out, size=len]char *buf, int len);
++
++        /* test [in] and [out] params */
++        public int ecall_empty2([in, size=len1]char *buf1, int len1, [out, size=len2]char *buf2, int len2);
++
+         public void ecall_empty_switchless(void) transition_using_threads;
+ 
++        /* test [in, out] params */
++        public int ecall_empty_switchless1([in, out, size=len]char *buf, int len) transition_using_threads;
++
++        /* test [in] and [out] params */
++        public int ecall_empty_switchless2([in, size=len1]char *buf1, int len1, [out, size=len2]char *buf2, int len2) transition_using_threads;
++
+         public void test_toupper([in, out, size=len]char *buf, int len) transition_using_threads;
+     };
+ };
+-- 
+2.27.0
+
