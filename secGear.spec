@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	34
+Release:	35
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -62,6 +62,9 @@ Patch49:        0050-switchless-schedule-policy.patch
 Patch50:        0051-asynchronous-switchless.patch
 Patch51:        0052-rollback-to-common-invoking-when-async-invoking-fail.patch
 Patch52:        0053-asynchronous-switchless-example.patch
+Patch53:        0054-fix-gen-ecall-header-error.patch
+Patch54:        0055-switchless-readme-add-async-interface.patch
+Patch55:        0056-destroy-enclave-release-remain-shared-memory.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
@@ -180,6 +183,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Tue Dec 20 2022 houmingyong<houmingyong@huawei.com> - 0.1.0-35
+- fix aysnchronous ecall bug
+
 * Tue Dec 20 2022 houmingyong<houmingyong@huawei.com> - 0.1.0-34
 - add asynchronous switchless example
 
