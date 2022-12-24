@@ -206,13 +206,13 @@ systemctl restart rsyslog
 * Tue Jun 29 2021 zhangguangzhi<zhangguangzhi3@huawei.com> - 0.1.0-18
 - DESC: add some buildrequires gcc-c++ rpm
 
-* Fri June 4 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-17
+* Fri Jun 4 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-17
 - DESC: clean enclave memory when it comes to error_handle
 
-* Thu June 3 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-16
+* Thu Jun 3 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-16
 - DESC: backport some patches from openeuler secGear
 
-* Wed June 2 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-15
+* Wed Jun 2 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-15
 - DESC: fix uaf in cc_enclave_create
 
 * Thu May 20 2021 chenmaodong<chenmaodong@huawei.com> - 0.1.0-14
