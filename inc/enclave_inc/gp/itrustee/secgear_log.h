@@ -13,7 +13,8 @@
 #ifndef _SECGEAR_LOG_H
 #define _SECGEAR_LOG_H
 
-#include<stdio.h>
+#include <stdio.h>
+#include "tee_log.h"
 
 #ifndef PRINT_LEVEL
 #define PRINT_LEVEL 0
