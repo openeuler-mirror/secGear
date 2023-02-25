@@ -78,7 +78,28 @@ typedef enum _enclave_result_t
     CC_ERROR_ATT_KEY_UNINITIALIZED,             /* attestation key is not initialized*/
     CC_ERROR_INVALID_ATT_KEY_CERT_DATA,         /* attestation data is not valid*/
     CC_ERROR_PLATFORM_CERT_UNAVAILABLE,         /* cert is not available*/
-    
+/* secure channel */
+    CC_ERROR_SEC_CHL_INVALID_CONN,          /* invalid connection */
+    CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH,       /* the buf length to store secure channle encrypt/decrypt is not enough */
+    CC_ERROR_SEC_CHL_SEND_MSG,
+    CC_ERROR_SEC_CHL_WAITING_RECV_MSG,
+    CC_ERROR_SEC_CHL_RECV_MSG_LEN_INVALID,
+    CC_ERROR_SEC_CHL_GET_SVR_PUBKEY,
+    CC_ERROR_SEC_CHL_GET_PEER_EXCH_PARAM,
+    CC_ERROR_SEC_CHL_VERIFY_PEER_EXCH_BUF_SIGNATURE,
+    CC_ERROR_SEC_CHL_INVALID_EXCH_BUF,
+    CC_ERROR_SEC_CHL_GEN_LOCAL_EXCH_PARAM,
+    CC_ERROR_DRIVE_SESSIONKEY,
+    CC_ERROR_SEC_CHL_MEMORY,
+    CC_ERROR_SEC_CHL_SET_PARAM_TO_PEER,
+    CC_ERROR_SEC_CHL_DESTROY_SVR,
+    CC_ERROR_SEC_CHL_ENCRYPT,
+    CC_ERROR_SEC_CHL_DECRYPT,
+    CC_ERROR_SEC_CHL_SVR_ALREADY_INIT,
+    CC_ERROR_SEC_CHL_SVR_INIT,
+    CC_ERROR_SEC_CHL_NOTREADY,
+    CC_ERROR_SEC_CHL_CLI_NUM_EXCEED_MAX_LIMIT, // client num exceed max limit
+
     CC_ERROR_OTRP_BASE = 0x80000100,  /* sec file config source is not inconsistent with the loading mode. */
     CC_ERROR_STORAGE_EIO        = 0x80001001, /* *<安全存储I/O错误 */
     CC_ERROR_STORAGE_EAGAIN     = 0x80001002, /* *<安全存储分区暂时不可用，请重试 */

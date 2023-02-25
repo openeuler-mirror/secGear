@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
+ * CloudEnclave is licensed under the Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ * http://license.coscl.org.cn/MulanPSL2
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
+ * PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ */
+
+enclave {
+    include "stdbool.h"
+    include "secgear_urts.h"
+    from "secgear_tstdc.edl" import *;
+    from "secgear_tssl.edl" import *;
+    from "secgear_pthread.edl" import *;
+    trusted {
+        // #define RSA_PUBKEY_LEN 640
+        public int get_enclave_pubkey([in, out] size_t* session_id, [out, size = 640] uint8_t* pubkey, [in, out] size_t* pubkey_len);
+        public int get_enclave_exch_param_len(size_t session_id, [in, out] size_t* exch_param_len);
+        public int get_enclave_exch_param(size_t session_id, [out, size = exch_param_len] uint8_t* exch_param, size_t exch_param_len);
+        public int set_peer_exch_param(size_t session_id, [in, size = data_len] uint8_t* data, size_t data_len);
+        public void del_enclave_sec_chl(size_t session_id);
+
+        public int enclave_start_sec_chl();     // 开启安全通道服务
+        public void enclave_stop_sec_chl();     // 关闭安全通道服务
+        public void enclave_check_session_timeout();
+    };
+};
