@@ -103,6 +103,7 @@ endif()
 add_subdirectory(tools/codegener)
 
 add_subdirectory(src)
+#add_subdirectory(component)
 
 if(NOT IS_DIRECTORY ${LOCAL_ROOT_PATH}/bin)
 	execute_process(COMMAND mkdir ${LOCAL_ROOT_PATH}/bin)
