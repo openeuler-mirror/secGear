@@ -1,0 +1,4096 @@
+From 3bfd440b93fb9877b2637af75670e3b71590a244 Mon Sep 17 00:00:00 2001
+From: houmingyong <houmingyong@huawei.com>
+Date: Tue, 28 Feb 2023 16:43:46 +0800
+Subject: [PATCH] support secure channel
+
+---
+ CMakeLists.txt                                |   3 +-
+ component/CMakeLists.txt                      |  14 +
+ component/secure_channel/CMakeLists.txt       |  40 +
+ .../secure_channel/client/CMakeLists.txt      |  43 +
+ .../client/secure_channel_client.c            | 444 ++++++++++
+ .../client/secure_channel_client.h            | 131 +++
+ .../secure_channel/enclave/CMakeLists.txt     | 156 ++++
+ component/secure_channel/enclave/Enclave.lds  |  11 +
+ .../enclave/secure_channel_enclave.c          | 558 +++++++++++++
+ .../enclave/secure_channel_enclave.h          |  59 ++
+ component/secure_channel/host/CMakeLists.txt  | 101 +++
+ .../secure_channel/host/secure_channel_host.c | 393 +++++++++
+ .../secure_channel/host/secure_channel_host.h |  66 ++
+ component/secure_channel/secure_channel.edl   |  31 +
+ component/secure_channel/secure_channel.h     |  53 ++
+ .../secure_channel/secure_channel_common.c    | 788 ++++++++++++++++++
+ .../secure_channel/secure_channel_common.h    |  99 +++
+ examples/CMakeLists.txt                       |   2 +
+ examples/secure_channel/CMakeLists.txt        |  26 +
+ examples/secure_channel/client/CMakeLists.txt |  60 ++
+ examples/secure_channel/client/client.c       | 137 +++
+ .../secure_channel/enclave/CMakeLists.txt     | 152 ++++
+ .../secure_channel/enclave/Enclave.config.xml |  12 +
+ examples/secure_channel/enclave/Enclave.lds   |  11 +
+ .../secure_channel/enclave/config_cloud.ini   |  49 ++
+ examples/secure_channel/enclave/enclave.c     |  51 ++
+ examples/secure_channel/enclave/manifest.txt  |   8 +
+ examples/secure_channel/host/CMakeLists.txt   |  82 ++
+ examples/secure_channel/host/server.c         | 131 +++
+ examples/secure_channel/sc_demo.edl           |  20 +
+ examples/secure_channel/usr_msg.h             |  35 +
+ inc/enclave_inc/gp/itrustee/secgear_log.h     |   3 +-
+ inc/host_inc/status.h                         |  22 +
+ 33 files changed, 3789 insertions(+), 2 deletions(-)
+ create mode 100644 component/CMakeLists.txt
+ create mode 100644 component/secure_channel/CMakeLists.txt
+ create mode 100644 component/secure_channel/client/CMakeLists.txt
+ create mode 100644 component/secure_channel/client/secure_channel_client.c
+ create mode 100644 component/secure_channel/client/secure_channel_client.h
+ create mode 100644 component/secure_channel/enclave/CMakeLists.txt
+ create mode 100644 component/secure_channel/enclave/Enclave.lds
+ create mode 100644 component/secure_channel/enclave/secure_channel_enclave.c
+ create mode 100644 component/secure_channel/enclave/secure_channel_enclave.h
+ create mode 100644 component/secure_channel/host/CMakeLists.txt
+ create mode 100644 component/secure_channel/host/secure_channel_host.c
+ create mode 100644 component/secure_channel/host/secure_channel_host.h
+ create mode 100644 component/secure_channel/secure_channel.edl
+ create mode 100644 component/secure_channel/secure_channel.h
+ create mode 100644 component/secure_channel/secure_channel_common.c
+ create mode 100644 component/secure_channel/secure_channel_common.h
+ create mode 100644 examples/secure_channel/CMakeLists.txt
+ create mode 100644 examples/secure_channel/client/CMakeLists.txt
+ create mode 100644 examples/secure_channel/client/client.c
+ create mode 100644 examples/secure_channel/enclave/CMakeLists.txt
+ create mode 100644 examples/secure_channel/enclave/Enclave.config.xml
+ create mode 100644 examples/secure_channel/enclave/Enclave.lds
+ create mode 100644 examples/secure_channel/enclave/config_cloud.ini
+ create mode 100644 examples/secure_channel/enclave/enclave.c
+ create mode 100644 examples/secure_channel/enclave/manifest.txt
+ create mode 100644 examples/secure_channel/host/CMakeLists.txt
+ create mode 100644 examples/secure_channel/host/server.c
+ create mode 100644 examples/secure_channel/sc_demo.edl
+ create mode 100644 examples/secure_channel/usr_msg.h
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 2977702..119331c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -91,12 +91,13 @@ endif()
+ add_subdirectory(tools/codegener)
+ 
+ add_subdirectory(src)
++add_subdirectory(component)
+ 
+ if(NOT IS_DIRECTORY ${LOCAL_ROOT_PATH}/bin)
+ 	execute_process(COMMAND mkdir ${LOCAL_ROOT_PATH}/bin)
+ endif()
+ 
+-add_subdirectory(examples)
++#add_subdirectory(examples)
+ 
+ 
+ install(FILES ${LOCAL_ROOT_PATH}/conf/logrotate.d/secgear
+diff --git a/component/CMakeLists.txt b/component/CMakeLists.txt
+new file mode 100644
+index 0000000..6cff34c
+--- /dev/null
++++ b/component/CMakeLists.txt
+@@ -0,0 +1,14 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++# secGear is licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++# PURPOSE.
++# See the Mulan PSL v2 for more details.
++
++ADD_SUBDIRECTORY(secure_channel)
++
++ 
++
+diff --git a/component/secure_channel/CMakeLists.txt b/component/secure_channel/CMakeLists.txt
+new file mode 100644
+index 0000000..1c7666f
+--- /dev/null
++++ b/component/secure_channel/CMakeLists.txt
+@@ -0,0 +1,40 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++# secGear is licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++# PURPOSE.
++# See the Mulan PSL v2 for more details.
++
++set(PREFIX secure_channel)
++
++set(EDL_FILE ${CMAKE_CURRENT_SOURCE_DIR}/secure_channel.edl)
++message(${EDL_FILE})
++
++set(CODEGEN codegen)
++
++if(CC_GP)
++    set(CODETYPE trustzone)
++else()
++    set(CODETYPE sgx)
++endif()
++
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=default -fPIC")
++set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
++set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
++
++ADD_SUBDIRECTORY(enclave)
++ADD_SUBDIRECTORY(host)
++ADD_SUBDIRECTORY(client)
++
++file(GLOB SEC_CHL_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/client/secure_channel_client.h
++                          ${CMAKE_CURRENT_SOURCE_DIR}/host/secure_channel_host.h
++                          ${CMAKE_CURRENT_SOURCE_DIR}/enclave/secure_channel_enclave.h
++                          ${CMAKE_CURRENT_SOURCE_DIR}/secure_channel.h
++                          ${CMAKE_CURRENT_SOURCE_DIR}/secure_channel.edl)
++
++install(FILES ${SEC_CHL_HEADERS}
++        DESTINATION /usr/include/secGear
++        PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
+diff --git a/component/secure_channel/client/CMakeLists.txt b/component/secure_channel/client/CMakeLists.txt
+new file mode 100644
+index 0000000..31c2ce9
+--- /dev/null
++++ b/component/secure_channel/client/CMakeLists.txt
+@@ -0,0 +1,43 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++# secGear is licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++# PURPOSE.
++# See the Mulan PSL v2 for more details.
++
++project(secure_channel_client C)
++
++set(PREFIX secure_channel)
++set(SOURCE_FILE secure_channel_client.c ${CMAKE_CURRENT_SOURCE_DIR}/../secure_channel_common.c)
++
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
++
++if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++    link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
++endif()
++
++include_directories( 
++    ${CMAKE_CURRENT_BINARY_DIR}
++    ${CMAKE_CURRENT_SOURCE_DIR}
++    ${LOCAL_ROOT_PATH}/inc/host_inc
++    ${LOCAL_ROOT_PATH}/component/secure_channel
++)
++add_library(c${PREFIX} SHARED ${SOURCE_FILE})
++
++if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++    target_link_directories(c${PREFIX} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
++endif()
++
++target_link_libraries(c${PREFIX} ssl crypto)
++
++set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
++
++install(TARGETS c${PREFIX} 
++        LIBRARY
++        DESTINATION ${LIBRARY_INSTALL}
++        PERMISSIONS  OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)
++
++
+diff --git a/component/secure_channel/client/secure_channel_client.c b/component/secure_channel/client/secure_channel_client.c
+new file mode 100644
+index 0000000..f4207cf
+--- /dev/null
++++ b/component/secure_channel/client/secure_channel_client.c
+@@ -0,0 +1,444 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * CloudEnclave is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ * http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++#include "secure_channel_client.h"
++
++#include <string.h>
++#include <pthread.h>
++#include <unistd.h>
++
++#include "status.h"
++#include "enclave_log.h"
++#include "secure_channel_common.h"
++
++#define SEC_CHL_RECV_BUF_MAX_LEN 1024
++
++struct cc_sec_chl_handle {
++    sec_chl_ecdh_ctx_t *ecdh_ctx;   // key exchange context
++    pthread_mutex_t lock;           // proctect recv_buf and recv_buf_len
++    uint8_t recv_buf[SEC_CHL_RECV_BUF_MAX_LEN];  // secure channel init msg max len
++    size_t  recv_buf_len;                        // secure channel init msg real len
++    uint8_t *svr_pubkey;
++    size_t   svr_pubkey_len;
++    cc_sec_chl_algo_t algo;
++};
++
++typedef enum {
++    STATE_ORIGIN = 0,
++    STATE_WAIT_SVRPUBKEY,
++    STATE_SVRPUBKEY_READY,
++    STATE_WAIT_RA_REPORT,
++    STATE_RA_REPORT_READY,
++    STATE_VERIFY_RA_SUCCESS,
++    STATE_VERIFY_SVRPUBKEY_SUCCESS,
++    STATE_WAIT_SVR_PARAM,
++    STATE_SVR_PARAM_READY,
++    STATE_LOCAL_PARAM_READY,
++    STATE_WAIT_SET_PARAM_RET,
++    STATE_ALL_READY,
++    STATE_SUCCESS,
++    STATE_FAIL
++} sec_chl_init_fsm_state_t;
++
++typedef enum {
++    EVENT_GET_SVRPUBKEY = 0,
++    EVENT_RECV_SVRPUBKEY,
++    EVENT_GET_RA_REPORT,
++    EVENT_RECV_RA_REPORT,
++    EVENT_VERIFY_RA_REPORT,
++    EVENT_VERIFY_SVRPUBKEY,
++    EVENT_GET_SVR_PARAM,
++    EVENT_RECV_SVR_PARAM,
++    EVENT_GEN_LOCAL_PARAM,
++    EVENT_SET_PARAM_TO_PEER,
++    EVENT_RECV_SET_PARAM_RET,
++    EVENT_COMPUTE_SESSIONKEY,
++} sec_chl_init_fsm_event_id_t;
++
++typedef cc_enclave_result_t (*sec_chl_init_fsm_action_t)(cc_sec_chl_ctx_t *ctx);
++
++typedef struct {
++    sec_chl_init_fsm_state_t cur_state;
++    sec_chl_init_fsm_event_id_t event_id;
++    sec_chl_init_fsm_state_t next_state;
++    sec_chl_init_fsm_action_t action;
++} sec_chl_fsm_state_transform_t;
++
++static cc_enclave_result_t sec_chl_send_request(cc_conn_kit_t *conn_kit, sec_chl_msg_t *req_msg)
++{
++    int ret;
++    size_t req_msg_len = sizeof(sec_chl_msg_t) + req_msg->data_len;
++
++    // send request to server
++    ret = conn_kit->send(conn_kit->conn, (uint8_t *)req_msg, req_msg_len);
++    if (ret < 0) {
++        print_error_term("client send request failed\n");
++        return CC_ERROR_SEC_CHL_SEND_MSG;
++    }
++
++    return CC_SUCCESS;
++}
++
++static void del_local_sec_chl_ctx(cc_sec_chl_ctx_t *ctx)
++{
++    pthread_mutex_destroy(&ctx->handle->lock);
++    if (ctx->handle->ecdh_ctx != NULL) {
++        del_ecdh_ctx(ctx->handle->ecdh_ctx);
++    }
++    if (ctx->handle->svr_pubkey != NULL) {
++        free(ctx->handle->svr_pubkey);
++    }
++    free(ctx->handle);
++    ctx->handle = NULL;
++    return;
++}
++
++cc_enclave_result_t cc_sec_chl_client_encrypt(cc_sec_chl_ctx_t *ctx, void *plain, size_t plain_len,
++    void *encrypt, size_t *encrypt_len)
++{
++    if (ctx == NULL || plain == NULL || plain_len == 0 || encrypt_len == NULL) {
++        return CC_ERROR_BAD_PARAMETERS;
++    }
++    if (ctx->handle == NULL) {
++        return CC_ERROR_SEC_CHL_NOTREADY;
++    }
++
++    size_t need_len = DATA_SIZE_LEN + plain_len + DATA_SIZE_LEN + GCM_TAG_LEN;
++    if (encrypt == NULL || *encrypt_len < need_len) {
++        *encrypt_len = need_len;
++        return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
++    }
++
++    return sec_chl_encrypt(ctx->handle->ecdh_ctx, plain, plain_len, encrypt, encrypt_len);
++}
++
++cc_enclave_result_t cc_sec_chl_client_decrypt(cc_sec_chl_ctx_t *ctx, void *encrypt, size_t encrypt_len,
++    void *plain, size_t *plain_len)
++{
++    if (ctx == NULL || encrypt == NULL || encrypt_len == 0 || plain_len == NULL) {
++        return CC_ERROR_BAD_PARAMETERS;
++    }
++    if (ctx->handle == NULL) {
++        return CC_ERROR_SEC_CHL_NOTREADY;
++    }
++    size_t need_len = buf_to_num(encrypt, DATA_SIZE_LEN);
++    if (plain == NULL || *plain_len < need_len) {
++        *plain_len = need_len;
++        return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
++    }
++
++    return sec_chl_decrypt(ctx->handle->ecdh_ctx, encrypt, encrypt_len, plain, plain_len);
++}
++
++static cc_enclave_result_t sec_chl_destroy_svr(cc_sec_chl_ctx_t *ctx)
++{
++    sec_chl_msg_t msg = {0};
++    msg.msg_type = SEC_CHL_MSG_DESTROY;
++    msg.session_id = ctx->session_id;
++    cc_enclave_result_t ret = sec_chl_send_request(&(ctx->conn_kit), &msg);
++    if (ret != CC_SUCCESS) {
++        print_error_term("secure channel destroy server request failed\n");
++        return CC_ERROR_SEC_CHL_DESTROY_SVR;
++    }
++    return ret;
++}
++
++void cc_sec_chl_client_fini(cc_sec_chl_ctx_t *ctx)
++{
++    if (ctx == NULL || ctx->handle == NULL) {
++        return;
++    }
++    (void)sec_chl_destroy_svr(ctx);
++    del_local_sec_chl_ctx(ctx);
++
++    return;
++}
++
++cc_enclave_result_t cc_sec_chl_client_callback(cc_sec_chl_ctx_t *ctx, void *buf, size_t len)
++{
++    if (ctx == NULL || buf == NULL || len == 0) {
++        return CC_ERROR_BAD_PARAMETERS;
++    }
++    if (len > SEC_CHL_RECV_BUF_MAX_LEN) {
++        print_error_term("call back recv buf len:%lu is invalid", len);
++        return CC_ERROR_SEC_CHL_RECV_MSG_LEN_INVALID;
++    }
++    pthread_mutex_lock(&ctx->handle->lock);
++    memset(ctx->handle->recv_buf, 0, sizeof(ctx->handle->recv_buf));
++    memcpy(ctx->handle->recv_buf, buf, len);
++    ctx->handle->recv_buf_len = len;
++    pthread_mutex_unlock(&ctx->handle->lock);
++
++    return CC_SUCCESS;
++}
++
++static cc_enclave_result_t get_svr_pubkey(cc_sec_chl_ctx_t *ctx)
++{
++    sec_chl_msg_t msg = {0};
++    msg.msg_type = SEC_CHL_MSG_GET_SVR_PUBKEY;
++    cc_enclave_result_t ret = sec_chl_send_request(&(ctx->conn_kit), &msg);
++    if (ret != CC_SUCCESS) {
++        return CC_ERROR_SEC_CHL_GET_SVR_PUBKEY;
++    }
++
++    return CC_SUCCESS;
++}
++
++static cc_enclave_result_t recv_svr_pubkey(cc_sec_chl_ctx_t *ctx)
++{
++    sec_chl_msg_t *msg = NULL;
++
++    pthread_mutex_lock(&ctx->handle->lock);
++    if (ctx->handle->recv_buf_len == 0) {
++        pthread_mutex_unlock(&ctx->handle->lock);
++        return CC_ERROR_SEC_CHL_WAITING_RECV_MSG;
++    }
++    msg = (sec_chl_msg_t *)ctx->handle->recv_buf;
++    ctx->handle->svr_pubkey = calloc(1, msg->data_len);
++    if (ctx->handle->svr_pubkey == NULL) {
++        pthread_mutex_unlock(&ctx->handle->lock);
++        return CC_ERROR_SEC_CHL_MEMORY;
++    }
++    memcpy(ctx->handle->svr_pubkey, msg->data, msg->data_len);
++    ctx->handle->svr_pubkey_len = msg->data_len;
++    ctx->session_id = msg->session_id;
++    pthread_mutex_unlock(&ctx->handle->lock);
++
++    return CC_SUCCESS;
++}
++
++static cc_enclave_result_t get_ra_report(cc_sec_chl_ctx_t *ctx)
++{
++    (void)ctx;
++    return CC_SUCCESS;
++}
++
++static cc_enclave_result_t recv_ra_report(cc_sec_chl_ctx_t *ctx)
++{
++    (void)ctx;
++    return CC_SUCCESS;
++}
++
++static cc_enclave_result_t verify_ra_report(cc_sec_chl_ctx_t *ctx)
++{
++    (void)ctx;
++    return CC_SUCCESS;
++}
++
++static cc_enclave_result_t verify_svr_pubkey(cc_sec_chl_ctx_t *ctx)
++{
++    (void)ctx;
++    return CC_SUCCESS;
++}
++
++static cc_enclave_result_t get_svr_param(cc_sec_chl_ctx_t *ctx)
++{
++    sec_chl_msg_t msg = {0};
++    msg.msg_type = SEC_CHL_MSG_GET_SVR_EXCH_PARAM;
++    msg.session_id = ctx->session_id;
++    cc_enclave_result_t ret = sec_chl_send_request(&(ctx->conn_kit), &msg);
++    if (ret != CC_SUCCESS) {
++        return CC_ERROR_SEC_CHL_GET_PEER_EXCH_PARAM;
++    }
++    return CC_SUCCESS;
++}
++
++static cc_enclave_result_t recv_svr_param(cc_sec_chl_ctx_t *ctx)
++{
++    int ec_nid;
++    sec_chl_msg_t *msg = NULL;
++    cc_enclave_result_t ret;
++
++    pthread_mutex_lock(&ctx->handle->lock);
++    if (ctx->handle->recv_buf_len == 0) {
++        pthread_mutex_unlock(&ctx->handle->lock);
++        return CC_ERROR_SEC_CHL_WAITING_RECV_MSG;
++    }
++    msg = (sec_chl_msg_t *)ctx->handle->recv_buf;
++    memcpy(&ec_nid, msg->data + RANDOM_LEN, sizeof(int));
++
++    ret = verify_signature(ctx->handle->svr_pubkey, ctx->handle->svr_pubkey_len, msg->data, msg->data_len);
++    if (ret != CC_SUCCESS) {
++        print_error_term("client key exchange, verify server exch param signature failed\n");
++        pthread_mutex_unlock(&ctx->handle->lock);
++        return ret;
++    }
++
++    sec_chl_ecdh_ctx_t *ecdh_ctx = new_local_ecdh_ctx(ec_nid);
++    if (ecdh_ctx == NULL) {
++        print_error_term("client key exchange, new local ecdh ctx failed\n");
++        pthread_mutex_unlock(&ctx->handle->lock);
++        return CC_ERROR_SEC_CHL_GEN_LOCAL_EXCH_PARAM;
++    }
++
++    ecdh_ctx->svr_exch_param_buf = (uint8_t *)calloc(1, msg->data_len);
++    if (ecdh_ctx->svr_exch_param_buf == NULL) {
++        del_ecdh_ctx(ecdh_ctx);
++        pthread_mutex_unlock(&ctx->handle->lock);
++        return CC_ERROR_SEC_CHL_MEMORY;
++    }
++    memcpy(ecdh_ctx->svr_exch_param_buf, msg->data, msg->data_len);
++    ecdh_ctx->svr_exch_param_buf_len = msg->data_len;
++    ctx->handle->ecdh_ctx = ecdh_ctx;
++
++    pthread_mutex_unlock(&ctx->handle->lock);
++
++    return CC_SUCCESS;
++}
++
++static cc_enclave_result_t gen_local_param(cc_sec_chl_ctx_t *ctx)
++{
++    return gen_local_exch_buf(ctx->handle->ecdh_ctx);
++}
++
++static cc_enclave_result_t set_local_param_to_peer(cc_sec_chl_ctx_t *ctx)
++{
++    int ret;
++    sec_chl_msg_t *msg = NULL;
++    sec_chl_ecdh_ctx_t *ecdh_ctx = ctx->handle->ecdh_ctx;
++    size_t len = sizeof(sec_chl_msg_t) + ecdh_ctx->local_exch_param_buf_len;
++
++    msg = (sec_chl_msg_t *)calloc(1, len);
++    if (msg == NULL) {
++        return CC_ERROR_SEC_CHL_MEMORY;
++    }
++
++    memcpy(msg->data, ecdh_ctx->local_exch_param_buf, ecdh_ctx->local_exch_param_buf_len);
++    msg->data_len = ecdh_ctx->local_exch_param_buf_len;
++
++    msg->session_id = ctx->session_id;
++    msg->msg_type = SEC_CHL_MSG_SEND_CLI_EXCH_PARAM;
++
++    ret = sec_chl_send_request(&ctx->conn_kit, msg);
++    free(msg);
++    if (ret != CC_SUCCESS) {
++        ret = CC_ERROR_SEC_CHL_SET_PARAM_TO_PEER;
++    }
++    return ret;
++}
++
++static cc_enclave_result_t recv_set_param_ret(cc_sec_chl_ctx_t *ctx)
++{
++    sec_chl_msg_t *msg = NULL;
++    cc_enclave_result_t ret;
++
++    pthread_mutex_lock(&ctx->handle->lock);
++    if (ctx->handle->recv_buf_len == 0) {
++        pthread_mutex_unlock(&ctx->handle->lock);
++        return CC_ERROR_SEC_CHL_WAITING_RECV_MSG;
++    }
++    msg = (sec_chl_msg_t *)ctx->handle->recv_buf;
++    ret = msg->ret;
++    pthread_mutex_unlock(&ctx->handle->lock);
++
++    return ret;
++}
++
++static cc_enclave_result_t sec_chl_compute_session_key(cc_sec_chl_ctx_t *ctx)
++{
++    sec_chl_exch_param_t *local_exch_param = NULL;
++    sec_chl_exch_param_t *svr_exch_param_buf = NULL;
++    int ret = get_exch_param_from_buf(ctx->handle->ecdh_ctx->svr_exch_param_buf,
++        ctx->handle->ecdh_ctx->svr_exch_param_buf_len, &svr_exch_param_buf);
++    if (ret != CC_SUCCESS) {
++        return ret;
++    }
++    
++    ret = get_exch_param_from_buf(ctx->handle->ecdh_ctx->local_exch_param_buf,
++        ctx->handle->ecdh_ctx->local_exch_param_buf_len, &local_exch_param);
++    if (ret != CC_SUCCESS) {
++        del_exch_param(svr_exch_param_buf);
++        return ret;
++    }
++    ret = compute_session_key(ctx->handle->ecdh_ctx, local_exch_param, svr_exch_param_buf);
++    if (ret != CC_SUCCESS) {
++        print_error_term("client key exchange, compute session key failed\n");
++        del_exch_param(svr_exch_param_buf);
++        del_exch_param(local_exch_param);
++        return ret;
++    }
++
++    del_exch_param(svr_exch_param_buf);
++    del_exch_param(local_exch_param);
++    return CC_SUCCESS;
++}
++
++static sec_chl_fsm_state_transform_t g_state_transform_table[] = {
++    {STATE_ORIGIN, EVENT_GET_SVRPUBKEY, STATE_WAIT_SVRPUBKEY, get_svr_pubkey},
++    {STATE_WAIT_SVRPUBKEY, EVENT_RECV_SVRPUBKEY, STATE_SVRPUBKEY_READY, recv_svr_pubkey},
++    {STATE_SVRPUBKEY_READY, EVENT_GET_RA_REPORT, STATE_WAIT_RA_REPORT, get_ra_report},
++    {STATE_WAIT_RA_REPORT, EVENT_RECV_RA_REPORT, STATE_RA_REPORT_READY, recv_ra_report},
++    {STATE_RA_REPORT_READY, EVENT_VERIFY_RA_REPORT, STATE_VERIFY_RA_SUCCESS, verify_ra_report},
++    {STATE_VERIFY_RA_SUCCESS, EVENT_VERIFY_SVRPUBKEY, STATE_VERIFY_SVRPUBKEY_SUCCESS, verify_svr_pubkey},
++    {STATE_VERIFY_SVRPUBKEY_SUCCESS, EVENT_GET_SVR_PARAM, STATE_WAIT_SVR_PARAM, get_svr_param},
++    {STATE_WAIT_SVR_PARAM, EVENT_RECV_SVR_PARAM, STATE_SVR_PARAM_READY, recv_svr_param},
++    {STATE_SVR_PARAM_READY, EVENT_GEN_LOCAL_PARAM, STATE_LOCAL_PARAM_READY, gen_local_param},
++    {STATE_LOCAL_PARAM_READY, EVENT_SET_PARAM_TO_PEER, STATE_WAIT_SET_PARAM_RET, set_local_param_to_peer},
++    {STATE_WAIT_SET_PARAM_RET, EVENT_RECV_SET_PARAM_RET, STATE_ALL_READY, recv_set_param_ret},
++    {STATE_ALL_READY, EVENT_COMPUTE_SESSIONKEY, STATE_SUCCESS, sec_chl_compute_session_key},
++};
++
++#define RECV_MSG_TIMEOUT_CNT 30
++#define RECV_MSG_INTERVAL (60 * 1000)
++cc_enclave_result_t sec_chl_run_fsm(cc_sec_chl_ctx_t *ctx)
++{
++    cc_enclave_result_t ret;
++    int cnt = 0;
++    for (size_t i = 0; i < sizeof(g_state_transform_table) / sizeof(g_state_transform_table[0]);) {
++        ret = g_state_transform_table[i].action(ctx);
++        if (ret == CC_ERROR_SEC_CHL_WAITING_RECV_MSG && cnt < RECV_MSG_TIMEOUT_CNT) {
++            cnt++;
++            usleep(RECV_MSG_INTERVAL);
++            continue;
++        }
++        if (ret != CC_SUCCESS) {
++            return ret;
++        }
++        i++;
++        cnt = 0;
++    }
++    return CC_SUCCESS;
++}
++
++static bool is_valid_algo(cc_sec_chl_algo_t algo)
++{
++    if (algo >= 0 && algo < CC_SEC_CHL_ALGO_MAX) {
++        return true;
++    }
++    return false;
++}
++
++cc_enclave_result_t cc_sec_chl_client_init(cc_sec_chl_algo_t algo, cc_sec_chl_ctx_t *ctx)
++{
++    if (ctx == NULL || !is_valid_algo(algo)) {
++        return CC_ERROR_BAD_PARAMETERS;
++    }
++
++    if (!is_valid_conn_kit(&ctx->conn_kit)) {
++        return CC_ERROR_SEC_CHL_INVALID_CONN;
++    }
++    ctx->handle = (cc_sec_chl_handle_t *)calloc(1, sizeof(cc_sec_chl_handle_t));
++    if (ctx->handle == NULL) {
++        return CC_ERROR_SEC_CHL_MEMORY;
++    }
++    ctx->handle->algo = algo;
++    pthread_mutex_init(&ctx->handle->lock, NULL);
++
++    cc_enclave_result_t ret = sec_chl_run_fsm(ctx);
++    if (ret != CC_SUCCESS) {
++        print_error_term("secure channel client init error:%x\n", ret);
++        cc_sec_chl_client_fini(ctx);
++    } else {
++        print_notice("secure channel client init success\n\n");
++    }
++
++    return ret;
++}
+diff --git a/component/secure_channel/client/secure_channel_client.h b/component/secure_channel/client/secure_channel_client.h
+new file mode 100644
+index 0000000..a77973a
+--- /dev/null
++++ b/component/secure_channel/client/secure_channel_client.h
+@@ -0,0 +1,131 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * CloudEnclave is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ * http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++#ifndef SECURE_CHANNEL_CLIENT_H
++#define SECURE_CHANNEL_CLIENT_H
++
++#include <stdbool.h>
++#include <stdint.h>
++#include <stddef.h>
++#include "status.h"
++#include "secure_channel.h"
++
++#ifdef  __cplusplus
++extern "C" {
++#endif
++
++/*******************************************************************************
++* secure channel is a confidential computing service of secGear.
++* user can request service by integrate secure_channel_client.h and libs,
++* call function to new a secure channel success, generate a shared key between client and server enclave
++* then user can send private data security to server enclave,
++* the client of secure channel will encrypt private data by shared key, only server enclave can decrypt.
++*
++* Note: secure channel just generate sessionkey between client and server enclave, and provide interface to send data
++* excluding implement of network transmission connection, which expect register by user
++*******************************************************************************/
++
++typedef struct cc_sec_chl_handle cc_sec_chl_handle_t;
++
++/* secure channel client context */
++typedef struct cc_sec_chl_ctx {
++    size_t session_id;              // unique value return by server
++    cc_conn_kit_t conn_kit;         // network transmission connection kit need register by user
++    cc_sec_chl_handle_t *handle;
++} cc_sec_chl_ctx_t;
++
++typedef enum {
++    CC_SEC_CHL_ALGO_RSA_ECDH_AES_GCM,   // international Data Encryption Algorithm suite
++    // some algos suite to implement below
++    // CC_SEC_CHL_ALGO_SM2_ECDH_SM4,       // shang mi suite
++    // CC_SEC_CHL_ALGO_RSA,                // RSA public private key
++    // CC_SEC_CHL_ALGO_SM2,                // SM2 public private key
++    CC_SEC_CHL_ALGO_MAX
++} cc_sec_chl_algo_t;
++
++/**
++* secure channel init function
++*
++* @param[in] algo, The algorithm suite of secure channel
++*
++* @param[in/out] ctx, The pointer of secure channel context
++*          input need init conn_kit;
++*          output session_id and cc_sec_chl_handle_t
++*
++* @retval, On success, return 0. generate session_key between client and enclave.
++*          On error, cc_enclave_result_t errorno is returned.
++*/
++cc_enclave_result_t cc_sec_chl_client_init(cc_sec_chl_algo_t algo, cc_sec_chl_ctx_t *ctx);
++
++/**
++* secure channel uninit function, destory secure channel resource
++*
++* @param[in] ctx, The pointer of secure channel context
++*
++* @retval, On success, return 0.
++*          On error, cc_enclave_result_t errorno is returned.
++*/
++void cc_sec_chl_client_fini(cc_sec_chl_ctx_t *ctx);
++
++/**
++* client secure channel msg handle callback.
++* @param[in] ctx, The cc_sec_chl_ctx_t instance
++*
++* @param[in] buf, client receive message buffer
++* @param[in] buf_len, The length of receive buffer
++*
++* @retval On success, 0 is returned. On error, cc_enclave_result_t is returned.
++*/
++cc_enclave_result_t cc_sec_chl_client_callback(cc_sec_chl_ctx_t *ctx, void *buf, size_t len);
++
++/**
++* This function will encrypt data by secure channel's shared key
++*
++* @param[in] ctx, The secure channel connection context
++*
++* @param[int] plain, The buf to be encrypt
++*
++* @param[in] plain_len, The number of bytes expect to encrypt
++*
++* @param[out] encrypt, The buf of encrypted. If NULL return error, and assign the needed length to encrypt_len
++*
++* @param[in/out] encrypt_len, The pointer of encrypted buffer length. If encrypt_len is not enough, will return error,
++* and assign the needed length to encrypt_len
++*
++* @retval On success, 0 is returned. On error, cc_enclave_result_t is returned.
++*/
++cc_enclave_result_t cc_sec_chl_client_encrypt(cc_sec_chl_ctx_t *ctx, void *plain, size_t plain_len,
++    void *encrypt, size_t *encrypt_len);
++
++/**
++* This function will decrypt data by secure channel's shared key
++*
++* @param[in] ctx, The secure channel connection context
++*
++* @param[in] encrypt, The buf to be decrypt.
++*
++* @param[in] encrypt_len, The length of encrypted buffer.
++*
++* @param[int] plain, The buf to store decrypt data, If NULL return error, and assign the needed length to plain_len
++*
++* @param[in/out] plain_len, The pointer of plain buffer length. If plain_len is not enough, will return error,
++* and assign the needed length to plain_len
++*
++* @retval On success, 0 is returned. On error, cc_enclave_result_t is returned.
++*/
++cc_enclave_result_t cc_sec_chl_client_decrypt(cc_sec_chl_ctx_t *ctx, void *encrypt, size_t encrypt_len,
++    void *plain, size_t *plain_len);
++
++# ifdef  __cplusplus
++}
++# endif
++#endif
+diff --git a/component/secure_channel/enclave/CMakeLists.txt b/component/secure_channel/enclave/CMakeLists.txt
+new file mode 100644
+index 0000000..e6f71c5
+--- /dev/null
++++ b/component/secure_channel/enclave/CMakeLists.txt
+@@ -0,0 +1,156 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++# secGear is licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++# PURPOSE.
++# See the Mulan PSL v2 for more details.
++
++project(secure_channel_enclave C)
++set(PREFIX secure_channel)
++
++set(SOURCE_FILES secure_channel_enclave.c ${CMAKE_CURRENT_SOURCE_DIR}/../secure_channel_common.c)
++
++set(PRINT_LEVEL 3)
++add_definitions(-DPRINT_LEVEL=${PRINT_LEVEL})
++
++if(CC_GP)
++    add_definitions(-DGP_ENCLAVE)
++    set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
++    add_custom_command(OUTPUT ${AUTO_FILES}
++    DEPENDS ${EDL_FILE}
++    # COMMAND ${CODEGEN} --${CODETYPE} --header-only --trusted ${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
++    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
++endif()
++
++if(CC_SGX)
++    add_definitions(-DSGX_ENCLAVE)
++    #sgxsdk path
++    set(SGX_SDK_PATH ${SGXSDK})
++    set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h)
++    add_custom_command(OUTPUT ${AUTO_FILES}
++    DEPENDS ${EDL_FILE}
++    COMMAND ${CODEGEN} --${CODETYPE} --header-only --trusted ${EDL_FILE}
++                    --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
++                    --search-path ${SSL_PATH}/include
++                    --search-path ${SGX_SDK_PATH}/include)
++endif()
++
++set(CMAKE_C_FLAGS "-W -Wall -fno-short-enums -fno-omit-frame-pointer -fstack-protector \
++    -Wstack-protector --param ssp-buffer-size=4 -frecord-gcc-switches -Wextra -nostdinc -nodefaultlibs\
++    -fno-peephole -fno-peephole2 -Wno-main -Wno-error=unused-parameter \
++    -Wno-error=unused-but-set-variable -Wno-error=format-truncation= ")
++
++set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
++
++if(CC_GP)
++    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a -fPIC")
++    set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-s")
++
++    set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
++    # set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/musl/musl-1.2.0/)
++    set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
++
++    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${CMAKE_BINARY_DIR}/lib/)
++    endif()
++
++    include_directories(
++            ${CMAKE_CURRENT_BINARY_DIR}
++            ${CMAKE_CURRENT_SOURCE_DIR}
++            ${LOCAL_ROOT_PATH}/component/secure_channel
++            ${LOCAL_ROOT_PATH}/inc/host_inc
++            ${LOCAL_ROOT_PATH}/inc/host_inc/gp
++            ${LOCAL_ROOT_PATH}/inc/enclave_inc
++            ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp
++            ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee
++            ${ITRUSTEE_TEEDIR}/include/TA
++            ${ITRUSTEE_TEEDIR}/include/TA/huawei_ext
++            ${ITRUSTEE_TEEDIR}/include/TA/openssl
++            ${ITRUSTEE_LIBC}/arch/aarch64
++            ${ITRUSTEE_LIBC}/
++            ${ITRUSTEE_LIBC}/arch/arm/bits
++            ${ITRUSTEE_LIBC}/arch/generic
++            ${ITRUSTEE_LIBC}/arch/arm
++            ${SSL_PATH}/include)
++    add_library(t${PREFIX} ${SOURCE_FILES} ${AUTO_FILES} ${LOCAL_ROOT_PATH}/src/enclave_src/gp/gp.c)
++
++    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++        target_link_directories(t${PREFIX} PRIVATE
++            ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
++	    #/usr/lib64
++            ${CMAKE_BINARY_DIR}/lib/)
++    endif()
++else()
++    set(SGX_MODE HW)
++    set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -pthread -fPIC")
++
++    set(OPENSSL_LIBRARY_PATH ${SSL_PATH}/lib64)
++    set(SGX_LIBRARY_PATH ${SGX_SDK_PATH}/lib64)
++
++    if(${SGX_MODE} STREQUAL HW)
++        set(Trts_Library_Name sgx_trts)
++        set(Service_Library_Name sgx_tservice)
++    else()
++        set(Trts_Library_Name sgx_trts_sim)
++        set(Service_Library_Name sgx_tservice_sim)
++    endif()
++
++    set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-z,defs -Wl,-pie -Bstatic -Bsymbolic -eenclave_entry \
++    -Wl,--export-dynamic -Wl,--defsym,__ImageBase=0 -Wl,--gc-sections \
++    -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/Enclave.lds")
++
++    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGX_LIBRARY_PATH})
++    endif()
++
++    include_directories(
++        ${CMAKE_CURRENT_BINARY_DIR}
++        ${LOCAL_ROOT_PATH}/component/secure_channel
++        ${LOCAL_ROOT_PATH}/inc/host_inc
++        ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
++        ${LOCAL_ROOT_PATH}/inc/enclave_inc
++        ${LOCAL_ROOT_PATH}/inc/enclave_inc/sgx
++        ${SSL_PATH}/include
++        ${SGX_SDK_PATH}/include/tlibc
++        ${SGX_SDK_PATH}/include/libcxx
++        ${SGX_SDK_PATH}/include)
++
++    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${Enclave_C_Flags}")
++    add_library(t${PREFIX} ${SOURCE_FILES} ${AUTO_FILES}) 
++
++    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++        target_link_directories(t${PREFIX} PRIVATE
++            ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGX_LIBRARY_PATH} ${OPENSSL_LIBRARY_PATH})
++    endif()
++    # set(LIBNAME "libtsecure_channel.a")
++    # set(DEPEND_LIBS
++    #         ${SGX_LIBRARY_PATH}/libsgx_trts.a
++    #         ${SGX_LIBRARY_PATH}/libsgx_tstdc.a
++    #         ${SGX_LIBRARY_PATH}/libsgx_tcxx.a
++    #         ${SGX_LIBRARY_PATH}/libsgx_tcrypto.a
++    #         ${SGX_LIBRARY_PATH}/libsgx_pthread.a
++    #         ${SGX_LIBRARY_PATH}/libsgx_tservice.a
++    #         ${OPENSSL_LIBRARY_PATH}/libsgx_tsgxssl.a
++    #         ${OPENSSL_LIBRARY_PATH}/libsgx_tsgxssl_ssl.a
++    #         ${OPENSSL_LIBRARY_PATH}/libsgx_tsgxssl_crypto.a)
++    # add_custom_command(OUTPUT ${LIBNAME}
++    #         PRE_BUILD
++    #         COMMAND ar crsT ${LIBNAME} libt${PREFIX}_tmp.a ${DEPEND_LIBS}
++    #         DEPENDS libt${PREFIX}_tmp.a ${DEPEND_LIBS}
++    #         COMMENT "combing libs...")
++    # add_custom_target(_generator DEPENDS ${LIBNAME})
++    # add_library(t${PREFIX} STATIC IMPORTED)
++    # set_property(TARGET t${PREFIX} PROPERTY IMPORTED_LOCATION ${LIBNAME})
++    # add_dependencies(t${PREFIX} _generator)
++endif()
++
++set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
++
++install(TARGETS t${PREFIX}
++        ARCHIVE
++        DESTINATION ${LIBRARY_INSTALL}
++        PERMISSIONS  OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)
++
+diff --git a/component/secure_channel/enclave/Enclave.lds b/component/secure_channel/enclave/Enclave.lds
+new file mode 100644
+index 0000000..ab77e64
+--- /dev/null
++++ b/component/secure_channel/enclave/Enclave.lds
+@@ -0,0 +1,11 @@
++enclave.so
++{
++    global:
++        g_global_data_sim;
++        g_global_data;
++        enclave_entry;
++        g_peak_heap_used;
++    local:
++        *;
++};
++
+diff --git a/component/secure_channel/enclave/secure_channel_enclave.c b/component/secure_channel/enclave/secure_channel_enclave.c
+new file mode 100644
+index 0000000..636ad90
+--- /dev/null
++++ b/component/secure_channel/enclave/secure_channel_enclave.c
+@@ -0,0 +1,558 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * CloudEnclave is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ * http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++#ifdef SGX_ENCLAVE
++#include "tsgxsslio.h"
++#endif
++
++#include <openssl/pem.h>
++
++#include "status.h"
++#include "secgear_log.h"
++#include "secgear_random.h"
++#include "secure_channel_common.h"
++#include "secure_channel_t.h"
++
++#ifdef SGX_ENCLAVE
++    #include "sgx_thread.h"
++    typedef sgx_thread_rwlock_t sc_lock_t;
++#else
++    typedef pthread_rwlock_t sc_lock_t;
++#endif
++
++static int eccurve_support[] = {
++    NID_brainpoolP256r1, // brainpoolP256r1
++    NID_brainpoolP320r1, // brainpoolP320r1
++    NID_brainpoolP384r1, // brainpoolP384r1
++    NID_brainpoolP512r1, // brainpoolP512r1
++    NID_X25519,          // X25519
++    NID_X448,            // X448
++};
++
++bool is_supported_curveid(int curve_id)
++{
++    for (size_t i = 0; i < sizeof(eccurve_support) / sizeof(int); i++) {
++        if (eccurve_support[i] == curve_id) {
++            return true;
++        }
++    }
++    return false;
++}
++
++static void sc_wtlock(sc_lock_t *lock)
++{
++#ifdef SGX_ENCLAVE
++    (void)sgx_thread_rwlock_wrlock(lock);
++#else
++    (void)pthread_rwlock_wrlock(lock);
++#endif
++}
++
++static void sc_wtunlock(sc_lock_t *lock)
++{
++#ifdef SGX_ENCLAVE
++    (void)sgx_thread_rwlock_wrunlock(lock);
++#else
++    (void)pthread_rwlock_unlock(lock);
++#endif
++}
++
++static void sc_rdlock(sc_lock_t *lock)
++{
++#ifdef SGX_ENCLAVE
++    (void)sgx_thread_rwlock_rdlock(lock);
++#else
++    (void)pthread_rwlock_rdlock(lock);
++#endif
++}
++
++static void sc_rdunlock(sc_lock_t *lock)
++{
++#ifdef SGX_ENCLAVE
++    (void)sgx_thread_rwlock_rdunlock(lock);
++#else
++    (void)pthread_rwlock_unlock(lock);
++#endif
++}
++
++static void sc_init_rwlock(sc_lock_t *lock)
++{
++#ifdef SGX_ENCLAVE
++    (void)sgx_thread_rwlock_init(lock, NULL);
++#else
++    (void)pthread_rwlock_init(lock, NULL);
++#endif
++}
++
++static void sc_fini_rwlock(sc_lock_t *lock)
++{
++#ifdef SGX_ENCLAVE
++    (void)sgx_thread_rwlock_destroy(lock);
++#else
++    (void)pthread_rwlock_destroy(lock);
++#endif
++}
++
++typedef struct sel_chl_node {
++    size_t session_id;
++    time_t inactive_cnt;   // the inactive count of session
++    sec_chl_ecdh_ctx_t *ecdh_ctx;
++    struct sel_chl_node *next;
++} SEL_CHL_NODE;
++
++/* The max secure channel connection number at the same time */
++#define MAX_SEL_CHL_NUM 1031
++typedef struct {
++    bool          is_init;
++    sc_lock_t     sec_chl_list_lock;
++    SEL_CHL_NODE  *sec_chl_list_head;
++    size_t        count;  // secure channel connection number
++} SEC_CHL_MNG;
++
++static SEC_CHL_MNG g_sec_chl_manager = {
++    .is_init           = false,
++    .sec_chl_list_head = NULL,
++};
++
++static SEL_CHL_NODE *new_sec_chl_node()
++{
++    SEL_CHL_NODE *node = (SEL_CHL_NODE *)calloc(1, sizeof(SEL_CHL_NODE));
++    if (node == NULL) {
++        PrintInfo(PRINT_ERROR, "malloc failed\n");
++        return NULL;
++    }
++    node->ecdh_ctx = new_local_ecdh_ctx(NID_brainpoolP256r1);
++    if (node->ecdh_ctx == NULL) {
++        free(node);
++        PrintInfo(PRINT_ERROR, "new local ecdh ctx failed\n");
++        return NULL;
++    }
++    int ret = gen_local_exch_buf(node->ecdh_ctx);
++    if (ret != CC_SUCCESS) {
++        del_ecdh_ctx(node->ecdh_ctx);
++        free(node);
++        PrintInfo(PRINT_ERROR, "gen local ecdh param failed\n");
++        return NULL;
++    }
++
++    node->inactive_cnt = 0;
++
++    return node;
++}
++
++static void free_sec_chl_node(SEL_CHL_NODE *node)
++{
++    if (node == NULL) {
++        return;
++    }
++    if (node->ecdh_ctx != NULL) {
++        del_ecdh_ctx(node->ecdh_ctx);
++    }
++    free(node);
++}
++
++static int get_pubkey_buffer(RSA *rsa_key, uint8_t **pubkey, size_t *pubkey_len)
++{
++    BIO *r_key = NULL;
++    size_t key_len;
++    int ret_val = CC_FAIL;
++    r_key = BIO_new(BIO_s_mem());
++    if (r_key == NULL) {
++        PrintInfo(PRINT_ERROR, "get pubkey buffer bio new failed\n");
++        goto end;
++    }
++
++    if (!PEM_write_bio_RSAPublicKey(r_key, rsa_key)) {
++        PrintInfo(PRINT_ERROR, "get pubkey buffer write bio rsa pubkey failed\n");
++        goto end;
++    }
++
++    key_len = BIO_ctrl_pending(r_key);
++    if (key_len > *pubkey_len) {
++        PrintInfo(PRINT_ERROR, "get pubkey buffer pubkey_len:%llu is not enough\n", *pubkey_len);
++        goto end;
++    }
++    if (BIO_read(r_key, *pubkey, key_len) != (int)key_len) {
++        PrintInfo(PRINT_ERROR, "get pubkey buffer bio read failed\n");
++        goto end;
++    }
++    *pubkey_len = key_len;
++
++    ret_val = CC_SUCCESS;
++end:
++    BIO_free(r_key);
++    r_key = NULL;
++    return ret_val;
++}
++
++static int gen_rsa_key(RSA **rsa_key)
++{
++    size_t modulus_bits = 3072;
++    size_t pub_exponent = RSA_F4;
++    RSA *r = NULL;
++
++    BIGNUM *bne = BN_new();
++    if (bne == NULL) {
++        PrintInfo(PRINT_ERROR, "gen rsa key bn_new failed\n");
++        return CC_FAIL;
++    }
++    
++    for (size_t i = 0; i < sizeof(size_t) * BYTE_TO_BIT_LEN; ++i) {
++        if (pub_exponent & (1UL << i)) {
++            if (BN_set_bit(bne, i) == 0) {
++                PrintInfo(PRINT_ERROR, "gen rsa key bn_set_bit failed\n");
++                BN_free(bne);
++                return CC_FAIL;
++            }
++        }
++    }
++    r = RSA_new();
++    if (r == NULL) {
++        PrintInfo(PRINT_ERROR, "gen rsa key rsa_new failed\n");
++        BN_free(bne);
++        return CC_FAIL;
++    }
++    if (RSA_generate_key_ex(r, modulus_bits, bne, NULL) != 1) {
++        PrintInfo(PRINT_ERROR, "gen rsa key gen key failed\n");
++        BN_free(bne);
++        RSA_free(r);
++        return CC_FAIL;
++    }
++    BN_free(bne);
++    *rsa_key = r;
++    return CC_SUCCESS;
++}
++
++static int add_to_sec_chl_list(SEL_CHL_NODE *node)
++{
++    sc_wtlock(&g_sec_chl_manager.sec_chl_list_lock);
++
++    if (g_sec_chl_manager.count > MAX_SEL_CHL_NUM) {
++        sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
++        PrintInfo(PRINT_ERROR, "secure channel client num exceed the max limit:%u\n", MAX_SEL_CHL_NUM);
++        return CC_ERROR_SEC_CHL_CLI_NUM_EXCEED_MAX_LIMIT;
++    }
++    g_sec_chl_manager.count++;
++    SEL_CHL_NODE *temp = g_sec_chl_manager.sec_chl_list_head;
++    g_sec_chl_manager.sec_chl_list_head = node;
++    node->next = temp;
++
++    sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
++
++    return CC_SUCCESS;
++}
++
++static int gen_sec_chl_node(size_t *session_id)
++{
++    size_t random_id = 0;
++    int ret = cc_enclave_generate_random(&random_id, sizeof(size_t));
++    if (ret != CC_SUCCESS) {
++        PrintInfo(PRINT_ERROR, "get enclave pubkey gen random failed\n");
++        return ret;
++    }
++
++    SEL_CHL_NODE *node = new_sec_chl_node();
++    if (node == NULL) {
++        PrintInfo(PRINT_ERROR, "get enclave pubkey new sec chl node failed\n");
++        return CC_FAIL;
++    }
++
++    node->session_id = random_id;
++    *session_id = random_id;
++    ret = add_to_sec_chl_list(node);
++    if (ret != CC_SUCCESS) {
++        free_sec_chl_node(node);
++    }
++    return ret;
++}
++
++static sec_chl_ecdh_ctx_t *get_ecdh_ctx_by_session_id(size_t session_id);
++
++static int cache_rsa_key(size_t session_id, RSA *rsa_key)
++{
++    sc_wtlock(&g_sec_chl_manager.sec_chl_list_lock);
++    sec_chl_ecdh_ctx_t *ecdh_ctx = get_ecdh_ctx_by_session_id(session_id);
++    if (ecdh_ctx == NULL) {
++        sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
++        return CC_FAIL;
++    }
++    ecdh_ctx->svr_rsa_key = rsa_key;
++    ecdh_ctx->signature_len = RSA_size(rsa_key);
++
++    sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
++    return CC_SUCCESS;
++}
++
++int get_enclave_pubkey(size_t *session_id, uint8_t *pubkey, size_t *pubkey_len)
++{
++    RSA *r = NULL;
++    int ret = CC_FAIL;
++
++    if (session_id == NULL || pubkey == NULL || pubkey_len == 0) {
++        PrintInfo(PRINT_ERROR, "get enclave pubkey param error\n");
++        return CC_ERROR_BAD_PARAMETERS;
++    }
++    // 添加到g_sec_chl_manager
++    ret = gen_sec_chl_node(session_id);
++    if (ret != CC_SUCCESS) {
++        PrintInfo(PRINT_ERROR, "get enclave pubkey add node failed\n");
++        return ret;
++    }
++
++    // generate rsa key
++    ret = gen_rsa_key(&r);
++    if (ret != CC_SUCCESS) {
++        // node will free by sec_chl_destroy
++        return ret;
++    }
++
++    ret = get_pubkey_buffer(r, &pubkey, pubkey_len);
++    if (ret != CC_SUCCESS) {
++        RSA_free(r);
++        PrintInfo(PRINT_ERROR, "get enclave pubkey get buffer failed\n");
++        // node will free by sec_chl_destroy
++        return ret;
++    }
++
++    ret = cache_rsa_key(*session_id, r);
++    if (ret != CC_SUCCESS) {
++        RSA_free(r);
++        PrintInfo(PRINT_ERROR, "get enclave pubkey cache ras key failed\n");
++        // node will free by sec_chl_destroy
++    }
++    return ret;
++}
++
++static sec_chl_ecdh_ctx_t *get_ecdh_ctx_by_session_id(size_t session_id)
++{
++    SEL_CHL_NODE *p = g_sec_chl_manager.sec_chl_list_head;
++    while (p != NULL) {
++        if (p->session_id == session_id) {
++            p->inactive_cnt = 0;
++            break;
++        }
++        p = p->next;
++    }
++    if (p == NULL) {
++        PrintInfo(PRINT_ERROR, "not found ecdh ctx by session_id:%llu\n", session_id);
++        return NULL;
++    }
++    return p->ecdh_ctx;
++}
++
++int get_enclave_exch_param_len(size_t session_id, size_t *exch_param_len)
++{
++    sc_rdlock(&g_sec_chl_manager.sec_chl_list_lock);
++    sec_chl_ecdh_ctx_t *ecdh_ctx = get_ecdh_ctx_by_session_id(session_id);
++    if (ecdh_ctx == NULL) {
++        sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
++        return CC_FAIL;
++    }
++    // *exch_param_len = get_exch_buf_len(ecdh_ctx);
++    *exch_param_len = ecdh_ctx->local_exch_param_buf_len;
++    sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
++
++    return CC_SUCCESS;
++}
++
++int get_enclave_exch_param(size_t session_id, uint8_t *exch_param, size_t exch_param_len)
++{
++    sc_rdlock(&g_sec_chl_manager.sec_chl_list_lock);
++    sec_chl_ecdh_ctx_t *ecdh_ctx = get_ecdh_ctx_by_session_id(session_id);
++    if (ecdh_ctx == NULL) {
++        sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
++        return CC_FAIL;
++    }
++
++    int ret = get_exch_buf(ecdh_ctx, exch_param, exch_param_len);
++    sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
++    return ret;
++}
++
++int set_peer_exch_param(size_t session_id, uint8_t* data, size_t data_len)
++{
++    int ret;
++    sec_chl_exch_param_t *peer_exch_param = NULL;
++    sec_chl_exch_param_t *local_exch_param = NULL;
++
++    ret = get_exch_param_from_buf(data, data_len, &peer_exch_param);
++    if (ret != CC_SUCCESS) {
++        return CC_FAIL;
++    }
++    sc_wtlock(&g_sec_chl_manager.sec_chl_list_lock);
++    sec_chl_ecdh_ctx_t *ecdh_ctx = get_ecdh_ctx_by_session_id(session_id);
++    ret = get_exch_param_from_buf(ecdh_ctx->local_exch_param_buf,
++        ecdh_ctx->local_exch_param_buf_len, &local_exch_param);
++    if (ret != CC_SUCCESS) {
++        sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
++        del_exch_param(peer_exch_param);
++        PrintInfo(PRINT_ERROR, "set peer exch param get from buf failed\n");
++        return CC_FAIL;
++    }
++    ret = compute_session_key(ecdh_ctx, local_exch_param, peer_exch_param);
++    sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
++
++    del_exch_param(peer_exch_param);
++    del_exch_param(local_exch_param);
++    if (ret < 0) {
++        PrintInfo(PRINT_ERROR, "compute session key failed\n");
++        return CC_FAIL;
++    }
++
++    return CC_SUCCESS;
++}
++
++void del_enclave_sec_chl(size_t session_id)
++{
++    sc_wtlock(&g_sec_chl_manager.sec_chl_list_lock);
++
++    SEL_CHL_NODE *cur = g_sec_chl_manager.sec_chl_list_head;
++    SEL_CHL_NODE *pre = cur;
++    while (cur != NULL) {
++        if (cur->session_id == session_id) {
++            // remove
++            pre->next = cur->next;
++            free_sec_chl_node(cur);
++            break;
++        }
++        pre = cur;
++        cur = cur->next;
++    }
++
++    sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
++}
++
++static void del_enclave_all_sec_chl()
++{
++    sc_wtlock(&g_sec_chl_manager.sec_chl_list_lock);
++
++    SEL_CHL_NODE *p = g_sec_chl_manager.sec_chl_list_head;
++    SEL_CHL_NODE *cur = NULL;
++    while (p != NULL) {
++        cur = p;
++        p = p->next;
++        free_sec_chl_node(cur);
++    }
++    sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
++
++    return;
++}
++
++int enclave_start_sec_chl()
++{
++    sc_init_rwlock(&g_sec_chl_manager.sec_chl_list_lock);
++    g_sec_chl_manager.is_init = true;
++    return CC_SUCCESS;
++}
++
++void enclave_stop_sec_chl()
++{
++    del_enclave_all_sec_chl();
++    sc_fini_rwlock(&g_sec_chl_manager.sec_chl_list_lock);
++    g_sec_chl_manager.is_init = false;
++    return;
++}
++
++int cc_sec_chl_enclave_encrypt(size_t session_id, void *plain, size_t plain_len, void *encrypt, size_t *encrypt_len)
++{
++    if (plain == NULL || plain_len == 0 || encrypt_len == NULL) {
++        PrintInfo(PRINT_ERROR, "sec chl encrypt param error\n");
++        return -1;
++    }
++    size_t need_len = DATA_SIZE_LEN + plain_len + DATA_SIZE_LEN + GCM_TAG_LEN;
++    if (encrypt == NULL || *encrypt_len < need_len) {
++        *encrypt_len = need_len;
++        return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
++    }
++    sc_rdlock(&g_sec_chl_manager.sec_chl_list_lock);
++    if (!g_sec_chl_manager.is_init) {
++        sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
++        PrintInfo(PRINT_ERROR, "sec chl encrypt failed, not inited\n");
++        return CC_ERROR_SEC_CHL_NOTREADY;
++    }
++    sec_chl_ecdh_ctx_t *ecdh_ctx = get_ecdh_ctx_by_session_id(session_id);
++    if (ecdh_ctx == NULL) {
++        sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
++        return -1;
++    }
++    int ret = sec_chl_encrypt(ecdh_ctx, plain, plain_len, encrypt, encrypt_len);
++
++    sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
++    if (ret < 0) {
++        PrintInfo(PRINT_ERROR, "sec chl encrypt failed\n");
++        return -1;
++    }
++
++    return 0;
++}
++
++int cc_sec_chl_enclave_decrypt(size_t session_id, void *encrypt, size_t encrypt_len, void *plain, size_t *plain_len)
++{
++    if (encrypt == NULL || encrypt_len == 0 || plain_len == NULL) {
++        PrintInfo(PRINT_ERROR, "sec chl decrypt param error\n");
++        return -1;
++    }
++    size_t need_len = buf_to_num(encrypt, DATA_SIZE_LEN);
++    if (plain == NULL || *plain_len < need_len) {
++        *plain_len = need_len;
++        return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
++    }
++    sc_rdlock(&g_sec_chl_manager.sec_chl_list_lock);
++    if (!g_sec_chl_manager.is_init) {
++        sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
++        PrintInfo(PRINT_ERROR, "sec chl decrypt failed, not inited\n");
++        return CC_ERROR_SEC_CHL_NOTREADY;
++    }
++    sec_chl_ecdh_ctx_t *ecdh_ctx = get_ecdh_ctx_by_session_id(session_id);
++    if (ecdh_ctx == NULL) {
++        sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
++        return -1;
++    }
++    int ret = sec_chl_decrypt(ecdh_ctx, encrypt, encrypt_len, plain, plain_len);
++
++    sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
++    if (ret < 0) {
++        PrintInfo(PRINT_ERROR, "sec chl decrypt failed\n");
++        return -1;
++    }
++
++    return CC_SUCCESS;
++}
++
++/** secure channel connection timeout SEL_CHL_CONN_TIMEOUT_CNT * TIMER_INTERVAL seconds
++* secure channel receive any msg, reset the counter. When the counter reaches SEL_CHL_CONN_TIMEOUT_CNT
++* release the secure channel and resource
++*/
++static const int64_t SEL_CHL_CONN_TIMEOUT_CNT = 15;
++
++void enclave_check_session_timeout()
++{
++    sc_wtlock(&g_sec_chl_manager.sec_chl_list_lock);
++
++    SEL_CHL_NODE *p = g_sec_chl_manager.sec_chl_list_head;
++    SEL_CHL_NODE *timeout_node = NULL;
++
++    while (p != NULL) {
++        if (p->inactive_cnt > SEL_CHL_CONN_TIMEOUT_CNT) {
++            timeout_node = p;
++            p = p->next;
++            PrintInfo(PRINT_WARNING, "sec chl node timeout, session_id:%llu\n", timeout_node->session_id);
++            free_sec_chl_node(timeout_node);
++            continue;
++        }
++        p->inactive_cnt++;
++        p = p->next;
++    }
++    sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
++
++    return;
++}
+diff --git a/component/secure_channel/enclave/secure_channel_enclave.h b/component/secure_channel/enclave/secure_channel_enclave.h
+new file mode 100644
+index 0000000..65bd205
+--- /dev/null
++++ b/component/secure_channel/enclave/secure_channel_enclave.h
+@@ -0,0 +1,59 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * CloudEnclave is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ * http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++#ifndef SECURE_CHANNEL_ENCLAVE_H
++#define SECURE_CHANNEL_ENCLAVE_H
++
++#ifdef  __cplusplus
++extern "C" {
++#endif
++
++/**
++* This function will encrypt data by secure channel's shared key
++*
++* @param[in] session_id, The secure channel index
++*
++* @param[int] plain, The buf to be encrypt
++*
++* @param[in] plain_len, The number of bytes expect to encrypt
++*
++* @param[out] encrypt, The buf of encrypted. If NULL return error, and assign the needed length to encrypt_len
++*
++* @param[in/out] encrypt_len, The length of encrypted buffer. If encrypt_len is not enough, will return error,
++* and assign the needed length to encrypt_len
++*
++* @retval On success, 0 is returned. On error, -1 is returned.
++*/
++int cc_sec_chl_enclave_encrypt(size_t session_id, void *plain, size_t plain_len, void *encrypt, size_t *encrypt_len);
++
++/**
++* This function will decrypt data by secure channel's shared key
++*
++* @param[in] session_id, The secure channel index
++*
++* @param[in] encrypt, The buf to be decrypt.
++*
++* @param[in] encrypt_len, The length of encrypted buffer.
++*
++* @param[int] plain, The buf to store decrypt data, If NULL return error, and assign the needed length to plain_len
++*
++* @param[in/out] plain_len, The length of plain buffer. If plain_len is not enough, will return error,
++* and assign the needed length to plain_len
++*
++* @retval On success, 0 is returned. On error, -1 is returned.
++*/
++int cc_sec_chl_enclave_decrypt(size_t session_id, void *encrypt, size_t encrypt_len, void *plain, size_t *plain_len);
++
++# ifdef  __cplusplus
++}
++# endif
++#endif
+diff --git a/component/secure_channel/host/CMakeLists.txt b/component/secure_channel/host/CMakeLists.txt
+new file mode 100644
+index 0000000..5e0533d
+--- /dev/null
++++ b/component/secure_channel/host/CMakeLists.txt
+@@ -0,0 +1,101 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++# secGear is licensed under the Mulan PSL v2.
++# You can use this software according to the terms and conditions of the Mulan PSL v2.
++# You may obtain a copy of Mulan PSL v2 at:
++#     http://license.coscl.org.cn/MulanPSL2
++# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++# PURPOSE.
++# See the Mulan PSL v2 for more details.
++
++project(secure_channel_host C)
++
++#set host src code
++set(SOURCE_FILE secure_channel_host.c)
++
++#set auto code
++if(CC_GP)
++    set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
++    add_custom_command(OUTPUT ${AUTO_FILES}
++    DEPENDS ${EDL_FILE}
++    # COMMAND ${CODEGEN} --${CODETYPE} --header-only --untrusted ${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
++    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
++endif()
++    
++if(CC_SGX)
++    #sgxsdk path
++    set(SGX_SDK_PATH ${SGXSDK})
++    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h)
++    add_custom_command(OUTPUT ${AUTO_FILES}
++    DEPENDS ${EDL_FILE}
++    COMMAND ${CODEGEN} --${CODETYPE} --header-only --untrusted ${EDL_FILE} 
++                    --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
++                    --search-path ${SSL_PATH}/include 
++                    --search-path ${SGX_SDK_PATH}/include)
++endif()
++
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-maybe-uninitialized -fPIC")
++ 
++if(CC_GP)
++    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
++        ${CMAKE_BINARY_DIR}/lib/)
++    endif()
++
++    include_directories(
++        ${CMAKE_CURRENT_BINARY_DIR}
++        ${CMAKE_CURRENT_SOURCE_DIR}
++        ${CMAKE_BINARY_DIR}/inc
++        ${LOCAL_ROOT_PATH}/component/secure_channel
++        ${iTrusteeSDK}/include/CA
++        ${LOCAL_ROOT_PATH}/inc/host_inc
++        ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
++    add_library(u${PREFIX} SHARED ${SOURCE_FILE} ${AUTO_FILES})
++
++    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++        target_link_directories(u${PREFIX} PRIVATE 
++            ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
++    endif()
++endif()
++ 
++if(CC_SGX)
++    set(SGX_MODE HW)
++    set(COMMON_CFLAGS "-m64")
++    if(${SGX_MODE} STREQUAL HW)
++        set(Urts_Library_Name sgx_urts)
++    else()
++        set(Urts_Library_Name sgx_urts_sim)
++    endif()
++    set(host_C_Flags "${COMMON_CFLAGS} -fPIC -Wno-attributes -lz -pthread")
++
++    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
++        ${CMAKE_BINARY_DIR}/lib/)
++    endif()
++
++    include_directories(
++        ${CMAKE_CURRENT_BINARY_DIR}
++        ${CMAKE_CURRENT_SOURCE_DIR}
++        ${LOCAL_ROOT_PATH}/component/secure_channel
++        ${LOCAL_ROOT_PATH}/inc/host_inc
++        ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
++        ${OPENSSL_PATH}/include
++        ${SGX_SDK_PATH}/include)
++    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${host_C_Flags}")
++    add_library(u${PREFIX} SHARED ${SOURCE_FILE} ${AUTO_FILES})
++
++    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++	    target_link_directories(u${PREFIX} PRIVATE 
++            ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
++            ${CMAKE_BINARY_DIR}/lib/)
++    endif()
++endif()
++
++set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
++
++install(TARGETS u${PREFIX} 
++        LIBRARY
++        DESTINATION ${LIBRARY_INSTALL}
++        PERMISSIONS  OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)
++
++
+diff --git a/component/secure_channel/host/secure_channel_host.c b/component/secure_channel/host/secure_channel_host.c
+new file mode 100644
+index 0000000..7e90c47
+--- /dev/null
++++ b/component/secure_channel/host/secure_channel_host.c
+@@ -0,0 +1,393 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * CloudEnclave is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ * http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++#include "secure_channel_host.h"
++
++#include <stdio.h>
++#include <string.h>
++#include <sys/timerfd.h>
++#include <pthread.h>
++#include <unistd.h>
++#include <sys/epoll.h>
++#include <sys/eventfd.h>
++
++#include "enclave.h"
++#include "status.h"
++#include "enclave_log.h"
++#include "secure_channel_u.h"
++#include "secure_channel_common.h"
++
++#define RSA_PUBKEY_LEN 640
++static int sec_chl_get_pubkey(cc_enclave_t *context, sec_chl_msg_t *msg, sec_chl_msg_t **rsp_msg, size_t *rsp_msg_len)
++{
++    int res;
++    cc_enclave_result_t ret_val;
++    size_t session_id = msg->session_id;
++    uint8_t rsa_pubkey[RSA_PUBKEY_LEN] = {0};
++    size_t rsa_pubkey_len = RSA_PUBKEY_LEN;
++    sec_chl_msg_t *rsp = NULL;
++
++    // get_enclave_pubkey
++    ret_val = get_enclave_pubkey(context, &res, &session_id, rsa_pubkey, &rsa_pubkey_len);
++    if (ret_val != CC_SUCCESS || res != (int)CC_SUCCESS) {
++        print_error_term("call enclave get pubkey error!\n");
++        return CC_FAIL;
++    }
++
++    rsp = (sec_chl_msg_t *)calloc(1, sizeof(sec_chl_msg_t) + rsa_pubkey_len);
++    if (rsp == NULL) {
++        return CC_ERROR_SEC_CHL_MEMORY;
++    }
++    rsp->session_id = session_id;
++    rsp->data_len = rsa_pubkey_len;
++    memcpy(rsp->data, rsa_pubkey, rsa_pubkey_len);
++    *rsp_msg = rsp;
++    *rsp_msg_len = sizeof(sec_chl_msg_t) + rsa_pubkey_len;
++
++    return CC_SUCCESS;
++}
++
++static int sec_chl_get_svr_exch_param(cc_enclave_t *context, sec_chl_msg_t *msg,
++    sec_chl_msg_t **rsp_msg, size_t *rsp_msg_len)
++{
++    cc_enclave_result_t ret_val;
++    int res;
++    uint8_t *exch_param = NULL;
++    size_t  exch_param_len = 0;
++    size_t  session_id = msg->session_id;
++
++    ret_val = get_enclave_exch_param_len(context, &res, session_id, &exch_param_len);
++    if (ret_val != CC_SUCCESS || res != (int)CC_SUCCESS || exch_param_len == 0) {
++        print_error_term("call enclave get exch param len error!\n");
++        return CC_FAIL;
++    }
++
++    exch_param = (uint8_t *)calloc(1, exch_param_len);
++    if (exch_param == NULL) {
++        return CC_ERROR_SEC_CHL_MEMORY;
++    }
++
++    ret_val = get_enclave_exch_param(context, &res, session_id, exch_param, exch_param_len);
++    if (ret_val != CC_SUCCESS || res != (int)CC_SUCCESS) {
++        print_error_term("call enclave get_enclave_exch_param error!\n");
++        free(exch_param);
++        return -1;
++    }
++
++    sec_chl_msg_t *rsp = (sec_chl_msg_t *)calloc(1, sizeof(sec_chl_msg_t) + exch_param_len);
++    if (rsp == NULL) {
++        free(exch_param);
++        return CC_ERROR_SEC_CHL_MEMORY;
++    }
++
++    rsp->data_len = exch_param_len;
++    memcpy(rsp->data, exch_param, exch_param_len);
++    *rsp_msg = rsp;
++    *rsp_msg_len = sizeof(sec_chl_msg_t) + exch_param_len;
++    free(exch_param);
++
++    return CC_SUCCESS;
++}
++
++static int sec_chl_set_client_exch_param(cc_enclave_t *context, sec_chl_msg_t *msg,
++    sec_chl_msg_t **rsp_msg, size_t *rsp_msg_len)
++{
++    int res;
++    cc_enclave_result_t ret_val;
++    size_t  session_id = msg->session_id;
++
++    ret_val = set_peer_exch_param(context, &res, session_id, msg->data, msg->data_len);
++    if (ret_val != CC_SUCCESS || res != (int)CC_SUCCESS) {
++        print_error_term("set peer exch param error!\n");
++        return CC_FAIL;
++    }
++
++    sec_chl_msg_t *rsp = (sec_chl_msg_t *)calloc(1, sizeof(sec_chl_msg_t));
++    if (rsp == NULL) {
++        return CC_ERROR_SEC_CHL_MEMORY;
++    }
++
++    *rsp_msg = rsp;
++    *rsp_msg_len = sizeof(sec_chl_msg_t);
++
++    return CC_SUCCESS;
++}
++static int sec_chl_destroy(cc_enclave_t *context, sec_chl_msg_t *msg, sec_chl_msg_t **rsp_msg, size_t *rsp_msg_len)
++{
++    cc_enclave_result_t ret_val;
++    size_t session_id = msg->session_id;
++
++    ret_val = del_enclave_sec_chl(context, session_id);
++    if (ret_val != CC_SUCCESS) {
++        print_error_term("del enclave secure channel error!\n");
++        return CC_FAIL;
++    }
++    sec_chl_msg_t *rsp = (sec_chl_msg_t *)calloc(1, sizeof(sec_chl_msg_t));
++    if (rsp == NULL) {
++        return CC_ERROR_SEC_CHL_MEMORY;
++    }
++
++    *rsp_msg = rsp;
++    *rsp_msg_len = sizeof(sec_chl_msg_t);
++
++    return CC_SUCCESS;
++}
++
++#define TIMER_WHEN_START 1 // timer start after 1 second, since call timerfd_settime
++#define TIMER_INTERVAL 60 // 60 second
++#define TIMER_MAX_EVENTS 2
++#define TIMER_EXIT_CODE 0XFFFF
++static int init_timer_interval(int timerfd)
++{
++    struct itimerspec new_value = {};
++    new_value.it_value.tv_sec = TIMER_WHEN_START;
++    new_value.it_value.tv_nsec = 0;
++    new_value.it_interval.tv_sec = TIMER_INTERVAL;
++    new_value.it_interval.tv_nsec = 0;
++
++    return timerfd_settime(timerfd, 0, &new_value, NULL);
++}
++
++static void handle_timer(cc_sec_chl_svr_ctx_t *ctx)
++{
++    uint64_t exp = 0;
++    int timerfd = ctx->timer.timerfd;
++
++    int ret = read(timerfd, &exp, sizeof(uint64_t));
++    if (ret == sizeof(uint64_t)) {
++        (void)enclave_check_session_timeout(ctx->enclave_ctx);
++    }
++    return;
++}
++
++static void handle_exit_event(int eventfd, bool *is_continue)
++{
++    uint64_t exp = 0;
++    int ret = read(eventfd, &exp, sizeof(uint64_t));
++    if (ret == sizeof(uint64_t)) {
++        *is_continue = (exp == TIMER_EXIT_CODE) ? false : true;
++    }
++    return;
++}
++
++static void handle_events(cc_sec_chl_svr_ctx_t *ctx, int nfd, struct epoll_event* events, bool *is_continue)
++{
++    int timerfd = ctx->timer.timerfd;
++    int eventfd = ctx->timer.eventfd;
++
++    for (int i = 0; i < nfd && i < TIMER_MAX_EVENTS; i++) {
++        if (events[i].data.fd == timerfd) {
++            handle_timer(ctx);
++        } else if (events[i].data.fd == eventfd) {
++            handle_exit_event(eventfd, is_continue);
++        }
++    }
++    return;
++}
++
++void *check_session_timeout(void *arg)
++{
++    cc_sec_chl_svr_ctx_t *ctx = (cc_sec_chl_svr_ctx_t *)arg;
++    int timerfd = ctx->timer.timerfd;
++    int eventfd = ctx->timer.eventfd;
++
++    if (init_timer_interval(timerfd) == -1) {
++        print_error_term("start timer failed\n");
++        return NULL;
++    }
++
++    int epollfd = epoll_create1(EPOLL_CLOEXEC);
++    if (epollfd == -1) {
++        print_error_term("epoll create failed\n");
++        return NULL;
++    }
++
++    struct epoll_event ep_timer;
++    ep_timer.events = EPOLLIN;
++    ep_timer.data.fd = timerfd;
++    epoll_ctl(epollfd, EPOLL_CTL_ADD, timerfd, &ep_timer);
++
++    struct epoll_event ep_event;
++    ep_event.events = EPOLLIN;
++    ep_event.data.fd = eventfd;
++    epoll_ctl(epollfd, EPOLL_CTL_ADD, eventfd, &ep_event);
++
++    struct epoll_event events[TIMER_MAX_EVENTS];
++
++    bool flag = true;
++    while (flag) {
++        int nfd = epoll_wait(epollfd, events, TIMER_MAX_EVENTS, -1);
++        if (nfd <= 0) {
++            continue;
++        }
++        handle_events(ctx, nfd, events, &flag);
++    }
++    close(epollfd);
++
++    return NULL;
++}
++
++static cc_enclave_result_t sec_chl_create_timer(cc_sec_chl_svr_ctx_t *ctx)
++{
++    pthread_t tid;
++
++    ctx->timer.timerfd = timerfd_create(CLOCK_MONOTONIC, 0);
++    if (ctx->timer.timerfd == -1) {
++        print_error_term("timerfd create failed\n");
++        return CC_FAIL;
++    }
++
++    ctx->timer.eventfd = eventfd(0, 0);
++    if (ctx->timer.eventfd == -1) {
++        print_error_term("create eventfd failed\n");
++        close(ctx->timer.timerfd);
++        return CC_FAIL;
++    }
++    pthread_create(&tid, NULL, check_session_timeout, ctx);
++
++    return CC_SUCCESS;
++}
++
++static void sec_chl_stop_timer(sec_chl_timer_t *timer)
++{
++    struct itimerspec new_value = {};
++    new_value.it_value.tv_sec = 0;
++    new_value.it_value.tv_nsec = 0;
++    new_value.it_interval.tv_sec = 0;
++    new_value.it_interval.tv_nsec = 0;
++    if (timerfd_settime(timer->timerfd, 0, &new_value, NULL) == -1) {
++        print_error_term("stop timer failed\n");
++    }
++    close(timer->timerfd);
++
++    uint64_t timer_thread_exit = TIMER_EXIT_CODE;
++    int ret = write(timer->eventfd, &timer_thread_exit, sizeof(uint64_t));
++    if (ret == -1) {
++        print_error_term("stop timer failed\n");
++    }
++    close(timer->eventfd);
++    print_notice("stop timer\n");
++
++    return;
++}
++
++cc_enclave_result_t cc_sec_chl_svr_init(cc_sec_chl_svr_ctx_t *ctx)
++{
++    int ret_val, res;
++    if (ctx == NULL || ctx->enclave_ctx == NULL) {
++        return CC_ERROR_BAD_PARAMETERS;
++    }
++    if (ctx->is_init) {
++        print_warning("secure channel already started\n");
++        return CC_SUCCESS;
++    }
++    if (!is_valid_conn_kit(&ctx->conn_kit)) {
++        return CC_ERROR_SEC_CHL_INVALID_CONN;
++    }
++    ret_val = enclave_start_sec_chl(ctx->enclave_ctx, &res);
++    if (ret_val != CC_SUCCESS || res != CC_SUCCESS) {
++        return CC_ERROR_SEC_CHL_SVR_INIT;
++    }
++
++    ret_val = sec_chl_create_timer(ctx);
++    if (ret_val != CC_SUCCESS) {
++        print_error_term("sec chl svr init create timer failed\n");
++    }
++    ctx->is_init = true;
++
++    return CC_SUCCESS;
++}
++
++cc_enclave_result_t cc_sec_chl_svr_fini(cc_sec_chl_svr_ctx_t *ctx)
++{
++    if (ctx == NULL || ctx->enclave_ctx == NULL) {
++        return CC_ERROR_BAD_PARAMETERS;
++    }
++    if (!ctx->is_init) {
++        print_warning("secure channel is not started\n");
++        return CC_SUCCESS;
++    }
++    sec_chl_stop_timer(&(ctx->timer));
++    enclave_stop_sec_chl(ctx->enclave_ctx);
++    ctx->is_init = false;
++    return CC_SUCCESS;
++}
++
++static cc_enclave_result_t handle_recv_msg(cc_enclave_t *context, sec_chl_msg_t *msg,
++    sec_chl_msg_t **rsp_msg, size_t *rsp_msg_len)
++{
++    cc_enclave_result_t ret = CC_FAIL;
++    switch (msg->msg_type) {
++        case SEC_CHL_MSG_GET_SVR_PUBKEY:
++            ret = sec_chl_get_pubkey(context, msg, rsp_msg, rsp_msg_len);
++            break;
++        case SEC_CHL_MSG_GET_SVR_EXCH_PARAM:
++            ret = sec_chl_get_svr_exch_param(context, msg, rsp_msg, rsp_msg_len);
++            break;
++        case SEC_CHL_MSG_SEND_CLI_EXCH_PARAM:
++            ret = sec_chl_set_client_exch_param(context, msg, rsp_msg, rsp_msg_len);
++            break;
++        case SEC_CHL_MSG_DESTROY:
++            ret = sec_chl_destroy(context, msg, rsp_msg, rsp_msg_len);
++            break;
++        default:
++            print_error_term("error msg type:%d\n", msg->msg_type);
++            break;
++    }
++    return ret;
++}
++
++static int handle_respon_msg(cc_sec_chl_svr_ctx_t *ctx, cc_enclave_result_t ret,
++    sec_chl_msg_t *rsp_msg, size_t rsp_msg_len)
++{
++    if (rsp_msg == NULL) {
++        rsp_msg = (sec_chl_msg_t *)calloc(1, sizeof(sec_chl_msg_t));
++        if (rsp_msg == NULL) {
++            return CC_ERROR_SEC_CHL_MEMORY;
++        }
++        rsp_msg_len = sizeof(sec_chl_msg_t);
++    }
++    rsp_msg->ret = ret;
++    return ctx->conn_kit.send(ctx->conn_kit.conn, (void *)rsp_msg, rsp_msg_len);
++}
++
++static cc_enclave_result_t handle_msg(cc_sec_chl_svr_ctx_t *ctx, sec_chl_msg_t *msg)
++{
++    size_t rsp_msg_len = 0;
++    sec_chl_msg_t *rsp_msg = NULL;
++
++    cc_enclave_result_t ret = handle_recv_msg(ctx->enclave_ctx, msg, &rsp_msg, &rsp_msg_len);
++
++    int result = handle_respon_msg(ctx, ret, rsp_msg, rsp_msg_len);
++    free(rsp_msg);
++    if (result < 0) {
++        (void)del_enclave_sec_chl(ctx->enclave_ctx, msg->session_id);
++        print_error_term("cc_sec_chl_svr_callback send respone msg failed\n");
++        return CC_ERROR_SEC_CHL_SEND_MSG;
++    }
++    return ret;
++}
++
++cc_enclave_result_t cc_sec_chl_svr_callback(cc_sec_chl_svr_ctx_t *ctx, void *buf, size_t buf_len)
++{
++    sec_chl_msg_t *msg = NULL;
++
++    if (ctx == NULL || ctx->enclave_ctx == NULL || buf == NULL || buf_len <= 0) {
++        return CC_ERROR_BAD_PARAMETERS;
++    }
++    if (!ctx->is_init) {
++        print_warning("secure channel server is not started\n");
++        return CC_ERROR_SEC_CHL_NOTREADY;
++    }
++    msg = (sec_chl_msg_t *)buf;
++    return handle_msg(ctx, msg);
++}
+\ No newline at end of file
+diff --git a/component/secure_channel/host/secure_channel_host.h b/component/secure_channel/host/secure_channel_host.h
+new file mode 100644
+index 0000000..f2157d5
+--- /dev/null
++++ b/component/secure_channel/host/secure_channel_host.h
+@@ -0,0 +1,66 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * CloudEnclave is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ * http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++#ifndef SECURE_CHANNEL_HOST_H
++#define SECURE_CHANNEL_HOST_H
++
++#include "enclave.h"
++#include "secure_channel.h"
++#ifdef  __cplusplus
++extern "C" {
++#endif
++
++typedef struct {
++    int timerfd;
++    int eventfd;
++} sec_chl_timer_t;
++
++typedef struct {
++    cc_enclave_t *enclave_ctx;
++    cc_conn_kit_t conn_kit;
++    sec_chl_timer_t timer;
++    bool is_init;
++} cc_sec_chl_svr_ctx_t;
++/**
++* start seucre channel service
++* @param[in] ctx, The pointer of secure channel context
++*
++* @retval, On success, return 0.
++*          On error, cc_enclave_result_t errorno is returned.
++*/
++cc_enclave_result_t cc_sec_chl_svr_init(cc_sec_chl_svr_ctx_t *ctx);
++
++/**
++* secure channel service uninit function, destory secure channel server resource
++*
++* @param[in] ctx, The pointer of secure channel context
++*
++* @retval, On success, return 0.
++*          On error, cc_enclave_result_t errorno is returned.
++*/
++cc_enclave_result_t cc_sec_chl_svr_fini(cc_sec_chl_svr_ctx_t *ctx);
++
++/**
++* secure channel msg handle callback on server host. NOTE:does not support multithreading now
++* @param[in] ctx, The cc_sec_chl_svr_ctx_t instance
++*
++* @param[in] buf, Server host receive message buffer
++* @param[in] buf_len, The length of receive buffer
++*
++* @retval On success, 0 is returned. On error, cc_enclave_result_t is returned.
++*/
++cc_enclave_result_t cc_sec_chl_svr_callback(cc_sec_chl_svr_ctx_t *ctx, void *buf, size_t buf_len);
++
++# ifdef  __cplusplus
++}
++# endif
++#endif
+diff --git a/component/secure_channel/secure_channel.edl b/component/secure_channel/secure_channel.edl
+new file mode 100644
+index 0000000..cf2a139
+--- /dev/null
++++ b/component/secure_channel/secure_channel.edl
+@@ -0,0 +1,31 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * CloudEnclave is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ * http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++enclave {
++    include "stdbool.h"
++    include "secgear_urts.h"
++    from "secgear_tstdc.edl" import *;
++    from "secgear_tssl.edl" import *;
++    from "secgear_pthread.edl" import *;
++    trusted {
++        // #define RSA_PUBKEY_LEN 640
++        public int get_enclave_pubkey([in, out] size_t* session_id, [out, size = 640] uint8_t* pubkey, [in, out] size_t* pubkey_len);
++        public int get_enclave_exch_param_len(size_t session_id, [in, out] size_t* exch_param_len);
++        public int get_enclave_exch_param(size_t session_id, [out, size = exch_param_len] uint8_t* exch_param, size_t exch_param_len);
++        public int set_peer_exch_param(size_t session_id, [in, size = data_len] uint8_t* data, size_t data_len);
++        public void del_enclave_sec_chl(size_t session_id);
++
++        public int enclave_start_sec_chl();     // 开启安全通道服务
++        public void enclave_stop_sec_chl();     // 关闭安全通道服务
++        public void enclave_check_session_timeout();
++    };
++};
+diff --git a/component/secure_channel/secure_channel.h b/component/secure_channel/secure_channel.h
+new file mode 100644
+index 0000000..49d56ae
+--- /dev/null
++++ b/component/secure_channel/secure_channel.h
+@@ -0,0 +1,53 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * CloudEnclave is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ * http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++#ifndef SECURE_CHANNEL_H
++#define SECURE_CHANNEL_H
++
++#include <stdlib.h>
++
++#ifdef  __cplusplus
++extern "C" {
++#endif
++
++/* network transmission connection */
++/**
++* network transmission connection read/write function type
++* @param[in] conn, The connection handle, such as the addr of fd over socket; or ssl* over SSL
++*
++* @param[in/out] buf, The buffer to be send
++*
++* @param[in] count, The number of bytes expect to send
++*
++* @retval On success, the actual number of bytes send is returned.
++* On error, -1 is returned.
++*/
++typedef int (*cc_conn_opt_funcptr_t)(void *conn, void *buf, size_t count);
++
++/* The struct of network transmission connection kit, include connection handler and send function */
++typedef struct cc_connection_kit {
++    cc_conn_opt_funcptr_t send;   // send msg callback
++    void *conn;
++} cc_conn_kit_t;
++
++inline bool is_valid_conn_kit(cc_conn_kit_t *conn_kit)
++{
++    if (conn_kit == NULL || conn_kit->conn == NULL || conn_kit->send == NULL) {
++        return false;
++    }
++    return true;
++}
++
++# ifdef  __cplusplus
++}
++# endif
++#endif
+diff --git a/component/secure_channel/secure_channel_common.c b/component/secure_channel/secure_channel_common.c
+new file mode 100644
+index 0000000..fe00ecc
+--- /dev/null
++++ b/component/secure_channel/secure_channel_common.c
+@@ -0,0 +1,788 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * CloudEnclave is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ * http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++#include <openssl/rand.h>
++#include <openssl/kdf.h>
++#include <openssl/pem.h>
++#include <stdbool.h>
++#include "secure_channel_common.h"
++#include "status.h"
++
++typedef struct _aes_algorithm_param {
++    uint8_t *plain;
++    int plain_len;
++    uint8_t *cipher;
++    int cipher_len;
++    uint8_t *aad;
++    int aad_len;
++    uint8_t *key;
++    int key_len;
++    uint8_t *iv;
++    int iv_len;
++    uint8_t *tag;
++    int tag_len;
++} aes_param_t;
++
++size_t buf_to_num(uint8_t *buf, size_t len)
++{
++    size_t ret_val = 0;
++    if (len > sizeof(size_t)) {
++        return 0;
++    }
++    for (size_t i = 0; i < len; i++) {
++        ret_val = (ret_val << BYTE_TO_BIT_LEN) + buf[i];
++    }
++    return ret_val;
++}
++
++void num_to_buf(size_t num, uint8_t *buf, size_t len)
++{
++    uint8_t *out = buf + len - 1;
++    for (int i = len; i > 0; i--) {
++        *out = num & 0xff;
++        num = num >> BYTE_TO_BIT_LEN;
++        out--;
++    }
++    return;
++}
++
++static RSA *get_rsakey_from_buffer(const uint8_t *rsa_key_buffer, size_t rsa_key_buffer_len, bool is_private_key)
++{
++    BIO *r_key = NULL;
++    RSA *rsa_key = NULL;
++    r_key = BIO_new_mem_buf(rsa_key_buffer, rsa_key_buffer_len);
++    if (r_key == NULL) {
++        goto end;
++    }
++    if (is_private_key) {
++        rsa_key = PEM_read_bio_RSAPrivateKey(r_key, NULL, NULL, NULL);
++    } else {
++        rsa_key = PEM_read_bio_RSAPublicKey(r_key, NULL, NULL, NULL);
++    }
++
++    if (rsa_key == NULL) {
++        goto end;
++    }
++
++end:
++    BIO_free(r_key);
++    r_key = NULL;
++    return rsa_key;
++}
++
++int verify_rsa_signature(const uint8_t *rsa_pubkey, size_t rsa_pubkey_len, const uint8_t *signature, size_t sig_len,
++    const uint8_t *buf, size_t buf_len)
++{
++    RSA *sign_rsa = NULL;
++    EVP_PKEY *evp_sign_key = NULL;
++    EVP_MD_CTX *md_ctx = NULL;
++    EVP_PKEY_CTX *pctx = NULL;
++    int ret_val = CC_FAIL;
++
++    sign_rsa = get_rsakey_from_buffer(rsa_pubkey, rsa_pubkey_len, 0);
++    evp_sign_key = EVP_PKEY_new();
++    if (evp_sign_key == NULL || !EVP_PKEY_set1_RSA(evp_sign_key, sign_rsa) || ((size_t)RSA_size(sign_rsa) != sig_len)) {
++        goto end;
++    }
++    md_ctx = EVP_MD_CTX_new();
++    if (md_ctx == NULL) {
++        goto end;
++    }
++    if (EVP_DigestVerifyInit(md_ctx, &pctx, EVP_sha256(), NULL, evp_sign_key) <= 0) {
++        goto end;
++    }
++    if (EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PSS_PADDING) <= 0 ||
++        EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, RSA_PSS_SALTLEN_DIGEST) <= 0) {
++        goto end;
++    }
++    if (EVP_DigestVerify(md_ctx, signature, sig_len, buf, buf_len) <= 0) {
++        goto end;
++    }
++
++    ret_val = CC_SUCCESS;
++end:
++    EVP_MD_CTX_free(md_ctx);
++    md_ctx = NULL;
++    pctx = NULL;
++    EVP_PKEY_free(evp_sign_key);
++    evp_sign_key = NULL;
++    RSA_free(sign_rsa);
++    sign_rsa = NULL;
++    return ret_val;
++}
++
++static int drive_key_hkdf(uint8_t *secret, size_t secret_len, uint8_t *salt, size_t salt_len,
++    uint8_t *label, size_t label_len, uint8_t *out, size_t out_len)
++{
++    EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
++    if (pctx == NULL) {
++        return CC_FAIL;
++    }
++    if (EVP_PKEY_derive_init(pctx) <= 0) {
++        EVP_PKEY_CTX_free(pctx);
++        return CC_FAIL;
++    }
++    if (EVP_PKEY_CTX_set_hkdf_md(pctx, EVP_sha256()) <= 0) {
++        EVP_PKEY_CTX_free(pctx);
++        return CC_FAIL;
++    }
++    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, salt, salt_len) <= 0) {
++        EVP_PKEY_CTX_free(pctx);
++        return CC_FAIL;
++    }
++    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, secret, secret_len) <= 0) {
++        EVP_PKEY_CTX_free(pctx);
++        return CC_FAIL;
++    }
++    if (EVP_PKEY_CTX_add1_hkdf_info(pctx, label, label_len) <= 0) {
++        EVP_PKEY_CTX_free(pctx);
++        return CC_FAIL;
++    }
++    if (EVP_PKEY_derive(pctx, out, &out_len) <= 0) {
++        EVP_PKEY_CTX_free(pctx);
++        return CC_FAIL;
++    }
++    EVP_PKEY_CTX_free(pctx);
++    return CC_SUCCESS;
++}
++
++#define KEY_LEN_128 (128 / 8)
++#define KEY_LEN_192 (192 / 8)
++#define KEY_LEN_256 (256 / 8)
++static const EVP_CIPHER *get_cipher(int key_len)
++{
++    const EVP_CIPHER *cipher = NULL;
++    if (key_len == KEY_LEN_128) {
++        cipher = EVP_aes_128_gcm();
++    } else if (key_len == KEY_LEN_192) {
++        cipher = EVP_aes_192_gcm();
++    } else if (key_len == KEY_LEN_256) {
++        cipher = EVP_aes_256_gcm();
++    } else {
++        cipher = NULL;
++    }
++
++    return cipher;
++}
++
++#define AES_BATCH_LEN 128
++static int aes_gcm_encrypt(aes_param_t *aes_enc)
++{
++    int howmany;
++    int len = 0;
++    const EVP_CIPHER *cipher = NULL;
++    EVP_CIPHER_CTX *ctx = NULL;
++    const int batch_len = AES_BATCH_LEN; // bytes
++    int res = 0;
++
++    cipher = get_cipher(aes_enc->key_len);
++    if (cipher == NULL || aes_enc->tag == NULL || aes_enc->tag_len == 0) {
++        return SECURE_CHANNEL_ERROR;
++    }
++
++    ctx = EVP_CIPHER_CTX_new();
++    if (ctx == NULL)
++        return SECURE_CHANNEL_ERROR;
++
++    if (EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL) <= 0) {
++        res = SECURE_CHANNEL_ERROR;
++        goto enc_out;
++    }
++    // set aes_enc->key & aes_enc->iv
++    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, aes_enc->iv_len, NULL) <= 0) {
++        res = SECURE_CHANNEL_ERROR;
++        goto enc_out;
++    }
++    if (EVP_EncryptInit_ex(ctx, NULL, NULL, aes_enc->key, aes_enc->iv) <= 0) {
++        res = SECURE_CHANNEL_ERROR;
++        goto enc_out;
++    }
++
++    if (aes_enc->aad && aes_enc->aad_len > 0) {
++        if (EVP_EncryptUpdate(ctx, NULL, &howmany, aes_enc->aad, aes_enc->aad_len) <= 0) {
++            res = SECURE_CHANNEL_ERROR;
++            goto enc_out;
++        }
++    }
++    while (len <= aes_enc->plain_len - batch_len) {
++        if (EVP_EncryptUpdate(ctx, aes_enc->cipher + len, &howmany, aes_enc->plain + len, batch_len) <= 0) {
++            res = SECURE_CHANNEL_ERROR;
++            goto enc_out;
++        }
++        len += batch_len;
++        aes_enc->cipher_len += howmany;
++    }
++    if (EVP_EncryptUpdate(ctx, aes_enc->cipher + len, &howmany, aes_enc->plain + len, (aes_enc->plain_len - len)) <=
++        0) {
++        res = SECURE_CHANNEL_ERROR;
++        goto enc_out;
++    }
++    aes_enc->cipher_len += howmany;
++
++    if (EVP_EncryptFinal_ex(ctx, aes_enc->cipher + aes_enc->plain_len, &howmany) <= 0) {
++        res = SECURE_CHANNEL_ERROR;
++        goto enc_out;
++    }
++    aes_enc->cipher_len += howmany;
++
++    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, aes_enc->tag_len, aes_enc->tag) <= 0) {
++        res = SECURE_CHANNEL_ERROR;
++        goto enc_out;
++    }
++
++    res = 0;
++enc_out:
++    EVP_CIPHER_CTX_free(ctx);
++    if (res < 0) {
++        return res;
++    }
++    return (int)aes_enc->cipher_len;
++}
++
++static int aes_gcm_decrypt(aes_param_t *aes_dec)
++{
++    int howmany, status;
++    int len = 0;
++    const EVP_CIPHER *cipher;
++    EVP_CIPHER_CTX *ctx = NULL;
++    const int batch_len = AES_BATCH_LEN; // bytes
++    int res = 0;
++
++    cipher = get_cipher(aes_dec->key_len);
++    if (cipher == NULL || aes_dec->tag == NULL || aes_dec->tag_len == 0) {
++        return SECURE_CHANNEL_ERROR;
++    }
++    ctx = EVP_CIPHER_CTX_new();
++    if (ctx == NULL)
++        return SECURE_CHANNEL_ERROR;
++
++    if (EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL) <= 0) {
++        res = SECURE_CHANNEL_ERROR;
++        goto dec_out;
++    }
++
++    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, aes_dec->iv_len, NULL) <= 0) {
++        res = SECURE_CHANNEL_ERROR;
++        goto dec_out;
++    }
++    status = EVP_DecryptInit_ex(ctx, NULL, NULL, aes_dec->key, aes_dec->iv);
++    if (status) {
++        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, aes_dec->tag_len, aes_dec->tag) <= 0) {
++            res = SECURE_CHANNEL_ERROR;
++            goto dec_out;
++        }
++    }
++    if (aes_dec->aad != NULL && aes_dec->aad_len > 0) {
++        if (EVP_DecryptUpdate(ctx, NULL, &howmany, aes_dec->aad, aes_dec->aad_len) <= 0) {
++            res = SECURE_CHANNEL_ERROR;
++            goto dec_out;
++        }
++    }
++    while (len <= aes_dec->cipher_len - batch_len) {
++        if (EVP_DecryptUpdate(ctx, aes_dec->plain + len, &howmany, aes_dec->cipher + len, batch_len) <= 0) {
++            res = SECURE_CHANNEL_ERROR;
++            goto dec_out;
++        }
++        len += batch_len;
++        aes_dec->plain_len += howmany;
++    }
++    if (EVP_DecryptUpdate(ctx, aes_dec->plain + len, &howmany, aes_dec->cipher + len, (aes_dec->cipher_len - len)) <=
++        0) {
++        res = SECURE_CHANNEL_ERROR;
++        goto dec_out;
++    }
++    aes_dec->plain_len += howmany;
++
++    res = EVP_DecryptFinal_ex(ctx, aes_dec->plain + aes_dec->cipher_len, &howmany);
++    aes_dec->plain_len += howmany;
++
++    if (res <= 0) {
++        res = SECURE_CHANNEL_ERROR;
++        goto dec_out;
++    }
++
++    res = 0;
++dec_out:
++    EVP_CIPHER_CTX_free(ctx);
++    if (res < 0) {
++        return res;
++    }
++    return aes_dec->plain_len;
++}
++
++#define SEQ_MAX_LEN 8
++static void update_iv(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *iv, size_t iv_len)
++{
++    size_t off = iv_len - SEQ_MAX_LEN;
++    uint8_t seq_num[SEQ_MAX_LEN];
++
++    num_to_buf(ecdh_ctx->data_seq, seq_num, SEQ_MAX_LEN);
++    memcpy(iv, ecdh_ctx->session_iv, SECURE_IV_LEN);
++
++    for (int i = 0; i < SEQ_MAX_LEN; i++) {
++        iv[i + off] = iv[i + off] ^ seq_num[i];
++    }
++    return;
++}
++
++int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *recv_buf, int recv_buf_len,
++    uint8_t *out_buf, size_t *out_buf_len)
++{
++    int out_len;
++    uint8_t iv[SECURE_IV_LEN];
++    uint8_t *cipher = NULL;
++    uint8_t *tag = NULL;
++    size_t cipher_len, tag_len;
++    aes_param_t aes_dec;
++
++    (void)recv_buf_len;
++    (void)out_buf_len;
++
++    aes_dec.key = ecdh_ctx->session_key;
++    update_iv(ecdh_ctx, iv, SECURE_IV_LEN);
++
++    cipher_len = buf_to_num(recv_buf, DATA_SIZE_LEN);
++    cipher = recv_buf + DATA_SIZE_LEN;
++    tag_len = buf_to_num(recv_buf + DATA_SIZE_LEN + cipher_len, DATA_SIZE_LEN);
++    if (tag_len != GCM_TAG_LEN) {
++        return CC_ERROR_SEC_CHL_DECRYPT;
++    }
++    tag = recv_buf + DATA_SIZE_LEN + cipher_len + DATA_SIZE_LEN;
++    aes_dec.plain = out_buf;
++    aes_dec.plain_len = 0;
++    aes_dec.cipher = cipher;
++    aes_dec.cipher_len = cipher_len;
++    aes_dec.aad = NULL;
++    aes_dec.aad_len = 0;
++    aes_dec.key_len = SECURE_KEY_LEN;
++    aes_dec.iv = iv;
++    aes_dec.iv_len = SECURE_IV_LEN;
++    aes_dec.tag = tag;
++    aes_dec.tag_len = GCM_TAG_LEN;
++    out_len = aes_gcm_decrypt(&aes_dec);
++    memset(&aes_dec, 0, sizeof(aes_param_t));
++    if (out_len <= 0 || out_len != (int)cipher_len) {
++        return CC_ERROR_SEC_CHL_DECRYPT;
++    }
++    *out_buf_len = DATA_SIZE_LEN + out_len + DATA_SIZE_LEN + GCM_TAG_LEN;
++
++    ecdh_ctx->data_seq += out_len;
++
++    return CC_SUCCESS;
++}
++
++/*
++ out_buf 数据格式
++{
++    uint16_t data_len;      // LEN: DATA_SIZE_LEN
++    uint8_t data[];          // LEN: data_len
++    uint16_t gcm_tag_len;   // LEN: DATA_SIZE_LEN
++    uint8_t gcm_tag[];       // LEN: gcm_tag_len
++}
++*/
++int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *plain, size_t plain_len,
++    uint8_t *out_buf, size_t *out_buf_len)
++{
++    uint8_t *enc = NULL;
++    uint8_t *tag = NULL;
++    int enc_len;
++    uint8_t iv[SECURE_IV_LEN];
++    aes_param_t aes_enc;
++
++    aes_enc.key = ecdh_ctx->session_key;
++    update_iv(ecdh_ctx, iv, SECURE_IV_LEN);
++
++    num_to_buf(plain_len, out_buf, DATA_SIZE_LEN);
++    enc = out_buf + DATA_SIZE_LEN;
++    num_to_buf(GCM_TAG_LEN, out_buf + DATA_SIZE_LEN + plain_len, DATA_SIZE_LEN);
++    tag = out_buf + DATA_SIZE_LEN + plain_len + DATA_SIZE_LEN;
++    aes_enc.plain = plain;
++    aes_enc.plain_len = plain_len;
++    aes_enc.cipher = enc;
++    aes_enc.cipher_len = 0;
++    aes_enc.aad = NULL;
++    aes_enc.aad_len = 0;
++    aes_enc.key_len = SECURE_KEY_LEN;
++    aes_enc.iv = iv;
++    aes_enc.iv_len = SECURE_IV_LEN;
++    aes_enc.tag = tag;
++    aes_enc.tag_len = GCM_TAG_LEN;
++    enc_len = aes_gcm_encrypt(&aes_enc);
++    memset(&aes_enc, 0, sizeof(aes_param_t));
++    if (enc_len <= 0 || enc_len != (int)plain_len) {
++        return CC_ERROR_SEC_CHL_ENCRYPT;
++    }
++
++    ecdh_ctx->data_seq += enc_len;
++    *out_buf_len = DATA_SIZE_LEN + enc_len + DATA_SIZE_LEN + GCM_TAG_LEN;
++
++    return CC_SUCCESS;
++}
++
++void del_ecdh_ctx(sec_chl_ecdh_ctx_t *ecdh_ctx)
++{
++    if (ecdh_ctx->svr_rsa_key != NULL) {
++        RSA_free(ecdh_ctx->svr_rsa_key);
++    }
++    if (ecdh_ctx->ecdh_key != NULL) {
++        EC_KEY_free(ecdh_ctx->ecdh_key);
++    }
++    if (ecdh_ctx->shared_key != NULL) {
++        free(ecdh_ctx->shared_key);
++    }
++    if (ecdh_ctx->local_exch_param_buf != NULL) {
++        free(ecdh_ctx->local_exch_param_buf);
++    }
++    if (ecdh_ctx->svr_exch_param_buf != NULL) {
++        free(ecdh_ctx->svr_exch_param_buf);
++    }
++    free(ecdh_ctx);
++    return;
++}
++
++#define ECC_POINT_COMPRESSED_MULTIPLY 2
++#define MAX_ECC_PUBKEY_LEN 255
++static int get_key_len(sec_chl_ecdh_ctx_t *ecdh_ctx)
++{
++    const EC_POINT *point = NULL;
++    const EC_GROUP *group = NULL;
++    point_conversion_form_t form;
++    size_t ecdh_pubkey_len = 0;
++    EC_KEY *ecdh_key = ecdh_ctx->ecdh_key;
++
++    point = EC_KEY_get0_public_key(ecdh_key);
++    group = EC_KEY_get0_group(ecdh_key);
++    if (point == NULL || group == NULL) {
++        return -1;
++    }
++    form = EC_GROUP_get_point_conversion_form(group);
++    ecdh_pubkey_len = EC_POINT_point2oct(group, point, form, NULL, 0, NULL);
++    if (ecdh_pubkey_len == 0 || ecdh_pubkey_len > MAX_ECC_PUBKEY_LEN) {
++        return -1;
++    }
++    ecdh_ctx->ecdh_pubkey_len = ecdh_pubkey_len;
++    ecdh_ctx->shared_key_len = (form == POINT_CONVERSION_COMPRESSED) ?
++        (ecdh_pubkey_len - 1) : ((ecdh_pubkey_len - 1) / ECC_POINT_COMPRESSED_MULTIPLY);
++    return 0;
++}
++
++static size_t get_exch_param_signature(RSA *sign_key, uint8_t *sign_data, size_t data_len,
++    uint8_t *signature, size_t signature_len)
++{
++    EVP_PKEY *evp_sign_key = NULL;
++    EVP_MD_CTX *md_ctx = NULL;
++    EVP_PKEY_CTX *pctx = NULL;
++    size_t sig_len = 0;
++
++    evp_sign_key = EVP_PKEY_new();
++    if (evp_sign_key == NULL || !EVP_PKEY_set1_RSA(evp_sign_key, sign_key)) {
++        goto end;
++    }
++    md_ctx = EVP_MD_CTX_new();
++    if (md_ctx == NULL) {
++        goto end;
++    }
++    if (EVP_DigestSignInit(md_ctx, &pctx, EVP_sha256(), NULL, evp_sign_key) <= 0) {
++        goto end;
++    }
++    if (EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PSS_PADDING) <= 0 ||
++        EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, RSA_PSS_SALTLEN_DIGEST) <= 0) {
++        goto end;
++    }
++    if (EVP_DigestSignUpdate(md_ctx, sign_data, data_len) <= 0) {
++        goto end;
++    }
++    if (EVP_DigestSignFinal(md_ctx, NULL, &sig_len) <= 0) {
++        goto end;
++    }
++    if (sig_len > signature_len) {
++        goto end;
++    }
++    if (EVP_DigestSignFinal(md_ctx, signature, &sig_len) <= 0) {
++        goto end;
++    }
++
++end:
++    EVP_MD_CTX_free(md_ctx);
++    md_ctx = NULL;
++    pctx = NULL;
++    EVP_PKEY_free(evp_sign_key);
++    evp_sign_key = NULL;
++    return sig_len;
++}
++
++int get_exch_buf_len(sec_chl_ecdh_ctx_t *ecdh_ctx)
++{
++    return sizeof(sec_chl_exch_param_t) + ecdh_ctx->ecdh_pubkey_len + ecdh_ctx->signature_len;
++}
++
++static int get_ecdh_pubkey(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *ecdh_pubkey, size_t ecdh_pubkey_len)
++{
++    const EC_POINT *point = NULL;
++    const EC_GROUP *group = NULL;
++    point_conversion_form_t form;
++    EC_KEY *ecdh_key = ecdh_ctx->ecdh_key;
++
++    if (ecdh_key == NULL) {
++        return -1;
++    }
++    point = EC_KEY_get0_public_key(ecdh_key);
++    group = EC_KEY_get0_group(ecdh_key);
++    if (point == NULL || group == NULL) {
++        return -1;
++    }
++    form = EC_GROUP_get_point_conversion_form(group);
++    if (!EC_POINT_point2oct(group, point, form, ecdh_pubkey, ecdh_pubkey_len, NULL)) {
++        return -1;
++    }
++
++    return 0;
++}
++
++int gen_local_exch_buf(sec_chl_ecdh_ctx_t *ecdh_ctx)
++{
++    int ret;
++    uint8_t *ptr = NULL;
++    size_t exch_buf_len = get_exch_buf_len(ecdh_ctx);
++    ecdh_ctx->local_exch_param_buf = (uint8_t *)calloc(1, exch_buf_len);
++    if (ecdh_ctx->local_exch_param_buf == NULL) {
++        return CC_FAIL;
++    }
++
++    ptr = ecdh_ctx->local_exch_param_buf;
++    // random
++    uint8_t random[RANDOM_LEN];
++    if (RAND_priv_bytes(random, RANDOM_LEN) <= 0) {
++        return CC_FAIL;
++    }
++    memcpy(ptr, random, RANDOM_LEN);
++    ptr += RANDOM_LEN;
++
++    // ecc cure id
++    memcpy(ptr, &(ecdh_ctx->ec_nid), sizeof(ecdh_ctx->ec_nid));
++    ptr += sizeof(ecdh_ctx->ec_nid);
++
++    // ecdh_pubkey_len
++    memcpy(ptr, &(ecdh_ctx->ecdh_pubkey_len), sizeof(ecdh_ctx->ecdh_pubkey_len));
++    ptr += sizeof(ecdh_ctx->ecdh_pubkey_len);
++
++    // ecdh_pubkey
++    ret = get_ecdh_pubkey(ecdh_ctx, ptr, ecdh_ctx->ecdh_pubkey_len);
++    if (ret != CC_SUCCESS) {
++        return CC_FAIL;
++    }
++    ptr += ecdh_ctx->ecdh_pubkey_len;
++    
++    // signature_len
++    if (ecdh_ctx->signature_len > 0) {
++        memcpy(ptr, &(ecdh_ctx->signature_len), sizeof(ecdh_ctx->signature_len));
++        ptr += sizeof(ecdh_ctx->signature_len);
++
++        // signature
++        size_t sign_data_len = RANDOM_LEN + sizeof(ecdh_ctx->ec_nid) + 
++            sizeof(ecdh_ctx->ecdh_pubkey_len) +ecdh_ctx->ecdh_pubkey_len;
++        if (get_exch_param_signature(ecdh_ctx->svr_rsa_key, ecdh_ctx->local_exch_param_buf, sign_data_len,
++            ptr, ecdh_ctx->signature_len) != ecdh_ctx->signature_len) {
++                goto end;
++        }
++        ptr += ecdh_ctx->signature_len;
++    }
++    if ((size_t)(ptr - ecdh_ctx->local_exch_param_buf) > exch_buf_len) {
++        goto end;
++    }
++    ecdh_ctx->local_exch_param_buf_len = exch_buf_len;
++
++    return CC_SUCCESS;
++end:
++    free(ecdh_ctx->local_exch_param_buf);
++    ecdh_ctx->local_exch_param_buf = NULL;
++    return CC_FAIL;
++}
++
++int get_exch_buf(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *exch_param, size_t exch_param_len)
++{
++    if (exch_param_len < ecdh_ctx->local_exch_param_buf_len) {
++        return CC_FAIL;
++    }
++    memcpy(exch_param, ecdh_ctx->local_exch_param_buf, ecdh_ctx->local_exch_param_buf_len);
++
++    return CC_SUCCESS;
++}
++
++sec_chl_ecdh_ctx_t *new_local_ecdh_ctx(int ec_nid)
++{
++    EC_KEY *ecdh_key = NULL;
++    sec_chl_ecdh_ctx_t *ecdh_ctx = NULL;
++    int ret;
++
++    ecdh_ctx = calloc(1, sizeof(sec_chl_ecdh_ctx_t));
++    if (ecdh_ctx == NULL) {
++        return ecdh_ctx;
++    }
++
++    ecdh_key = EC_KEY_new_by_curve_name(ec_nid);
++    if (ecdh_key == NULL) {
++        goto fail;
++    }
++    if (!EC_KEY_generate_key(ecdh_key)) {
++        goto fail;
++    }
++    ecdh_ctx->ecdh_key = ecdh_key;
++    ecdh_ctx->ec_nid = ec_nid;
++    ret = get_key_len(ecdh_ctx);
++    if (ret < 0) {
++        goto fail;
++    }
++    ecdh_ctx->shared_key = (uint8_t *)calloc(1, ecdh_ctx->shared_key_len);
++    if (ecdh_ctx->shared_key == NULL) {
++        goto fail;
++    }
++
++    return ecdh_ctx;
++fail:
++    del_ecdh_ctx(ecdh_ctx);
++    return NULL;
++}
++
++static cc_enclave_result_t drive_session_key(sec_chl_ecdh_ctx_t *ecdh_ctx, sec_chl_exch_param_t *local_exch_param,
++    sec_chl_exch_param_t *peer_exch_param)
++{
++    uint8_t salt[RANDOM_LEN];
++    uint8_t key_label[] = "sessionkey";
++    uint8_t iv_label[] = "sessioniv";
++
++    for (int i = 0; i < RANDOM_LEN; i++) {
++        salt[i] = local_exch_param->random[i] ^ peer_exch_param->random[i];
++    }
++    if (drive_key_hkdf(ecdh_ctx->shared_key, ecdh_ctx->shared_key_len, salt, sizeof(salt), key_label,
++        strlen((char *)key_label), ecdh_ctx->session_key, SECURE_KEY_LEN) != CC_SUCCESS ||
++        drive_key_hkdf(ecdh_ctx->shared_key, ecdh_ctx->shared_key_len, salt, sizeof(salt), iv_label,
++        strlen((char *)iv_label), ecdh_ctx->session_iv, SECURE_IV_LEN) != CC_SUCCESS) {
++        return CC_ERROR_DRIVE_SESSIONKEY;
++    }
++    return CC_SUCCESS;
++}
++
++cc_enclave_result_t compute_session_key(sec_chl_ecdh_ctx_t *ecdh_ctx, sec_chl_exch_param_t *local_exch_param,
++    sec_chl_exch_param_t *peer_exch_param)
++{
++    const EC_GROUP *group = NULL;
++    EC_KEY *ecdh_key = ecdh_ctx->ecdh_key;
++    EC_POINT *peer_point = NULL;
++    int ret = CC_FAIL;
++
++    group = EC_KEY_get0_group(ecdh_key);
++    peer_point = EC_POINT_new(group);;
++    if (group == NULL || peer_point == NULL) {
++        goto end;
++    }
++    if (!EC_POINT_oct2point(group, peer_point, peer_exch_param->ecdh_pubkey, peer_exch_param->ecdh_pubkey_len, NULL)) {
++        goto end;
++    }
++    if (!ECDH_compute_key(ecdh_ctx->shared_key, ecdh_ctx->shared_key_len, peer_point, ecdh_key, NULL)) {
++        goto end;
++    }
++    ret = drive_session_key(ecdh_ctx, local_exch_param, peer_exch_param);
++    if (ret != CC_SUCCESS) {
++        goto end;
++    }
++
++    ret = CC_SUCCESS;
++end:
++    EC_POINT_free(peer_point);
++    peer_point = NULL;
++    return ret;
++}
++
++cc_enclave_result_t get_exch_param_from_buf(uint8_t *exch_buf, size_t buf_len, sec_chl_exch_param_t **exch_param)
++{
++    sec_chl_exch_param_t *msg = (sec_chl_exch_param_t *)calloc(1, sizeof(sec_chl_exch_param_t));
++    if (msg == NULL) {
++        return CC_ERROR_SEC_CHL_MEMORY;
++    }
++    
++    uint8_t *p_buf = exch_buf;
++
++    memcpy(msg->random, p_buf, RANDOM_LEN);
++    p_buf += RANDOM_LEN;
++
++    memcpy(&msg->ec_nid, p_buf, sizeof(msg->ec_nid));
++    p_buf += sizeof(msg->ec_nid);
++
++    memcpy(&msg->ecdh_pubkey_len, p_buf, sizeof(msg->ecdh_pubkey_len));
++    p_buf += sizeof(msg->ecdh_pubkey_len);
++
++    if (p_buf - exch_buf + msg->ecdh_pubkey_len > buf_len) {
++        del_exch_param(msg);
++        return CC_ERROR_SEC_CHL_INVALID_EXCH_BUF;
++    }
++
++    msg->ecdh_pubkey = (uint8_t *)calloc(1, msg->ecdh_pubkey_len);
++    if (msg->ecdh_pubkey == NULL) {
++        del_exch_param(msg);
++        return CC_ERROR_SEC_CHL_MEMORY;
++    }
++    memcpy(msg->ecdh_pubkey,p_buf, msg->ecdh_pubkey_len);
++
++    *exch_param = msg;
++
++    return CC_SUCCESS;
++}
++
++cc_enclave_result_t verify_signature(uint8_t *pubkey, size_t pubkey_len, uint8_t *exch_buf, size_t buf_len)
++{
++    size_t ecdh_pubkey_len;
++    size_t signature_len;
++    uint8_t *p_buf = exch_buf;
++
++    p_buf += RANDOM_LEN;
++
++    p_buf += sizeof(int); // ec_nid
++
++    memcpy(&ecdh_pubkey_len, p_buf, sizeof(ecdh_pubkey_len));
++    p_buf += sizeof(ecdh_pubkey_len);
++
++    if (p_buf - exch_buf + ecdh_pubkey_len > buf_len) {
++        return CC_ERROR_SEC_CHL_INVALID_EXCH_BUF;
++    }
++
++    p_buf += ecdh_pubkey_len;
++
++    memcpy(&signature_len, p_buf, sizeof(signature_len));
++    p_buf += sizeof(signature_len);
++
++    if (signature_len == 0) {
++        return CC_SUCCESS;
++    }
++    if (p_buf - exch_buf + signature_len > buf_len) {
++        return CC_ERROR_SEC_CHL_INVALID_EXCH_BUF;
++    }
++
++    // verify signature
++    size_t data_len = p_buf - exch_buf - sizeof(signature_len);
++    int ret = verify_rsa_signature(pubkey, pubkey_len, p_buf, signature_len, exch_buf, data_len);
++    if (ret != CC_SUCCESS) {
++        return CC_ERROR_SEC_CHL_VERIFY_PEER_EXCH_BUF_SIGNATURE;
++    }
++
++    return CC_SUCCESS;
++}
++
++void del_exch_param(sec_chl_exch_param_t *exch_param)
++{
++    if (exch_param == NULL) {
++        return;
++    }
++    free(exch_param->ecdh_pubkey);
++    free(exch_param);
++    return;
++}
+diff --git a/component/secure_channel/secure_channel_common.h b/component/secure_channel/secure_channel_common.h
+new file mode 100644
+index 0000000..c320453
+--- /dev/null
++++ b/component/secure_channel/secure_channel_common.h
+@@ -0,0 +1,99 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * CloudEnclave is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ * http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++#ifndef SECURE_CHANNEL_COMMON_H
++#define SECURE_CHANNEL_COMMON_H
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++#include <openssl/rsa.h>
++
++#include "status.h"
++
++#define SECURE_CHANNEL_ERROR (-1)
++
++#define SECURE_KEY_LEN 32
++#define SECURE_IV_LEN 16
++typedef struct sec_chl_ecdh_ctx {
++    RSA     *svr_rsa_key;      // svr use private key sign exch msg; client use pubkey verify exch msg signature
++    size_t  signature_len;      // RSA_size(svr_rsa_key);
++    int     ec_nid;             // Elliptic Curve nid
++    EC_KEY  *ecdh_key;          // generate from ec_nid; include ecdh pubkey and privatekey
++    size_t  ecdh_pubkey_len;    // calucate from ecdh_key
++    size_t  shared_key_len;
++    uint8_t *shared_key;        // ecdh output shared secret
++    uint8_t session_key[SECURE_KEY_LEN];  // derived from shared key, used to encrypt/decrypt user data
++    uint8_t session_iv[SECURE_IV_LEN];    // derived from shared key, used to encrypt/decrypt user data
++    size_t  data_seq;                     // data sequence, use to update session_iv
++    size_t  local_exch_param_buf_len;
++    uint8_t *local_exch_param_buf;
++    size_t  svr_exch_param_buf_len;
++    uint8_t *svr_exch_param_buf;
++} sec_chl_ecdh_ctx_t;
++
++#define DATA_SIZE_LEN 2
++#define GCM_TAG_LEN 16
++#define BYTE_TO_BIT_LEN 8
++
++typedef enum {
++    SEC_CHL_MSG_GET_SVR_PUBKEY = 1,
++    SEC_CHL_MSG_GET_SVR_PUBKEY_RSP,
++    SEC_CHL_MSG_GET_RA_REPORT,
++    SEC_CHL_MSG_VERIFY_SVR_PUBKEY,
++    SEC_CHL_MSG_GET_SVR_EXCH_PARAM,
++    SEC_CHL_MSG_GET_SVR_EXCH_PARAM_RSP,
++    SEC_CHL_MSG_GEN_LOCAL_EXCH_PARAM,
++    SEC_CHL_MSG_SEND_CLI_EXCH_PARAM,
++    SEC_CHL_MSG_SEND_CLI_EXCH_PARAM_RSP,
++    SEC_CHL_MSG_DESTROY,
++    SEC_CHL_MSG_DESTROY_RSP,
++    SEC_CHL_MSG_MAX,
++} sec_chl_msg_type_t;
++
++#define RSP_BUF_LEN 640
++typedef struct sec_chl_msg {
++    sec_chl_msg_type_t msg_type;
++    size_t session_id;
++    int32_t ret;
++    size_t data_len;
++    uint8_t data[];
++} sec_chl_msg_t;
++
++#define RANDOM_LEN 32
++typedef struct {
++    uint8_t random[RANDOM_LEN];
++    int ec_nid;
++    size_t ecdh_pubkey_len;
++    uint8_t *ecdh_pubkey;
++    size_t signature_len;
++    // uint8_t *signature;
++} sec_chl_exch_param_t;
++
++size_t buf_to_num(uint8_t *buf, size_t len);
++void num_to_buf(size_t num, uint8_t *buf, size_t len);
++
++sec_chl_ecdh_ctx_t *new_local_ecdh_ctx(int ec_nid);
++void del_ecdh_ctx(sec_chl_ecdh_ctx_t *ecdh_ctx);
++cc_enclave_result_t compute_session_key(sec_chl_ecdh_ctx_t *ecdh_ctx, sec_chl_exch_param_t *local_exch_param,
++    sec_chl_exch_param_t *peer_exch_param);
++cc_enclave_result_t get_exch_param_from_buf(uint8_t *exch_buf, size_t buf_len, sec_chl_exch_param_t **exch_param);
++cc_enclave_result_t verify_signature(uint8_t *pubkey, size_t pubkey_len, uint8_t *exch_buf, size_t buf_len);
++int get_exch_buf_len(sec_chl_ecdh_ctx_t *ecdh_ctx);
++int get_exch_buf(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *exch_param, size_t exch_param_len);
++void del_exch_param(sec_chl_exch_param_t *exch_param);
++int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *plain, size_t plain_len,
++    uint8_t *out_buf, size_t *out_buf_len);
++int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *recv_buf, int recv_buf_len,
++    uint8_t *out_buf, size_t *out_buf_len);
++
++int gen_local_exch_buf(sec_chl_ecdh_ctx_t *ecdh_ctx);
++#endif
+diff --git a/examples/CMakeLists.txt b/examples/CMakeLists.txt
+index a5112f1..2a21a3b 100644
+--- a/examples/CMakeLists.txt
++++ b/examples/CMakeLists.txt
+@@ -13,6 +13,7 @@ if(CC_GP)
+ 	add_subdirectory(seal_data)
+ 	add_subdirectory(helloworld)
+ 	add_subdirectory(switchless)
++	add_subdirectory(secure_channel)
+ 	#add_subdirectory(lrt)
+ endif()
+ 
+@@ -25,6 +26,7 @@ if(CC_SGX)
+ 	add_subdirectory(seal_data)
+ 	add_subdirectory(helloworld)
+ 	add_subdirectory(switchless)
++	add_subdirectory(secure_channel)
+ 	#add_subdirectory(tls_enclave)
+ 	#add_subdirectory(lrt)
+ endif()
+diff --git a/examples/secure_channel/CMakeLists.txt b/examples/secure_channel/CMakeLists.txt
+new file mode 100644
+index 0000000..0bf8565
+--- /dev/null
++++ b/examples/secure_channel/CMakeLists.txt
+@@ -0,0 +1,26 @@
++project(secure_channel C)
++
++set(CMAKE_C_STANDARD 99)
++
++set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
++
++set(PREFIX sc_demo)
++
++#set edl name
++set(EDL_FILE sc_demo.edl)
++set(CODEGEN codegen)
++
++if(CC_GP)
++    set(CODETYPE trustzone)
++    set(UUID 7763a15a-0a9e-4e86-90cd-e4262583948a)
++    add_definitions(-DPATH="/data/${UUID}.sec")
++endif()
++
++if(CC_SGX)
++    set(CODETYPE sgx)
++    add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/${PREFIX}.signed.so")
++endif()
++
++add_subdirectory(${CURRENT_ROOT_PATH}/enclave)
++add_subdirectory(${CURRENT_ROOT_PATH}/host)
++add_subdirectory(${CURRENT_ROOT_PATH}/client)
+diff --git a/examples/secure_channel/client/CMakeLists.txt b/examples/secure_channel/client/CMakeLists.txt
+new file mode 100644
+index 0000000..ef8cd4d
+--- /dev/null
++++ b/examples/secure_channel/client/CMakeLists.txt
+@@ -0,0 +1,60 @@
++#set host exec name
++set(OUTPUT sc_client)
++#set host src code
++set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/client.c)
++
++
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-maybe-uninitialized -fPIE")
++
++if(CC_GP)
++    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
++    endif()
++    add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
++    target_include_directories(${OUTPUT} PRIVATE
++            ${CMAKE_CURRENT_BINARY_DIR}
++            ${CMAKE_BINARY_DIR}/inc
++            ${CMAKE_CURRENT_SOURCE_DIR}/..
++            /usr/include/secGear)
++    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++        target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
++    endif()
++    target_link_libraries(${OUTPUT} secgear pthread csecure_channel)
++endif()
++
++if(CC_SGX)
++    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGX_SDK_PATH}/lib64)
++    endif()
++    set(SGX_MODE HW)
++    set(COMMON_CFLAGS "-m64")
++    add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
++    target_include_directories(${OUTPUT} PRIVATE
++        ${CMAKE_CURRENT_BINARY_DIR}
++        ${CMAKE_CURRENT_SOURCE_DIR}/..
++        ${LOCAL_ROOT_PATH}/inc/host_inc
++        ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
++        ${LOCAL_ROOT_PATH}/component/secure_channel
++        ${LOCAL_ROOT_PATH}/component/secure_channel/client)
++    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++        target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGX_SDK_PATH}/lib64)
++    endif()
++    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${host_C_Flags}")
++    target_link_libraries(${OUTPUT} secgear csecure_channel pthread ssl crypto)
++endif()
++
++set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
++
++if(CC_GP)
++    install(TARGETS  ${OUTPUT}
++            RUNTIME
++            DESTINATION /vendor/bin/
++            PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)
++endif()
++
++if(CC_SGX)
++    install(TARGETS  ${OUTPUT}
++            RUNTIME
++            DESTINATION ${CMAKE_BINARY_DIR}/bin/
++            PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)
++endif()
+diff --git a/examples/secure_channel/client/client.c b/examples/secure_channel/client/client.c
+new file mode 100644
+index 0000000..1c9d885
+--- /dev/null
++++ b/examples/secure_channel/client/client.c
+@@ -0,0 +1,137 @@
++#include <stdio.h>
++#include <arpa/inet.h>
++#include <sys/socket.h>
++#include <unistd.h>
++#include <openssl/ec.h>
++#include <string.h>
++#include "status.h"
++
++#include "usr_msg.h"
++#include "secure_channel_client.h"
++
++
++#define MAXBUF 1024
++cc_sec_chl_ctx_t g_ctx = {0};
++
++int socket_write_and_read(void *conn, void *buf, size_t count)
++{
++    int ret = socket_write_adpt(conn, buf, count);
++    if (ret < 0) {
++        return ret;
++    }
++    int len;
++    int fd = *(int *)conn;
++    uint8_t recv_buf[MAXBUF] = {0};
++    uint8_t sc_msg[MAXBUF] = {0};
++    usr_msg_t *usr_msg = NULL;
++    while(1) {
++        len = read(fd, recv_buf, MAXBUF);
++        if (len <= 0) {
++            printf("receive no data\n");
++            sleep(1);
++            continue;
++        } else {
++            printf("receive data success, len:%d\n", len);
++            usr_msg = (usr_msg_t *)recv_buf;
++            memcpy(sc_msg, usr_msg->data, usr_msg->len);
++            break;
++        }
++    }
++    return cc_sec_chl_client_callback(&g_ctx, sc_msg, usr_msg->len);
++}
++
++int main(int argc, char **argv)
++{
++    (void)argc;
++    (void)argv;
++    int sockfd;
++    cc_enclave_result_t ret;
++    struct sockaddr_in svr_addr;
++
++    sockfd = socket(AF_INET, SOCK_STREAM, 0);
++    if (sockfd == -1) {
++        printf("create socket failed\n");
++        return -1;
++    }
++    bzero(&svr_addr, sizeof(svr_addr));
++    svr_addr.sin_family = AF_INET;
++    svr_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
++    svr_addr.sin_port = htons(12306); // test server port 12306
++
++    if (connect(sockfd, (struct sockaddr *)&svr_addr, sizeof(svr_addr)) != 0) {
++        printf("connet to server failed\n");
++        close(sockfd);
++        return -1;
++    }
++    printf("connect server success\n");
++
++    // step1: 初始化安全通道客户端，注册消息发送函数
++    g_ctx.conn_kit.send = (void *)socket_write_and_read;
++    g_ctx.conn_kit.conn = &sockfd;
++    ret = cc_sec_chl_client_init(CC_SEC_CHL_ALGO_RSA_ECDH_AES_GCM, &g_ctx);
++    if (ret != CC_SUCCESS) {
++        printf("secure channel init failed:%u\n", ret);
++        goto finish;
++    }
++
++    // step3: 安全通道初始化完成后，调用加密接口加密业务数据
++    char *client_secret = "This is client secret 666";
++    printf("client send secret:%s\n\n", client_secret);
++
++    char *encrypted = NULL;
++    size_t encrypt_len = 0;
++    ret = cc_sec_chl_client_encrypt(&g_ctx, (void *)client_secret, strlen(client_secret),
++        encrypted, &encrypt_len);
++    if (ret == CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH) {
++        encrypted = (char *)calloc(1, encrypt_len);
++        if (encrypted == NULL) {
++            goto finish;
++        }
++    }
++    ret = cc_sec_chl_client_encrypt(&g_ctx, (void *)client_secret, strlen(client_secret), encrypted, &encrypt_len);
++    if (ret != CC_SUCCESS) {
++        printf("client encrypt secret failed:%u\n", ret);
++        free(encrypted);
++        encrypted = NULL;
++        goto finish;
++    }
++
++    // step4: 加密后，用户结合自己业务发送到服务端enclave中，调用解密接口解密
++    size_t msg_len = sizeof(usr_msg_t) + encrypt_len;
++    usr_msg_t *msg = calloc(1, msg_len);
++    if (msg == NULL) {
++        free(encrypted);
++        goto finish;
++    }
++    msg->type = MSG_TYPE_TEST;
++    msg->session = g_ctx.session_id;
++    msg->len = encrypt_len;
++    memcpy(msg->data, encrypted, encrypt_len);
++
++    int result = write(sockfd, (void *)msg, msg_len);
++    if (result < 0) {
++        printf("send msg error\n");
++    }
++    free(msg);
++    free(encrypted);
++
++    uint8_t plain[MAXBUF] = {0};
++    size_t plain_len = MAXBUF;
++    uint8_t recv_buf[MAXBUF] = {0};
++    usr_msg_t *usr_msg = NULL;
++    result = read(sockfd, recv_buf, MAXBUF);
++    usr_msg = (usr_msg_t *)recv_buf;
++    ret = cc_sec_chl_client_decrypt(&g_ctx, usr_msg->data, usr_msg->len, plain, &plain_len);
++    if (ret != 0) {
++        printf("client decrypt error\n");
++    }
++    printf("client recv secret:%s\n", plain);
++
++    sleep(2); // 等收到enclave加密消息后，等待2s, 再结束安全通道
++
++  finish:
++    cc_sec_chl_client_fini(&g_ctx);
++    pthread_exit(NULL);
++    close(sockfd);
++    return 0;
++}
+diff --git a/examples/secure_channel/enclave/CMakeLists.txt b/examples/secure_channel/enclave/CMakeLists.txt
+new file mode 100644
+index 0000000..feb449d
+--- /dev/null
++++ b/examples/secure_channel/enclave/CMakeLists.txt
+@@ -0,0 +1,152 @@
++ #set sign key
++set(PEM Enclave_private.pem)
++
++#set sign tool
++set(SIGN_TOOL ${LOCAL_ROOT_PATH}/tools/sign_tool/sign_tool.sh)
++
++#set enclave src code
++set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/enclave.c)
++
++#set log level
++set(PRINT_LEVEL 3)
++add_definitions(-DPRINT_LEVEL=${PRINT_LEVEL})
++
++if(CC_GP)
++    #set whilelist. default: /vendor/bin/teec_hello
++    set(WHITE_LIST_OWNER root)
++    set(WHITE_LIST_0 /vendor/bin/sc_server)
++    set(WHITELIST WHITE_LIST_0)
++
++    #set signed output
++    set(OUTPUT ${UUID}.sec)
++    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c
++                    ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
++    add_custom_command(OUTPUT ${AUTO_FILES}
++    DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
++    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
++            --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp
++            --search-path ${LOCAL_ROOT_PATH}/component/secure_channel)
++endif()
++
++if(CC_SGX)
++    #sgxsdk path
++    set(SGX_SDK_PATH ${SGXSDK})
++    set(OUTPUT ${PREFIX}.signed.so)
++    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
++    add_custom_command(OUTPUT ${AUTO_FILES}
++    DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
++    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
++            --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
++            --search-path ${LOCAL_ROOT_PATH}/component/secure_channel
++            --search-path ${SGX_SDK_PATH}/include
++            --search-path ${SSL_PATH}/include)
++endif()
++
++set(COMMON_C_FLAGS "-W -Wall -Werror -fno-short-enums -fno-omit-frame-pointer -fstack-protector \
++    -Wstack-protector --param ssp-buffer-size=4 -frecord-gcc-switches -Wextra -nostdinc -nodefaultlibs \
++    -fno-peephole -fno-peephole2 -Wno-main -Wno-error=unused-parameter \
++    -Wno-error=unused-but-set-variable -Wno-error=format-truncation=")
++
++set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
++
++if(CC_GP)
++    # configure_file("${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt.in" "${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt")
++    set(CMAKE_C_FLAGS "${COMMON_C_FLAGS}  -march=armv8-a ")
++    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s -fPIC")
++    set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-s")
++
++    set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
++    set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc/)
++
++    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++        link_directories(${CMAKE_BINARY_DIR}/lib/)
++    endif()
++
++    add_library(${PREFIX} SHARED ${SOURCE_FILES} ${AUTO_FILES})
++
++    target_include_directories(${PREFIX} PRIVATE
++        ${CMAKE_CURRENT_BINARY_DIR}
++        /usr/include/secGear
++        ${ITRUSTEE_TEEDIR}/include/TA
++        ${ITRUSTEE_TEEDIR}/include/TA/huawei_ext
++        ${ITRUSTEE_TEEDIR}/include/TA/openssl
++        ${ITRUSTEE_LIBC}/arch/aarch64
++        ${ITRUSTEE_LIBC}/
++        ${ITRUSTEE_LIBC}/arch/arm/bits
++        ${ITRUSTEE_LIBC}/arch/generic
++        ${ITRUSTEE_LIBC}/arch/arm
++        ${OPENSSL_PATH}/include)
++
++    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++        target_link_directories(${PREFIX} PRIVATE
++            ${CMAKE_BINARY_DIR}/lib/)
++    endif()
++
++    foreach(WHITE_LIST ${WHITELIST})
++         add_definitions(-D${WHITE_LIST}="${${WHITE_LIST}}")
++    endforeach(WHITE_LIST)
++    add_definitions(-DWHITE_LIST_OWNER="${WHITE_LIST_OWNER}")
++
++    target_link_libraries(${PREFIX} tsecure_channel.a -lsecgear_tee)
++    add_custom_command(TARGET ${PREFIX}
++    	 POST_BUILD
++	         COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
++
++    install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}
++             DESTINATION /data
++             PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE  WORLD_READ  WORLD_EXECUTE)
++    endif()
++
++if(CC_SGX)
++    set(SGX_MODE HW)
++    set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fvisibility=hidden -fPIC")
++    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
++
++    set(OPENSSL_LIBRARY_PATH ${SSL_PATH}/lib64)
++    set(SGX_LIBRARY_PATH ${SGX_SDK_PATH}/lib64)
++
++    if(${SGX_MODE} STREQUAL HW)
++        set(Trts_Library_Name sgx_trts)
++        set(Service_Library_Name sgx_tservice)
++    else()
++        set(Trts_Library_Name sgx_trts_sim)
++        set(Service_Library_Name sgx_tservice_sim)
++    endif()
++
++    set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-z,defs -Wl,-pie -Bstatic -Bsymbolic -eenclave_entry \
++    -Wl,--export-dynamic -Wl,--defsym,__ImageBase=0 -Wl,--gc-sections \
++    -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/Enclave.lds")
++
++    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++        link_directories(${SGX_LIBRARY_PATH} ${OPENSSL_LIBRARY_PATH} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
++    endif()
++
++    add_library(${PREFIX} SHARED ${SOURCE_FILES} ${AUTO_FILES})
++
++    target_include_directories(${PREFIX} PRIVATE
++        ${CMAKE_CURRENT_BINARY_DIR}
++        ${LOCAL_ROOT_PATH}/inc/enclave_inc/sgx
++        ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
++        ${LOCAL_ROOT_PATH}/inc/host_inc
++        ${LOCAL_ROOT_PATH}/component/secure_channel/enclave
++        ${SSL_PATH}/include
++        ${SGX_SDK_PATH}/include/tlibc
++        ${SGX_SDK_PATH}/include/libcxx
++        ${SGX_SDK_PATH}/include)
++
++    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++        target_link_directories(${PREFIX} PRIVATE
++            ${SGX_LIBRARY_PATH} ${OPENSSL_LIBRARY_PATH} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
++    endif()
++
++    target_link_libraries(${PREFIX} -ltsecure_channel -lsecgear_tee -Wl,--whole-archive ${Trts_Library_Name} -lsgx_tsgxssl -Wl,--no-whole-archive
++            -Wl,--start-group -lsgx_tsgxssl_ssl -lsgx_tsgxssl_crypto -lsgx_tstdc -lsgx_tcxx
++	    -lsgx_tcrypto -lsgx_pthread ${Service_Library_Name} -Wl,--end-group)
++
++    add_custom_command(TARGET ${PREFIX}
++     POST_BUILD
++     COMMAND umask 0177
++     COMMAND openssl genrsa -3 -out ${PEM} 3072
++     COMMAND bash ${SIGN_TOOL} -d sign -x sgx -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -k ${PEM} -o ${OUTPUT}
++                        -c ${CMAKE_CURRENT_SOURCE_DIR}/Enclave.config.xml)
++endif()
+diff --git a/examples/secure_channel/enclave/Enclave.config.xml b/examples/secure_channel/enclave/Enclave.config.xml
+new file mode 100644
+index 0000000..e94c9bc
+--- /dev/null
++++ b/examples/secure_channel/enclave/Enclave.config.xml
+@@ -0,0 +1,12 @@
++<EnclaveConfiguration>
++  <ProdID>0</ProdID>
++  <ISVSVN>0</ISVSVN>
++  <StackMaxSize>0x40000</StackMaxSize>
++  <HeapMaxSize>0x100000</HeapMaxSize>
++  <TCSNum>10</TCSNum>
++  <TCSPolicy>1</TCSPolicy>
++  <!-- Recommend changing 'DisableDebug' to 1 to make the enclave undebuggable for enclave release -->
++  <DisableDebug>0</DisableDebug>
++  <MiscSelect>0</MiscSelect>
++  <MiscMask>0xFFFFFFFF</MiscMask>
++</EnclaveConfiguration>
+diff --git a/examples/secure_channel/enclave/Enclave.lds b/examples/secure_channel/enclave/Enclave.lds
+new file mode 100644
+index 0000000..ab77e64
+--- /dev/null
++++ b/examples/secure_channel/enclave/Enclave.lds
+@@ -0,0 +1,11 @@
++enclave.so
++{
++    global:
++        g_global_data_sim;
++        g_global_data;
++        enclave_entry;
++        g_peak_heap_used;
++    local:
++        *;
++};
++
+diff --git a/examples/secure_channel/enclave/config_cloud.ini b/examples/secure_channel/enclave/config_cloud.ini
+new file mode 100644
+index 0000000..537b1cd
+--- /dev/null
++++ b/examples/secure_channel/enclave/config_cloud.ini
+@@ -0,0 +1,49 @@
++[config]
++;0 means debug
++;1 means release
++;[fixed value]
++releaseType = 1
++;;;
++;0 means TA not installed by OTRP
++;1 means TA installed by OTRP
++otrpFlag = 0
++;;;
++;server address for signing TA
++serverIp=
++;;;
++;public key for encrypt TA
++;[fixed value]
++encryptKey = /home/w00559322/TA_cert/rsa_public_key_cloud.pem
++;;;
++;public key length
++;[fixed value]
++encryptKeyLen = 3072
++;;;
++;0 means not sign
++;1 means signed by local private
++;2 means signed using native sign tool;
++;3 means signed by CI
++;[fixed value]
++signType = 1
++;;;
++;private key for signing TA
++;[private key owned by yourself]
++signKey = /home/w00559322/TA_cert/private_key.pem
++;;;
++;private key length for signing TA
++;[key length should be 4096 for security enhance]
++signKeyLen = 4096
++;;;
++;0 means SHA256 hash type
++;1 means SHA512 hash type
++;[set value to 0 by default]
++hashType = 0
++;;;
++;0 means padding type is pkcs1v15
++;1 means padding type is PSS
++;[set value to 0 by default]
++paddingType = 0
++;;;
++;config file
++;[signed config file by Huawei]
++configPath= /home/w00559322/TA_cert/secgear-app1/config
+diff --git a/examples/secure_channel/enclave/enclave.c b/examples/secure_channel/enclave/enclave.c
+new file mode 100644
+index 0000000..0576b81
+--- /dev/null
++++ b/examples/secure_channel/enclave/enclave.c
+@@ -0,0 +1,51 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * CloudEnclave is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ * http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++#include <stdio.h>
++#include <string.h>
++
++#include "status.h"
++#include "sc_demo_t.h"
++#include "secure_channel_enclave.h"
++#include "secgear_log.h"
++
++
++int sec_chl_recv_client_data(size_t session_id, uint8_t *data, size_t data_len)
++{
++    uint8_t plain[1024] = {0};
++    size_t plain_len = 1024;
++    int ret = cc_sec_chl_enclave_decrypt(session_id, data, data_len, plain, &plain_len);
++    if (ret != 0) {
++        PrintInfo(PRINT_ERROR, "sec_chl_recv_client_data decrypt data failed\n");
++        return ret;
++    }
++    PrintInfo(PRINT_STRACE, "enclave recv secret:%s\n", plain);
++    return ret;
++}
++
++int sec_chl_get_enclave_secret(size_t session_id, uint8_t* data, size_t *data_len)
++{
++    char enclave_secret[] = "This is enclave secret 888";
++
++    uint8_t encrypt[1024] = {0};
++    size_t encrypt_len = 1024;
++    int ret = cc_sec_chl_enclave_encrypt(session_id, enclave_secret, strlen(enclave_secret), encrypt, &encrypt_len);
++    if (ret != 0) {
++        PrintInfo(PRINT_ERROR, "sec_chl_get_enclave_secret encrypte data failed\n");
++        return ret;
++    }
++    memcpy(data, encrypt, encrypt_len);
++    *data_len =  encrypt_len;
++
++    PrintInfo(PRINT_STRACE, "enclave send secret:%s\n", enclave_secret);
++    return ret;
++}
+diff --git a/examples/secure_channel/enclave/manifest.txt b/examples/secure_channel/enclave/manifest.txt
+new file mode 100644
+index 0000000..e49a9f6
+--- /dev/null
++++ b/examples/secure_channel/enclave/manifest.txt
+@@ -0,0 +1,8 @@
++gpd.ta.appID:                   7763a15a-0a9e-4e86-90cd-e4262583948a
++gpd.ta.service_name:            secgear-app1
++gpd.ta.singleInstance:          true
++gpd.ta.multiSession:            true
++gpd.ta.instanceKeepAlive:       false
++gpd.ta.dataSize:                802816
++gpd.ta.stackSize:               1792
++gpd.ta.mem_page_align:          true
+\ No newline at end of file
+diff --git a/examples/secure_channel/host/CMakeLists.txt b/examples/secure_channel/host/CMakeLists.txt
+new file mode 100644
+index 0000000..3935c3a
+--- /dev/null
++++ b/examples/secure_channel/host/CMakeLists.txt
+@@ -0,0 +1,82 @@
++#set host exec name
++set(OUTPUT sc_server)
++#set host src code
++set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/server.c)
++
++#set auto code
++if(CC_GP)
++    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c
++                    ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
++    add_custom_command(OUTPUT ${AUTO_FILES}
++    DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
++    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
++                        --search-path /usr/include/secGear)
++endif()
++
++if(CC_SGX)
++    #sgxsdk path
++    set(SGX_SDK_PATH ${SGXSDK})
++    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
++    add_custom_command(OUTPUT ${AUTO_FILES}
++    DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
++    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
++            --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
++            --search-path ${LOCAL_ROOT_PATH}/component/secure_channel
++            --search-path ${SGXSDK}/include
++            --search-path ${SSL_PATH}/include)
++endif()
++
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-maybe-uninitialized -fPIE")
++
++if(CC_GP)
++    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
++    endif()
++    add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
++    target_include_directories(${OUTPUT} PRIVATE
++            ${CMAKE_CURRENT_BINARY_DIR}
++            ${CMAKE_BINARY_DIR}/inc
++            ${CMAKE_CURRENT_SOURCE_DIR}/..
++            /usr/include/secGear)
++    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++        target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
++    endif()
++    target_link_libraries(${OUTPUT} secgear usecure_channel pthread ssl crypto)
++endif()
++
++if(CC_SGX)
++    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
++        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGXSDK}/lib64 ${SSL_PATH}/lib64)
++    endif()
++    set(SGX_MODE HW)
++    set(COMMON_CFLAGS "-m64")
++    add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
++    target_include_directories(${OUTPUT} PRIVATE
++        ${CMAKE_CURRENT_BINARY_DIR}
++        ${CMAKE_CURRENT_SOURCE_DIR}/..
++        ${LOCAL_ROOT_PATH}/inc/host_inc
++        ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
++        ${LOCAL_ROOT_PATH}/component/secure_channel
++        ${LOCAL_ROOT_PATH}/component/secure_channel/host)
++    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
++        target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGXSDK}/lib64 ${SSL_PATH}/lib64)
++    endif()
++    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${host_C_Flags}")
++    target_link_libraries(${OUTPUT} secgear usecure_channel pthread ssl sgx_usgxssl crypto)
++endif()
++
++set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
++
++if(CC_GP)
++    install(TARGETS  ${OUTPUT}
++            RUNTIME
++            DESTINATION /vendor/bin/
++            PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)
++endif()
++
++if(CC_SGX)
++    install(TARGETS  ${OUTPUT}
++            RUNTIME
++            DESTINATION ${CMAKE_BINARY_DIR}/bin/
++            PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)
++endif()
+diff --git a/examples/secure_channel/host/server.c b/examples/secure_channel/host/server.c
+new file mode 100644
+index 0000000..db7b156
+--- /dev/null
++++ b/examples/secure_channel/host/server.c
+@@ -0,0 +1,131 @@
++#include <stdio.h>
++#include <string.h>
++#include <netinet/in.h>
++#include <sys/socket.h>
++#include <sys/types.h>
++#include <unistd.h>
++#include <openssl/ec.h>
++#include "secure_channel_host.h"
++#include "enclave.h"
++#include "status.h"
++#include "sc_demo_u.h"
++#include "usr_msg.h"
++
++#define MAXBUF 1024
++
++int main(int argc, char **argv)
++{
++    (void)argc;
++    (void)argv;
++    uint32_t len;
++    int sockfd, connfd;
++    struct sockaddr_in svr_addr, conn_addr;
++    char buf[MAXBUF + 1] = {0};
++
++    sockfd = socket(AF_INET, SOCK_STREAM, 0);
++    if (sockfd == -1) {
++        printf("create socket failed\n");
++        return -1;
++    }
++    bzero(&svr_addr, sizeof(svr_addr));
++
++    svr_addr.sin_family = AF_INET;
++    svr_addr.sin_addr.s_addr = htonl(INADDR_ANY);
++    svr_addr.sin_port = htons(12306); // test server port 12306
++
++    if (bind(sockfd, (struct sockaddr *)&svr_addr, sizeof(svr_addr)) != 0) {
++        printf("socket bind failed\n");
++        close(sockfd);
++        return -1;
++    }
++
++    if (listen(sockfd, 5) != 0) { // 5
++        printf("listen failed\n");
++        close(sockfd);
++        return -1;
++    }
++    int ret_val;
++    cc_enclave_t context = {0};
++    char *path = PATH;
++    int ret = cc_enclave_create(path, AUTO_ENCLAVE_TYPE, 0,SECGEAR_DEBUG_FLAG, NULL, 0, &context);
++    if (ret != CC_SUCCESS) {
++        printf("create enclave error %x!\n", ret);
++        close(sockfd);
++        return -1;
++    }
++
++    // step1: 初始化安全通道服务, 注册消息发送函数
++    cc_sec_chl_svr_ctx_t svr_ctx = {0};
++    svr_ctx.enclave_ctx = &context;
++    svr_ctx.conn_kit.send = (void *)socket_write_adpt;
++    svr_ctx.conn_kit.conn = &connfd;
++    ret = cc_sec_chl_svr_init(&svr_ctx);
++
++    while (1) {
++        connfd = accept(sockfd, (struct sockaddr *)&conn_addr, &len);
++        if (connfd < 0) {
++            printf("accept error\n");
++            continue;
++        }
++
++        while (1) {
++            len = read(connfd, buf, MAXBUF);
++            if (len <= 0) {
++                printf("secure channel server, there is no more data\n");
++                printf("secure channel server, listening new require\n");
++                break;
++            }
++            uint8_t enclave_secret[1024] = {0};
++            size_t secret_len = 1024;
++
++            usr_msg_t *msg = calloc(1, len);
++            if (msg ==  NULL) {
++                break;
++            }
++            memcpy(msg, buf, len);
++            switch (msg->type) {
++                case MSG_TYPE_SEC_CHL_ESTABLISH:
++                    // step2: 在业务的消息接收函数中，调用安全通道回调函数
++                    ret = cc_sec_chl_svr_callback(&svr_ctx, (void *)msg->data, msg->len);
++                    if (ret != CC_SUCCESS) {
++                        printf("secure channel server handle require failed\n");
++                    }
++                    break;
++                case MSG_TYPE_TEST:
++                    // step3: 用户业务逻辑，处理安全通道的加密数据
++                    ret = sec_chl_recv_client_data(&context, &ret_val, msg->session, msg->data, msg->len);
++                    if (ret != 0 || ret_val != 0) {
++                        printf("enclave decrypt error\n");
++                    }
++                    // step4: 将server enclave中数据加密发送到客户端
++                    ret = sec_chl_get_enclave_secret(&context, &ret_val, msg->session, enclave_secret, &secret_len);
++                    
++                    size_t send_msg_len = sizeof(usr_msg_t) + secret_len;
++                    usr_msg_t *send_msg = calloc(1, send_msg_len);
++                    if (send_msg == NULL) {
++                        break;
++                    }
++                    send_msg->type = MSG_TYPE_TEST;
++                    send_msg->session = msg->session;
++                    send_msg->len = secret_len;
++                    memcpy(send_msg->data, enclave_secret, secret_len);
++
++                    int result = write(connfd, (void *)send_msg, send_msg_len);
++                    if (result < 0) {
++                        printf("send msg error\n");
++                    }
++                    free(send_msg);
++                    break;
++                default:
++                    printf("server recv error msg type\n");
++                    break;
++            }
++            free(msg);
++        }
++    }
++    // step5: 停止安全通道服务
++    cc_sec_chl_svr_fini(&svr_ctx);
++    cc_enclave_destroy(&context);
++    close(sockfd);
++    return 0;
++}
+diff --git a/examples/secure_channel/sc_demo.edl b/examples/secure_channel/sc_demo.edl
+new file mode 100644
+index 0000000..a80e4d2
+--- /dev/null
++++ b/examples/secure_channel/sc_demo.edl
+@@ -0,0 +1,20 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
++ * CloudEnclave is licensed under the Mulan PSL v2.
++ * You can use this software according to the terms and conditions of the Mulan PSL v2.
++ * You may obtain a copy of Mulan PSL v2 at:
++ *     http://license.coscl.org.cn/MulanPSL2
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
++ * PURPOSE.
++ * See the Mulan PSL v2 for more details.
++ */
++
++enclave {
++    include "stdbool.h"
++    from "secure_channel.edl" import *;
++    trusted {
++        public int sec_chl_recv_client_data(size_t session_id, [in, size = data_len] uint8_t* data, size_t data_len);
++        public int sec_chl_get_enclave_secret(size_t session_id, [out, size = 1024] uint8_t* data, [in, out] size_t *data_len);
++    };
++};
+diff --git a/examples/secure_channel/usr_msg.h b/examples/secure_channel/usr_msg.h
+new file mode 100644
+index 0000000..57f778e
+--- /dev/null
++++ b/examples/secure_channel/usr_msg.h
+@@ -0,0 +1,35 @@
++#ifndef USR_MSG_H
++#define USR_MSG_H
++
++#include <stdlib.h>
++
++typedef enum {
++    MSG_TYPE_TEST,               // 业务自己的消息
++    MSG_TYPE_SEC_CHL_ESTABLISH,  // 安全通道消息
++} usr_msg_type_t;
++
++typedef struct {
++    usr_msg_type_t type;
++    size_t  session;
++    size_t  len;
++    uint8_t data[0];
++} usr_msg_t;
++
++int socket_write_adpt(void *conn, void *buf, size_t count)
++{
++    int fd = *(int *)conn;
++    size_t msg_len = sizeof(usr_msg_t) + count;
++    usr_msg_t *msg = calloc(1, msg_len);
++    if (msg == NULL) {
++        return -1;
++    }
++    msg->type = MSG_TYPE_SEC_CHL_ESTABLISH;
++    msg->len = count;
++    memcpy(msg->data, buf, count);
++
++    int ret = write(fd, (void *)msg, msg_len);
++    free(msg);
++    return ret;
++}
++
++#endif
+diff --git a/inc/enclave_inc/gp/itrustee/secgear_log.h b/inc/enclave_inc/gp/itrustee/secgear_log.h
+index 819fa86..6a952de 100644
+--- a/inc/enclave_inc/gp/itrustee/secgear_log.h
++++ b/inc/enclave_inc/gp/itrustee/secgear_log.h
+@@ -13,7 +13,8 @@
+ #ifndef _SECGEAR_LOG_H
+ #define _SECGEAR_LOG_H
+ 
+-#include<stdio.h>
++#include <stdio.h>
++#include "tee_log.h"
+ 
+ #ifndef PRINT_LEVEL
+ #define PRINT_LEVEL 0
+diff --git a/inc/host_inc/status.h b/inc/host_inc/status.h
+index 7f8daaa..b5d9a2e 100644
+--- a/inc/host_inc/status.h
++++ b/inc/host_inc/status.h
+@@ -78,6 +78,28 @@ typedef enum _enclave_result_t
+     CC_ERROR_ATT_KEY_UNINITIALIZED,             /* attestation key is not initialized*/
+     CC_ERROR_INVALID_ATT_KEY_CERT_DATA,         /* attestation data is not valid*/
+     CC_ERROR_PLATFORM_CERT_UNAVAILABLE,         /* cert is not available*/
++
++    /* secure channel */
++    CC_ERROR_SEC_CHL_INVALID_CONN,          /* invalid connection */
++    CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH,       /* the buf length to store secure channle encrypt/decrypt is not enough */
++    CC_ERROR_SEC_CHL_SEND_MSG,
++    CC_ERROR_SEC_CHL_WAITING_RECV_MSG,
++    CC_ERROR_SEC_CHL_RECV_MSG_LEN_INVALID,
++    CC_ERROR_SEC_CHL_GET_SVR_PUBKEY,
++    CC_ERROR_SEC_CHL_GET_PEER_EXCH_PARAM,
++    CC_ERROR_SEC_CHL_VERIFY_PEER_EXCH_BUF_SIGNATURE,
++    CC_ERROR_SEC_CHL_INVALID_EXCH_BUF,
++    CC_ERROR_SEC_CHL_GEN_LOCAL_EXCH_PARAM,
++    CC_ERROR_DRIVE_SESSIONKEY,
++    CC_ERROR_SEC_CHL_MEMORY,
++    CC_ERROR_SEC_CHL_SET_PARAM_TO_PEER,
++    CC_ERROR_SEC_CHL_DESTROY_SVR,
++    CC_ERROR_SEC_CHL_ENCRYPT,
++    CC_ERROR_SEC_CHL_DECRYPT,
++    CC_ERROR_SEC_CHL_SVR_ALREADY_INIT,
++    CC_ERROR_SEC_CHL_SVR_INIT,
++    CC_ERROR_SEC_CHL_NOTREADY,
++    CC_ERROR_SEC_CHL_CLI_NUM_EXCEED_MAX_LIMIT, // client num exceed max limit
+     
+     CC_ERROR_OTRP_BASE = 0x80000100,  /* sec file config source is not inconsistent with the loading mode. */
+     CC_ERROR_STORAGE_EIO        = 0x80001001, /* *<安全存储I/O错误 */
+-- 
+2.33.0
+
