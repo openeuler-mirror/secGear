@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	35
+Release:	36
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -65,18 +65,19 @@ Patch52:        0053-asynchronous-switchless-example.patch
 Patch53:        0054-fix-gen-ecall-header-error.patch
 Patch54:        0055-switchless-readme-add-async-interface.patch
 Patch55:        0056-destroy-enclave-release-remain-shared-memory.patch
+Patch56:        0057-support-secure-channel.patch
 
 BuildRequires:	gcc python automake autoconf libtool
-BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
+BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++ compat-openssl11-libs compat-openssl11-devel secGear-devel
 %ifarch x86_64
-BUildRequires:	sgxsdk libsgx-launch libsgx-urts openssl
+BUildRequires:	sgxsdk libsgx-launch libsgx-urts intel-sgx-ssl intel-sgx-ssl-devel
 %else
 BUildRequires:	itrustee_sdk itrustee_sdk-devel
 %endif
 
-Requires:		rsyslog
+Requires:		rsyslog compat-openssl11-libs
 %ifarch x86_64
-Requires:		linux-sgx-driver sgxsdk libsgx-launch libsgx-urts libsgx-aesm-launch-plugin
+Requires:		linux-sgx-driver sgxsdk libsgx-launch libsgx-urts libsgx-aesm-launch-plugin intel-sgx-ssl
 %else
 Requires:		itrustee_sdk
 %endif
@@ -108,10 +109,11 @@ The %{name}-sim is package contains simulation libraries for developing applicat
 %autosetup -n %{name} -p1
 
 %build
+rm -rf examples
 source ./environment
 %ifarch x86_64
 source /opt/intel/sgxsdk/environment
-cmake -DCMAKE_BUILD_TYPE=Debug
+cmake -DCMAKE_BUILD_TYPE=Debug -DSSL_PATH=/opt/intel/sgxssl
 make
 %else
 cmake -DCMAKE_BUILD_TYPE=Debug -DENCLAVE=GP
@@ -128,6 +130,11 @@ install -pm 751 bin/codegen %{buildroot}/%{_bindir}
 install -pm 751 tools/sign_tool/sign_tool.sh %{buildroot}/%{_bindir}
 install -d %{buildroot}/lib/secGear/
 install -pm 751 tools/sign_tool/*.py %{buildroot}/lib/secGear
+install -pm 644 component/secure_channel/*.h %{buildroot}/%{_includedir}/secGear
+install -pm 644 component/secure_channel/*.edl %{buildroot}/%{_includedir}/secGear
+install -pm 644 component/secure_channel/client/*.h %{buildroot}/%{_includedir}/secGear
+install -pm 644 component/secure_channel/host/*.h %{buildroot}/%{_includedir}/secGear
+install -pm 644 component/secure_channel/enclave/*.h %{buildroot}/%{_includedir}/secGear
 %ifarch x86_64
 install -pm 644 inc/host_inc/*.h %{buildroot}/%{_includedir}/secGear
 install -pm 644 inc/host_inc/sgx/*.h %{buildroot}/%{_includedir}/secGear
@@ -147,8 +154,11 @@ pushd %{buildroot}
 rm `find . -name secgear_helloworld` -rf
 rm `find . -name secgear_seal_data` -rf
 rm `find . -name secgear_switchless` -rf
+rm `find . -name sc_client` -rf
+rm `find . -name sc_server` -rf
 %ifarch aarch64
 rm `find . -name libsecgearsim.so` -rf
+rm `find . -name *.sec` -rf
 %endif
 popd
 
@@ -158,6 +168,9 @@ popd
 %defattr(-,root,root)
 %{_libdir}/libsecgear_tee.a
 %{_libdir}/libsecgear.so
+%{_libdir}/libusecure_channel.so
+%{_libdir}/libcsecure_channel.so
+%{_libdir}/libtsecure_channel.a
 %ifarch x86_64
 %{_libdir}/libsgx_0.so
 %else
@@ -183,6 +196,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Tue Feb 28 2023 houmingyong<houmingyong@huawei.com> - 0.1.0-36
+- support secure channel
+
 * Tue Dec 20 2022 houmingyong<houmingyong@huawei.com> - 0.1.0-35
 - fix aysnchronous ecall bug
 
