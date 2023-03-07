@@ -1,0 +1,169 @@
+From e8046e0fbe7267bef6123b22d0bdef1a2fcfa6db Mon Sep 17 00:00:00 2001
+From: houmingyong <houmingyong@huawei.com>
+Date: Tue, 7 Mar 2023 14:20:58 +0800
+Subject: [PATCH] sec chl bugfix
+
+---
+ .../enclave/secure_channel_enclave.c          | 64 ++++++++++---------
+ 1 file changed, 34 insertions(+), 30 deletions(-)
+
+diff --git a/component/secure_channel/enclave/secure_channel_enclave.c b/component/secure_channel/enclave/secure_channel_enclave.c
+index 636ad90..cc09baf 100644
+--- a/component/secure_channel/enclave/secure_channel_enclave.c
++++ b/component/secure_channel/enclave/secure_channel_enclave.c
+@@ -102,30 +102,29 @@ static void sc_fini_rwlock(sc_lock_t *lock)
+ #endif
+ }
+ 
+-typedef struct sel_chl_node {
++typedef struct sec_chl_node {
+     size_t session_id;
+     time_t inactive_cnt;   // the inactive count of session
+     sec_chl_ecdh_ctx_t *ecdh_ctx;
+-    struct sel_chl_node *next;
+-} SEL_CHL_NODE;
++    struct sec_chl_node *next;
++} SEC_CHL_NODE;
+ 
+ /* The max secure channel connection number at the same time */
+ #define MAX_SEL_CHL_NUM 1031
+ typedef struct {
+     bool          is_init;
+     sc_lock_t     sec_chl_list_lock;
+-    SEL_CHL_NODE  *sec_chl_list_head;
++    SEC_CHL_NODE  sec_chl_list_head;
+     size_t        count;  // secure channel connection number
+ } SEC_CHL_MNG;
+ 
+ static SEC_CHL_MNG g_sec_chl_manager = {
+     .is_init           = false,
+-    .sec_chl_list_head = NULL,
+ };
+ 
+-static SEL_CHL_NODE *new_sec_chl_node()
++static SEC_CHL_NODE *new_sec_chl_node()
+ {
+-    SEL_CHL_NODE *node = (SEL_CHL_NODE *)calloc(1, sizeof(SEL_CHL_NODE));
++    SEC_CHL_NODE *node = (SEC_CHL_NODE *)calloc(1, sizeof(SEC_CHL_NODE));
+     if (node == NULL) {
+         PrintInfo(PRINT_ERROR, "malloc failed\n");
+         return NULL;
+@@ -149,7 +148,7 @@ static SEL_CHL_NODE *new_sec_chl_node()
+     return node;
+ }
+ 
+-static void free_sec_chl_node(SEL_CHL_NODE *node)
++static void free_sec_chl_node(SEC_CHL_NODE *node)
+ {
+     if (node == NULL) {
+         return;
+@@ -232,7 +231,7 @@ static int gen_rsa_key(RSA **rsa_key)
+     return CC_SUCCESS;
+ }
+ 
+-static int add_to_sec_chl_list(SEL_CHL_NODE *node)
++static int add_to_sec_chl_list(SEC_CHL_NODE *node)
+ {
+     sc_wtlock(&g_sec_chl_manager.sec_chl_list_lock);
+ 
+@@ -242,8 +241,9 @@ static int add_to_sec_chl_list(SEL_CHL_NODE *node)
+         return CC_ERROR_SEC_CHL_CLI_NUM_EXCEED_MAX_LIMIT;
+     }
+     g_sec_chl_manager.count++;
+-    SEL_CHL_NODE *temp = g_sec_chl_manager.sec_chl_list_head;
+-    g_sec_chl_manager.sec_chl_list_head = node;
++
++    SEC_CHL_NODE *temp = g_sec_chl_manager.sec_chl_list_head.next;
++    g_sec_chl_manager.sec_chl_list_head.next = node;
+     node->next = temp;
+ 
+     sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
+@@ -260,7 +260,7 @@ static int gen_sec_chl_node(size_t *session_id)
+         return ret;
+     }
+ 
+-    SEL_CHL_NODE *node = new_sec_chl_node();
++    SEC_CHL_NODE *node = new_sec_chl_node();
+     if (node == NULL) {
+         PrintInfo(PRINT_ERROR, "get enclave pubkey new sec chl node failed\n");
+         return CC_FAIL;
+@@ -334,7 +334,7 @@ int get_enclave_pubkey(size_t *session_id, uint8_t *pubkey, size_t *pubkey_len)
+ 
+ static sec_chl_ecdh_ctx_t *get_ecdh_ctx_by_session_id(size_t session_id)
+ {
+-    SEL_CHL_NODE *p = g_sec_chl_manager.sec_chl_list_head;
++    SEC_CHL_NODE *p = g_sec_chl_manager.sec_chl_list_head.next;
+     while (p != NULL) {
+         if (p->session_id == session_id) {
+             p->inactive_cnt = 0;
+@@ -415,13 +415,14 @@ void del_enclave_sec_chl(size_t session_id)
+ {
+     sc_wtlock(&g_sec_chl_manager.sec_chl_list_lock);
+ 
+-    SEL_CHL_NODE *cur = g_sec_chl_manager.sec_chl_list_head;
+-    SEL_CHL_NODE *pre = cur;
++    SEC_CHL_NODE *cur = g_sec_chl_manager.sec_chl_list_head.next;
++    SEC_CHL_NODE *pre = &(g_sec_chl_manager.sec_chl_list_head);
+     while (cur != NULL) {
+         if (cur->session_id == session_id) {
+             // remove
+             pre->next = cur->next;
+             free_sec_chl_node(cur);
++            g_sec_chl_manager.count--;
+             break;
+         }
+         pre = cur;
+@@ -435,12 +436,13 @@ static void del_enclave_all_sec_chl()
+ {
+     sc_wtlock(&g_sec_chl_manager.sec_chl_list_lock);
+ 
+-    SEL_CHL_NODE *p = g_sec_chl_manager.sec_chl_list_head;
+-    SEL_CHL_NODE *cur = NULL;
+-    while (p != NULL) {
+-        cur = p;
+-        p = p->next;
++    SEC_CHL_NODE *head = &(g_sec_chl_manager.sec_chl_list_head);
++    SEC_CHL_NODE *cur = head->next;
++    while (cur != NULL) {
++        head->next = cur->next;
+         free_sec_chl_node(cur);
++        cur = head->next;
++        g_sec_chl_manager.count--;
+     }
+     sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
+ 
+@@ -538,19 +540,21 @@ void enclave_check_session_timeout()
+ {
+     sc_wtlock(&g_sec_chl_manager.sec_chl_list_lock);
+ 
+-    SEL_CHL_NODE *p = g_sec_chl_manager.sec_chl_list_head;
+-    SEL_CHL_NODE *timeout_node = NULL;
++    SEC_CHL_NODE *pre = &(g_sec_chl_manager.sec_chl_list_head);
++    SEC_CHL_NODE *cur = pre->next;
+ 
+-    while (p != NULL) {
+-        if (p->inactive_cnt > SEL_CHL_CONN_TIMEOUT_CNT) {
+-            timeout_node = p;
+-            p = p->next;
+-            PrintInfo(PRINT_WARNING, "sec chl node timeout, session_id:%llu\n", timeout_node->session_id);
+-            free_sec_chl_node(timeout_node);
++    while (cur != NULL) {
++        if (cur->inactive_cnt > SEL_CHL_CONN_TIMEOUT_CNT) {
++            pre->next = cur->next;
++            PrintInfo(PRINT_WARNING, "sec chl node timeout, session_id:%llu\n", cur->session_id);
++            free_sec_chl_node(cur);
++            cur = pre->next;
++            g_sec_chl_manager.count--;
+             continue;
+         }
+-        p->inactive_cnt++;
+-        p = p->next;
++        cur->inactive_cnt++;
++        pre = cur;
++        cur = cur->next;
+     }
+     sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
+ 
+-- 
+2.39.1
+
