@@ -17,9 +17,10 @@ int main(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
-    uint32_t len;
+    int len;
     int sockfd, connfd;
     struct sockaddr_in svr_addr, conn_addr;
+    uint32_t conn_len = sizeof(conn_addr);
     char buf[MAXBUF + 1] = {0};
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -62,7 +63,7 @@ int main(int argc, char **argv)
     ret = cc_sec_chl_svr_init(&svr_ctx);
 
     while (1) {
-        connfd = accept(sockfd, (struct sockaddr *)&conn_addr, &len);
+        connfd = accept(sockfd, (struct sockaddr *)&conn_addr, &conn_len);
         if (connfd < 0) {
             printf("accept error\n");
             continue;
