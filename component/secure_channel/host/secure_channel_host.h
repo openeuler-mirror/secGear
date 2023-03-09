@@ -26,10 +26,14 @@ typedef struct {
 
 typedef struct {
     cc_enclave_t *enclave_ctx;
-    cc_conn_kit_t conn_kit;
     sec_chl_timer_t timer;
     bool is_init;
 } cc_sec_chl_svr_ctx_t;
+
+typedef struct {
+    cc_sec_chl_svr_ctx_t *svr_ctx;
+    cc_conn_kit_t conn_kit;
+} cc_sec_chl_conn_ctx_t;
 /**
 * start seucre channel service
 * @param[in] ctx, The pointer of secure channel context
@@ -51,14 +55,14 @@ cc_enclave_result_t cc_sec_chl_svr_fini(cc_sec_chl_svr_ctx_t *ctx);
 
 /**
 * secure channel msg handle callback on server host. NOTE:does not support multithreading now
-* @param[in] ctx, The cc_sec_chl_svr_ctx_t instance
+* @param[in] ctx, The cc_sec_chl_conn_ctx_t instance
 *
 * @param[in] buf, Server host receive message buffer
 * @param[in] buf_len, The length of receive buffer
 *
 * @retval On success, 0 is returned. On error, cc_enclave_result_t is returned.
 */
-cc_enclave_result_t cc_sec_chl_svr_callback(cc_sec_chl_svr_ctx_t *ctx, void *buf, size_t buf_len);
+cc_enclave_result_t cc_sec_chl_svr_callback(cc_sec_chl_conn_ctx_t *ctx, void *buf, size_t buf_len);
 
 # ifdef  __cplusplus
 }
