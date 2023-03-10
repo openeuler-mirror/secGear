@@ -1,0 +1,341 @@
+From 211b6df463e660758ca9338a207dbd74386c2ea2 Mon Sep 17 00:00:00 2001
+From: houmingyong <houmingyong@huawei.com>
+Date: Thu, 9 Mar 2023 20:34:17 +0800
+Subject: [PATCH 2/2] server support multi thread handle connection
+
+---
+ .../secure_channel/host/secure_channel_host.c |  34 ++--
+ .../secure_channel/host/secure_channel_host.h |  10 +-
+ examples/secure_channel/host/server.c         | 170 +++++++++++-------
+ 3 files changed, 136 insertions(+), 78 deletions(-)
+
+diff --git a/component/secure_channel/host/secure_channel_host.c b/component/secure_channel/host/secure_channel_host.c
+index 7e90c47..6edaef6 100644
+--- a/component/secure_channel/host/secure_channel_host.c
++++ b/component/secure_channel/host/secure_channel_host.c
+@@ -290,9 +290,7 @@ cc_enclave_result_t cc_sec_chl_svr_init(cc_sec_chl_svr_ctx_t *ctx)
+         print_warning("secure channel already started\n");
+         return CC_SUCCESS;
+     }
+-    if (!is_valid_conn_kit(&ctx->conn_kit)) {
+-        return CC_ERROR_SEC_CHL_INVALID_CONN;
+-    }
++
+     ret_val = enclave_start_sec_chl(ctx->enclave_ctx, &res);
+     if (ret_val != CC_SUCCESS || res != CC_SUCCESS) {
+         return CC_ERROR_SEC_CHL_SVR_INIT;
+@@ -346,7 +344,7 @@ static cc_enclave_result_t handle_recv_msg(cc_enclave_t *context, sec_chl_msg_t
+     return ret;
+ }
+ 
+-static int handle_respon_msg(cc_sec_chl_svr_ctx_t *ctx, cc_enclave_result_t ret,
++static int handle_respon_msg(cc_sec_chl_conn_ctx_t *ctx, cc_enclave_result_t ret,
+     sec_chl_msg_t *rsp_msg, size_t rsp_msg_len)
+ {
+     if (rsp_msg == NULL) {
+@@ -360,31 +358,45 @@ static int handle_respon_msg(cc_sec_chl_svr_ctx_t *ctx, cc_enclave_result_t ret,
+     return ctx->conn_kit.send(ctx->conn_kit.conn, (void *)rsp_msg, rsp_msg_len);
+ }
+ 
+-static cc_enclave_result_t handle_msg(cc_sec_chl_svr_ctx_t *ctx, sec_chl_msg_t *msg)
++static cc_enclave_result_t handle_msg(cc_sec_chl_conn_ctx_t *ctx, sec_chl_msg_t *msg)
+ {
+     size_t rsp_msg_len = 0;
+     sec_chl_msg_t *rsp_msg = NULL;
+ 
+-    cc_enclave_result_t ret = handle_recv_msg(ctx->enclave_ctx, msg, &rsp_msg, &rsp_msg_len);
++    cc_enclave_result_t ret = handle_recv_msg(ctx->svr_ctx->enclave_ctx, msg, &rsp_msg, &rsp_msg_len);
+ 
+     int result = handle_respon_msg(ctx, ret, rsp_msg, rsp_msg_len);
+     free(rsp_msg);
+     if (result < 0) {
+-        (void)del_enclave_sec_chl(ctx->enclave_ctx, msg->session_id);
++        (void)del_enclave_sec_chl(ctx->svr_ctx->enclave_ctx, msg->session_id);
+         print_error_term("cc_sec_chl_svr_callback send respone msg failed\n");
+         return CC_ERROR_SEC_CHL_SEND_MSG;
+     }
+     return ret;
+ }
+ 
+-cc_enclave_result_t cc_sec_chl_svr_callback(cc_sec_chl_svr_ctx_t *ctx, void *buf, size_t buf_len)
++static cc_enclave_result_t check_callback_param(cc_sec_chl_conn_ctx_t *ctx, void *buf, size_t buf_len)
++{
++    if (ctx == NULL || ctx->svr_ctx == NULL || ctx->svr_ctx->enclave_ctx == NULL
++        || buf == NULL || buf_len <= 0) {
++        return CC_ERROR_BAD_PARAMETERS;
++    }
++    if (!is_valid_conn_kit(&ctx->conn_kit)) {
++        return CC_ERROR_SEC_CHL_INVALID_CONN;
++    }
++
++    return CC_SUCCESS;
++}
++
++cc_enclave_result_t cc_sec_chl_svr_callback(cc_sec_chl_conn_ctx_t *ctx, void *buf, size_t buf_len)
+ {
+     sec_chl_msg_t *msg = NULL;
+ 
+-    if (ctx == NULL || ctx->enclave_ctx == NULL || buf == NULL || buf_len <= 0) {
+-        return CC_ERROR_BAD_PARAMETERS;
++    cc_enclave_result_t ret = check_callback_param(ctx, buf, buf_len);
++    if (ret != CC_SUCCESS) {
++        return ret;
+     }
+-    if (!ctx->is_init) {
++    if (!ctx->svr_ctx->is_init) {
+         print_warning("secure channel server is not started\n");
+         return CC_ERROR_SEC_CHL_NOTREADY;
+     }
+diff --git a/component/secure_channel/host/secure_channel_host.h b/component/secure_channel/host/secure_channel_host.h
+index f2157d5..108dd8f 100644
+--- a/component/secure_channel/host/secure_channel_host.h
++++ b/component/secure_channel/host/secure_channel_host.h
+@@ -26,10 +26,14 @@ typedef struct {
+ 
+ typedef struct {
+     cc_enclave_t *enclave_ctx;
+-    cc_conn_kit_t conn_kit;
+     sec_chl_timer_t timer;
+     bool is_init;
+ } cc_sec_chl_svr_ctx_t;
++
++typedef struct {
++    cc_sec_chl_svr_ctx_t *svr_ctx;
++    cc_conn_kit_t conn_kit;
++} cc_sec_chl_conn_ctx_t;
+ /**
+ * start seucre channel service
+ * @param[in] ctx, The pointer of secure channel context
+@@ -51,14 +55,14 @@ cc_enclave_result_t cc_sec_chl_svr_fini(cc_sec_chl_svr_ctx_t *ctx);
+ 
+ /**
+ * secure channel msg handle callback on server host. NOTE:does not support multithreading now
+-* @param[in] ctx, The cc_sec_chl_svr_ctx_t instance
++* @param[in] ctx, The cc_sec_chl_conn_ctx_t instance
+ *
+ * @param[in] buf, Server host receive message buffer
+ * @param[in] buf_len, The length of receive buffer
+ *
+ * @retval On success, 0 is returned. On error, cc_enclave_result_t is returned.
+ */
+-cc_enclave_result_t cc_sec_chl_svr_callback(cc_sec_chl_svr_ctx_t *ctx, void *buf, size_t buf_len);
++cc_enclave_result_t cc_sec_chl_svr_callback(cc_sec_chl_conn_ctx_t *ctx, void *buf, size_t buf_len);
+ 
+ # ifdef  __cplusplus
+ }
+diff --git a/examples/secure_channel/host/server.c b/examples/secure_channel/host/server.c
+index 0b0f5ad..e7730d3 100644
+--- a/examples/secure_channel/host/server.c
++++ b/examples/secure_channel/host/server.c
+@@ -11,17 +11,107 @@
+ #include "sc_demo_u.h"
+ #include "usr_msg.h"
+ 
++#include "secure_channel_common.h"
++
+ #define MAXBUF 1024
++#define MAX_LISTEN_NUM 100
++typedef struct {
++    cc_sec_chl_svr_ctx_t *svr_ctx;
++    int connfd;
++} thread_arg_t;
++
++void conn_proc(void *arg)
++{
++    int len;
++    char buf[MAXBUF + 1] = {0};
++    int ret;
++    int ret_val;
++    thread_arg_t thread_arg = *(thread_arg_t *)arg;
++    int connfd = thread_arg.connfd;
++
++    cc_sec_chl_conn_ctx_t conn_ctx = {0};
++    conn_ctx.svr_ctx = thread_arg.svr_ctx;
++    conn_ctx.conn_kit.send = (void *)socket_write_adpt;
++    conn_ctx.conn_kit.conn = &connfd;
++
++    cc_enclave_t *enclave_ctx = thread_arg.svr_ctx->enclave_ctx;
++
++    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL); // 收到cancel信号后，state设置为CANCELED状态
++    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL); // 退出形式为立即退出
++    // printf("conn_proc connfd:%d\n", connfd);
++
++    while (1) {
++        len = read(connfd, buf, MAXBUF);
++        if (len <= 0) {
++            printf("secure channel server, there is no more data\n");
++            sleep(5);
++            continue;
++        }
++        uint8_t enclave_secret[1024] = {0};
++        size_t secret_len = 1024;
++
++        usr_msg_t *msg = calloc(1, len);
++        if (msg ==  NULL) {
++            break;
++        }
++        memcpy(msg, buf, len);
++        switch (msg->type) {
++            case MSG_TYPE_SEC_CHL_ESTABLISH:
++                // step2: 在业务的消息接收函数中，调用安全通道回调函数
++                ret = cc_sec_chl_svr_callback(&conn_ctx, (void *)msg->data, msg->len);
++                if (ret != CC_SUCCESS) {
++                    printf("secure channel server handle require failed\n");
++                }
++                break;
++            case MSG_TYPE_TEST:
++                // step3: 用户业务逻辑，处理安全通道的加密数据
++                ret = sec_chl_recv_client_data(enclave_ctx, &ret_val, msg->session, msg->data, msg->len);
++                if (ret != 0 || ret_val != 0) {
++                    printf("enclave decrypt error\n");
++                }
++                // step4: 将server enclave中数据加密发送到客户端
++                ret = sec_chl_get_enclave_secret(enclave_ctx, &ret_val, msg->session, enclave_secret, &secret_len);
++                
++                size_t send_msg_len = sizeof(usr_msg_t) + secret_len;
++                usr_msg_t *send_msg = calloc(1, send_msg_len);
++                if (send_msg == NULL) {
++                    break;
++                }
++                send_msg->type = MSG_TYPE_TEST;
++                send_msg->session = msg->session;
++                send_msg->len = secret_len;
++                memcpy(send_msg->data, enclave_secret, secret_len);
++
++                int result = write(connfd, (void *)send_msg, send_msg_len);
++                if (result < 0) {
++                    printf("send msg error\n");
++                }
++                free(send_msg);
++                break;
++            default:
++                printf("server recv error msg type\n");
++                break;
++        }
++        /* 测试代码，为了使conn_proc线程正常退出 */
++        if (((sec_chl_msg_t *)(msg->data))->msg_type == SEC_CHL_MSG_DESTROY) {
++            free(msg);
++            close(connfd);
++            return;
++        }
++        free(msg);
++    }
++
++    close(connfd);
++    return;
++}
+ 
+ int main(int argc, char **argv)
+ {
+     (void)argc;
+     (void)argv;
+-    int len;
+-    int sockfd, connfd;
++    int sockfd;
+     struct sockaddr_in svr_addr, conn_addr;
+     uint32_t conn_len = sizeof(conn_addr);
+-    char buf[MAXBUF + 1] = {0};
+ 
+     sockfd = socket(AF_INET, SOCK_STREAM, 0);
+     if (sockfd == -1) {
+@@ -40,12 +130,12 @@ int main(int argc, char **argv)
+         return -1;
+     }
+ 
+-    if (listen(sockfd, 5) != 0) { // 5
++    if (listen(sockfd, MAX_LISTEN_NUM) != 0) {
+         printf("listen failed\n");
+         close(sockfd);
+         return -1;
+     }
+-    int ret_val;
++
+     cc_enclave_t context = {0};
+     char *path = PATH;
+     int ret = cc_enclave_create(path, AUTO_ENCLAVE_TYPE, 0,SECGEAR_DEBUG_FLAG, NULL, 0, &context);
+@@ -58,71 +148,23 @@ int main(int argc, char **argv)
+     // step1: 初始化安全通道服务, 注册消息发送函数
+     cc_sec_chl_svr_ctx_t svr_ctx = {0};
+     svr_ctx.enclave_ctx = &context;
+-    svr_ctx.conn_kit.send = (void *)socket_write_adpt;
+-    svr_ctx.conn_kit.conn = &connfd;
++    // svr_ctx.conn_kit.send = (void *)socket_write_adpt;
++    // svr_ctx.conn_kit.conn = &connfd;
+     ret = cc_sec_chl_svr_init(&svr_ctx);
+ 
++    pthread_t thread_id;
++    int index = 0;
++    thread_arg_t arg[MAX_LISTEN_NUM] = {0};
+     while (1) {
+-        connfd = accept(sockfd, (struct sockaddr *)&conn_addr, &conn_len);
+-        if (connfd < 0) {
++        arg[index].connfd = accept(sockfd, (struct sockaddr *)&conn_addr, &conn_len);
++        printf("accept connfd[%d]:%d\n", index, arg[index].connfd);
++        if (arg[index].connfd < 0) {
+             printf("accept error\n");
+             continue;
+         }
+-
+-        while (1) {
+-            len = read(connfd, buf, MAXBUF);
+-            if (len <= 0) {
+-                printf("secure channel server, there is no more data\n");
+-                printf("secure channel server, listening new require\n");
+-                break;
+-            }
+-            uint8_t enclave_secret[1024] = {0};
+-            size_t secret_len = 1024;
+-
+-            usr_msg_t *msg = calloc(1, len);
+-            if (msg ==  NULL) {
+-                break;
+-            }
+-            memcpy(msg, buf, len);
+-            switch (msg->type) {
+-                case MSG_TYPE_SEC_CHL_ESTABLISH:
+-                    // step2: 在业务的消息接收函数中，调用安全通道回调函数
+-                    ret = cc_sec_chl_svr_callback(&svr_ctx, (void *)msg->data, msg->len);
+-                    if (ret != CC_SUCCESS) {
+-                        printf("secure channel server handle require failed\n");
+-                    }
+-                    break;
+-                case MSG_TYPE_TEST:
+-                    // step3: 用户业务逻辑，处理安全通道的加密数据
+-                    ret = sec_chl_recv_client_data(&context, &ret_val, msg->session, msg->data, msg->len);
+-                    if (ret != 0 || ret_val != 0) {
+-                        printf("enclave decrypt error\n");
+-                    }
+-                    // step4: 将server enclave中数据加密发送到客户端
+-                    ret = sec_chl_get_enclave_secret(&context, &ret_val, msg->session, enclave_secret, &secret_len);
+-                    
+-                    size_t send_msg_len = sizeof(usr_msg_t) + secret_len;
+-                    usr_msg_t *send_msg = calloc(1, send_msg_len);
+-                    if (send_msg == NULL) {
+-                        break;
+-                    }
+-                    send_msg->type = MSG_TYPE_TEST;
+-                    send_msg->session = msg->session;
+-                    send_msg->len = secret_len;
+-                    memcpy(send_msg->data, enclave_secret, secret_len);
+-
+-                    int result = write(connfd, (void *)send_msg, send_msg_len);
+-                    if (result < 0) {
+-                        printf("send msg error\n");
+-                    }
+-                    free(send_msg);
+-                    break;
+-                default:
+-                    printf("server recv error msg type\n");
+-                    break;
+-            }
+-            free(msg);
+-        }
++        arg[index].svr_ctx = &svr_ctx;
++        pthread_create(&thread_id, NULL, (void *)&conn_proc, (void*)&arg[index]);
++        index = (index + 1) % MAX_LISTEN_NUM;
+     }
+     // step5: 停止安全通道服务
+     cc_sec_chl_svr_fini(&svr_ctx);
+-- 
+2.33.0
+
