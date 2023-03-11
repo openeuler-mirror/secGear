@@ -31,7 +31,6 @@ int socket_write_and_read(void *conn, void *buf, size_t count)
             sleep(1);
             continue;
         } else {
-            printf("receive data success, len:%d\n", len);
             usr_msg = (usr_msg_t *)recv_buf;
             memcpy(sc_msg, usr_msg->data, usr_msg->len);
             break;
@@ -76,7 +75,7 @@ int main(int argc, char **argv)
 
     // step2: 安全通道初始化完成后，调用加密接口加密业务数据
     char *client_secret = "This is client secret 666";
-    printf("client send secret:%s\n\n", client_secret);
+    printf("client send secret:%s, len:%lu\n\n", client_secret, strlen(client_secret));
 
     char *encrypted = NULL;
     size_t encrypt_len = 0;
@@ -121,11 +120,12 @@ int main(int argc, char **argv)
     usr_msg_t *usr_msg = NULL;
     result = read(sockfd, recv_buf, MAXBUF);
     usr_msg = (usr_msg_t *)recv_buf;
+
     ret = cc_sec_chl_client_decrypt(&g_ctx, usr_msg->data, usr_msg->len, plain, &plain_len);
     if (ret != 0) {
-        printf("client decrypt error\n");
+        printf("client decrypt error, ret:%d\n", ret);
     }
-    printf("client recv secret:%s\n", plain);
+    printf("client recv secret:%s, plain_len:%lu\n", plain, plain_len);
 
     sleep(2); // 等收到enclave加密消息后，等待2s, 再结束安全通道
 

@@ -38,7 +38,6 @@ void conn_proc(void *arg)
 
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL); // 收到cancel信号后，state设置为CANCELED状态
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL); // 退出形式为立即退出
-    // printf("conn_proc connfd:%d\n", connfd);
 
     while (1) {
         len = read(connfd, buf, MAXBUF);
@@ -81,7 +80,6 @@ void conn_proc(void *arg)
                 send_msg->session = msg->session;
                 send_msg->len = secret_len;
                 memcpy(send_msg->data, enclave_secret, secret_len);
-
                 int result = write(connfd, (void *)send_msg, send_msg_len);
                 if (result < 0) {
                     printf("send msg error\n");
@@ -157,7 +155,6 @@ int main(int argc, char **argv)
     thread_arg_t arg[MAX_LISTEN_NUM] = {0};
     while (1) {
         arg[index].connfd = accept(sockfd, (struct sockaddr *)&conn_addr, &conn_len);
-        printf("accept connfd[%d]:%d\n", index, arg[index].connfd);
         if (arg[index].connfd < 0) {
             printf("accept error\n");
             continue;

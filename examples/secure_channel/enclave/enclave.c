@@ -28,7 +28,7 @@ int sec_chl_recv_client_data(size_t session_id, uint8_t *data, size_t data_len)
         PrintInfo(PRINT_ERROR, "sec_chl_recv_client_data decrypt data failed\n");
         return ret;
     }
-    PrintInfo(PRINT_STRACE, "enclave recv secret:%s\n", plain);
+    PrintInfo(PRINT_STRACE, "enclave recv secret:%s, real_len:%u, plain_len:%lu\n", plain, strlen((char *)plain), plain_len);
     return ret;
 }
 
@@ -46,6 +46,6 @@ int sec_chl_get_enclave_secret(size_t session_id, uint8_t* data, size_t *data_le
     memcpy(data, encrypt, encrypt_len);
     *data_len =  encrypt_len;
 
-    PrintInfo(PRINT_STRACE, "enclave send secret:%s\n", enclave_secret);
+    PrintInfo(PRINT_STRACE, "enclave send secret:%s, plain_len:%u, encrypt_len:%lu\n", enclave_secret, strlen((char *)enclave_secret), encrypt_len);
     return ret;
 }

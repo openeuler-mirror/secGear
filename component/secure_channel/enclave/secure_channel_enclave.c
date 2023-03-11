@@ -470,7 +470,7 @@ int cc_sec_chl_enclave_encrypt(size_t session_id, void *plain, size_t plain_len,
         PrintInfo(PRINT_ERROR, "sec chl encrypt param error\n");
         return -1;
     }
-    size_t need_len = DATA_SIZE_LEN + plain_len + DATA_SIZE_LEN + GCM_TAG_LEN;
+    size_t need_len = get_encrypted_buf_len(plain_len);
     if (encrypt == NULL || *encrypt_len < need_len) {
         *encrypt_len = need_len;
         return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
@@ -486,12 +486,12 @@ int cc_sec_chl_enclave_encrypt(size_t session_id, void *plain, size_t plain_len,
         sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
         return -1;
     }
-    int ret = sec_chl_encrypt(ecdh_ctx, plain, plain_len, encrypt, encrypt_len);
+    int ret = sec_chl_encrypt(ecdh_ctx, session_id, plain, plain_len, encrypt, encrypt_len);
 
     sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
-    if (ret < 0) {
-        PrintInfo(PRINT_ERROR, "sec chl encrypt failed\n");
-        return -1;
+    if (ret != CC_SUCCESS) {
+        PrintInfo(PRINT_ERROR, "sec chl encrypt failed, ret:%d\n", ret);
+        return ret;
     }
 
     return 0;
@@ -503,7 +503,10 @@ int cc_sec_chl_enclave_decrypt(size_t session_id, void *encrypt, size_t encrypt_
         PrintInfo(PRINT_ERROR, "sec chl decrypt param error\n");
         return -1;
     }
-    size_t need_len = buf_to_num(encrypt, DATA_SIZE_LEN);
+    size_t need_len = get_plain_buf_len((uint8_t *)encrypt, encrypt_len);
+    if (need_len == 0) {
+        return CC_ERROR_SEC_CHL_ENCRYPTED_LEN_INVALID;
+    }
     if (plain == NULL || *plain_len < need_len) {
         *plain_len = need_len;
         return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
@@ -519,12 +522,12 @@ int cc_sec_chl_enclave_decrypt(size_t session_id, void *encrypt, size_t encrypt_
         sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
         return -1;
     }
-    int ret = sec_chl_decrypt(ecdh_ctx, encrypt, encrypt_len, plain, plain_len);
+    int ret = sec_chl_decrypt(ecdh_ctx, session_id, encrypt, encrypt_len, plain, plain_len);
 
     sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
-    if (ret < 0) {
-        PrintInfo(PRINT_ERROR, "sec chl decrypt failed\n");
-        return -1;
+    if (ret != CC_SUCCESS) {
+        PrintInfo(PRINT_ERROR, "sec chl decrypt failed, ret:%d\n", ret);
+        return ret;
     }
 
     return CC_SUCCESS;

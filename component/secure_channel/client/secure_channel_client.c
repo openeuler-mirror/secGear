@@ -111,13 +111,13 @@ cc_enclave_result_t cc_sec_chl_client_encrypt(cc_sec_chl_ctx_t *ctx, void *plain
         return CC_ERROR_SEC_CHL_NOTREADY;
     }
 
-    size_t need_len = DATA_SIZE_LEN + plain_len + DATA_SIZE_LEN + GCM_TAG_LEN;
+    size_t need_len = get_encrypted_buf_len(plain_len);
     if (encrypt == NULL || *encrypt_len < need_len) {
         *encrypt_len = need_len;
         return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
     }
 
-    return sec_chl_encrypt(ctx->handle->ecdh_ctx, plain, plain_len, encrypt, encrypt_len);
+    return sec_chl_encrypt(ctx->handle->ecdh_ctx, ctx->session_id, plain, plain_len, encrypt, encrypt_len);
 }
 
 cc_enclave_result_t cc_sec_chl_client_decrypt(cc_sec_chl_ctx_t *ctx, void *encrypt, size_t encrypt_len,
@@ -129,13 +129,16 @@ cc_enclave_result_t cc_sec_chl_client_decrypt(cc_sec_chl_ctx_t *ctx, void *encry
     if (ctx->handle == NULL) {
         return CC_ERROR_SEC_CHL_NOTREADY;
     }
-    size_t need_len = buf_to_num(encrypt, DATA_SIZE_LEN);
+    size_t need_len = get_plain_buf_len((uint8_t *)encrypt, encrypt_len);
+    if (need_len == 0) {
+        return CC_ERROR_SEC_CHL_ENCRYPTED_LEN_INVALID;
+    }
     if (plain == NULL || *plain_len < need_len) {
         *plain_len = need_len;
         return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
     }
 
-    return sec_chl_decrypt(ctx->handle->ecdh_ctx, encrypt, encrypt_len, plain, plain_len);
+    return sec_chl_decrypt(ctx->handle->ecdh_ctx, ctx->session_id, encrypt, encrypt_len, plain, plain_len);
 }
 
 static cc_enclave_result_t sec_chl_destroy_svr(cc_sec_chl_ctx_t *ctx)

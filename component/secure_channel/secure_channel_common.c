@@ -250,7 +250,7 @@ enc_out:
 
 static int aes_gcm_decrypt(aes_param_t *aes_dec)
 {
-    int howmany, status;
+    int howmany;
     int len = 0;
     const EVP_CIPHER *cipher;
     EVP_CIPHER_CTX *ctx = NULL;
@@ -274,13 +274,11 @@ static int aes_gcm_decrypt(aes_param_t *aes_dec)
         res = SECURE_CHANNEL_ERROR;
         goto dec_out;
     }
-    status = EVP_DecryptInit_ex(ctx, NULL, NULL, aes_dec->key, aes_dec->iv);
-    if (status) {
-        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, aes_dec->tag_len, aes_dec->tag) <= 0) {
-            res = SECURE_CHANNEL_ERROR;
-            goto dec_out;
-        }
+    if (EVP_DecryptInit_ex(ctx, NULL, NULL, aes_dec->key, aes_dec->iv) <= 0) {
+        res = SECURE_CHANNEL_ERROR;
+        goto dec_out;
     }
+
     if (aes_dec->aad != NULL && aes_dec->aad_len > 0) {
         if (EVP_DecryptUpdate(ctx, NULL, &howmany, aes_dec->aad, aes_dec->aad_len) <= 0) {
             res = SECURE_CHANNEL_ERROR;
@@ -302,6 +300,10 @@ static int aes_gcm_decrypt(aes_param_t *aes_dec)
     }
     aes_dec->plain_len += howmany;
 
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, aes_dec->tag_len, aes_dec->tag) <= 0) {
+        res = SECURE_CHANNEL_ERROR;
+        goto dec_out;
+    }
     res = EVP_DecryptFinal_ex(ctx, aes_dec->plain + aes_dec->cipher_len, &howmany);
     aes_dec->plain_len += howmany;
 
@@ -334,35 +336,81 @@ static void update_iv(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *iv, size_t iv_len)
     return;
 }
 
-int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *recv_buf, int recv_buf_len,
+typedef struct {
+    size_t      session_id;
+    size_t      data_len;
+    uint8_t     *data;          // encrypted data, len is data_len
+    uint8_t     gcm_tag_len;    // value GCM_TAG_LEN
+    uint8_t     *gcm_tag;       // LEN: gcm_tag_len
+} sec_chl_encrypt_data_t;
+
+size_t get_encrypted_buf_len(size_t plain_len)
+{
+    sec_chl_encrypt_data_t tmp = {0};
+    return sizeof(tmp.session_id) + sizeof(tmp.data_len) + plain_len + sizeof(tmp.gcm_tag_len) + GCM_TAG_LEN;
+}
+
+size_t get_plain_buf_len(uint8_t *encrypt, size_t encrypt_len)
+{
+    sec_chl_encrypt_data_t tmp = {0};
+    size_t attach_len = sizeof(tmp.session_id) + sizeof(tmp.data_len) + sizeof(tmp.gcm_tag_len) + GCM_TAG_LEN;
+    size_t expect_plain_len = encrypt_len - attach_len;
+    size_t real_plain_len = 0;
+    memcpy(&real_plain_len, encrypt + sizeof(tmp.session_id), sizeof(tmp.data_len));
+    if (real_plain_len != expect_plain_len) {
+        return 0;
+    }
+    return real_plain_len;
+}
+
+int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *recv_buf, int recv_buf_len,
     uint8_t *out_buf, size_t *out_buf_len)
 {
     int out_len;
     uint8_t iv[SECURE_IV_LEN];
+    uint8_t *p_buf = recv_buf;
+    uint8_t *aad = NULL;
     uint8_t *cipher = NULL;
     uint8_t *tag = NULL;
-    size_t cipher_len, tag_len;
+    int aad_len;
+    size_t data_len;
+    uint8_t tag_len;
     aes_param_t aes_dec;
 
     (void)recv_buf_len;
-    (void)out_buf_len;
-
     aes_dec.key = ecdh_ctx->session_key;
     update_iv(ecdh_ctx, iv, SECURE_IV_LEN);
 
-    cipher_len = buf_to_num(recv_buf, DATA_SIZE_LEN);
-    cipher = recv_buf + DATA_SIZE_LEN;
-    tag_len = buf_to_num(recv_buf + DATA_SIZE_LEN + cipher_len, DATA_SIZE_LEN);
-    if (tag_len != GCM_TAG_LEN) {
-        return CC_ERROR_SEC_CHL_DECRYPT;
+    size_t real_session_id;
+    memcpy(&real_session_id, p_buf, sizeof(real_session_id));
+    p_buf += sizeof(real_session_id);
+
+    if (session_id != real_session_id) {
+        return CC_ERROR_SEC_CHL_DECRYPT_SESSIONID_INVALID;
     }
-    tag = recv_buf + DATA_SIZE_LEN + cipher_len + DATA_SIZE_LEN;
+
+    memcpy(&data_len, p_buf, sizeof(data_len));
+    p_buf += sizeof(data_len);
+
+    aad = recv_buf; // session_id和data_len作为附加信息，使用tag保护附加信息的完整性
+    aad_len = sizeof(session_id) + sizeof(data_len);
+    
+    cipher = p_buf;
+    p_buf += data_len;
+
+    memcpy(&tag_len, p_buf, sizeof(tag_len));
+    p_buf += sizeof(tag_len);
+
+    if (tag_len != GCM_TAG_LEN) {
+        return CC_ERROR_SEC_CHL_DECRYPT_TAGLEN_INVALID;
+    }
+    tag = p_buf;
     aes_dec.plain = out_buf;
     aes_dec.plain_len = 0;
     aes_dec.cipher = cipher;
-    aes_dec.cipher_len = cipher_len;
-    aes_dec.aad = NULL;
-    aes_dec.aad_len = 0;
+    aes_dec.cipher_len = data_len;
+    aes_dec.aad = aad;
+    aes_dec.aad_len = aad_len;
     aes_dec.key_len = SECURE_KEY_LEN;
     aes_dec.iv = iv;
     aes_dec.iv_len = SECURE_IV_LEN;
@@ -370,10 +418,10 @@ int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *recv_buf, int recv_bu
     aes_dec.tag_len = GCM_TAG_LEN;
     out_len = aes_gcm_decrypt(&aes_dec);
     memset(&aes_dec, 0, sizeof(aes_param_t));
-    if (out_len <= 0 || out_len != (int)cipher_len) {
+    if (out_len <= 0 || out_len != (int)data_len) {
         return CC_ERROR_SEC_CHL_DECRYPT;
     }
-    *out_buf_len = DATA_SIZE_LEN + out_len + DATA_SIZE_LEN + GCM_TAG_LEN;
+    *out_buf_len =  out_len;
 
     ecdh_ctx->data_seq += out_len;
 
@@ -383,34 +431,51 @@ int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *recv_buf, int recv_bu
 /*
  out_buf 数据格式
 {
-    uint16_t data_len;      // LEN: DATA_SIZE_LEN
-    uint8_t data[];          // LEN: data_len
-    uint16_t gcm_tag_len;   // LEN: DATA_SIZE_LEN
-    uint8_t gcm_tag[];       // LEN: gcm_tag_len
+    size_t      session_id;
+    size_t      data_len;      // LEN: DATA_SIZE_LEN
+    uint8_t     data[];          // LEN: data_len
+    uint8_t     gcm_tag_len;   // LEN: DATA_SIZE_LEN
+    uint8_t     gcm_tag[];       // LEN: gcm_tag_len
 }
 */
-int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *plain, size_t plain_len,
+int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *plain, size_t plain_len,
     uint8_t *out_buf, size_t *out_buf_len)
 {
+    uint8_t *p_buf = out_buf;
+    uint8_t *aad = NULL;
     uint8_t *enc = NULL;
     uint8_t *tag = NULL;
+    int aad_len;
     int enc_len;
     uint8_t iv[SECURE_IV_LEN];
     aes_param_t aes_enc;
+    uint8_t tag_len = GCM_TAG_LEN;
 
     aes_enc.key = ecdh_ctx->session_key;
     update_iv(ecdh_ctx, iv, SECURE_IV_LEN);
 
-    num_to_buf(plain_len, out_buf, DATA_SIZE_LEN);
-    enc = out_buf + DATA_SIZE_LEN;
-    num_to_buf(GCM_TAG_LEN, out_buf + DATA_SIZE_LEN + plain_len, DATA_SIZE_LEN);
-    tag = out_buf + DATA_SIZE_LEN + plain_len + DATA_SIZE_LEN;
+    memcpy(p_buf, &session_id, sizeof(session_id));
+    p_buf += sizeof(session_id);
+    
+    memcpy(p_buf, &plain_len, sizeof(plain_len));
+    p_buf += sizeof(plain_len);
+
+    aad = out_buf; // session_id和data_len作为附加信息，使用tag保护附加信息的完整性
+    aad_len = sizeof(session_id) + sizeof(plain_len);
+
+    enc = p_buf;
+    p_buf += plain_len;
+
+    memcpy(p_buf, &tag_len, sizeof(tag_len));
+    p_buf += sizeof(tag_len);
+
+    tag = p_buf;
     aes_enc.plain = plain;
     aes_enc.plain_len = plain_len;
     aes_enc.cipher = enc;
     aes_enc.cipher_len = 0;
-    aes_enc.aad = NULL;
-    aes_enc.aad_len = 0;
+    aes_enc.aad = aad;
+    aes_enc.aad_len = aad_len;
     aes_enc.key_len = SECURE_KEY_LEN;
     aes_enc.iv = iv;
     aes_enc.iv_len = SECURE_IV_LEN;
@@ -423,7 +488,7 @@ int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *plain, size_t plain_l
     }
 
     ecdh_ctx->data_seq += enc_len;
-    *out_buf_len = DATA_SIZE_LEN + enc_len + DATA_SIZE_LEN + GCM_TAG_LEN;
+    *out_buf_len = get_encrypted_buf_len(enc_len);
 
     return CC_SUCCESS;
 }
