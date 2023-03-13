@@ -1,0 +1,457 @@
+From 5175f1367a88cb295200bbff6ce3214d2a0a7f4a Mon Sep 17 00:00:00 2001
+From: houmingyong <houmingyong@huawei.com>
+Date: Mon, 13 Mar 2023 15:47:19 +0800
+Subject: [PATCH 1/2] verify sessionid and len in encrypted data
+
+---
+ .../client/secure_channel_client.c            |  11 +-
+ .../enclave/secure_channel_enclave.c          |  23 +--
+ .../secure_channel/secure_channel_common.c    | 131 +++++++++++++-----
+ .../secure_channel/secure_channel_common.h    |   8 +-
+ examples/secure_channel/client/client.c       |   8 +-
+ examples/secure_channel/enclave/enclave.c     |   4 +-
+ examples/secure_channel/host/server.c         |   3 -
+ inc/host_inc/status.h                         |   2 +
+ 8 files changed, 132 insertions(+), 58 deletions(-)
+
+diff --git a/component/secure_channel/client/secure_channel_client.c b/component/secure_channel/client/secure_channel_client.c
+index e22112b..26a44f1 100644
+--- a/component/secure_channel/client/secure_channel_client.c
++++ b/component/secure_channel/client/secure_channel_client.c
+@@ -111,13 +111,13 @@ cc_enclave_result_t cc_sec_chl_client_encrypt(cc_sec_chl_ctx_t *ctx, void *plain
+         return CC_ERROR_SEC_CHL_NOTREADY;
+     }
+ 
+-    size_t need_len = DATA_SIZE_LEN + plain_len + DATA_SIZE_LEN + GCM_TAG_LEN;
++    size_t need_len = get_encrypted_buf_len(plain_len);
+     if (encrypt == NULL || *encrypt_len < need_len) {
+         *encrypt_len = need_len;
+         return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
+     }
+ 
+-    return sec_chl_encrypt(ctx->handle->ecdh_ctx, plain, plain_len, encrypt, encrypt_len);
++    return sec_chl_encrypt(ctx->handle->ecdh_ctx, ctx->session_id, plain, plain_len, encrypt, encrypt_len);
+ }
+ 
+ cc_enclave_result_t cc_sec_chl_client_decrypt(cc_sec_chl_ctx_t *ctx, void *encrypt, size_t encrypt_len,
+@@ -129,13 +129,16 @@ cc_enclave_result_t cc_sec_chl_client_decrypt(cc_sec_chl_ctx_t *ctx, void *encry
+     if (ctx->handle == NULL) {
+         return CC_ERROR_SEC_CHL_NOTREADY;
+     }
+-    size_t need_len = buf_to_num(encrypt, DATA_SIZE_LEN);
++    size_t need_len = get_plain_buf_len((uint8_t *)encrypt, encrypt_len);
++    if (need_len == 0) {
++        return CC_ERROR_SEC_CHL_ENCRYPTED_LEN_INVALID;
++    }
+     if (plain == NULL || *plain_len < need_len) {
+         *plain_len = need_len;
+         return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
+     }
+ 
+-    return sec_chl_decrypt(ctx->handle->ecdh_ctx, encrypt, encrypt_len, plain, plain_len);
++    return sec_chl_decrypt(ctx->handle->ecdh_ctx, ctx->session_id, encrypt, encrypt_len, plain, plain_len);
+ }
+ 
+ static cc_enclave_result_t sec_chl_destroy_svr(cc_sec_chl_ctx_t *ctx)
+diff --git a/component/secure_channel/enclave/secure_channel_enclave.c b/component/secure_channel/enclave/secure_channel_enclave.c
+index cc09baf..7c1919b 100644
+--- a/component/secure_channel/enclave/secure_channel_enclave.c
++++ b/component/secure_channel/enclave/secure_channel_enclave.c
+@@ -470,7 +470,7 @@ int cc_sec_chl_enclave_encrypt(size_t session_id, void *plain, size_t plain_len,
+         PrintInfo(PRINT_ERROR, "sec chl encrypt param error\n");
+         return -1;
+     }
+-    size_t need_len = DATA_SIZE_LEN + plain_len + DATA_SIZE_LEN + GCM_TAG_LEN;
++    size_t need_len = get_encrypted_buf_len(plain_len);
+     if (encrypt == NULL || *encrypt_len < need_len) {
+         *encrypt_len = need_len;
+         return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
+@@ -486,12 +486,12 @@ int cc_sec_chl_enclave_encrypt(size_t session_id, void *plain, size_t plain_len,
+         sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
+         return -1;
+     }
+-    int ret = sec_chl_encrypt(ecdh_ctx, plain, plain_len, encrypt, encrypt_len);
++    int ret = sec_chl_encrypt(ecdh_ctx, session_id, plain, plain_len, encrypt, encrypt_len);
+ 
+     sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
+-    if (ret < 0) {
+-        PrintInfo(PRINT_ERROR, "sec chl encrypt failed\n");
+-        return -1;
++    if (ret != CC_SUCCESS) {
++        PrintInfo(PRINT_ERROR, "sec chl encrypt failed, ret:%d\n", ret);
++        return ret;
+     }
+ 
+     return 0;
+@@ -503,7 +503,10 @@ int cc_sec_chl_enclave_decrypt(size_t session_id, void *encrypt, size_t encrypt_
+         PrintInfo(PRINT_ERROR, "sec chl decrypt param error\n");
+         return -1;
+     }
+-    size_t need_len = buf_to_num(encrypt, DATA_SIZE_LEN);
++    size_t need_len = get_plain_buf_len((uint8_t *)encrypt, encrypt_len);
++    if (need_len == 0) {
++        return CC_ERROR_SEC_CHL_ENCRYPTED_LEN_INVALID;
++    }
+     if (plain == NULL || *plain_len < need_len) {
+         *plain_len = need_len;
+         return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
+@@ -519,12 +522,12 @@ int cc_sec_chl_enclave_decrypt(size_t session_id, void *encrypt, size_t encrypt_
+         sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
+         return -1;
+     }
+-    int ret = sec_chl_decrypt(ecdh_ctx, encrypt, encrypt_len, plain, plain_len);
++    int ret = sec_chl_decrypt(ecdh_ctx, session_id, encrypt, encrypt_len, plain, plain_len);
+ 
+     sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
+-    if (ret < 0) {
+-        PrintInfo(PRINT_ERROR, "sec chl decrypt failed\n");
+-        return -1;
++    if (ret != CC_SUCCESS) {
++        PrintInfo(PRINT_ERROR, "sec chl decrypt failed, ret:%d\n", ret);
++        return ret;
+     }
+ 
+     return CC_SUCCESS;
+diff --git a/component/secure_channel/secure_channel_common.c b/component/secure_channel/secure_channel_common.c
+index fe00ecc..607b79b 100644
+--- a/component/secure_channel/secure_channel_common.c
++++ b/component/secure_channel/secure_channel_common.c
+@@ -250,7 +250,7 @@ enc_out:
+ 
+ static int aes_gcm_decrypt(aes_param_t *aes_dec)
+ {
+-    int howmany, status;
++    int howmany;
+     int len = 0;
+     const EVP_CIPHER *cipher;
+     EVP_CIPHER_CTX *ctx = NULL;
+@@ -274,13 +274,11 @@ static int aes_gcm_decrypt(aes_param_t *aes_dec)
+         res = SECURE_CHANNEL_ERROR;
+         goto dec_out;
+     }
+-    status = EVP_DecryptInit_ex(ctx, NULL, NULL, aes_dec->key, aes_dec->iv);
+-    if (status) {
+-        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, aes_dec->tag_len, aes_dec->tag) <= 0) {
+-            res = SECURE_CHANNEL_ERROR;
+-            goto dec_out;
+-        }
++    if (EVP_DecryptInit_ex(ctx, NULL, NULL, aes_dec->key, aes_dec->iv) <= 0) {
++        res = SECURE_CHANNEL_ERROR;
++        goto dec_out;
+     }
++
+     if (aes_dec->aad != NULL && aes_dec->aad_len > 0) {
+         if (EVP_DecryptUpdate(ctx, NULL, &howmany, aes_dec->aad, aes_dec->aad_len) <= 0) {
+             res = SECURE_CHANNEL_ERROR;
+@@ -302,6 +300,10 @@ static int aes_gcm_decrypt(aes_param_t *aes_dec)
+     }
+     aes_dec->plain_len += howmany;
+ 
++    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, aes_dec->tag_len, aes_dec->tag) <= 0) {
++        res = SECURE_CHANNEL_ERROR;
++        goto dec_out;
++    }
+     res = EVP_DecryptFinal_ex(ctx, aes_dec->plain + aes_dec->cipher_len, &howmany);
+     aes_dec->plain_len += howmany;
+ 
+@@ -334,35 +336,81 @@ static void update_iv(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *iv, size_t iv_len)
+     return;
+ }
+ 
+-int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *recv_buf, int recv_buf_len,
++typedef struct {
++    size_t      session_id;
++    size_t      data_len;
++    uint8_t     *data;          // encrypted data, len is data_len
++    uint8_t     gcm_tag_len;    // value GCM_TAG_LEN
++    uint8_t     *gcm_tag;       // LEN: gcm_tag_len
++} sec_chl_encrypt_data_t;
++
++size_t get_encrypted_buf_len(size_t plain_len)
++{
++    sec_chl_encrypt_data_t tmp = {0};
++    return sizeof(tmp.session_id) + sizeof(tmp.data_len) + plain_len + sizeof(tmp.gcm_tag_len) + GCM_TAG_LEN;
++}
++
++size_t get_plain_buf_len(uint8_t *encrypt, size_t encrypt_len)
++{
++    sec_chl_encrypt_data_t tmp = {0};
++    size_t attach_len = sizeof(tmp.session_id) + sizeof(tmp.data_len) + sizeof(tmp.gcm_tag_len) + GCM_TAG_LEN;
++    size_t expect_plain_len = encrypt_len - attach_len;
++    size_t real_plain_len = 0;
++    memcpy(&real_plain_len, encrypt + sizeof(tmp.session_id), sizeof(tmp.data_len));
++    if (real_plain_len != expect_plain_len) {
++        return 0;
++    }
++    return real_plain_len;
++}
++
++int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *recv_buf, int recv_buf_len,
+     uint8_t *out_buf, size_t *out_buf_len)
+ {
+     int out_len;
+     uint8_t iv[SECURE_IV_LEN];
++    uint8_t *p_buf = recv_buf;
++    uint8_t *aad = NULL;
+     uint8_t *cipher = NULL;
+     uint8_t *tag = NULL;
+-    size_t cipher_len, tag_len;
++    int aad_len;
++    size_t data_len;
++    uint8_t tag_len;
+     aes_param_t aes_dec;
+ 
+     (void)recv_buf_len;
+-    (void)out_buf_len;
+-
+     aes_dec.key = ecdh_ctx->session_key;
+     update_iv(ecdh_ctx, iv, SECURE_IV_LEN);
+ 
+-    cipher_len = buf_to_num(recv_buf, DATA_SIZE_LEN);
+-    cipher = recv_buf + DATA_SIZE_LEN;
+-    tag_len = buf_to_num(recv_buf + DATA_SIZE_LEN + cipher_len, DATA_SIZE_LEN);
++    size_t real_session_id;
++    memcpy(&real_session_id, p_buf, sizeof(real_session_id));
++    p_buf += sizeof(real_session_id);
++
++    if (session_id != real_session_id) {
++        return CC_ERROR_SEC_CHL_DECRYPT_SESSIONID_INVALID;
++    }
++
++    memcpy(&data_len, p_buf, sizeof(data_len));
++    p_buf += sizeof(data_len);
++
++    aad = recv_buf; // session_id和data_len作为附加信息，使用tag保护附加信息的完整性
++    aad_len = sizeof(session_id) + sizeof(data_len);
++    
++    cipher = p_buf;
++    p_buf += data_len;
++
++    memcpy(&tag_len, p_buf, sizeof(tag_len));
++    p_buf += sizeof(tag_len);
++
+     if (tag_len != GCM_TAG_LEN) {
+-        return CC_ERROR_SEC_CHL_DECRYPT;
++        return CC_ERROR_SEC_CHL_DECRYPT_TAGLEN_INVALID;
+     }
+-    tag = recv_buf + DATA_SIZE_LEN + cipher_len + DATA_SIZE_LEN;
++    tag = p_buf;
+     aes_dec.plain = out_buf;
+     aes_dec.plain_len = 0;
+     aes_dec.cipher = cipher;
+-    aes_dec.cipher_len = cipher_len;
+-    aes_dec.aad = NULL;
+-    aes_dec.aad_len = 0;
++    aes_dec.cipher_len = data_len;
++    aes_dec.aad = aad;
++    aes_dec.aad_len = aad_len;
+     aes_dec.key_len = SECURE_KEY_LEN;
+     aes_dec.iv = iv;
+     aes_dec.iv_len = SECURE_IV_LEN;
+@@ -370,10 +418,10 @@ int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *recv_buf, int recv_bu
+     aes_dec.tag_len = GCM_TAG_LEN;
+     out_len = aes_gcm_decrypt(&aes_dec);
+     memset(&aes_dec, 0, sizeof(aes_param_t));
+-    if (out_len <= 0 || out_len != (int)cipher_len) {
++    if (out_len <= 0 || out_len != (int)data_len) {
+         return CC_ERROR_SEC_CHL_DECRYPT;
+     }
+-    *out_buf_len = DATA_SIZE_LEN + out_len + DATA_SIZE_LEN + GCM_TAG_LEN;
++    *out_buf_len =  out_len;
+ 
+     ecdh_ctx->data_seq += out_len;
+ 
+@@ -383,34 +431,51 @@ int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *recv_buf, int recv_bu
+ /*
+  out_buf 数据格式
+ {
+-    uint16_t data_len;      // LEN: DATA_SIZE_LEN
+-    uint8_t data[];          // LEN: data_len
+-    uint16_t gcm_tag_len;   // LEN: DATA_SIZE_LEN
+-    uint8_t gcm_tag[];       // LEN: gcm_tag_len
++    size_t      session_id;
++    size_t      data_len;      // LEN: DATA_SIZE_LEN
++    uint8_t     data[];          // LEN: data_len
++    uint8_t     gcm_tag_len;   // LEN: DATA_SIZE_LEN
++    uint8_t     gcm_tag[];       // LEN: gcm_tag_len
+ }
+ */
+-int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *plain, size_t plain_len,
++int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *plain, size_t plain_len,
+     uint8_t *out_buf, size_t *out_buf_len)
+ {
++    uint8_t *p_buf = out_buf;
++    uint8_t *aad = NULL;
+     uint8_t *enc = NULL;
+     uint8_t *tag = NULL;
++    int aad_len;
+     int enc_len;
+     uint8_t iv[SECURE_IV_LEN];
+     aes_param_t aes_enc;
++    uint8_t tag_len = GCM_TAG_LEN;
+ 
+     aes_enc.key = ecdh_ctx->session_key;
+     update_iv(ecdh_ctx, iv, SECURE_IV_LEN);
+ 
+-    num_to_buf(plain_len, out_buf, DATA_SIZE_LEN);
+-    enc = out_buf + DATA_SIZE_LEN;
+-    num_to_buf(GCM_TAG_LEN, out_buf + DATA_SIZE_LEN + plain_len, DATA_SIZE_LEN);
+-    tag = out_buf + DATA_SIZE_LEN + plain_len + DATA_SIZE_LEN;
++    memcpy(p_buf, &session_id, sizeof(session_id));
++    p_buf += sizeof(session_id);
++    
++    memcpy(p_buf, &plain_len, sizeof(plain_len));
++    p_buf += sizeof(plain_len);
++
++    aad = out_buf; // session_id和data_len作为附加信息，使用tag保护附加信息的完整性
++    aad_len = sizeof(session_id) + sizeof(plain_len);
++
++    enc = p_buf;
++    p_buf += plain_len;
++
++    memcpy(p_buf, &tag_len, sizeof(tag_len));
++    p_buf += sizeof(tag_len);
++
++    tag = p_buf;
+     aes_enc.plain = plain;
+     aes_enc.plain_len = plain_len;
+     aes_enc.cipher = enc;
+     aes_enc.cipher_len = 0;
+-    aes_enc.aad = NULL;
+-    aes_enc.aad_len = 0;
++    aes_enc.aad = aad;
++    aes_enc.aad_len = aad_len;
+     aes_enc.key_len = SECURE_KEY_LEN;
+     aes_enc.iv = iv;
+     aes_enc.iv_len = SECURE_IV_LEN;
+@@ -423,7 +488,7 @@ int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *plain, size_t plain_l
+     }
+ 
+     ecdh_ctx->data_seq += enc_len;
+-    *out_buf_len = DATA_SIZE_LEN + enc_len + DATA_SIZE_LEN + GCM_TAG_LEN;
++    *out_buf_len = get_encrypted_buf_len(enc_len);
+ 
+     return CC_SUCCESS;
+ }
+diff --git a/component/secure_channel/secure_channel_common.h b/component/secure_channel/secure_channel_common.h
+index c320453..247462b 100644
+--- a/component/secure_channel/secure_channel_common.h
++++ b/component/secure_channel/secure_channel_common.h
+@@ -90,10 +90,14 @@ cc_enclave_result_t verify_signature(uint8_t *pubkey, size_t pubkey_len, uint8_t
+ int get_exch_buf_len(sec_chl_ecdh_ctx_t *ecdh_ctx);
+ int get_exch_buf(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *exch_param, size_t exch_param_len);
+ void del_exch_param(sec_chl_exch_param_t *exch_param);
+-int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *plain, size_t plain_len,
++int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *plain, size_t plain_len,
+     uint8_t *out_buf, size_t *out_buf_len);
+-int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *recv_buf, int recv_buf_len,
++int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *recv_buf, int recv_buf_len,
+     uint8_t *out_buf, size_t *out_buf_len);
+ 
+ int gen_local_exch_buf(sec_chl_ecdh_ctx_t *ecdh_ctx);
++
++size_t get_encrypted_buf_len(size_t plain_len);
++size_t get_plain_buf_len(uint8_t *encrypt, size_t encrypt_len);
++
+ #endif
+diff --git a/examples/secure_channel/client/client.c b/examples/secure_channel/client/client.c
+index 466aaa5..efcf4d2 100644
+--- a/examples/secure_channel/client/client.c
++++ b/examples/secure_channel/client/client.c
+@@ -31,7 +31,6 @@ int socket_write_and_read(void *conn, void *buf, size_t count)
+             sleep(1);
+             continue;
+         } else {
+-            printf("receive data success, len:%d\n", len);
+             usr_msg = (usr_msg_t *)recv_buf;
+             memcpy(sc_msg, usr_msg->data, usr_msg->len);
+             break;
+@@ -76,7 +75,7 @@ int main(int argc, char **argv)
+ 
+     // step2: 安全通道初始化完成后，调用加密接口加密业务数据
+     char *client_secret = "This is client secret 666";
+-    printf("client send secret:%s\n\n", client_secret);
++    printf("client send secret:%s, len:%lu\n\n", client_secret, strlen(client_secret));
+ 
+     char *encrypted = NULL;
+     size_t encrypt_len = 0;
+@@ -121,11 +120,12 @@ int main(int argc, char **argv)
+     usr_msg_t *usr_msg = NULL;
+     result = read(sockfd, recv_buf, MAXBUF);
+     usr_msg = (usr_msg_t *)recv_buf;
++
+     ret = cc_sec_chl_client_decrypt(&g_ctx, usr_msg->data, usr_msg->len, plain, &plain_len);
+     if (ret != 0) {
+-        printf("client decrypt error\n");
++        printf("client decrypt error, ret:%d\n", ret);
+     }
+-    printf("client recv secret:%s\n", plain);
++    printf("client recv secret:%s, plain_len:%lu\n", plain, plain_len);
+ 
+     sleep(2); // 等收到enclave加密消息后，等待2s, 再结束安全通道
+ 
+diff --git a/examples/secure_channel/enclave/enclave.c b/examples/secure_channel/enclave/enclave.c
+index 0576b81..cd7f530 100644
+--- a/examples/secure_channel/enclave/enclave.c
++++ b/examples/secure_channel/enclave/enclave.c
+@@ -28,7 +28,7 @@ int sec_chl_recv_client_data(size_t session_id, uint8_t *data, size_t data_len)
+         PrintInfo(PRINT_ERROR, "sec_chl_recv_client_data decrypt data failed\n");
+         return ret;
+     }
+-    PrintInfo(PRINT_STRACE, "enclave recv secret:%s\n", plain);
++    PrintInfo(PRINT_STRACE, "enclave recv secret:%s, real_len:%u, plain_len:%lu\n", plain, strlen((char *)plain), plain_len);
+     return ret;
+ }
+ 
+@@ -46,6 +46,6 @@ int sec_chl_get_enclave_secret(size_t session_id, uint8_t* data, size_t *data_le
+     memcpy(data, encrypt, encrypt_len);
+     *data_len =  encrypt_len;
+ 
+-    PrintInfo(PRINT_STRACE, "enclave send secret:%s\n", enclave_secret);
++    PrintInfo(PRINT_STRACE, "enclave send secret:%s, plain_len:%u, encrypt_len:%lu\n", enclave_secret, strlen((char *)enclave_secret), encrypt_len);
+     return ret;
+ }
+diff --git a/examples/secure_channel/host/server.c b/examples/secure_channel/host/server.c
+index e7730d3..8876459 100644
+--- a/examples/secure_channel/host/server.c
++++ b/examples/secure_channel/host/server.c
+@@ -38,7 +38,6 @@ void conn_proc(void *arg)
+ 
+     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL); // 收到cancel信号后，state设置为CANCELED状态
+     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL); // 退出形式为立即退出
+-    // printf("conn_proc connfd:%d\n", connfd);
+ 
+     while (1) {
+         len = read(connfd, buf, MAXBUF);
+@@ -81,7 +80,6 @@ void conn_proc(void *arg)
+                 send_msg->session = msg->session;
+                 send_msg->len = secret_len;
+                 memcpy(send_msg->data, enclave_secret, secret_len);
+-
+                 int result = write(connfd, (void *)send_msg, send_msg_len);
+                 if (result < 0) {
+                     printf("send msg error\n");
+@@ -157,7 +155,6 @@ int main(int argc, char **argv)
+     thread_arg_t arg[MAX_LISTEN_NUM] = {0};
+     while (1) {
+         arg[index].connfd = accept(sockfd, (struct sockaddr *)&conn_addr, &conn_len);
+-        printf("accept connfd[%d]:%d\n", index, arg[index].connfd);
+         if (arg[index].connfd < 0) {
+             printf("accept error\n");
+             continue;
+diff --git a/inc/host_inc/status.h b/inc/host_inc/status.h
+index b5d9a2e..d8b096d 100644
+--- a/inc/host_inc/status.h
++++ b/inc/host_inc/status.h
+@@ -100,6 +100,8 @@ typedef enum _enclave_result_t
+     CC_ERROR_SEC_CHL_SVR_INIT,
+     CC_ERROR_SEC_CHL_NOTREADY,
+     CC_ERROR_SEC_CHL_CLI_NUM_EXCEED_MAX_LIMIT, // client num exceed max limit
++    CC_ERROR_SEC_CHL_ENCRYPTED_LEN_INVALID,
++    CC_ERROR_SEC_CHL_DECRYPT_SESSIONID_INVALID,
+     
+     CC_ERROR_OTRP_BASE = 0x80000100,  /* sec file config source is not inconsistent with the loading mode. */
+     CC_ERROR_STORAGE_EIO        = 0x80001001, /* *<安全存储I/O错误 */
+-- 
+2.33.0
+
