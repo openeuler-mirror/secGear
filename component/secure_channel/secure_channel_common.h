@@ -32,8 +32,6 @@ typedef struct sec_chl_ecdh_ctx {
     size_t  shared_key_len;
     uint8_t *shared_key;        // ecdh output shared secret
     uint8_t session_key[SECURE_KEY_LEN];  // derived from shared key, used to encrypt/decrypt user data
-    uint8_t session_iv[SECURE_IV_LEN];    // derived from shared key, used to encrypt/decrypt user data
-    size_t  data_seq;                     // data sequence, use to update session_iv
     size_t  local_exch_param_buf_len;
     uint8_t *local_exch_param_buf;
     size_t  svr_exch_param_buf_len;
@@ -90,10 +88,14 @@ cc_enclave_result_t verify_signature(uint8_t *pubkey, size_t pubkey_len, uint8_t
 int get_exch_buf_len(sec_chl_ecdh_ctx_t *ecdh_ctx);
 int get_exch_buf(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *exch_param, size_t exch_param_len);
 void del_exch_param(sec_chl_exch_param_t *exch_param);
-int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *plain, size_t plain_len,
+int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *plain, size_t plain_len,
     uint8_t *out_buf, size_t *out_buf_len);
-int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *recv_buf, int recv_buf_len,
+int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *recv_buf, int recv_buf_len,
     uint8_t *out_buf, size_t *out_buf_len);
 
 int gen_local_exch_buf(sec_chl_ecdh_ctx_t *ecdh_ctx);
+
+size_t get_encrypted_buf_len(size_t plain_len);
+size_t get_plain_buf_len(uint8_t *encrypt, size_t encrypt_len);
+
 #endif

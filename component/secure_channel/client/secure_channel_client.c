@@ -111,13 +111,13 @@ cc_enclave_result_t cc_sec_chl_client_encrypt(cc_sec_chl_ctx_t *ctx, void *plain
         return CC_ERROR_SEC_CHL_NOTREADY;
     }
 
-    size_t need_len = DATA_SIZE_LEN + plain_len + DATA_SIZE_LEN + GCM_TAG_LEN;
+    size_t need_len = get_encrypted_buf_len(plain_len);
     if (encrypt == NULL || *encrypt_len < need_len) {
         *encrypt_len = need_len;
         return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
     }
 
-    return sec_chl_encrypt(ctx->handle->ecdh_ctx, plain, plain_len, encrypt, encrypt_len);
+    return sec_chl_encrypt(ctx->handle->ecdh_ctx, ctx->session_id, plain, plain_len, encrypt, encrypt_len);
 }
 
 cc_enclave_result_t cc_sec_chl_client_decrypt(cc_sec_chl_ctx_t *ctx, void *encrypt, size_t encrypt_len,
@@ -129,13 +129,16 @@ cc_enclave_result_t cc_sec_chl_client_decrypt(cc_sec_chl_ctx_t *ctx, void *encry
     if (ctx->handle == NULL) {
         return CC_ERROR_SEC_CHL_NOTREADY;
     }
-    size_t need_len = buf_to_num(encrypt, DATA_SIZE_LEN);
+    size_t need_len = get_plain_buf_len((uint8_t *)encrypt, encrypt_len);
+    if (need_len == 0) {
+        return CC_ERROR_SEC_CHL_ENCRYPTED_LEN_INVALID;
+    }
     if (plain == NULL || *plain_len < need_len) {
         *plain_len = need_len;
         return CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH;
     }
 
-    return sec_chl_decrypt(ctx->handle->ecdh_ctx, encrypt, encrypt_len, plain, plain_len);
+    return sec_chl_decrypt(ctx->handle->ecdh_ctx, ctx->session_id, encrypt, encrypt_len, plain, plain_len);
 }
 
 static cc_enclave_result_t sec_chl_destroy_svr(cc_sec_chl_ctx_t *ctx)
@@ -164,7 +167,7 @@ void cc_sec_chl_client_fini(cc_sec_chl_ctx_t *ctx)
 
 cc_enclave_result_t cc_sec_chl_client_callback(cc_sec_chl_ctx_t *ctx, void *buf, size_t len)
 {
-    if (ctx == NULL || buf == NULL || len == 0) {
+    if (ctx == NULL || ctx->handle == NULL || buf == NULL || len == 0) {
         return CC_ERROR_BAD_PARAMETERS;
     }
     if (len > SEC_CHL_RECV_BUF_MAX_LEN) {
@@ -210,6 +213,7 @@ static cc_enclave_result_t recv_svr_pubkey(cc_sec_chl_ctx_t *ctx)
     memcpy(ctx->handle->svr_pubkey, msg->data, msg->data_len);
     ctx->handle->svr_pubkey_len = msg->data_len;
     ctx->session_id = msg->session_id;
+    ctx->handle->recv_buf_len = 0;
     pthread_mutex_unlock(&ctx->handle->lock);
 
     return CC_SUCCESS;
@@ -288,6 +292,7 @@ static cc_enclave_result_t recv_svr_param(cc_sec_chl_ctx_t *ctx)
     memcpy(ecdh_ctx->svr_exch_param_buf, msg->data, msg->data_len);
     ecdh_ctx->svr_exch_param_buf_len = msg->data_len;
     ctx->handle->ecdh_ctx = ecdh_ctx;
+    ctx->handle->recv_buf_len = 0;
 
     pthread_mutex_unlock(&ctx->handle->lock);
 
@@ -337,6 +342,7 @@ static cc_enclave_result_t recv_set_param_ret(cc_sec_chl_ctx_t *ctx)
     }
     msg = (sec_chl_msg_t *)ctx->handle->recv_buf;
     ret = msg->ret;
+    ctx->handle->recv_buf_len = 0;
     pthread_mutex_unlock(&ctx->handle->lock);
 
     return ret;
@@ -386,7 +392,7 @@ static sec_chl_fsm_state_transform_t g_state_transform_table[] = {
     {STATE_ALL_READY, EVENT_COMPUTE_SESSIONKEY, STATE_SUCCESS, sec_chl_compute_session_key},
 };
 
-#define RECV_MSG_TIMEOUT_CNT 30
+#define RECV_MSG_TIMEOUT_CNT 1000
 #define RECV_MSG_INTERVAL (60 * 1000)
 cc_enclave_result_t sec_chl_run_fsm(cc_sec_chl_ctx_t *ctx)
 {

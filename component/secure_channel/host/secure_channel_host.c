@@ -290,9 +290,7 @@ cc_enclave_result_t cc_sec_chl_svr_init(cc_sec_chl_svr_ctx_t *ctx)
         print_warning("secure channel already started\n");
         return CC_SUCCESS;
     }
-    if (!is_valid_conn_kit(&ctx->conn_kit)) {
-        return CC_ERROR_SEC_CHL_INVALID_CONN;
-    }
+
     ret_val = enclave_start_sec_chl(ctx->enclave_ctx, &res);
     if (ret_val != CC_SUCCESS || res != CC_SUCCESS) {
         return CC_ERROR_SEC_CHL_SVR_INIT;
@@ -346,7 +344,7 @@ static cc_enclave_result_t handle_recv_msg(cc_enclave_t *context, sec_chl_msg_t 
     return ret;
 }
 
-static int handle_respon_msg(cc_sec_chl_svr_ctx_t *ctx, cc_enclave_result_t ret,
+static int handle_respon_msg(cc_sec_chl_conn_ctx_t *ctx, cc_enclave_result_t ret,
     sec_chl_msg_t *rsp_msg, size_t rsp_msg_len)
 {
     if (rsp_msg == NULL) {
@@ -360,31 +358,45 @@ static int handle_respon_msg(cc_sec_chl_svr_ctx_t *ctx, cc_enclave_result_t ret,
     return ctx->conn_kit.send(ctx->conn_kit.conn, (void *)rsp_msg, rsp_msg_len);
 }
 
-static cc_enclave_result_t handle_msg(cc_sec_chl_svr_ctx_t *ctx, sec_chl_msg_t *msg)
+static cc_enclave_result_t handle_msg(cc_sec_chl_conn_ctx_t *ctx, sec_chl_msg_t *msg)
 {
     size_t rsp_msg_len = 0;
     sec_chl_msg_t *rsp_msg = NULL;
 
-    cc_enclave_result_t ret = handle_recv_msg(ctx->enclave_ctx, msg, &rsp_msg, &rsp_msg_len);
+    cc_enclave_result_t ret = handle_recv_msg(ctx->svr_ctx->enclave_ctx, msg, &rsp_msg, &rsp_msg_len);
 
     int result = handle_respon_msg(ctx, ret, rsp_msg, rsp_msg_len);
     free(rsp_msg);
     if (result < 0) {
-        (void)del_enclave_sec_chl(ctx->enclave_ctx, msg->session_id);
+        (void)del_enclave_sec_chl(ctx->svr_ctx->enclave_ctx, msg->session_id);
         print_error_term("cc_sec_chl_svr_callback send respone msg failed\n");
         return CC_ERROR_SEC_CHL_SEND_MSG;
     }
     return ret;
 }
 
-cc_enclave_result_t cc_sec_chl_svr_callback(cc_sec_chl_svr_ctx_t *ctx, void *buf, size_t buf_len)
+static cc_enclave_result_t check_callback_param(cc_sec_chl_conn_ctx_t *ctx, void *buf, size_t buf_len)
+{
+    if (ctx == NULL || ctx->svr_ctx == NULL || ctx->svr_ctx->enclave_ctx == NULL
+        || buf == NULL || buf_len <= 0) {
+        return CC_ERROR_BAD_PARAMETERS;
+    }
+    if (!is_valid_conn_kit(&ctx->conn_kit)) {
+        return CC_ERROR_SEC_CHL_INVALID_CONN;
+    }
+
+    return CC_SUCCESS;
+}
+
+cc_enclave_result_t cc_sec_chl_svr_callback(cc_sec_chl_conn_ctx_t *ctx, void *buf, size_t buf_len)
 {
     sec_chl_msg_t *msg = NULL;
 
-    if (ctx == NULL || ctx->enclave_ctx == NULL || buf == NULL || buf_len <= 0) {
-        return CC_ERROR_BAD_PARAMETERS;
+    cc_enclave_result_t ret = check_callback_param(ctx, buf, buf_len);
+    if (ret != CC_SUCCESS) {
+        return ret;
     }
-    if (!ctx->is_init) {
+    if (!ctx->svr_ctx->is_init) {
         print_warning("secure channel server is not started\n");
         return CC_ERROR_SEC_CHL_NOTREADY;
     }
