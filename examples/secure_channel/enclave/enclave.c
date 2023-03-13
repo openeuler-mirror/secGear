@@ -18,7 +18,6 @@
 #include "secure_channel_enclave.h"
 #include "secgear_log.h"
 
-
 int sec_chl_recv_client_data(size_t session_id, uint8_t *data, size_t data_len)
 {
     uint8_t plain[1024] = {0};
@@ -28,24 +27,25 @@ int sec_chl_recv_client_data(size_t session_id, uint8_t *data, size_t data_len)
         PrintInfo(PRINT_ERROR, "sec_chl_recv_client_data decrypt data failed\n");
         return ret;
     }
-    PrintInfo(PRINT_STRACE, "enclave recv secret:%s, real_len:%u, plain_len:%lu\n", plain, strlen((char *)plain), plain_len);
+    PrintInfo(PRINT_STRACE, "enclave recv secret:%s\n", plain);
+
     return ret;
 }
 
-int sec_chl_get_enclave_secret(size_t session_id, uint8_t* data, size_t *data_len)
+int sec_chl_get_client_data_handle_result(size_t session_id, uint8_t* data, size_t *data_len)
 {
-    char enclave_secret[] = "This is enclave secret 888";
+    char enclave_secret[] = "This is client secret handle result from enclave";
 
     uint8_t encrypt[1024] = {0};
     size_t encrypt_len = 1024;
     int ret = cc_sec_chl_enclave_encrypt(session_id, enclave_secret, strlen(enclave_secret), encrypt, &encrypt_len);
     if (ret != 0) {
-        PrintInfo(PRINT_ERROR, "sec_chl_get_enclave_secret encrypte data failed\n");
+        PrintInfo(PRINT_ERROR, "sec_chl_get_client_data_handle_result encrypte data failed\n");
         return ret;
     }
     memcpy(data, encrypt, encrypt_len);
     *data_len =  encrypt_len;
 
-    PrintInfo(PRINT_STRACE, "enclave send secret:%s, plain_len:%u, encrypt_len:%lu\n", enclave_secret, strlen((char *)enclave_secret), encrypt_len);
+    PrintInfo(PRINT_STRACE, "enclave send secret:%s\n", enclave_secret);
     return ret;
 }
