@@ -83,6 +83,7 @@ typedef enum _enclave_result_t
     CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH,       /* the buf length to store secure channle encrypt/decrypt is not enough */
     CC_ERROR_SEC_CHL_ENCRYPTED_LEN_INVALID, /* the data_len in encrypted data is not match with expect len */
     CC_ERROR_SEC_CHL_DECRYPT_SESSIONID_INVALID,
+    CC_ERROR_SEC_CHL_GEN_RANDOM,
     CC_ERROR_SEC_CHL_SEND_MSG,
     CC_ERROR_SEC_CHL_WAITING_RECV_MSG,
     CC_ERROR_SEC_CHL_RECV_MSG_LEN_INVALID,
@@ -97,7 +98,6 @@ typedef enum _enclave_result_t
     CC_ERROR_SEC_CHL_DESTROY_SVR,
     CC_ERROR_SEC_CHL_ENCRYPT,
     CC_ERROR_SEC_CHL_DECRYPT,
-    CC_ERROR_SEC_CHL_DECRYPT_TAGLEN_INVALID,
     CC_ERROR_SEC_CHL_SVR_ALREADY_INIT,
     CC_ERROR_SEC_CHL_SVR_INIT,
     CC_ERROR_SEC_CHL_NOTREADY,

@@ -257,7 +257,7 @@ static int gen_sec_chl_node(size_t *session_id)
     int ret = cc_enclave_generate_random(&random_id, sizeof(size_t));
     if (ret != CC_SUCCESS) {
         PrintInfo(PRINT_ERROR, "get enclave pubkey gen random failed\n");
-        return ret;
+        return CC_ERROR_SEC_CHL_GEN_RANDOM;
     }
 
     SEC_CHL_NODE *node = new_sec_chl_node();

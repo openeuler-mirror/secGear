@@ -13,6 +13,7 @@
 #include <openssl/rand.h>
 #include <openssl/kdf.h>
 #include <openssl/pem.h>
+#include <openssl/rand.h>
 #include <stdbool.h>
 #include "secure_channel_common.h"
 #include "status.h"
@@ -321,40 +322,24 @@ dec_out:
     return aes_dec->plain_len;
 }
 
-#define SEQ_MAX_LEN 8
-static void update_iv(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *iv, size_t iv_len)
-{
-    size_t off = iv_len - SEQ_MAX_LEN;
-    uint8_t seq_num[SEQ_MAX_LEN];
-
-    num_to_buf(ecdh_ctx->data_seq, seq_num, SEQ_MAX_LEN);
-    memcpy(iv, ecdh_ctx->session_iv, SECURE_IV_LEN);
-
-    for (int i = 0; i < SEQ_MAX_LEN; i++) {
-        iv[i + off] = iv[i + off] ^ seq_num[i];
-    }
-    return;
-}
-
 typedef struct {
     size_t      session_id;
     size_t      data_len;
-    uint8_t     *data;          // encrypted data, len is data_len
-    uint8_t     gcm_tag_len;    // value GCM_TAG_LEN
-    uint8_t     *gcm_tag;       // LEN: gcm_tag_len
+    uint8_t     iv[SECURE_IV_LEN];
+    uint8_t     gcm_tag[GCM_TAG_LEN];
+    uint8_t     data[0];          // encrypted data, len is data_len
 } sec_chl_encrypt_data_t;
 
 size_t get_encrypted_buf_len(size_t plain_len)
 {
-    sec_chl_encrypt_data_t tmp = {0};
-    return sizeof(tmp.session_id) + sizeof(tmp.data_len) + plain_len + sizeof(tmp.gcm_tag_len) + GCM_TAG_LEN;
+    return sizeof(sec_chl_encrypt_data_t) + plain_len;
 }
 
 size_t get_plain_buf_len(uint8_t *encrypt, size_t encrypt_len)
 {
     sec_chl_encrypt_data_t tmp = {0};
-    size_t attach_len = sizeof(tmp.session_id) + sizeof(tmp.data_len) + sizeof(tmp.gcm_tag_len) + GCM_TAG_LEN;
-    size_t expect_plain_len = encrypt_len - attach_len;
+
+    size_t expect_plain_len = encrypt_len - sizeof(sec_chl_encrypt_data_t);
     size_t real_plain_len = 0;
     memcpy(&real_plain_len, encrypt + sizeof(tmp.session_id), sizeof(tmp.data_len));
     if (real_plain_len != expect_plain_len) {
@@ -374,12 +359,10 @@ int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *re
     uint8_t *tag = NULL;
     int aad_len;
     size_t data_len;
-    uint8_t tag_len;
     aes_param_t aes_dec;
 
     (void)recv_buf_len;
     aes_dec.key = ecdh_ctx->session_key;
-    update_iv(ecdh_ctx, iv, SECURE_IV_LEN);
 
     size_t real_session_id;
     memcpy(&real_session_id, p_buf, sizeof(real_session_id));
@@ -392,19 +375,17 @@ int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *re
     memcpy(&data_len, p_buf, sizeof(data_len));
     p_buf += sizeof(data_len);
 
+    memcpy(iv, p_buf, SECURE_IV_LEN);
+    p_buf += SECURE_IV_LEN;
+
     aad = recv_buf; // session_id和data_len作为附加信息，使用tag保护附加信息的完整性
-    aad_len = sizeof(session_id) + sizeof(data_len);
+    aad_len = sizeof(session_id) + sizeof(data_len) + SECURE_IV_LEN;
     
-    cipher = p_buf;
-    p_buf += data_len;
-
-    memcpy(&tag_len, p_buf, sizeof(tag_len));
-    p_buf += sizeof(tag_len);
-
-    if (tag_len != GCM_TAG_LEN) {
-        return CC_ERROR_SEC_CHL_DECRYPT_TAGLEN_INVALID;
-    }
     tag = p_buf;
+    p_buf += GCM_TAG_LEN;
+
+    cipher = p_buf;
+
     aes_dec.plain = out_buf;
     aes_dec.plain_len = 0;
     aes_dec.cipher = cipher;
@@ -423,36 +404,22 @@ int sec_chl_decrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *re
     }
     *out_buf_len =  out_len;
 
-    ecdh_ctx->data_seq += out_len;
-
     return CC_SUCCESS;
 }
 
-/*
- out_buf 数据格式
-{
-    size_t      session_id;
-    size_t      data_len;      // LEN: DATA_SIZE_LEN
-    uint8_t     data[];          // LEN: data_len
-    uint8_t     gcm_tag_len;   // LEN: DATA_SIZE_LEN
-    uint8_t     gcm_tag[];       // LEN: gcm_tag_len
-}
-*/
 int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *plain, size_t plain_len,
     uint8_t *out_buf, size_t *out_buf_len)
 {
     uint8_t *p_buf = out_buf;
     uint8_t *aad = NULL;
+    uint8_t *iv = NULL;
     uint8_t *enc = NULL;
     uint8_t *tag = NULL;
     int aad_len;
     int enc_len;
-    uint8_t iv[SECURE_IV_LEN];
     aes_param_t aes_enc;
-    uint8_t tag_len = GCM_TAG_LEN;
 
     aes_enc.key = ecdh_ctx->session_key;
-    update_iv(ecdh_ctx, iv, SECURE_IV_LEN);
 
     memcpy(p_buf, &session_id, sizeof(session_id));
     p_buf += sizeof(session_id);
@@ -460,16 +427,21 @@ int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *pl
     memcpy(p_buf, &plain_len, sizeof(plain_len));
     p_buf += sizeof(plain_len);
 
-    aad = out_buf; // session_id和data_len作为附加信息，使用tag保护附加信息的完整性
-    aad_len = sizeof(session_id) + sizeof(plain_len);
+    iv = p_buf;
+    int ret = RAND_priv_bytes(iv, SECURE_IV_LEN);
+    if (ret != 1) {
+        return CC_ERROR_SEC_CHL_GEN_RANDOM;
+    }
+    p_buf += SECURE_IV_LEN;
 
-    enc = p_buf;
-    p_buf += plain_len;
-
-    memcpy(p_buf, &tag_len, sizeof(tag_len));
-    p_buf += sizeof(tag_len);
+    aad = out_buf; // session_id、data_len、iv作为附加信息，使用tag保护附加信息的完整性
+    aad_len = sizeof(session_id) + sizeof(plain_len) + SECURE_IV_LEN;
 
     tag = p_buf;
+    p_buf += GCM_TAG_LEN;
+
+    enc = p_buf;
+
     aes_enc.plain = plain;
     aes_enc.plain_len = plain_len;
     aes_enc.cipher = enc;
@@ -487,7 +459,6 @@ int sec_chl_encrypt(sec_chl_ecdh_ctx_t *ecdh_ctx, size_t session_id, uint8_t *pl
         return CC_ERROR_SEC_CHL_ENCRYPT;
     }
 
-    ecdh_ctx->data_seq += enc_len;
     *out_buf_len = get_encrypted_buf_len(enc_len);
 
     return CC_SUCCESS;
@@ -723,15 +694,12 @@ static cc_enclave_result_t drive_session_key(sec_chl_ecdh_ctx_t *ecdh_ctx, sec_c
 {
     uint8_t salt[RANDOM_LEN];
     uint8_t key_label[] = "sessionkey";
-    uint8_t iv_label[] = "sessioniv";
 
     for (int i = 0; i < RANDOM_LEN; i++) {
         salt[i] = local_exch_param->random[i] ^ peer_exch_param->random[i];
     }
     if (drive_key_hkdf(ecdh_ctx->shared_key, ecdh_ctx->shared_key_len, salt, sizeof(salt), key_label,
-        strlen((char *)key_label), ecdh_ctx->session_key, SECURE_KEY_LEN) != CC_SUCCESS ||
-        drive_key_hkdf(ecdh_ctx->shared_key, ecdh_ctx->shared_key_len, salt, sizeof(salt), iv_label,
-        strlen((char *)iv_label), ecdh_ctx->session_iv, SECURE_IV_LEN) != CC_SUCCESS) {
+        strlen((char *)key_label), ecdh_ctx->session_key, SECURE_KEY_LEN) != CC_SUCCESS) {
         return CC_ERROR_DRIVE_SESSIONKEY;
     }
     return CC_SUCCESS;

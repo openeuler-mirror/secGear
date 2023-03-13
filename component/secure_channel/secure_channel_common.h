@@ -32,8 +32,6 @@ typedef struct sec_chl_ecdh_ctx {
     size_t  shared_key_len;
     uint8_t *shared_key;        // ecdh output shared secret
     uint8_t session_key[SECURE_KEY_LEN];  // derived from shared key, used to encrypt/decrypt user data
-    uint8_t session_iv[SECURE_IV_LEN];    // derived from shared key, used to encrypt/decrypt user data
-    size_t  data_seq;                     // data sequence, use to update session_iv
     size_t  local_exch_param_buf_len;
     uint8_t *local_exch_param_buf;
     size_t  svr_exch_param_buf_len;
