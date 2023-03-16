@@ -39,11 +39,11 @@ void *recv_msg_thread(void *arg)
         memcpy(msg, buf, len);
         switch (msg->type) {
             case MSG_TYPE_SEC_CHL_ESTABLISH:
-                // step2: 在业务的消息接手函数中，调用安全通道客户端回调函数
+                // step2.1: 在业务的消息接收函数中，调用安全通道客户端回调函数
                 ret = cc_sec_chl_client_callback(ctx, msg->data, msg->len);
                 break;
             case MSG_TYPE_TEST:
-                // step5: 接收到server enclave中发送过来的数据
+                // step2.2: 接收服务端数据处理结果密文，解密获取处理结果
                 ret = cc_sec_chl_client_decrypt(ctx, msg->data, msg->len, plain, &plain_len);
                 if (ret != 0) {
                     printf("client decrypt error\n");
@@ -88,6 +88,7 @@ int main(int argc, char **argv)
     g_ctx.conn_kit.send = (void *)socket_write_adpt;
     g_ctx.conn_kit.conn = &sockfd;
 
+    // step2: 创建消息接收线程
     pthread_t thread;
     pthread_create(&thread, NULL, recv_msg_thread, NULL);
 
@@ -97,7 +98,7 @@ int main(int argc, char **argv)
         goto finish;
     }
 
-    // step2: 安全通道初始化完成后，调用加密接口加密业务数据
+    // step3: 安全通道初始化完成后，调用加密接口加密业务数据
     char *client_secret = "This is client secret 666";
     printf("client send secret:%s\n\n", client_secret);
 
@@ -119,7 +120,7 @@ int main(int argc, char **argv)
         goto finish;
     }
 
-    // step3: 加密后，用户结合自己业务发送到服务端enclave中，调用解密接口解密
+    // step4: 将加密后数据放到业务消息中发送到服务端处理，在enclave中调用解密接口解密
     size_t msg_len = sizeof(usr_msg_t) + encrypt_len;
     usr_msg_t *msg = calloc(1, msg_len);
     msg->type = MSG_TYPE_TEST;
@@ -137,6 +138,7 @@ int main(int argc, char **argv)
     sleep(2); // 等收到enclave加密消息后，再结束安全通道
 
   finish:
+    // step5: 结束安全通道
     cc_sec_chl_client_fini(&g_ctx);
     pthread_cancel(thread);
     close(sockfd);

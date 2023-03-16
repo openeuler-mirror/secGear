@@ -29,6 +29,7 @@ void conn_proc(void *arg)
     thread_arg_t thread_arg = *(thread_arg_t *)arg;
     int connfd = thread_arg.connfd;
 
+    // step2.1: 每个客户端连接初始化自己的消息发送函数与网络连接指针
     cc_sec_chl_conn_ctx_t conn_ctx = {0};
     conn_ctx.svr_ctx = thread_arg.svr_ctx;
     conn_ctx.conn_kit.send = (void *)socket_write_adpt;
@@ -56,20 +57,21 @@ void conn_proc(void *arg)
         memcpy(msg, buf, len);
         switch (msg->type) {
             case MSG_TYPE_SEC_CHL_ESTABLISH:
-                // step2: 在业务的消息接收函数中，调用安全通道回调函数
+                // step2.2: 在业务的消息接收函数中，调用安全通道回调函数
                 ret = cc_sec_chl_svr_callback(&conn_ctx, (void *)msg->data, msg->len);
                 if (ret != CC_SUCCESS) {
                     printf("secure channel server handle require failed\n");
                 }
                 break;
             case MSG_TYPE_TEST:
-                // step3: 用户业务逻辑，处理安全通道的加密数据
+                // step2.3: 用户业务逻辑，处理接收到客户端发送过来的加密数据
                 ret = sec_chl_recv_client_data(enclave_ctx, &ret_val, msg->session, msg->data, msg->len);
                 if (ret != 0 || ret_val != 0) {
                     printf("enclave decrypt error\n");
                 }
-                // step4: 将server enclave中数据加密发送到客户端
-                ret = sec_chl_get_enclave_secret(enclave_ctx, &ret_val, msg->session, enclave_secret, &secret_len);
+                // step2.4: 获取enclave中处理结果的密文，并返回客户端
+                ret = sec_chl_get_client_data_handle_result(enclave_ctx, &ret_val, msg->session,
+                    enclave_secret, &secret_len);
                 
                 size_t send_msg_len = sizeof(usr_msg_t) + secret_len;
                 usr_msg_t *send_msg = calloc(1, send_msg_len);
@@ -143,17 +145,16 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    // step1: 初始化安全通道服务, 注册消息发送函数
+    // step1: 初始化安全通道服务，进程内唯一
     cc_sec_chl_svr_ctx_t svr_ctx = {0};
     svr_ctx.enclave_ctx = &context;
-    // svr_ctx.conn_kit.send = (void *)socket_write_adpt;
-    // svr_ctx.conn_kit.conn = &connfd;
     ret = cc_sec_chl_svr_init(&svr_ctx);
 
     pthread_t thread_id;
     int index = 0;
     thread_arg_t arg[MAX_LISTEN_NUM] = {0};
     while (1) {
+        // step2: 一个客户端连接，起一个独立线程处理
         arg[index].connfd = accept(sockfd, (struct sockaddr *)&conn_addr, &conn_len);
         if (arg[index].connfd < 0) {
             printf("accept error\n");
@@ -163,7 +164,7 @@ int main(int argc, char **argv)
         pthread_create(&thread_id, NULL, (void *)&conn_proc, (void*)&arg[index]);
         index = (index + 1) % MAX_LISTEN_NUM;
     }
-    // step5: 停止安全通道服务
+    // step3: 停止安全通道服务
     cc_sec_chl_svr_fini(&svr_ctx);
     cc_enclave_destroy(&context);
     close(sockfd);
