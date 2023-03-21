@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	39
+Release:	40
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -71,6 +71,7 @@ Patch58:        0059-add-example-client-with-recv-thread.patch
 Patch59:        0060-server-support-multi-thread-handle-connection.patch
 Patch60:        0061-verify-sessionid-and-len-in-encrypted-data.patch
 Patch61:        0062-send-random-iv-with-encrypted-data.patch
+Patch62:        0063-del-personal-info-in-example-config.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++ compat-openssl11-libs compat-openssl11-devel secGear-devel
@@ -201,6 +202,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Mon Mar 20 2023 houmingyong<houmingyong@huawei.com> - 0.1.0-40
+- del personal info in example config
+
 * Mon Mar 13 2023 houmingyong<houmingyong@huawei.com> - 0.1.0-39
 - secure channel bugfix
 
