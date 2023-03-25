@@ -103,7 +103,7 @@ let get_sizestr_2 =
 
 let set_retval_pointer (fd : func_decl) =
     [
-        (match fd.rtype with Void -> "" | _ -> "size_t retval_p;");
+        (match fd.rtype with Void -> "" | _ -> "size_t retval_p = 0;");
     ]
 
 let is_deep_copy ((pty, _):(parameter_type * declarator)) =
@@ -338,7 +338,7 @@ let set_in_out_val_parameters_pointer (fd : func_decl) =
         concat "\n    "
             (List.map  
                 (fun (_, decl) ->
-                    sprintf "size_t %s_p;" decl.identifier)
+                    sprintf "size_t %s_p = 0;" decl.identifier)
             params);
         concat "\n    "
             (List.map (deep_copy_func pre generator post) deep_copy);
@@ -360,7 +360,7 @@ let set_inout_parameters_pointer (fd : func_decl) =
         concat "\n    "
             (List.map  
                 (fun (_, decl) ->
-                        sprintf "size_t %s_in_p;" decl.identifier ^ sprintf "\n    size_t %s_out_p;" decl.identifier)
+                        sprintf "size_t %s_in_p = 0;" decl.identifier ^ sprintf "\n    size_t %s_out_p = 0;" decl.identifier)
             params); 
         concat "\n    "
             (List.map (deep_copy_func pre generator post) deep_copy);

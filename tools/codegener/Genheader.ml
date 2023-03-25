@@ -81,7 +81,7 @@ let generate_rproxy_prototype (fd: func_decl) =
 
 let generate_rproxy_prototype_sl_async (tf: trusted_func) =
   if not tf.tf_is_switchless then
-    [""]
+    []
   else
     let fd = tf.tf_fdecl in
     let func_name = fd.fname ^ "_async" in
