@@ -30,14 +30,14 @@
 
 ```
 // intall build require
-sudo yum install -y cmake ocaml-dune linux-sgx-driver sgxsdk libsgx-launch libsgx-urts intel-sgx-ssl
+sudo yum install -y cmake ocaml-dune linux-sgx-driver sgxsdk libsgx-launch libsgx-urts intel-sgx-ssl secGear-devel
 
 // clone secGear repository
 git clone https://gitee.com/openeuler/secGear.git
 
-// build secGear and examples
-cd secGear
-source /opt/intel/sgxsdk/environment && source environment
+// build example secure channel
+cd secGear/examples/secure_channel
+source /opt/intel/sgxsdk/environment
 mkdir debug && cd debug && cmake -DSSL_PATH=/opt/intel/sgxssl .. && make && sudo make install
 
 // start server
@@ -47,17 +47,30 @@ mkdir debug && cd debug && cmake -DSSL_PATH=/opt/intel/sgxssl .. && make && sudo
 ./bin/sc_client
 ```
 ### Arm Trustzone
+环境准备：申请TA开发者证书，[调测环境TA应用开发者证书申请方法](https://www.hikunpeng.com/document/detail/zh/kunpengcctrustzone/fg-tz/kunpengtrustzone_04_0009.html)
 
 ```
 // intall build require depends openEuler 23.03 repo
-sudo yum install -y cmake ocaml-dune itrustee_sdk-devel
+sudo yum install -y cmake ocaml-dune itrustee_sdk-devel secGear-devel
 
 // clone secGear repository
 git clone https://gitee.com/openeuler/secGear.git
 
-// build secGear and examples
-cd secGear
-source environment
+// 配置TA开发者证书
+cd secGear/examples/secure_channel
+// 将TA开发者证书对应的manifest.txt拷贝到样例enclave目录下
+cp -rf {manifest.txt}  enclave/
+// 将TA开发者证书的路径配置到config_cloud.ini文件中
+vim enclave/config_cloud.ini 
+修改encryptKey、signKey、configPath三个路径
+
+// enable sign TA, 在enclave/CMakeLists.txt文件中放开以下三行代码注释
+add_custom_command(TARGET ${PREFIX}
+    POST_BUILD
+    COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
+
+// build example secure channel
+cd secGear/examples/secure_channel
 mkdir debug && cd debug && cmake -DENCLAVE=GP .. && make && sudo make install
 
 // start server

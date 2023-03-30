@@ -18,11 +18,10 @@ add_definitions(-DPRINT_LEVEL=${PRINT_LEVEL})
 
 if(CC_GP)
     add_definitions(-DGP_ENCLAVE)
-    set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
+    set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${EDL_FILE}
-    # COMMAND ${CODEGEN} --${CODETYPE} --header-only --trusted ${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
-    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
+    COMMAND ${CODEGEN} --${CODETYPE} --header-only --trusted ${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
 endif()
 
 if(CC_SGX)
@@ -80,7 +79,6 @@ if(CC_GP)
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(t${PREFIX} PRIVATE
             ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-	    #/usr/lib64
             ${CMAKE_BINARY_DIR}/lib/)
     endif()
 else()
@@ -125,25 +123,11 @@ else()
         target_link_directories(t${PREFIX} PRIVATE
             ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGX_LIBRARY_PATH} ${OPENSSL_LIBRARY_PATH})
     endif()
-    # set(LIBNAME "libtsecure_channel.a")
-    # set(DEPEND_LIBS
-    #         ${SGX_LIBRARY_PATH}/libsgx_trts.a
-    #         ${SGX_LIBRARY_PATH}/libsgx_tstdc.a
-    #         ${SGX_LIBRARY_PATH}/libsgx_tcxx.a
-    #         ${SGX_LIBRARY_PATH}/libsgx_tcrypto.a
-    #         ${SGX_LIBRARY_PATH}/libsgx_pthread.a
-    #         ${SGX_LIBRARY_PATH}/libsgx_tservice.a
-    #         ${OPENSSL_LIBRARY_PATH}/libsgx_tsgxssl.a
-    #         ${OPENSSL_LIBRARY_PATH}/libsgx_tsgxssl_ssl.a
-    #         ${OPENSSL_LIBRARY_PATH}/libsgx_tsgxssl_crypto.a)
-    # add_custom_command(OUTPUT ${LIBNAME}
-    #         PRE_BUILD
-    #         COMMAND ar crsT ${LIBNAME} libt${PREFIX}_tmp.a ${DEPEND_LIBS}
-    #         DEPENDS libt${PREFIX}_tmp.a ${DEPEND_LIBS}
-    #         COMMENT "combing libs...")
-    # add_custom_target(_generator DEPENDS ${LIBNAME})
-    # add_library(t${PREFIX} STATIC IMPORTED)
-    # set_property(TARGET t${PREFIX} PROPERTY IMPORTED_LOCATION ${LIBNAME})
-    # add_dependencies(t${PREFIX} _generator)
 endif()
 
+set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
+
+install(TARGETS t${PREFIX} 
+        ARCHIVE
+        DESTINATION ${LIBRARY_INSTALL}
+        PERMISSIONS  OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)

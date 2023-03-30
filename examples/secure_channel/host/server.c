@@ -11,8 +11,6 @@
 #include "sc_demo_u.h"
 #include "usr_msg.h"
 
-#include "secure_channel_common.h"
-
 #define MAXBUF 1024
 #define MAX_LISTEN_NUM 100
 typedef struct {
@@ -92,8 +90,8 @@ void conn_proc(void *arg)
                 printf("server recv error msg type\n");
                 break;
         }
-        /* 测试代码，为了使conn_proc线程正常退出 */
-        if (((sec_chl_msg_t *)(msg->data))->msg_type == SEC_CHL_MSG_DESTROY) {
+        // 测试代码，为了使conn_proc线程正常退出，实际业务场景不需要
+        if ((*(size_t *)(msg->data)) == 10) { // 10为SEC_CHL_MSG_DESTROY
             free(msg);
             close(connfd);
             return;
