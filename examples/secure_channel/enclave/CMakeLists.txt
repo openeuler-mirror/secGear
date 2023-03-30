@@ -1,9 +1,6 @@
  #set sign key
 set(PEM Enclave_private.pem)
 
-#set sign tool
-set(SIGN_TOOL ${LOCAL_ROOT_PATH}/tools/sign_tool/sign_tool.sh)
-
 #set enclave src code
 set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/enclave.c)
 
@@ -24,8 +21,7 @@ if(CC_GP)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
     COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
-            --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp
-            --search-path ${LOCAL_ROOT_PATH}/component/secure_channel)
+            --search-path ${SECGEAR_INSTALL_DIR})
 endif()
 
 if(CC_SGX)
@@ -36,8 +32,7 @@ if(CC_SGX)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
     COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
-            --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
-            --search-path ${LOCAL_ROOT_PATH}/component/secure_channel
+            --search-path ${SECGEAR_INSTALL_DIR}
             --search-path ${SGX_SDK_PATH}/include
             --search-path ${SSL_PATH}/include)
 endif()
@@ -66,7 +61,7 @@ if(CC_GP)
 
     target_include_directories(${PREFIX} PRIVATE
         ${CMAKE_CURRENT_BINARY_DIR}
-        /usr/include/secGear
+        ${SECGEAR_INSTALL_DIR}
         ${ITRUSTEE_TEEDIR}/include/TA
         ${ITRUSTEE_TEEDIR}/include/TA/huawei_ext
         ${ITRUSTEE_TEEDIR}/include/TA/openssl
@@ -74,8 +69,7 @@ if(CC_GP)
         ${ITRUSTEE_LIBC}/
         ${ITRUSTEE_LIBC}/arch/arm/bits
         ${ITRUSTEE_LIBC}/arch/generic
-        ${ITRUSTEE_LIBC}/arch/arm
-        ${OPENSSL_PATH}/include)
+        ${ITRUSTEE_LIBC}/arch/arm)
 
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(${PREFIX} PRIVATE
@@ -87,10 +81,10 @@ if(CC_GP)
     endforeach(WHITE_LIST)
     add_definitions(-DWHITE_LIST_OWNER="${WHITE_LIST_OWNER}")
 
-    target_link_libraries(${PREFIX} tsecure_channel.a -lsecgear_tee)
-    add_custom_command(TARGET ${PREFIX}
-    	 POST_BUILD
-	         COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
+    target_link_libraries(${PREFIX} -ltsecure_channel -lsecgear_tee)
+    #add_custom_command(TARGET ${PREFIX}
+    # 	 POST_BUILD
+    #	         COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
 
     install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}
              DESTINATION /data
@@ -125,10 +119,7 @@ if(CC_SGX)
 
     target_include_directories(${PREFIX} PRIVATE
         ${CMAKE_CURRENT_BINARY_DIR}
-        ${LOCAL_ROOT_PATH}/inc/enclave_inc/sgx
-        ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
-        ${LOCAL_ROOT_PATH}/inc/host_inc
-        ${LOCAL_ROOT_PATH}/component/secure_channel/enclave
+        ${SECGEAR_INSTALL_DIR}
         ${SSL_PATH}/include
         ${SGX_SDK_PATH}/include/tlibc
         ${SGX_SDK_PATH}/include/libcxx

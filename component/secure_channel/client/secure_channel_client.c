@@ -80,7 +80,6 @@ static cc_enclave_result_t sec_chl_send_request(cc_conn_kit_t *conn_kit, sec_chl
     // send request to server
     ret = conn_kit->send(conn_kit->conn, (uint8_t *)req_msg, req_msg_len);
     if (ret < 0) {
-        print_error_term("client send request failed\n");
         return CC_ERROR_SEC_CHL_SEND_MSG;
     }
 
@@ -148,7 +147,6 @@ static cc_enclave_result_t sec_chl_destroy_svr(cc_sec_chl_ctx_t *ctx)
     msg.session_id = ctx->session_id;
     cc_enclave_result_t ret = sec_chl_send_request(&(ctx->conn_kit), &msg);
     if (ret != CC_SUCCESS) {
-        print_error_term("secure channel destroy server request failed\n");
         return CC_ERROR_SEC_CHL_DESTROY_SVR;
     }
     return ret;
@@ -171,7 +169,6 @@ cc_enclave_result_t cc_sec_chl_client_callback(cc_sec_chl_ctx_t *ctx, void *buf,
         return CC_ERROR_BAD_PARAMETERS;
     }
     if (len > SEC_CHL_RECV_BUF_MAX_LEN) {
-        print_error_term("call back recv buf len:%lu is invalid", len);
         return CC_ERROR_SEC_CHL_RECV_MSG_LEN_INVALID;
     }
     pthread_mutex_lock(&ctx->handle->lock);
@@ -271,14 +268,12 @@ static cc_enclave_result_t recv_svr_param(cc_sec_chl_ctx_t *ctx)
 
     ret = verify_signature(ctx->handle->svr_pubkey, ctx->handle->svr_pubkey_len, msg->data, msg->data_len);
     if (ret != CC_SUCCESS) {
-        print_error_term("client key exchange, verify server exch param signature failed\n");
         pthread_mutex_unlock(&ctx->handle->lock);
         return ret;
     }
 
     sec_chl_ecdh_ctx_t *ecdh_ctx = new_local_ecdh_ctx(ec_nid);
     if (ecdh_ctx == NULL) {
-        print_error_term("client key exchange, new local ecdh ctx failed\n");
         pthread_mutex_unlock(&ctx->handle->lock);
         return CC_ERROR_SEC_CHL_GEN_LOCAL_EXCH_PARAM;
     }
@@ -366,7 +361,6 @@ static cc_enclave_result_t sec_chl_compute_session_key(cc_sec_chl_ctx_t *ctx)
     }
     ret = compute_session_key(ctx->handle->ecdh_ctx, local_exch_param, svr_exch_param_buf);
     if (ret != CC_SUCCESS) {
-        print_error_term("client key exchange, compute session key failed\n");
         del_exch_param(svr_exch_param_buf);
         del_exch_param(local_exch_param);
         return ret;
@@ -440,10 +434,7 @@ cc_enclave_result_t cc_sec_chl_client_init(cc_sec_chl_algo_t algo, cc_sec_chl_ct
 
     cc_enclave_result_t ret = sec_chl_run_fsm(ctx);
     if (ret != CC_SUCCESS) {
-        print_error_term("secure channel client init error:%x\n", ret);
         cc_sec_chl_client_fini(ctx);
-    } else {
-        print_notice("secure channel client init success\n\n");
     }
 
     return ret;

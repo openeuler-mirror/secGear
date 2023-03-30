@@ -15,11 +15,10 @@ set(SOURCE_FILE secure_channel_host.c)
 
 #set auto code
 if(CC_GP)
-    set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
+    set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${EDL_FILE}
-    # COMMAND ${CODEGEN} --${CODETYPE} --header-only --untrusted ${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
-    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
+    COMMAND ${CODEGEN} --${CODETYPE} --header-only --untrusted ${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
 endif()
     
 if(CC_SGX)
@@ -91,7 +90,7 @@ if(CC_SGX)
     endif()
 endif()
 
-set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/lib64)
+set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
 
 install(TARGETS u${PREFIX} 
         LIBRARY

@@ -56,8 +56,9 @@ install(TARGETS ${sgxsim_engine}
 file(GLOB GP_HOST_HEADERS_1 ${LOCAL_ROOT_PATH}/inc/host_inc/*.h)
 file(GLOB GP_HOST_HEADERS_2 ${LOCAL_ROOT_PATH}/inc/host_inc/sgx/*.h)
 file(GLOB GP_HOST_HEADERS_3 ${LOCAL_ROOT_PATH}/inc/host_inc/sgx/*.edl)
+file(GLOB GP_HOST_HEADERS_4 ${LOCAL_ROOT_PATH}/inc/enclave_inc/sgx/secgear_log.h)
 
-install(FILES ${GP_HOST_HEADERS_1} ${GP_HOST_HEADERS_2} ${GP_HOST_HEADERS_3}
+install(FILES ${GP_HOST_HEADERS_1} ${GP_HOST_HEADERS_2} ${GP_HOST_HEADERS_3} ${GP_HOST_HEADERS_4}
         DESTINATION /usr/include/secGear
         PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
 

@@ -1,0 +1,13 @@
+/etc/logrotate.d/secgear
+/etc/rsyslog.d/secgear.conf
+/lib/secGear
+/usr/bin/sign_tool.sh
+/usr/bin/codegen
+/usr/include/secGear
+/usr/lib64/libsecgear_tee.a
+/usr/lib64/libsecgear.so
+/usr/lib64/libsecgearsim.so
+/usr/lib64/libgp_0.so
+/usr/lib64/libtsecure_channel.a
+/usr/lib64/libusecure_channel.so
+/usr/lib64/libcsecure_channel.so
