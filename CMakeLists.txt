@@ -38,8 +38,7 @@ set(SGX_SDK_DEFAULT_PATH /opt/intel/sgxsdk)
 set(GP_SDK_DEFAULT_PATH /opt/itrustee_sdk)
 set(PL_SDK_DEFAULT_PATH /root/dev/sdk)
 
-set(SGX_SSL_DEFAULT_PATH /opt/intel/sgxssl)
-set(GP_SSL_DEFAULT_PATH /opt/itrustee_sdk/itrustee_sdk_ssl)
+set(SSL_PATH /opt/intel/sgxssl)
 
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
 	add_definitions(-DDEBUG_FILE_LINE)
@@ -103,7 +102,7 @@ endif()
 add_subdirectory(tools/codegener)
 
 add_subdirectory(src)
-#add_subdirectory(component)
+add_subdirectory(component)
 
 if(NOT IS_DIRECTORY ${LOCAL_ROOT_PATH}/bin)
 	execute_process(COMMAND mkdir ${LOCAL_ROOT_PATH}/bin)
