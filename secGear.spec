@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	32
+Release:	33
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -65,18 +65,19 @@ Patch52:        0053-asynchronous-switchless-example.patch
 Patch53:        0054-fix-gen-ecall-header-error.patch
 Patch54:        0055-switchless-readme-add-async-interface.patch
 Patch55:        0056-destroy-enclave-release-remain-shared-memory.patch
+Patch56:        0057-new-feature-secure-channel-support.patch
 
 BuildRequires:	gcc python automake autoconf libtool
-BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++
+BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++ openssl-libs openssl-devel
 %ifarch x86_64
-BUildRequires:	sgxsdk libsgx-launch libsgx-urts openssl
+BUildRequires:	sgxsdk libsgx-launch libsgx-urts intel-sgx-ssl-devel
 %else
 BUildRequires:	itrustee_sdk itrustee_sdk-devel
 %endif
 
-Requires:		rsyslog
+Requires:		rsyslog openssl-libs
 %ifarch x86_64
-Requires:		linux-sgx-driver sgxsdk libsgx-launch libsgx-urts libsgx-aesm-launch-plugin
+Requires:		linux-sgx-driver sgxsdk libsgx-launch libsgx-urts libsgx-aesm-launch-plugin intel-sgx-ssl
 %else
 Requires:		itrustee_sdk
 %endif
@@ -128,6 +129,11 @@ install -pm 751 bin/codegen %{buildroot}/%{_bindir}
 install -pm 751 tools/sign_tool/sign_tool.sh %{buildroot}/%{_bindir}
 install -d %{buildroot}/lib/secGear/
 install -pm 751 tools/sign_tool/*.py %{buildroot}/lib/secGear
+install -pm 644 component/secure_channel/*.h %{buildroot}/%{_includedir}/secGear
+install -pm 644 component/secure_channel/*.edl %{buildroot}/%{_includedir}/secGear
+install -pm 644 component/secure_channel/client/*.h %{buildroot}/%{_includedir}/secGear
+install -pm 644 component/secure_channel/host/*.h %{buildroot}/%{_includedir}/secGear
+install -pm 644 component/secure_channel/enclave/*.h %{buildroot}/%{_includedir}/secGear
 %ifarch x86_64
 install -pm 644 inc/host_inc/*.h %{buildroot}/%{_includedir}/secGear
 install -pm 644 inc/host_inc/sgx/*.h %{buildroot}/%{_includedir}/secGear
@@ -158,6 +164,9 @@ popd
 %defattr(-,root,root)
 %{_libdir}/libsecgear_tee.a
 %{_libdir}/libsecgear.so
+%{_libdir}/libusecure_channel.so
+%{_libdir}/libcsecure_channel.so
+%{_libdir}/libtsecure_channel.a
 %ifarch x86_64
 %{_libdir}/libsgx_0.so
 %else
@@ -183,6 +192,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Tue Apr 11 2023 houmingyong<houmingyong@huawei.com> - 0.1.0-33
+- DESC:new feature secure channel support
+
 * Mon Dec 19 2022 houmingyong<houmingyong@huawei.com> - 0.1.0-32
 - DESC:destroy enclave release remain shared memory
 
