@@ -27,7 +27,7 @@ endif()
 if(CC_SGX)
     add_definitions(-DSGX_ENCLAVE)
     #sgxsdk path
-    set(SGX_SDK_PATH ${SGXSDK})
+    set(SGX_SDK_PATH ${SDK_PATH})
     set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${EDL_FILE}
@@ -48,9 +48,9 @@ if(CC_GP)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a -fPIC")
     set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-s")
 
-    set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
-    # set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/musl/musl-1.2.0/)
-    set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
+    set(ITRUSTEE_TEEDIR ${SDK_PATH}/)
+    # set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/musl/musl-1.2.0/)
+    set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/open_source/musl/libc)
 
     if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
         link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${CMAKE_BINARY_DIR}/lib/)

@@ -41,7 +41,7 @@ if(CC_SGX)
     set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SGXSDK}/include )
+    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SDK_PATH}/include )
 endif()
 
 set(COMMON_C_FLAGS "-W -Wall -Werror  -fno-short-enums  -fno-omit-frame-pointer -fstack-protector \
@@ -56,8 +56,8 @@ if(CC_GP)
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
     set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-s -fPIC")
 
-    set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
-    set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
+    set(ITRUSTEE_TEEDIR ${SDK_PATH}/)
+    set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/open_source/musl/libc)
 
     if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
         link_directories(${CMAKE_BINARY_DIR}/lib/)
@@ -103,7 +103,7 @@ if(CC_GP)
 endif()
 
 if(CC_SGX)
-    set(SGX_DIR ${SGXSDK})
+    set(SGX_DIR ${SDK_PATH})
     set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fvisibility=hidden")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
     set(LINK_LIBRARY_PATH ${SGX_DIR}/lib64)

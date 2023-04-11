@@ -145,7 +145,7 @@ Set some variables, which are described in comments.
 		set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
 		add_custom_command(OUTPUT ${AUTO_FILES}
 		DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-		COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx  --search-path ${SGXSDK}/include)
+		COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx  --search-path ${SDK_PATH}/include)
 	endif()
 
 Use the code generation tool to generate auxiliary code based on the edl. Variables such as CODEGEN and CODETYPE are
@@ -275,7 +275,7 @@ Finally, set the name of the security image after the final signing, and generat
 	        set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
 	        add_custom_command(OUTPUT ${AUTO_FILES}
 	        DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-	        COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SGXSDK}/include)
+	        COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SDK_PATH}/include)
 	endif()
 
 In the case of SGX, set the name of the security image after the final signing, and generate auxiliary code.
@@ -298,8 +298,8 @@ so -nostdinc -nodefaultlibs -nostdlib -nodefaultlibs compile link options is int
 		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s -fPIC")
 		set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-s")
 
-		set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
-		set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
+		set(ITRUSTEE_TEEDIR ${SDK_PATH}/)
+		set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/open_source/musl/libc)
 
 		if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
 			link_directories(${SECGEAR_INSTALL_PATH})
@@ -352,7 +352,7 @@ whitelist macro. Next, you need to link to the secgear_tee library, in which the
 random numbers, seal, unseal, etc. The last step is to sign and install.
 
 	if(CC_SGX)
-		set(SGX_DIR ${SGXSDK})
+		set(SGX_DIR ${SDK_PATH})
 		set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fvisibility=hidden")
 		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
 		set(LINK_LIBRARY_PATH ${SGX_DIR}/lib64)

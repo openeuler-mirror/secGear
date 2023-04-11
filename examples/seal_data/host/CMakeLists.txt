@@ -28,7 +28,7 @@ if(CC_SGX)
     set(SEARCH_PATH ${LOCAL_ROOT_PATH}/inc/host_inc/sgx)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${SEARCH_PATH} --search-path ${SGXSDK}/include)
+    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${SEARCH_PATH} --search-path ${SDK_PATH}/include)
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")

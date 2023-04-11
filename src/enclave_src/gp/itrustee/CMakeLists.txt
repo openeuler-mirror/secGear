@@ -16,8 +16,8 @@ set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdli
 set(SOURCE_FILES ${SOURCE_FILES} ../gp.c ../gp_ocall.c itrustee_seal_data.c error_conversion.c bottom_memory_check.c 
                                  itrustee_random.c itrustee_tswitchless.c itrustee_shared_memory.c)
 
-set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
-set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
+set(ITRUSTEE_TEEDIR ${SDK_PATH}/)
+set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/open_source/musl/libc)
 
 if (CMAKE_COMPILER_IS_GNUCC)
     execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpfullversion -dumpversion

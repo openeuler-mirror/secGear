@@ -49,7 +49,7 @@ if(CC_SGX)
                        COMMAND ${CODEGEN} --${CODETYPE}
                                           --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
                                           --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
-                                          --search-path ${SGXSDK}/include)
+                                          --search-path ${SDK_PATH}/include)
 endif()
 
 if(CC_PL)
@@ -69,8 +69,8 @@ if(CC_GP)
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -s -fPIC")
     set(CMAKE_SHARED_LINKER_FLAGS "${COMMON_C_LINK_FLAGS} -Wl,-s")
 
-    set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
-    set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
+    set(ITRUSTEE_TEEDIR ${SDK_PATH}/)
+    set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/open_source/musl/libc)
 
     if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
         link_directories(${CMAKE_BINARY_DIR}/lib/)
@@ -121,7 +121,7 @@ if(CC_GP)
 endif()
 
 if(CC_SGX)
-    set(SGX_DIR ${SGXSDK})
+    set(SGX_DIR ${SDK_PATH})
     set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fvisibility=hidden")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -s")
     set(LINK_LIBRARY_PATH ${SGX_DIR}/lib64)
