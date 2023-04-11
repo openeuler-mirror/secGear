@@ -14,8 +14,9 @@ set(SGX_SDK_DEFAULT_PATH /opt/intel/sgxsdk)
 set(GP_SDK_DEFAULT_PATH /opt/itrustee_sdk)
 set(PL_SDK_DEFAULT_PATH /root/dev/sdk)
 
-set(SGX_SSL_DEFAULT_PATH /opt/intel/sgxssl)
-set(GP_SSL_DEFAULT_PATH /opt/itrustee_sdk/include/TA/openssl/)
+if (NOT DEFINED SSL_PATH)
+set(SSL_PATH /opt/intel/sgxssl)
+endif()
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
