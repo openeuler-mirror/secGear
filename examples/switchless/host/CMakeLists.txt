@@ -34,7 +34,7 @@ if(CC_SGX)
                        COMMAND ${CODEGEN} --${CODETYPE}
                                           --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
                                           --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
-                                          --search-path ${SGXSDK}/include)
+                                          --search-path ${SDK_PATH}/include)
 endif()
 
 if(CC_PL)
@@ -65,10 +65,10 @@ if(CC_SGX)
     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
     target_include_directories(${OUTPUT} PRIVATE ${LOCAL_ROOT_PATH}/inc/host_inc
                                                  ${LOCAL_ROOT_PATH}/inc/host_inc/sgx
-                                                 ${SGXSDK}/include
+                                                 ${SDK_PATH}/include
                                                  ${CMAKE_CURRENT_BINARY_DIR})
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-        target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGXSDK}/lib64)
+        target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SDK_PATH}/lib64)
     endif()
 endif()
 

@@ -15,13 +15,13 @@ endif()
 
 if(CC_SGX)
     #sgxsdk path
-    set(SGX_SDK_PATH ${SGXSDK})
+    set(SGX_SDK_PATH ${SDK_PATH})
     set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
     COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
             --search-path ${SECGEAR_INSTALL_DIR}
-            --search-path ${SGXSDK}/include
+            --search-path ${SDK_PATH}/include
             --search-path ${SSL_PATH}/include)
 endif()
 
@@ -44,7 +44,7 @@ endif()
 
 if(CC_SGX)
     if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
-        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGXSDK}/lib64 ${SSL_PATH}/lib64)
+        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SDK_PATH}/lib64 ${SSL_PATH}/lib64)
     endif()
     set(SGX_MODE HW)
     set(COMMON_CFLAGS "-m64")
@@ -54,7 +54,7 @@ if(CC_SGX)
         ${CMAKE_CURRENT_BINARY_DIR}
         ${SECGEAR_INSTALL_DIR})
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-        target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGXSDK}/lib64 ${SSL_PATH}/lib64)
+        target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SDK_PATH}/lib64 ${SSL_PATH}/lib64)
     endif()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${host_C_Flags}")
     target_link_libraries(${OUTPUT} secgear usecure_channel pthread sgx_usgxssl)

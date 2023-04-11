@@ -44,7 +44,7 @@ if(CC_SGX)
     set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SGXSDK}/include)
+    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SDK_PATH}/include)
 endif()
 
 if(CC_PL)
@@ -68,8 +68,8 @@ if(CC_GP)
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s -fPIC")
     set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-s")
     
-    set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
-    set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
+    set(ITRUSTEE_TEEDIR ${SDK_PATH}/)
+    set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/open_source/musl/libc)
 
     if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
         link_directories(${CMAKE_BINARY_DIR}/lib/)
@@ -117,7 +117,7 @@ if(CC_GP)
 endif()
 
 if(CC_SGX)
-    set(SGX_DIR ${SGXSDK})
+    set(SGX_DIR ${SDK_PATH})
     set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fvisibility=hidden")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
     set(LINK_LIBRARY_PATH ${SGX_DIR}/lib64)
@@ -168,10 +168,10 @@ if(NOT DEFINED CC_PL)
 endif()
 
 if(CC_PL)
-    set(SDK_LIB_DIR ${PLSDK}/lib)
+    set(SDK_LIB_DIR ${SDK_PATH}/lib)
     set(SDK_INCLUDE_DIR ${SDK_LIB_DIR}/app/include)
     set(SDK_APP_LIB ${SDK_LIB_DIR}/libpenglai-enclave-eapp.a)
-    set(MUSL_LIB_DIR ${PLSDK}/musl/lib)
+    set(MUSL_LIB_DIR ${SDK_PATH}/musl/lib)
     set(MUSL_LIBC ${MUSL_LIB_DIR}/libc.a)
     set(GCC_LIB ${SDK_LIB_DIR}/libgcc.a)
     set(SECGEAR_TEE_LIB ${CMAKE_BINARY_DIR}/lib/libsecgear_tee.a)
@@ -206,7 +206,7 @@ if(CC_PL)
         DEPENDS ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${MUSL_LIBC} ${GCC_LIB}
         COMMAND ld -static -L${SDK_LIB_DIR} -L${MUSL_LIB_DIR} -L/usr/lib64 -lpenglai-enclave-eapp -lsecgear_tee -lc
             -o ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT} ${APP_C_OBJ} ${SOURCE_C_OBJS} ${SDK_APP_LIB} ${SECGEAR_TEE_LIB}
-            ${MUSL_LIBC} ${GCC_LIB} -T ${PLSDK}/app.lds
+            ${MUSL_LIBC} ${GCC_LIB} -T ${SDK_PATH}/app.lds
         COMMAND chmod -x ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT}
         COMMENT "generate penglai-ELF"
     )

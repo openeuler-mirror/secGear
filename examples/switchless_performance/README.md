@@ -86,7 +86,7 @@ switchless样例的编译工程已经集成codegen的调用，如下。
 			COMMAND ${CODEGEN} --${CODETYPE}
 							--untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
 							--search-path /usr/include/secGear
-							--search-path ${SGXSDK}/include)
+							--search-path ${SDK_PATH}/include)
 	endif()
 ```
 

@@ -26,7 +26,7 @@ endif()
 
 if(CC_SGX)
     #sgxsdk path
-    set(SGX_SDK_PATH ${SGXSDK})
+    set(SGX_SDK_PATH ${SDK_PATH})
     set(OUTPUT ${PREFIX}.signed.so)
     set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
     add_custom_command(OUTPUT ${AUTO_FILES}
@@ -50,8 +50,8 @@ if(CC_GP)
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s -fPIC")
     set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-s")
 
-    set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
-    set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc/)
+    set(ITRUSTEE_TEEDIR ${SDK_PATH}/)
+    set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/open_source/musl/libc/)
 
     if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
         link_directories(${CMAKE_BINARY_DIR}/lib/)

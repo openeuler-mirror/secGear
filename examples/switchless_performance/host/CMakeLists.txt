@@ -34,7 +34,7 @@ if(CC_SGX)
                        COMMAND ${CODEGEN} --${CODETYPE}
                                           --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
                                           --search-path /usr/include/secGear
-                                          --search-path ${SGXSDK}/include)
+                                          --search-path ${SDK_PATH}/include)
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -L/usr/lib64")
@@ -62,7 +62,7 @@ if(CC_SGX)
                                                 /opt/intel/sgxsdk/include
                                                  ${CMAKE_CURRENT_BINARY_DIR})
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-        target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SGXSDK}/lib64)
+        target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${SDK_PATH}/lib64)
     endif()
 endif()
 

@@ -23,7 +23,7 @@ endif()
     
 if(CC_SGX)
     #sgxsdk path
-    set(SGX_SDK_PATH ${SGXSDK})
+    set(SGX_SDK_PATH ${SDK_PATH})
     set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${EDL_FILE}
@@ -46,7 +46,7 @@ if(CC_GP)
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_BINARY_DIR}/inc
         ${LOCAL_ROOT_PATH}/component/secure_channel
-        ${iTrusteeSDK}/include/CA
+        ${SDK_PATH}/include/CA
         ${LOCAL_ROOT_PATH}/inc/host_inc
         ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
     add_library(u${PREFIX} SHARED ${SOURCE_FILE} ${AUTO_FILES})

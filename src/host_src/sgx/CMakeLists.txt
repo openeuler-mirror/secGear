@@ -13,7 +13,7 @@ set(sgxsim_engine sgxsim_0)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/sgx)
 
 if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
-    link_directories(${SGXSDK}/lib64
+    link_directories(${SDK_PATH}/lib64
 	    ${CMAKE_BINARY_DIR}/lib)
 endif()
 
@@ -21,20 +21,20 @@ add_library(${sgx_engine}  SHARED sgx_enclave.c sgx_enclave.h sgx_shared_memory.
 add_library(${sgxsim_engine}  SHARED sgx_enclave.c sgx_enclave.h sgx_shared_memory.c)
 
 target_include_directories(${sgx_engine} PRIVATE
-	${SGXSDK}/include)
+	${SDK_PATH}/include)
 
 target_include_directories(${sgxsim_engine} PRIVATE
-	${SGXSDK}/include)
+	${SDK_PATH}/include)
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0") 
     target_link_directories(${sgx_engine} PRIVATE
-	    ${SGXSDK}/lib64
+	    ${SDK_PATH}/lib64
 	    ${CMAKE_BINARY_DIR}/lib)
 endif()
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0") 
     target_link_directories(${sgxsim_engine} PRIVATE
-	    ${SGXSDK}/lib64
+	    ${SDK_PATH}/lib64
 	    ${CMAKE_BINARY_DIR}/lib)
 endif()
 

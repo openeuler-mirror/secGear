@@ -20,7 +20,7 @@ add_library(${penglai_engine}  SHARED penglai_enclave.c penglai_enclave.h )
 
 
 target_include_directories(${penglai_engine} PRIVATE
-	${PLSDK}/lib/host/include)
+	${SDK_PATH}/lib/host/include)
 
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
@@ -29,7 +29,7 @@ if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
 endif()
 
 
-target_link_libraries(${penglai_engine}  pthread secgear ${PLSDK}/lib/libpenglai-enclave-host.a)
+target_link_libraries(${penglai_engine}  pthread secgear ${SDK_PATH}/lib/libpenglai-enclave-host.a)
 
 set_target_properties(${penglai_engine} PROPERTIES SKIP_BUILD_RPATH TRUE)
 

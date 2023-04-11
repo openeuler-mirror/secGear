@@ -10,8 +10,8 @@
 
 set(SOURCE_FILES ${SOURCE_FILES} penglai_seal_data.c  bottom_memory_check.c error_conversion.c penglai_random.c penglai_ocall.c)
 
-set(PENGLAI_MUSL ${PLSDK}/musl)
-set(SDK_LIB_DIR ${PLSDK}/lib)
+set(PENGLAI_MUSL ${SDK_PATH}/musl)
+set(SDK_LIB_DIR ${SDK_PATH}/lib)
 set(SDK_INCLUDE_DIR ${SDK_LIB_DIR}/app/include)
 
 set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -fPIC")

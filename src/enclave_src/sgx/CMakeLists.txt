@@ -10,7 +10,7 @@
 
 set(SOURCE_FILES ${SOURCE_FILES} sgx_seal_data.c  bottom_memory_check.c error_conversion.c sgx_random.c)
 
-set(SGX_DIR ${SGXSDK})
+set(SGX_DIR ${SDK_PATH})
 
 set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fPIC")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
