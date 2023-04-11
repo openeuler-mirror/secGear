@@ -38,7 +38,7 @@ git clone https://gitee.com/openeuler/secGear.git
 // build example secure channel
 cd secGear/examples/secure_channel
 source /opt/intel/sgxsdk/environment
-mkdir debug && cd debug && cmake -DSSL_PATH=/opt/intel/sgxssl .. && make && sudo make install
+mkdir debug && cd debug && cmake .. && make && sudo make install
 
 // start server
 ./bin/sc_server
