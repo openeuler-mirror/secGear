@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	33
+Release:	34
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -66,6 +66,8 @@ Patch53:        0054-fix-gen-ecall-header-error.patch
 Patch54:        0055-switchless-readme-add-async-interface.patch
 Patch55:        0056-destroy-enclave-release-remain-shared-memory.patch
 Patch56:        0057-new-feature-secure-channel-support.patch
+Patch57:        0058-refactor-cmake-SDK_PATH.patch
+Patch58:        0059-adapt-itrustee_sdk-openssl-path-modification.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++ openssl-libs openssl-devel
@@ -192,6 +194,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Thu Apr 27 2023 houmingyong<houmingyong@huawei.com> - 0.1.0-34
+- DESC:backport some patchs
+
 * Tue Apr 11 2023 houmingyong<houmingyong@huawei.com> - 0.1.0-33
 - DESC:new feature secure channel support
 
