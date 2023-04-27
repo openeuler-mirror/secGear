@@ -1,0 +1,313 @@
+From bcf1843aaf765af18577c82ce0ef964e30527c48 Mon Sep 17 00:00:00 2001
+From: houmingyong <houmingyong@huawei.com>
+Date: Thu, 27 Apr 2023 15:39:31 +0800
+Subject: [PATCH 1/2] refactor cmake SDK_PATH
+
+---
+ CMakeLists.txt                                | 40 ++++++-------------
+ README.en.md                                  | 12 +++---
+ README.md                                     |  2 +-
+ .../secure_channel/enclave/CMakeLists.txt     |  8 ++--
+ component/secure_channel/host/CMakeLists.txt  |  4 +-
+ docs/build_install.md                         |  2 +-
+ src/enclave_src/gp/itrustee/CMakeLists.txt    |  4 +-
+ src/enclave_src/sgx/CMakeLists.txt            |  2 +-
+ src/host_src/CMakeLists.txt                   |  2 +-
+ src/host_src/gp/CMakeLists.txt                |  2 +-
+ src/host_src/sgx/CMakeLists.txt               | 10 ++---
+ 11 files changed, 36 insertions(+), 52 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d881595..9c3c25b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -38,8 +38,6 @@ set(SGX_SDK_DEFAULT_PATH /opt/intel/sgxsdk)
+ set(GP_SDK_DEFAULT_PATH /opt/itrustee_sdk)
+ set(PL_SDK_DEFAULT_PATH /root/dev/sdk)
+ 
+-set(SSL_PATH /opt/intel/sgxssl)
+-
+ if(CMAKE_BUILD_TYPE MATCHES "Debug")
+ 	add_definitions(-DDEBUG_FILE_LINE)
+ endif()
+@@ -50,41 +48,27 @@ set(CMAKE_EXE_LINKER_FLAGS    "-Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack")
+ 
+ if(${ENCLAVE} STREQUAL "GP")
+ 	if (NOT DEFINED SDK_PATH)
+-		set(iTrusteeSDK ${GP_SDK_DEFAULT_PATH})
+-	else()
+-		set(iTrusteeSDK ${SDK_PATH})
++		set(SDK_PATH ${GP_SDK_DEFAULT_PATH})
+ 	endif()
+-	message("Current Platform: ARM Trustzone, iTrustee SDK PATH:${iTrusteeSDK}")
+-	if(NOT IS_DIRECTORY ${iTrusteeSDK})
+-		message(FATAL_ERROR "Please provide the correct iTrusteeSDK path")
++	message("Current Platform: ARM Trustzone, iTrustee SDK PATH:${SDK_PATH}")
++	if(NOT IS_DIRECTORY ${SDK_PATH})
++		message(FATAL_ERROR "Please provide the correct SDK_PATH path")
+ 	endif()
+ 	set(CC_GP ON)
+ endif()
+ 
+ if(${ENCLAVE} STREQUAL "SGX")
+ 	if (NOT DEFINED SDK_PATH)
+-		set(SGXSDK ${SGX_SDK_DEFAULT_PATH})
+-	else()
+-		set(SGXSDK ${SDK_PATH})
++		set(SDK_PATH ${SGX_SDK_DEFAULT_PATH})
+ 	endif()
+-	message("Current Platform: Intel SGX, SGX SDK PATH:${SGXSDK}")
+-	if(NOT IS_DIRECTORY ${SGXSDK})
+-		message(FATAL_ERROR "Please provide the correct SGXSDK path")
++	message("Current Platform: Intel SGX, SGX SDK PATH:${SDK_PATH}")
++	if(NOT IS_DIRECTORY ${SDK_PATH})
++		message(FATAL_ERROR "Please provide the correct SDK_PATH path")
+ 	endif()
+-	set(CC_SGX ON)
+-endif()
+-
+-if(${ENCLAVE} STREQUAL "PL")
+-	if (NOT DEFINED SDK_PATH)
+-		set(PLSDK ${PL_SDK_DEFAULT_PATH})
+-        else()
+-		set(PLSDK ${SDK_PATH})
+-	endif()
+-	message("Current Platform: RISC-V, Penglai SDK PATH:${PLSDK}")
+-	if(NOT IS_DIRECTORY ${PLSDK})
+-		message(FATAL_ERROR "Please provide the correct Penglai SDK path")
++	if (NOT DEFINED SSL_PATH)
++		set(SSL_PATH /opt/intel/sgxssl)
+ 	endif()
+-	set(CC_PL ON)
++	set(CC_SGX ON)
+ endif()
+ 
+ add_subdirectory(tools/codegener)
+@@ -96,7 +80,7 @@ if(NOT IS_DIRECTORY ${LOCAL_ROOT_PATH}/bin)
+ 	execute_process(COMMAND mkdir ${LOCAL_ROOT_PATH}/bin)
+ endif()
+ 
+-add_subdirectory(examples)
++#add_subdirectory(examples)
+ 
+ 
+ install(FILES ${LOCAL_ROOT_PATH}/conf/logrotate.d/secgear
+diff --git a/README.en.md b/README.en.md
+index ec7ada0..85258a9 100644
+--- a/README.en.md
++++ b/README.en.md
+@@ -144,7 +144,7 @@ Set some variables, which are described in comments.
+ 		set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
+ 		add_custom_command(OUTPUT ${AUTO_FILES}
+ 		DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
+-		COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx  --search-path ${SGXSDK}/include)
++		COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx  --search-path ${SDK_PATH}/include)
+ 	endif()
+ 
+ Use the code generation tool to generate auxiliary code based on the edl. Variables such as CODEGEN and CODETYPE are
+@@ -275,7 +275,7 @@ generate auxiliary code.
+ 	        set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
+ 	        add_custom_command(OUTPUT ${AUTO_FILES}
+ 	        DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
+-	        COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SGXSDK}/include)
++	        COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SDK_PATH}/include)
+ 	endif()
+ 
+ In the case of sgx, set the name of the security side image after the final signature, and generate auxiliary code.
+@@ -298,8 +298,8 @@ so -nostdinc -nodefaultlibs -nostdlib -nodefaultlibs compile link options was in
+ 		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s -fPIC")
+ 		set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-s")
+ 
+-		set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
+-		set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
++		set(ITRUSTEE_TEEDIR ${SDK_PATH}/)
++		set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/open_source/musl/libc)
+ 
+ 		if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
+ 			link_directories(${SECGEAR_INSTALL_PATH})
+@@ -353,7 +353,7 @@ whitelist macro. Next, you need to link to the secgear_tee library, in which the
+ random numbers, seal, unseal, etc. The last step is to sign and install.
+ 
+ 	if(CC_SGX)
+-		set(SGX_DIR ${SGXSDK})
++		set(SGX_DIR ${SDK_PATH})
+ 		set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fvisibility=hidden")
+ 		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
+ 		set(LINK_LIBRARY_PATH ${SGX_DIR}/lib64)
+@@ -426,7 +426,7 @@ and the other configuration items can refer to the itrustee development document
+ 
+ Enter the development directory .../secGear/examples/test/, then run mkdir debug && cd debug
+ && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK=sgx_sdk path .. &&  make && sudo make install OR
+-mkdir debug && cd debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_GP=ON -DiTrusteeSDK=gp_sdk path .. && make
++mkdir debug && cd debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_GP=ON -DSDK_PATH=gp_sdk path .. && make
+ && sudo make install
+ 
+ Log
+diff --git a/README.md b/README.md
+index 6fd6848..ca256ad 100644
+--- a/README.md
++++ b/README.md
+@@ -122,7 +122,7 @@ Helloworld样例的编译工程已经集成codegen的调用，如下。
+ 		set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
+ 		add_custom_command(OUTPUT ${AUTO_FILES}
+ 		DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
+-		COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx  --search-path ${SGXSDK}/include)
++		COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx  --search-path ${SDK_PATH}/include)
+ 	endif()
+ ```
+ 
+diff --git a/component/secure_channel/enclave/CMakeLists.txt b/component/secure_channel/enclave/CMakeLists.txt
+index 8963b5c..0305589 100644
+--- a/component/secure_channel/enclave/CMakeLists.txt
++++ b/component/secure_channel/enclave/CMakeLists.txt
+@@ -27,7 +27,7 @@ endif()
+ if(CC_SGX)
+     add_definitions(-DSGX_ENCLAVE)
+     #sgxsdk path
+-    set(SGX_SDK_PATH ${SGXSDK})
++    set(SGX_SDK_PATH ${SDK_PATH})
+     set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h)
+     add_custom_command(OUTPUT ${AUTO_FILES}
+     DEPENDS ${EDL_FILE}
+@@ -48,9 +48,9 @@ if(CC_GP)
+     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a -fPIC")
+     set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-s")
+ 
+-    set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
+-    # set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/musl/musl-1.2.0/)
+-    set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
++    set(ITRUSTEE_TEEDIR ${SDK_PATH}/)
++    # set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/musl/musl-1.2.0/)
++    set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/open_source/musl/libc)
+ 
+     if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
+         link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${CMAKE_BINARY_DIR}/lib/)
+diff --git a/component/secure_channel/host/CMakeLists.txt b/component/secure_channel/host/CMakeLists.txt
+index 8c4e21b..5c60b3f 100644
+--- a/component/secure_channel/host/CMakeLists.txt
++++ b/component/secure_channel/host/CMakeLists.txt
+@@ -23,7 +23,7 @@ endif()
+     
+ if(CC_SGX)
+     #sgxsdk path
+-    set(SGX_SDK_PATH ${SGXSDK})
++    set(SGX_SDK_PATH ${SDK_PATH})
+     set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h)
+     add_custom_command(OUTPUT ${AUTO_FILES}
+     DEPENDS ${EDL_FILE}
+@@ -46,7 +46,7 @@ if(CC_GP)
+         ${CMAKE_CURRENT_SOURCE_DIR}
+         ${CMAKE_BINARY_DIR}/inc
+         ${LOCAL_ROOT_PATH}/component/secure_channel
+-        ${iTrusteeSDK}/include/CA
++        ${SDK_PATH}/include/CA
+         ${LOCAL_ROOT_PATH}/inc/host_inc
+         ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
+     add_library(u${PREFIX} SHARED ${SOURCE_FILE} ${AUTO_FILES})
+diff --git a/docs/build_install.md b/docs/build_install.md
+index 760ceaa..87ff424 100644
+--- a/docs/build_install.md
++++ b/docs/build_install.md
+@@ -30,6 +30,6 @@ openEuler arm
+    Run ./opam-2.0.7-arm64-linux install dune
+ 
+ 3. source environment && mkdir debug && cd debug
+-   && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_GP=ON -DiTrusteeSDK="iTrustee sdk path" .. && make && sudo make install
++   && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_GP=ON -DSDK_PATH="iTrustee sdk path" .. && make && sudo make install
+ 
+ 
+diff --git a/src/enclave_src/gp/itrustee/CMakeLists.txt b/src/enclave_src/gp/itrustee/CMakeLists.txt
+index 3424907..14b3c64 100644
+--- a/src/enclave_src/gp/itrustee/CMakeLists.txt
++++ b/src/enclave_src/gp/itrustee/CMakeLists.txt
+@@ -16,8 +16,8 @@ set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdli
+ set(SOURCE_FILES ${SOURCE_FILES} ../gp.c ../gp_ocall.c itrustee_seal_data.c error_conversion.c bottom_memory_check.c 
+                                  itrustee_random.c itrustee_tswitchless.c itrustee_shared_memory.c)
+ 
+-set(ITRUSTEE_TEEDIR ${iTrusteeSDK}/)
+-set(ITRUSTEE_LIBC ${iTrusteeSDK}/thirdparty/open_source/musl/libc)
++set(ITRUSTEE_TEEDIR ${SDK_PATH}/)
++set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/open_source/musl/libc)
+ 
+ if (CMAKE_COMPILER_IS_GNUCC)
+     execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpfullversion -dumpversion
+diff --git a/src/enclave_src/sgx/CMakeLists.txt b/src/enclave_src/sgx/CMakeLists.txt
+index 5d5a0c1..dbc6a59 100644
+--- a/src/enclave_src/sgx/CMakeLists.txt
++++ b/src/enclave_src/sgx/CMakeLists.txt
+@@ -10,7 +10,7 @@
+ 
+ set(SOURCE_FILES ${SOURCE_FILES} sgx_seal_data.c  bottom_memory_check.c error_conversion.c sgx_random.c)
+ 
+-set(SGX_DIR ${SGXSDK})
++set(SGX_DIR ${SDK_PATH})
+ 
+ set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fPIC")
+ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
+diff --git a/src/host_src/CMakeLists.txt b/src/host_src/CMakeLists.txt
+index bfc49b0..fa08b25 100644
+--- a/src/host_src/CMakeLists.txt
++++ b/src/host_src/CMakeLists.txt
+@@ -17,7 +17,7 @@ include_directories(${LOCAL_ROOT_PATH}/inc/host_inc
+                     ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+                     ${LOCAL_ROOT_PATH}/inc/common_inc
+                     ${LOCAL_ROOT_PATH}/inc/common_inc/gp
+-                    ${iTrusteeSDK}/include/CA)
++                    ${SDK_PATH}/include/CA)
+ 
+ if(CC_GP)
+     add_subdirectory(gp)
+diff --git a/src/host_src/gp/CMakeLists.txt b/src/host_src/gp/CMakeLists.txt
+index 510e46e..15da5d4 100644
+--- a/src/host_src/gp/CMakeLists.txt
++++ b/src/host_src/gp/CMakeLists.txt
+@@ -23,7 +23,7 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
+ add_library(${gp_engine} SHARED gp_enclave.h gp_enclave.c gp_uswitchless.c gp_shared_memory.c)
+ 
+ target_include_directories(${gp_engine} PRIVATE
+-    ${iTrusteeSDK}/include/CA
++    ${SDK_PATH}/include/CA
+     ${LOCAL_ROOT_PATH}/inc/common_inc
+     ${LOCAL_ROOT_PATH}/inc/common_inc/gp
+     ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
+diff --git a/src/host_src/sgx/CMakeLists.txt b/src/host_src/sgx/CMakeLists.txt
+index 301b07c..0480a4c 100644
+--- a/src/host_src/sgx/CMakeLists.txt
++++ b/src/host_src/sgx/CMakeLists.txt
+@@ -13,7 +13,7 @@ set(sgxsim_engine sgxsim_0)
+ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/sgx)
+ 
+ if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
+-    link_directories(${SGXSDK}/lib64
++    link_directories(${SDK_PATH}/lib64
+ 	    ${CMAKE_BINARY_DIR}/lib)
+ endif()
+ 
+@@ -21,20 +21,20 @@ add_library(${sgx_engine}  SHARED sgx_enclave.c sgx_enclave.h sgx_shared_memory.
+ add_library(${sgxsim_engine}  SHARED sgx_enclave.c sgx_enclave.h sgx_shared_memory.c)
+ 
+ target_include_directories(${sgx_engine} PRIVATE
+-	${SGXSDK}/include)
++	${SDK_PATH}/include)
+ 
+ target_include_directories(${sgxsim_engine} PRIVATE
+-	${SGXSDK}/include)
++	${SDK_PATH}/include)
+ 
+ if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0") 
+     target_link_directories(${sgx_engine} PRIVATE
+-	    ${SGXSDK}/lib64
++	    ${SDK_PATH}/lib64
+ 	    ${CMAKE_BINARY_DIR}/lib)
+ endif()
+ 
+ if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0") 
+     target_link_directories(${sgxsim_engine} PRIVATE
+-	    ${SGXSDK}/lib64
++	    ${SDK_PATH}/lib64
+ 	    ${CMAKE_BINARY_DIR}/lib)
+ endif()
+ 
+-- 
+2.33.0
+
