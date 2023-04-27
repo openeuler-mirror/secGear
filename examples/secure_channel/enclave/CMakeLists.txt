@@ -64,7 +64,7 @@ if(CC_GP)
         ${SECGEAR_INSTALL_DIR}
         ${ITRUSTEE_TEEDIR}/include/TA
         ${ITRUSTEE_TEEDIR}/include/TA/huawei_ext
-        ${ITRUSTEE_TEEDIR}/include/TA/openssl
+	${SDK_PATH}/thirdparty/open_source/openssl
         ${ITRUSTEE_LIBC}/arch/aarch64
         ${ITRUSTEE_LIBC}/
         ${ITRUSTEE_LIBC}/arch/arm/bits
