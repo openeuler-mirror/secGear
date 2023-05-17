@@ -1,6 +1,6 @@
 Name:		secGear
 Version:	0.1.0
-Release:	34
+Release:	35
 Summary:	secGear is an SDK to develop confidential computing apps based on hardware enclave features
 
 
@@ -68,6 +68,7 @@ Patch55:        0056-destroy-enclave-release-remain-shared-memory.patch
 Patch56:        0057-new-feature-secure-channel-support.patch
 Patch57:        0058-refactor-cmake-SDK_PATH.patch
 Patch58:        0059-adapt-itrustee_sdk-openssl-path-modification.patch
+Patch59:        0060-supprot-kunpeng-remote-attestation.patch
 
 BuildRequires:	gcc python automake autoconf libtool
 BUildRequires:	glibc glibc-devel cmake ocaml-dune rpm gcc-c++ openssl-libs openssl-devel
@@ -129,8 +130,6 @@ install -d %{buildroot}/%{_includedir}/secGear
 install -d %{buildroot}/%{_bindir}
 install -pm 751 bin/codegen %{buildroot}/%{_bindir}
 install -pm 751 tools/sign_tool/sign_tool.sh %{buildroot}/%{_bindir}
-install -d %{buildroot}/lib/secGear/
-install -pm 751 tools/sign_tool/*.py %{buildroot}/lib/secGear
 install -pm 644 component/secure_channel/*.h %{buildroot}/%{_includedir}/secGear
 install -pm 644 component/secure_channel/*.edl %{buildroot}/%{_includedir}/secGear
 install -pm 644 component/secure_channel/client/*.h %{buildroot}/%{_includedir}/secGear
@@ -150,7 +149,12 @@ install -pm 644 inc/host_inc/gp/*.edl %{buildroot}/%{_includedir}/secGear
 install -pm 644 inc/enclave_inc/*.h %{buildroot}/%{_includedir}/secGear
 install -pm 644 inc/enclave_inc/gp/*.h %{buildroot}/%{_includedir}/secGear
 install -pm 644 inc/enclave_inc/gp/itrustee/*.h %{buildroot}/%{_includedir}/secGear
+install -pm 644 component/remote_attest/ra_report/sg_ra_report.h %{buildroot}/%{_includedir}/secGear
+install -pm 644 component/remote_attest/ra_report/gp_ra_helper.h %{buildroot}/%{_includedir}/secGear
+install -pm 644 component/remote_attest/ra_verify/sg_ra_report_verify.h %{buildroot}/%{_includedir}/secGear
+install -pm 644 component/remote_attest/sg_report_st.h %{buildroot}/%{_includedir}/secGear
 %endif
+
 pushd %{buildroot}
 rm `find . -name secgear_helloworld` -rf
 rm `find . -name secgear_seal_data` -rf
@@ -173,6 +177,8 @@ popd
 %{_libdir}/libsgx_0.so
 %else
 %{_libdir}/libgp_0.so
+%{_libdir}/libsecgear_verify.so
+%{_libdir}/libsecgear_ra.so
 %endif
 %config(noreplace) %attr(0600,root,root) %{_sysconfdir}/rsyslog.d/secgear.conf
 %config(noreplace) %attr(0600,root,root) %{_sysconfdir}/logrotate.d/secgear
@@ -180,7 +186,6 @@ popd
 %files devel
 %{_bindir}/*
 %{_includedir}/secGear/*
-/lib/secGear/*
 
 %ifarch x86_64
 %files sim
@@ -194,6 +199,9 @@ popd
 systemctl restart rsyslog
 
 %changelog
+* Wed May 17 2023 houmingyong<houmingyong@huawei.com> - 0.1.0-35
+- DESC: backport remote attestation feature
+
 * Thu Apr 27 2023 houmingyong<houmingyong@huawei.com> - 0.1.0-34
 - DESC:backport some patchs
 
