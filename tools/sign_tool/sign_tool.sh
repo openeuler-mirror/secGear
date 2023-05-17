@@ -2,16 +2,7 @@
 API_LEVEL=2
 ONE_STEP_MODE=1
 
-localpath="$(
-    cd "$(dirname "$0")" || exit 1
-    pwd
-)"
-pypath="/lib/secGear"
-if [ -f "${localpath}/signtool_v3.py" ]; then
-    signtoolpath=${localpath}
-else
-    signtoolpath=${pypath}
-fi
+signtoolpath="/opt/itrustee_sdk/build/signtools/"
 
 print_help() {
     echo "sign tool usage: ./sign_tool.sh [options] ..."
@@ -127,32 +118,12 @@ itrustee_start_sign() {
     fi
 
     if [ "${CMD}"x == "sign"x ]; then
-        if [ -z "$SIGNATURE" ]; then
-            ONE_STEP_MODE=1
-            if [ -z "$CONFIG_FILE" ]; then
-                echo "Error: missing basic config file for signing iTrustee enclave"
-                exit 1
-            fi
-            if [ -z "$IN_ENCLAVE" ]; then
-                echo "Error: missing enclave file"
-                exit 1
-            fi
-            python ${signtoolpath}/signtool_v3.py "sign" "${ONE_STEP_MODE}" "${IN_ENCLAVE}" "${OUT_FILE}" "${CONFIG_FILE}" "${A_CONFIG_FILE}" "${API_LEVEL}"
-        else
-            ONE_STEP_MODE=0
-            python ${signtoolpath}/signtool_v3.py "sign" "${ONE_STEP_MODE}" "NULL" "${OUT_FILE}" "NULL" "${A_CONFIG_FILE}" "${API_LEVEL}" "${SIGNATURE}"
-        fi
-    elif [ "${CMD}"x == "digest"x ]; then
-        ONE_STEP_MODE=0
-        if [ -z "$CONFIG_FILE" ]; then
-            echo "Error: missing config file for signing iTrustee enclave"
-            exit 1
-        fi
-        if [ -z "$IN_ENCLAVE" ]; then
-            echo "Error: missing enclave file"
-            exit 1
-        fi
-        python ${signtoolpath}/signtool_v3.py "digest" "${ONE_STEP_MODE}" "${IN_ENCLAVE}" "${OUT_FILE}" "${CONFIG_FILE}" "${A_CONFIG_FILE}" "${API_LEVEL}"
+        IN_PATH=$(dirname ${CONFIG_FILE})
+        cp ${IN_ENCLAVE} ${IN_PATH}/libcombine.so
+        OUT_PATH=$(dirname ${OUT_FILE})
+        echo ${IN_PATH} ${OUT_PATH}
+        python -B ${signtoolpath}/signtool_v3.py ${IN_PATH} ${OUT_PATH} --privateCfg ${A_CONFIG_FILE}
+        #rm -rf ${IN_PATH}/libcombine.so
     else
         echo "Error: illegal command"
     fi

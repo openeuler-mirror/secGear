@@ -78,6 +78,15 @@ typedef enum _enclave_result_t
     CC_ERROR_ATT_KEY_UNINITIALIZED,             /* attestation key is not initialized*/
     CC_ERROR_INVALID_ATT_KEY_CERT_DATA,         /* attestation data is not valid*/
     CC_ERROR_PLATFORM_CERT_UNAVAILABLE,         /* cert is not available*/
+    CC_ERROR_RA_PRE_ENV_INVALID_SCENARIO,
+    CC_ERROR_RA_MEMORY,
+    CC_ERROR_RA_PROVISION_NO_AS,
+    CC_ERROR_RA_GET_REPORT,
+    CC_ERROR_RA_REPORT_VERIFY_NONCE,
+    CC_ERROR_RA_REPORT_VERIFY_SIGNATURE,
+    CC_ERROR_RA_REPORT_VERIFY_HASH,
+    CC_ERROR_RA_REPORT_VERIFY_INVALID_TYPE,
+
 /* secure channel */
     CC_ERROR_SEC_CHL_INVALID_CONN,          /* invalid connection */
     CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH,       /* the buf length to store secure channle encrypt/decrypt is not enough */

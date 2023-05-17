@@ -103,7 +103,7 @@ if(NOT IS_DIRECTORY ${LOCAL_ROOT_PATH}/bin)
 	execute_process(COMMAND mkdir ${LOCAL_ROOT_PATH}/bin)
 endif()
 
-add_subdirectory(examples)
+#add_subdirectory(examples)
 add_subdirectory(test)
 
 install(FILES ${LOCAL_ROOT_PATH}/conf/logrotate.d/secgear
@@ -115,10 +115,4 @@ install(FILES ${LOCAL_ROOT_PATH}/conf/rsyslog.d/secgear.conf
 install(FILES ${LOCAL_ROOT_PATH}/tools/sign_tool/sign_tool.sh
         DESTINATION ${LOCAL_ROOT_PATH_INSTALL}/usr/bin/
         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
-set(SIGN_FILE 
-    ${LOCAL_ROOT_PATH}/tools/sign_tool/generate_signature.py
-    ${LOCAL_ROOT_PATH}/tools/sign_tool/manifest.py
-    ${LOCAL_ROOT_PATH}/tools/sign_tool/signtool_v3.py
-)
-install(FILES ${SIGN_FILE}
-        DESTINATION ${LOCAL_ROOT_PATH_INSTALL}/lib/secGear/)
+
