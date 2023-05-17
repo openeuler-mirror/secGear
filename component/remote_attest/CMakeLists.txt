@@ -8,10 +8,15 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-ADD_SUBDIRECTORY(secure_channel)
-if(CC_GP)
-    ADD_SUBDIRECTORY(remote_attest)
-endif()
+ADD_SUBDIRECTORY(ra_report)
+ADD_SUBDIRECTORY(ra_verify)
 
- 
 
+file(GLOB RA_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/sg_report_st.h
+                    ${CMAKE_CURRENT_SOURCE_DIR}/ra_report/sg_ra_report.h
+                    ${CMAKE_CURRENT_SOURCE_DIR}/ra_report/gp_ra_helper.h
+                    ${CMAKE_CURRENT_SOURCE_DIR}/ra_verify/sg_ra_report_verify.h)
+
+install(FILES ${RA_HEADERS}
+        DESTINATION /usr/include/secGear
+        PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
