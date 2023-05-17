@@ -12,9 +12,10 @@
 
 #include "gp_ra_helper.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include "cJSON.h"
-#include "custom_base64url.h"
+#include "base64url.h"
 #include "enclave_log.h"
 
 void free_gp_ra_buf(cc_ra_buf_t *ra_buf)
@@ -75,14 +76,14 @@ cc_enclave_result_t gen_ra_report_in_buff(gp_get_ra_report_input_t *param, cc_ra
     cJSON *in_json = cJSON_CreateObject();
     cJSON_AddStringToObject(in_json, "handler", "report-input");
 
-    char b64_nonce[MAX_NONCE_BUF_LEN] = {0};
-    int b64_nonce_len = MAX_NONCE_BUF_LEN;
-    base64urlencode(param->nonce, param->nonce_len, (uint8_t *)b64_nonce, &b64_nonce_len);
+    size_t b64_nonce_len = 0;
+    char *b64_nonce = kpsecl_base64urlencode(param->nonce, param->nonce_len, &b64_nonce_len);
     print_debug("nonce_buf_len:%d, nonce_buf:%s\n", b64_nonce_len, b64_nonce);
 
     cJSON *in_payload = cJSON_CreateObject();
     cJSON_AddStringToObject(in_payload, "version", "TEE.RA.1.0");
     cJSON_AddStringToObject(in_payload, "nonce", b64_nonce);
+    free(b64_nonce);
     cJSON_AddStringToObject(in_payload, "uuid", (char *)param->uuid);
     cJSON_AddStringToObject(in_payload, "hash_alg", "HS256");
     cJSON_AddBoolToObject(in_payload, "with_tcb", param->with_tcb);
