@@ -34,8 +34,6 @@ endif()
 
 target_link_libraries(${TARGET})
 
-set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
-
 install(TARGETS ${TARGET} 
         LIBRARY
         DESTINATION ${LIBRARY_INSTALL}

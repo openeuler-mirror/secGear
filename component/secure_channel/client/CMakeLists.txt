@@ -33,8 +33,6 @@ endif()
 
 target_link_libraries(c${PREFIX} ssl crypto)
 
-set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
-
 install(TARGETS c${PREFIX} 
         LIBRARY
         DESTINATION ${LIBRARY_INSTALL}
