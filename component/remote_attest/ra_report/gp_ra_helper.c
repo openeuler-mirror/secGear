@@ -16,9 +16,8 @@
 #include <string.h>
 #include "cJSON.h"
 #include "base64url.h"
-#include "enclave_log.h"
 
-void free_gp_ra_buf(cc_ra_buf_t *ra_buf)
+void free_cc_ra_buf(cc_ra_buf_t *ra_buf)
 {
     if (ra_buf->buf != NULL) {
         free(ra_buf->buf);
@@ -46,7 +45,7 @@ cc_enclave_result_t gen_provision_no_as_in_buff(cc_ra_buf_t **in)
     char *in_buf = cJSON_Print(in_json);
     uint32_t in_buf_len = strlen(in_buf) + 1;
 
-    print_debug("provision input json buf:%s\n", in_buf);
+    // print_debug("provision input json buf:%s\n", in_buf);
 
     cc_ra_buf_t *tmp_ra_buf = calloc(1, sizeof(cc_ra_buf_t));
     if (tmp_ra_buf == NULL) {
@@ -78,7 +77,7 @@ cc_enclave_result_t gen_ra_report_in_buff(gp_get_ra_report_input_t *param, cc_ra
 
     size_t b64_nonce_len = 0;
     char *b64_nonce = kpsecl_base64urlencode(param->nonce, param->nonce_len, &b64_nonce_len);
-    print_debug("nonce_buf_len:%d, nonce_buf:%s\n", b64_nonce_len, b64_nonce);
+    // print_debug("nonce_buf_len:%d, nonce_buf:%s\n", b64_nonce_len, b64_nonce);
 
     cJSON *in_payload = cJSON_CreateObject();
     cJSON_AddStringToObject(in_payload, "version", "TEE.RA.1.0");
@@ -94,7 +93,7 @@ cc_enclave_result_t gen_ra_report_in_buff(gp_get_ra_report_input_t *param, cc_ra
     char *in_buf = cJSON_Print(in_json);
     uint32_t in_buf_len = strlen(in_buf) + 1;
 
-    print_debug("get ra report input json buf:%s\n", in_buf);
+    // print_debug("get ra report input json buf:%s\n", in_buf);
 
     cc_ra_buf_t *tmp_ra_buf = calloc(1, sizeof(cc_ra_buf_t));
     if (tmp_ra_buf == NULL) {
@@ -121,12 +120,12 @@ void print_ra_report(cc_ra_buf_t *report)
 {
     cJSON *cj_report = cJSON_ParseWithLength((char *)report->buf, report->len);
     if (cj_report == NULL) {
-        print_debug("cjson parse report error!\n");
+        // print_debug("cjson parse report error!\n");
         return;
     }
     char *str_report = cJSON_Print(cj_report);
 
-    print_debug("report:%s\n", str_report);
+    // print_debug("report:%s\n", str_report);
 
     cJSON_free(str_report);
     cJSON_Delete(cj_report);

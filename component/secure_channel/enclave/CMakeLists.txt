@@ -125,8 +125,6 @@ else()
     endif()
 endif()
 
-set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
-
 install(TARGETS t${PREFIX} 
         ARCHIVE
         DESTINATION ${LIBRARY_INSTALL}

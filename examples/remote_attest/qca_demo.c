@@ -53,7 +53,7 @@ int main(void)
     cc_ra_buf_t report = {TEST_REPORT_OUT_LEN, data};
 
     ret = cc_get_ra_report(in, &report);
-    free_gp_ra_buf(in);
+    free_cc_ra_buf(in);
     if (ret != CC_SUCCESS) {
         print_debug("get ra report error, ret:%x!\n", ret);
         return -1;

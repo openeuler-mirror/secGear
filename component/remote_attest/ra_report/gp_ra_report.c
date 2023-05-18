@@ -17,7 +17,7 @@
 #include "ra_client_api.h"
 #include "enclave_log.h"
 
-#define TEST_REPORT_OUT_LEN 0x3000
+#define PROVISION_OUT_LEN 0x3000
 cc_enclave_result_t gp_ra_provision_no_as()
 {
     cc_ra_buf_t *in = NULL;
@@ -27,11 +27,11 @@ cc_enclave_result_t gp_ra_provision_no_as()
     if (ret != CC_SUCCESS) {
         return ret;
     }
-    uint8_t data[TEST_REPORT_OUT_LEN] = {0};
-    cc_ra_buf_t report = {TEST_REPORT_OUT_LEN, data};
+    uint8_t data[PROVISION_OUT_LEN] = {0};
+    cc_ra_buf_t out = {PROVISION_OUT_LEN, data};
 
-    TEEC_Result gp_ret = RemoteAttest((struct ra_buffer_data *)in, (struct ra_buffer_data *)&report);
-    free_gp_ra_buf(in);
+    TEEC_Result gp_ret = RemoteAttest((struct ra_buffer_data *)in, (struct ra_buffer_data *)&out);
+    free_cc_ra_buf(in);
 
     if (gp_ret != TEEC_SUCCESS) {
         print_error_term("gp ra provision no as failed ret:%x\n", gp_ret);

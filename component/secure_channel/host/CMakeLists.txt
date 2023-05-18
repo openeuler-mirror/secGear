@@ -90,8 +90,6 @@ if(CC_SGX)
     endif()
 endif()
 
-set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
-
 install(TARGETS u${PREFIX} 
         LIBRARY
         DESTINATION ${LIBRARY_INSTALL}

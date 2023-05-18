@@ -29,6 +29,6 @@ typedef struct {
 cc_enclave_result_t gen_provision_no_as_in_buff(cc_ra_buf_t **in);
 cc_enclave_result_t gen_ra_report_in_buff(gp_get_ra_report_input_t *param, cc_ra_buf_t **json_buf);
 void print_ra_report(cc_ra_buf_t *report);
-void free_gp_ra_buf(cc_ra_buf_t *ra_buf);
+void free_cc_ra_buf(cc_ra_buf_t *ra_buf);
 #endif
 
