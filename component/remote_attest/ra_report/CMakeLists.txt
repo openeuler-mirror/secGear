@@ -13,6 +13,7 @@ project(sg_ra_report C)
 set(TARGET secgear_ra)
 aux_source_directory(. SRC_FILES)
 aux_source_directory(${LOCAL_ROOT_PATH}/thirdparty/cjson/ CJSON_SRC)
+FILE (GLOB_RECURSE BASE64_SRC "${LOCAL_ROOT_PATH}/thirdparty/base64url/*.c")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 
@@ -28,9 +29,10 @@ include_directories(
     ${SDK_PATH}/include/CA
     ${LOCAL_ROOT_PATH}/thirdparty/cjson
     ${LOCAL_ROOT_PATH}/thirdparty/libqca
+    ${LOCAL_ROOT_PATH}/thirdparty/base64url
     ${LOCAL_ROOT_PATH}/thirdparty/kunpengsecl/verifier
 )
-add_library(${TARGET} SHARED ${SRC_FILES} ${CJSON_SRC})
+add_library(${TARGET} SHARED ${SRC_FILES} ${CJSON_SRC} ${BASE64_SRC})
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
     target_link_directories(${TARGET} PRIVATE /usr/lib64)

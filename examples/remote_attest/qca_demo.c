@@ -9,9 +9,6 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-
-#include "qca_demo.h"
-
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
@@ -21,7 +18,6 @@
 #include "sg_ra_report_verify.h"
 #include "gp_ra_helper.h"
 #include "enclave_log.h"
-
 
 #define TEST_NONCE_LEN 32
 #define TEST_REPORT_OUT_LEN 0x3000
