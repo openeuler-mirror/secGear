@@ -11,7 +11,7 @@
 |------------|--------------------------|-----------------------|---------|
 | 客户端        | secure_channel_client.h  | libcsecure_channel.so | openssl |
 | 服务端host    | secure_channel_host.h    | libusecure_channel.so | openssl |
-| 服务端enclave | secure_channel_enclave.h | libtsecure_channel.so | TEE及TEE软件栈     |
+| 服务端enclave | secure_channel_enclave.h | libtsecure_channel.a| TEE及TEE软件栈     |
 
 ### 接口
 | 接口名                                                                                                                                          | 所属头文件、库                   | 功能           | 备注 |
@@ -25,8 +25,8 @@
 |  cc_sec_chl_svr_init                                                                                                                                            |  secure_channel_host.h  libusecure_channel.so                    |  安全通道服务端初始化            | 调用前需初始化ctx中enclave_ctx   |
 |  cc_sec_chl_svr_fini                                                                                                                                            |   secure_channel_host.h  libusecure_channel.so                    |  安全通道服务端销毁            |  销毁安全通道服务端以及所有客户端信息  |
 |  cc_sec_chl_svr_callback                                                                                                                                            |  secure_channel_host.h  libusecure_channel.so                     |  安全通道协商消息处理函数            | 处理安全通道协商过程中，客户端发送给服务端的消息。在服务端消息接收处调用，调用前需初始化与客户端的网络连接和发送消息函数，详见[样例](https://gitee.com/openeuler/secGear/blob/master/examples/secure_channel/host/server.c#:~:text=conn_ctx.conn_kit.send)。   |
-| cc_sec_chl_enclave_encrypt                                                                                                                                             |    secure_channel_enclave.h libtsecure_channel.so                   | 安全通道enclave中的加密接口             |  无  |
-|   cc_sec_chl_enclave_decrypt                                                                                                                                           |   secure_channel_enclave.h libtsecure_channel.so                    | 安全通道enclave中的解密接口             |  无  |
+| cc_sec_chl_enclave_encrypt                                                                                                                                             |    secure_channel_enclave.h libtsecure_channel.a                   | 安全通道enclave中的加密接口             |  无  |
+|   cc_sec_chl_enclave_decrypt                                                                                                                                           |   secure_channel_enclave.h libtsecure_channel.a                    | 安全通道enclave中的解密接口             |  无  |
 
 ### 注意事项
 安全通道仅封装密钥协商过程、加解密接口，不建立网络连接，协商过程复用业务的网络连接。其中客户端和服务端的网络连接由业务建立和维护，在安全通道客户端和服务端初始化时传入消息发送钩子函数和网络连接指针，详见[安全通道样例](https://gitee.com/openeuler/secGear/tree/master/examples/secure_channel)。
