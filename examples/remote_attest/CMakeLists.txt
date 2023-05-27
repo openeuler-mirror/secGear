@@ -20,7 +20,7 @@ aux_source_directory(. SRC_FILES)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -g")
 
 if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
-    link_directories(/usr/lib64)
+    link_directories(/usr/lib64 /usr/local/lib)
 endif()
 
 include_directories( 
@@ -31,7 +31,7 @@ include_directories(
 add_executable(${TARGET} ${SRC_FILES})
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-    target_link_directories(${TARGET} PRIVATE /usr/lib64)
+    target_link_directories(${TARGET} PRIVATE /usr/lib64 /usr/local/lib)
 endif()
 
 target_link_libraries(${TARGET} secgear secgear_ra secgear_verify crypto qca teeverifier)

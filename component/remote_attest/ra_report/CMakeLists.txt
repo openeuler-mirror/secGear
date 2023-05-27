@@ -8,37 +8,38 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-project(sg_ra_report C)
+project(secgear_ra C)
 
 set(TARGET secgear_ra)
-aux_source_directory(. SRC_FILES)
-aux_source_directory(${LOCAL_ROOT_PATH}/thirdparty/cjson/ CJSON_SRC)
-FILE (GLOB_RECURSE BASE64_SRC "${LOCAL_ROOT_PATH}/thirdparty/base64url/*.c")
+
+set(SRC_FILES sg_ra_report.c)
+if(CC_SGX)
+    set(SRC_FILES ${SRC_FILES} sgx_ra_report.c)
+endif()
+
+if(CC_GP)
+    aux_source_directory(${LOCAL_ROOT_PATH}/thirdparty/cjson/ CJSON_SRC)
+    FILE (GLOB_RECURSE BASE64_SRC "${LOCAL_ROOT_PATH}/thirdparty/base64url/*.c")
+    set(SRC_FILES ${SRC_FILES} ${CJSON_SRC} ${BASE64_SRC} gp_ra_report.c)
+    set(INCLUDE_DIR ${SDK_PATH}/include/CA
+                    ${LOCAL_ROOT_PATH}/thirdparty/cjson
+                    ${LOCAL_ROOT_PATH}/thirdparty/libqca
+                    ${LOCAL_ROOT_PATH}/thirdparty/base64url)
+    set(LINK_LIB teec_adaptor)
+endif()
+
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 
-if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
-    link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
-endif()
-
 include_directories( 
-    ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${LOCAL_ROOT_PATH}/inc/host_inc
-    ${SDK_PATH}/include/CA
-    ${LOCAL_ROOT_PATH}/thirdparty/cjson
-    ${LOCAL_ROOT_PATH}/thirdparty/libqca
-    ${LOCAL_ROOT_PATH}/thirdparty/base64url
-    ${LOCAL_ROOT_PATH}/thirdparty/kunpengsecl/verifier
-)
-add_library(${TARGET} SHARED ${SRC_FILES} ${CJSON_SRC} ${BASE64_SRC})
+    ${INCLUDE_DIR})
+add_library(${TARGET} SHARED ${SRC_FILES})
 
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-    target_link_directories(${TARGET} PRIVATE /usr/lib64)
-endif()
 
-target_link_libraries(${TARGET} teec_adaptor)
+target_link_libraries(${TARGET} ${LINK_LIB})
 
 install(TARGETS ${TARGET} 
         LIBRARY

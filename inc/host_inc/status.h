@@ -87,6 +87,8 @@ typedef enum _enclave_result_t
     CC_ERROR_RA_REPORT_VERIFY_HASH,
     CC_ERROR_RA_REPORT_VERIFY_INVALID_TYPE,
 
+    CC_ERROR_REE_AGENT_NOT_INIT,
+    CC_ERROR_RA_VERIFY_AGENT_NOT_INIT,
 /* secure channel */
     CC_ERROR_SEC_CHL_INVALID_CONN,          /* invalid connection */
     CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH,       /* the buf length to store secure channle encrypt/decrypt is not enough */
@@ -97,6 +99,7 @@ typedef enum _enclave_result_t
     CC_ERROR_SEC_CHL_WAITING_RECV_MSG,
     CC_ERROR_SEC_CHL_RECV_MSG_LEN_INVALID,
     CC_ERROR_SEC_CHL_GET_SVR_PUBKEY,
+    CC_ERROR_SEC_CHL_PARSE_SVR_PUBKEY,
     CC_ERROR_SEC_CHL_GET_PEER_EXCH_PARAM,
     CC_ERROR_SEC_CHL_VERIFY_PEER_EXCH_BUF_SIGNATURE,
     CC_ERROR_SEC_CHL_INVALID_EXCH_BUF,
@@ -111,6 +114,13 @@ typedef enum _enclave_result_t
     CC_ERROR_SEC_CHL_SVR_INIT,
     CC_ERROR_SEC_CHL_NOTREADY,
     CC_ERROR_SEC_CHL_CLI_NUM_EXCEED_MAX_LIMIT, // client num exceed max limit
+    CC_ERROR_SEC_CHL_INIT_GET_TAID,
+    CC_ERROR_SEC_CHL_GET_RA_REPORT,
+    CC_ERROR_SEC_CHL_INIT_VERIFY_REPORT,
+    CC_ERROR_SEC_CHL_INVALID_REPORT,
+    CC_ERROR_SEC_CHL_ENCLAVE_UNSEAL_ENC_KEY,
+    CC_ERROR_SEC_CHL_INVALID_SESSION,
+    CC_ERROR_SEC_CHL_INIT_SESSEION,
 
     CC_ERROR_OTRP_BASE = 0x80000100,  /* sec file config source is not inconsistent with the loading mode. */
     CC_ERROR_STORAGE_EIO        = 0x80001001, /* *<安全存储I/O错误 */

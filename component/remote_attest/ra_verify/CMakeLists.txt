@@ -13,10 +13,21 @@ project(sg_ra_verify C)
 set(TARGET secgear_verify)
 aux_source_directory(. SRC_FILES)
 
+set(SRC_FILES sg_ra_report_verify.c)
+if(CC_SGX)
+set(SRC_FILES ${SRC_FILES} sgx_ra_report_verify.c)
+endif()
+
+if(CC_GP)
+    set(SRC_FILES ${SRC_FILES} gp_ra_report_verify.c)
+    set(INCLUDE_DIR ${LOCAL_ROOT_PATH}/thirdparty/kunpengsecl/verifier)
+    #set(LINK_LIB teeverifier)
+endif()
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 
 if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
-    link_directories(/usr/lib64)
+    link_directories(/usr/local/lib)
 endif()
 
 include_directories( 
@@ -24,15 +35,15 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${LOCAL_ROOT_PATH}/inc/host_inc
-    ${LOCAL_ROOT_PATH}/thirdparty/kunpengsecl/verifier
+    ${INCLUDE_DIR}
 )
 add_library(${TARGET} SHARED ${SRC_FILES})
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-    target_link_directories(${TARGET} PRIVATE /usr/lib64)
+    target_link_directories(${TARGET} PRIVATE /usr/local/lib)
 endif()
 
-target_link_libraries(${TARGET})
+target_link_libraries(${TARGET} ${LINK_LIB})
 
 install(TARGETS ${TARGET} 
         LIBRARY

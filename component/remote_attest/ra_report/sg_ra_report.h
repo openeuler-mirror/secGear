@@ -34,8 +34,7 @@ CC_API_SPEC cc_enclave_result_t cc_prepare_ra_env(cc_ra_scenario_t scenario);
 * @retval, On success, return 0. 
 *          On error, cc_enclave_result_t errorno is returned.
 */
-CC_API_SPEC cc_enclave_result_t cc_get_ra_report(cc_ra_buf_t *in, cc_ra_buf_t *report);
-
+CC_API_SPEC cc_enclave_result_t cc_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *report);
 
 #ifdef __cplusplus
 }

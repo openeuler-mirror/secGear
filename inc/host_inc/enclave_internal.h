@@ -141,6 +141,7 @@ uint32_t check_node_exists_add(const struct list_ops_desc *node);
 
 cc_enclave_result_t conversion_res_status(uint32_t enclave_res, enclave_type_version_t type_version);
 
+CC_API_SPEC bool is_support_remote_attest(cc_enclave_t *context);
 # ifdef  __cplusplus
 }
 # endif

@@ -11,9 +11,9 @@
 set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
 
 ADD_SUBDIRECTORY(secure_channel)
-if(CC_GP)
-    ADD_SUBDIRECTORY(remote_attest)
-endif()
+
+ADD_SUBDIRECTORY(remote_attest)
+
 
  
 
