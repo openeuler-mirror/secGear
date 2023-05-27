@@ -9,17 +9,15 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-
-#include "sgx_ra_report.h"
 #include "uni_ree_agent.h"
 
-cc_enclave_result_t sgx_prepare_ra_env(cc_ra_scenario_t scenario)
+static cc_enclave_result_t sgx_prepare_ra_env(cc_ra_scenario_t scenario)
 {
     (void)scenario;
     return CC_SUCCESS;
 }
 
-cc_enclave_result_t sgx_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *report)
+static cc_enclave_result_t sgx_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *report)
 {
     (void)in;
     (void)report;
@@ -27,12 +25,12 @@ cc_enclave_result_t sgx_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t 
     return CC_SUCCESS;
 }
 
-uni_ree_agent_t g_sgx_agent = {
+static uni_ree_agent_t g_sgx_agent = {
     .tee_type = CC_TEE_TYPE_SGX,
     .prepare_ra_env = sgx_prepare_ra_env,
     .get_ra_report = sgx_get_ra_report,
 };
-static __attribute__((constructor)) void sgx_register_ree_agent()
+static __attribute__((constructor)) void sgx_register_ree_agent(void)
 {
     cc_register_ree_agent(&g_sgx_agent);
 }

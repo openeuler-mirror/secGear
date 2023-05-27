@@ -10,7 +10,7 @@
 #include "secure_channel_client.h"
 
 
-#define MAXBUF 1024
+#define MAXBUF 12800
 cc_sec_chl_ctx_t g_ctx = {0};
 
 void *recv_msg_thread(void *arg)
@@ -87,6 +87,7 @@ int main(int argc, char **argv)
     // step1: 初始化安全通道客户端，注册消息发送函数
     g_ctx.conn_kit.send = (void *)socket_write_adpt;
     g_ctx.conn_kit.conn = &sockfd;
+    g_ctx.basevalue = "/vendor/bin/basevalue.txt";  // content format:taid image_hash mem_hash
 
     // step2: 创建消息接收线程
     pthread_t thread;
