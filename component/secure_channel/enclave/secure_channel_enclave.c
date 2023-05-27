@@ -9,13 +9,9 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-
-#ifdef SGX_ENCLAVE
-#include "tsgxsslio.h"
-#endif
+#include "secure_channel_enclave.h"
 
 #include <openssl/pem.h>
-
 #include "status.h"
 #include "secgear_log.h"
 #include "secgear_random.h"
@@ -23,9 +19,12 @@
 #include "secure_channel_t.h"
 
 #ifdef SGX_ENCLAVE
+    #include "tsgxsslio.h"
     #include "sgx_thread.h"
     typedef sgx_thread_rwlock_t sc_lock_t;
 #else
+    #include "base64url.h"
+    #include "tee_ra_api.h"
     typedef pthread_rwlock_t sc_lock_t;
 #endif
 
@@ -251,7 +250,7 @@ static int add_to_sec_chl_list(SEC_CHL_NODE *node)
     return CC_SUCCESS;
 }
 
-static int gen_sec_chl_node(size_t *session_id)
+int init_session(size_t *session_id)
 {
     size_t random_id = 0;
     int ret = cc_enclave_generate_random(&random_id, sizeof(size_t));
@@ -302,7 +301,7 @@ int get_enclave_pubkey(size_t *session_id, uint8_t *pubkey, size_t *pubkey_len)
         return CC_ERROR_BAD_PARAMETERS;
     }
     // 添加到g_sec_chl_manager
-    ret = gen_sec_chl_node(session_id);
+    ret = init_session(session_id);
     if (ret != CC_SUCCESS) {
         PrintInfo(PRINT_ERROR, "get enclave pubkey add node failed\n");
         return ret;
@@ -375,6 +374,72 @@ int get_enclave_exch_param(size_t session_id, uint8_t *exch_param, size_t exch_p
 
     int ret = get_exch_buf(ecdh_ctx, exch_param, exch_param_len);
     sc_rdunlock(&g_sec_chl_manager.sec_chl_list_lock);
+    return ret;
+}
+
+#define RSA_MAX_LEN 1024
+int set_enc_key(size_t session_id, uint8_t* data, size_t data_len)
+{
+    cc_enclave_result_t ret = CC_SUCCESS;
+
+#ifdef GP_ENCLAVE
+    // decode base64rul enc_key
+    size_t enc_key_len = 0;
+    uint8_t *enc_key = kpsecl_base64urldecode((char *)data, data_len, &enc_key_len);
+
+    // unseal enc_key
+    size_t dec_key_len = enc_key_len;
+    uint8_t *dec_key = (uint8_t *)calloc(1, dec_key_len);
+    if (dec_key == NULL) {
+        ret = CC_ERROR_SEC_CHL_MEMORY;
+        goto end;
+    }
+    TEE_Result gp_ret = ra_unseal(enc_key, enc_key_len, dec_key, &dec_key_len, TEE_ALG_AES_GCM);
+    if (gp_ret != TEE_SUCCESS) {
+        PrintInfo(PRINT_ERROR, "unseal enc key failed\n");
+        ret = CC_ERROR_SEC_CHL_ENCLAVE_UNSEAL_ENC_KEY;
+        goto end;
+    }
+
+    // compute private_key
+    // dec_key组成形式为：d_len | d | n_len | n | e_len | e ,其中d_len/n_len/e_len分别为四个字节
+    uint32_t d_len = *(uint32_t *)dec_key;
+    uint32_t n_len = *(uint32_t *)(dec_key + sizeof(uint32_t) + d_len);
+    uint32_t e_len = *(uint32_t *)(dec_key + sizeof(uint32_t) + d_len + sizeof(uint32_t) + n_len);
+    PrintInfo(PRINT_STRACE, "rsa param len d_len:%u, n_len:%u, e_len:%u\n", d_len, n_len, e_len);
+
+    uint8_t d[RSA_MAX_LEN] = {0};
+    uint8_t n[RSA_MAX_LEN] = {0};
+    uint8_t e[RSA_MAX_LEN] = {0};
+    memcpy(d, dec_key + sizeof(uint32_t), d_len);
+    memcpy(n, dec_key + sizeof(uint32_t) + d_len + sizeof(uint32_t), n_len);
+    memcpy(e, dec_key + sizeof(uint32_t) + d_len + sizeof(uint32_t) + n_len + sizeof(uint32_t), e_len);
+
+    RSA *rsa_key = RSA_new();
+    BIGNUM *modulus = BN_new();
+    BIGNUM *pub_exponent = BN_new();
+    BIGNUM *pri_exponent = BN_new();
+    BN_hex2bn(&modulus, (char *)n);
+    BN_hex2bn(&pub_exponent, (char *)e);
+    BN_hex2bn(&pri_exponent, (char *)d);
+    RSA_set0_key(rsa_key, modulus, pub_exponent, pri_exponent);
+    
+    sc_wtlock(&g_sec_chl_manager.sec_chl_list_lock);
+    sec_chl_ecdh_ctx_t *ecdh_ctx = get_ecdh_ctx_by_session_id(session_id);
+    if (ecdh_ctx == NULL) {
+        sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
+        RSA_free(rsa_key);
+        ret = CC_ERROR_SEC_CHL_INVALID_SESSION;
+        PrintInfo(PRINT_ERROR, "get ecdh ctx by session id\n");
+        goto end;
+    }
+    ecdh_ctx->svr_rsa_key = rsa_key;
+    sc_wtunlock(&g_sec_chl_manager.sec_chl_list_lock);
+end:
+    free(enc_key);
+    free(dec_key);
+
+#endif
     return ret;
 }
 

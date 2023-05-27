@@ -56,42 +56,16 @@ void num_to_buf(size_t num, uint8_t *buf, size_t len)
     return;
 }
 
-static RSA *get_rsakey_from_buffer(const uint8_t *rsa_key_buffer, size_t rsa_key_buffer_len, bool is_private_key)
-{
-    BIO *r_key = NULL;
-    RSA *rsa_key = NULL;
-    r_key = BIO_new_mem_buf(rsa_key_buffer, rsa_key_buffer_len);
-    if (r_key == NULL) {
-        goto end;
-    }
-    if (is_private_key) {
-        rsa_key = PEM_read_bio_RSAPrivateKey(r_key, NULL, NULL, NULL);
-    } else {
-        rsa_key = PEM_read_bio_RSAPublicKey(r_key, NULL, NULL, NULL);
-    }
-
-    if (rsa_key == NULL) {
-        goto end;
-    }
-
-end:
-    BIO_free(r_key);
-    r_key = NULL;
-    return rsa_key;
-}
-
-int verify_rsa_signature(const uint8_t *rsa_pubkey, size_t rsa_pubkey_len, const uint8_t *signature, size_t sig_len,
+int verify_rsa_signature(RSA *rsa_pubkey, const uint8_t *signature, size_t sig_len,
     const uint8_t *buf, size_t buf_len)
 {
-    RSA *sign_rsa = NULL;
     EVP_PKEY *evp_sign_key = NULL;
     EVP_MD_CTX *md_ctx = NULL;
     EVP_PKEY_CTX *pctx = NULL;
     int ret_val = CC_FAIL;
 
-    sign_rsa = get_rsakey_from_buffer(rsa_pubkey, rsa_pubkey_len, 0);
     evp_sign_key = EVP_PKEY_new();
-    if (evp_sign_key == NULL || !EVP_PKEY_set1_RSA(evp_sign_key, sign_rsa) || ((size_t)RSA_size(sign_rsa) != sig_len)) {
+    if (evp_sign_key == NULL || !EVP_PKEY_set1_RSA(evp_sign_key, rsa_pubkey) || ((size_t)RSA_size(rsa_pubkey) != sig_len)) {
         goto end;
     }
     md_ctx = EVP_MD_CTX_new();
@@ -116,8 +90,6 @@ end:
     pctx = NULL;
     EVP_PKEY_free(evp_sign_key);
     evp_sign_key = NULL;
-    RSA_free(sign_rsa);
-    sign_rsa = NULL;
     return ret_val;
 }
 
@@ -771,7 +743,7 @@ cc_enclave_result_t get_exch_param_from_buf(uint8_t *exch_buf, size_t buf_len, s
     return CC_SUCCESS;
 }
 
-cc_enclave_result_t verify_signature(uint8_t *pubkey, size_t pubkey_len, uint8_t *exch_buf, size_t buf_len)
+cc_enclave_result_t verify_signature(RSA *rsa_pubkey, uint8_t *exch_buf, size_t buf_len)
 {
     size_t ecdh_pubkey_len;
     size_t signature_len;
@@ -802,7 +774,7 @@ cc_enclave_result_t verify_signature(uint8_t *pubkey, size_t pubkey_len, uint8_t
 
     // verify signature
     size_t data_len = p_buf - exch_buf - sizeof(signature_len);
-    int ret = verify_rsa_signature(pubkey, pubkey_len, p_buf, signature_len, exch_buf, data_len);
+    int ret = verify_rsa_signature(rsa_pubkey, p_buf, signature_len, exch_buf, data_len);
     if (ret != CC_SUCCESS) {
         return CC_ERROR_SEC_CHL_VERIFY_PEER_EXCH_BUF_SIGNATURE;
     }

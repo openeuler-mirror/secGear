@@ -12,6 +12,7 @@ project(secure_channel_enclave C)
 set(PREFIX secure_channel)
 
 set(SOURCE_FILES secure_channel_enclave.c ${CMAKE_CURRENT_SOURCE_DIR}/../secure_channel_common.c)
+FILE (GLOB_RECURSE BASE64_SRC "${LOCAL_ROOT_PATH}/thirdparty/base64url/*.c")
 
 set(PRINT_LEVEL 3)
 add_definitions(-DPRINT_LEVEL=${PRINT_LEVEL})
@@ -67,14 +68,15 @@ if(CC_GP)
             ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee
             ${ITRUSTEE_TEEDIR}/include/TA
             ${ITRUSTEE_TEEDIR}/include/TA/huawei_ext
-	    ${SDK_PATH}/thirdparty/open_source/openssl
+            ${SDK_PATH}/thirdparty/open_source/openssl
             ${ITRUSTEE_LIBC}/arch/aarch64
             ${ITRUSTEE_LIBC}/
             ${ITRUSTEE_LIBC}/arch/arm/bits
             ${ITRUSTEE_LIBC}/arch/generic
             ${ITRUSTEE_LIBC}/arch/arm
-            ${SSL_PATH}/include)
-    add_library(t${PREFIX} ${SOURCE_FILES} ${AUTO_FILES} ${LOCAL_ROOT_PATH}/src/enclave_src/gp/gp.c)
+            ${SSL_PATH}/include
+            ${LOCAL_ROOT_PATH}/thirdparty/base64url)
+    add_library(t${PREFIX} ${SOURCE_FILES} ${AUTO_FILES} ${LOCAL_ROOT_PATH}/src/enclave_src/gp/gp.c ${BASE64_SRC})
 
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(t${PREFIX} PRIVATE

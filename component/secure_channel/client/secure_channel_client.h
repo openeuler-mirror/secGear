@@ -41,6 +41,7 @@ typedef struct cc_sec_chl_ctx {
     size_t session_id;              // unique value return by server
     cc_conn_kit_t conn_kit;         // network transmission connection kit need register by user
     cc_sec_chl_handle_t *handle;
+    char *basevalue; // target ta basevalue file path
 } cc_sec_chl_ctx_t;
 
 typedef enum {

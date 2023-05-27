@@ -10,7 +10,7 @@
 #include "secure_channel_client.h"
 
 
-#define MAXBUF 1024
+#define MAXBUF 12800
 cc_sec_chl_ctx_t g_ctx = {0};
 
 int socket_write_and_read(void *conn, void *buf, size_t count)
@@ -69,6 +69,7 @@ int main(int argc, char **argv)
     // step1: 初始化安全通道客户端，注册消息发送函数
     g_ctx.conn_kit.send = (void *)socket_write_and_read;
     g_ctx.conn_kit.conn = &sockfd;
+    g_ctx.basevalue = "/vendor/bin/basevalue.txt";  // content format:taid image_hash mem_hash
     ret = cc_sec_chl_client_init(CC_SEC_CHL_ALGO_RSA_ECDH_AES_GCM, &g_ctx);
     if (ret != CC_SUCCESS) {
         printf("secure channel init failed:%u\n", ret);
