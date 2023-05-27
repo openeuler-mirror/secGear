@@ -19,6 +19,8 @@ enclave {
     trusted {
         // #define RSA_PUBKEY_LEN 640
         public int get_enclave_pubkey([in, out] size_t* session_id, [out, size = 640] uint8_t* pubkey, [in, out] size_t* pubkey_len);
+        public int init_session([in, out] size_t* session_id);
+        public int set_enc_key(size_t session_id, [in, size = data_len] uint8_t* data, size_t data_len);
         public int get_enclave_exch_param_len(size_t session_id, [in, out] size_t* exch_param_len);
         public int get_enclave_exch_param(size_t session_id, [out, size = exch_param_len] uint8_t* exch_param, size_t exch_param_len);
         public int set_peer_exch_param(size_t session_id, [in, size = data_len] uint8_t* data, size_t data_len);

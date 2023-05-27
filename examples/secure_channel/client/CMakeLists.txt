@@ -6,14 +6,14 @@ set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/client.c)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-maybe-uninitialized -fPIE")
 
 if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
-    link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+    link_directories(/usr/lib64 /usr/local/lib)
 endif()
 add_executable(${OUTPUT} ${SOURCE_FILE})
 target_include_directories(${OUTPUT} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/..
         ${SECGEAR_INSTALL_DIR})
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-    target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+    target_link_directories(${OUTPUT} PRIVATE /usr/lib64 /usr/local/lib)
 endif()
 target_link_libraries(${OUTPUT} pthread csecure_channel)
 

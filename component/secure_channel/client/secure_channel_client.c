@@ -14,31 +14,35 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <openssl/rand.h>
+#include <openssl/pem.h>
 
 #include "status.h"
 #include "enclave_log.h"
 #include "secure_channel_common.h"
+#include "sg_ra_report_verify.h"
+#include "cJSON.h"
+#include "base64url.h"
 
-#define SEC_CHL_RECV_BUF_MAX_LEN 1024
 
+#define SEC_CHL_RECV_BUF_MAX_LEN REPORT_OUT_LEN
 struct cc_sec_chl_handle {
     sec_chl_ecdh_ctx_t *ecdh_ctx;   // key exchange context
     pthread_mutex_t lock;           // proctect recv_buf and recv_buf_len
     uint8_t recv_buf[SEC_CHL_RECV_BUF_MAX_LEN];  // secure channel init msg max len
     size_t  recv_buf_len;                        // secure channel init msg real len
-    uint8_t *svr_pubkey;
-    size_t   svr_pubkey_len;
     cc_sec_chl_algo_t algo;
+    sec_chl_ra_req_t ra_req;
+    char *b64_enc_key;
+    RSA *rsa_svr_pubkey;
 };
 
 typedef enum {
     STATE_ORIGIN = 0,
     STATE_WAIT_SVRPUBKEY,
     STATE_SVRPUBKEY_READY,
-    STATE_WAIT_RA_REPORT,
-    STATE_RA_REPORT_READY,
-    STATE_VERIFY_RA_SUCCESS,
-    STATE_VERIFY_SVRPUBKEY_SUCCESS,
+    STATE_WAIT_SET_ENC_KEY,
+    STATE_SET_ENC_KEY_SUCCESS,
     STATE_WAIT_SVR_PARAM,
     STATE_SVR_PARAM_READY,
     STATE_LOCAL_PARAM_READY,
@@ -51,10 +55,8 @@ typedef enum {
 typedef enum {
     EVENT_GET_SVRPUBKEY = 0,
     EVENT_RECV_SVRPUBKEY,
-    EVENT_GET_RA_REPORT,
-    EVENT_RECV_RA_REPORT,
-    EVENT_VERIFY_RA_REPORT,
-    EVENT_VERIFY_SVRPUBKEY,
+    EVENT_SET_ENC_KEY_TO_SVR,
+    EVENT_RECV_SET_ENC_KEY_RET,
     EVENT_GET_SVR_PARAM,
     EVENT_RECV_SVR_PARAM,
     EVENT_GEN_LOCAL_PARAM,
@@ -66,9 +68,6 @@ typedef enum {
 typedef cc_enclave_result_t (*sec_chl_init_fsm_action_t)(cc_sec_chl_ctx_t *ctx);
 
 typedef struct {
-    sec_chl_init_fsm_state_t cur_state;
-    sec_chl_init_fsm_event_id_t event_id;
-    sec_chl_init_fsm_state_t next_state;
     sec_chl_init_fsm_action_t action;
 } sec_chl_fsm_state_transform_t;
 
@@ -92,8 +91,11 @@ static void del_local_sec_chl_ctx(cc_sec_chl_ctx_t *ctx)
     if (ctx->handle->ecdh_ctx != NULL) {
         del_ecdh_ctx(ctx->handle->ecdh_ctx);
     }
-    if (ctx->handle->svr_pubkey != NULL) {
-        free(ctx->handle->svr_pubkey);
+    if (ctx->handle->b64_enc_key != NULL) {
+        free(ctx->handle->b64_enc_key);
+    }
+    if (ctx->handle->rsa_svr_pubkey != NULL) {
+        RSA_free(ctx->handle->rsa_svr_pubkey);
     }
     free(ctx->handle);
     ctx->handle = NULL;
@@ -180,16 +182,248 @@ cc_enclave_result_t cc_sec_chl_client_callback(cc_sec_chl_ctx_t *ctx, void *buf,
     return CC_SUCCESS;
 }
 
-static cc_enclave_result_t get_svr_pubkey(cc_sec_chl_ctx_t *ctx)
+static cc_enclave_result_t get_taid_from_file(char *file, char *taid)
 {
-    sec_chl_msg_t msg = {0};
-    msg.msg_type = SEC_CHL_MSG_GET_SVR_PUBKEY;
-    cc_enclave_result_t ret = sec_chl_send_request(&(ctx->conn_kit), &msg);
+    FILE *fp = fopen(file, "r");
+    if (!fp) {
+        printf("secure channel init read taid failed\n");
+        return CC_ERROR_SEC_CHL_INIT_GET_TAID;
+    }
+
+    int ret = fscanf(fp, "%s", taid);    // only read taid from line
+    
+    printf("read ret:%d, taid:%s\n", ret, taid);
+
+    fclose(fp);
+
+    return CC_SUCCESS;
+}
+
+static cc_enclave_result_t request_report(cc_sec_chl_ctx_t *ctx, sec_chl_msg_type_t type, bool with_request_key)
+{
+    cc_enclave_result_t ret;
+    sec_chl_msg_t *msg = NULL;
+    size_t data_len = 0;
+
+    if (ctx->basevalue != NULL) {
+        data_len = sizeof(sec_chl_ra_req_t);
+    }
+
+    msg = (sec_chl_msg_t *)calloc(1, sizeof(sec_chl_msg_t) + data_len);
+    if (msg == NULL) {
+        return CC_ERROR_SEC_CHL_MEMORY;
+    }
+    msg->msg_type = type;
+
+    if (ctx->basevalue != NULL) {
+        sec_chl_ra_req_t *ra_req = (sec_chl_ra_req_t *)msg->data;
+        ra_req->with_tcb = false;
+        ra_req->req_key = with_request_key;
+
+        ret = get_taid_from_file(ctx->basevalue, ra_req->taid);
+        if (ret != CC_SUCCESS) {
+            free(msg);
+            return ret;
+        }
+        if (RAND_priv_bytes(ra_req->nonce, SEC_CHL_REQ_NONCE_LEN) <= 0) {
+            free(msg);
+            return CC_FAIL;
+        }
+        memcpy(&ctx->handle->ra_req, ra_req, sizeof(sec_chl_ra_req_t));
+    }
+
+    msg->data_len = data_len;
+    ret = sec_chl_send_request(&(ctx->conn_kit), msg);
+    free(msg);
     if (ret != CC_SUCCESS) {
         return CC_ERROR_SEC_CHL_GET_SVR_PUBKEY;
     }
 
     return CC_SUCCESS;
+}
+
+static cc_enclave_result_t get_ra_report(cc_sec_chl_ctx_t *ctx)
+{
+    return request_report(ctx, SEC_CHL_MSG_GET_RA_REPORT, false);
+}
+
+static cc_enclave_result_t verify_report(cc_sec_chl_ctx_t *ctx, sec_chl_msg_t *msg)
+{
+    cc_enclave_result_t ret = CC_SUCCESS;
+    if (msg->sub_type == GET_SVRPUBKEY_SUBTYPE_REPORT) {
+        cc_ra_buf_t report = {0};
+        report.buf = msg->data;
+        report.len = msg->data_len;
+        cc_ra_buf_t nonce = {0};
+        nonce.len = SEC_CHL_REQ_NONCE_LEN;
+        nonce.buf = ctx->handle->ra_req.nonce;
+        ret = cc_verify_report(&report, &nonce, CC_RA_VERIFY_TYPE_STRICT, ctx->basevalue);
+        if (ret != CC_SUCCESS) {
+            printf("verify report failed ret:%u\n", ret);
+            return CC_ERROR_SEC_CHL_INIT_VERIFY_REPORT;
+        }
+    }
+    return ret;
+}
+
+static cc_enclave_result_t recv_ra_report(cc_sec_chl_ctx_t *ctx)
+{
+    sec_chl_msg_t *msg = NULL;
+
+    pthread_mutex_lock(&ctx->handle->lock);
+    if (ctx->handle->recv_buf_len == 0) {
+        pthread_mutex_unlock(&ctx->handle->lock);
+        return CC_ERROR_SEC_CHL_WAITING_RECV_MSG;
+    }
+    msg = (sec_chl_msg_t *)ctx->handle->recv_buf;
+    cc_enclave_result_t ret = verify_report(ctx, msg);
+    if (ret != CC_SUCCESS) {
+        pthread_mutex_unlock(&ctx->handle->lock);
+        return ret;
+    }
+
+    ctx->session_id = msg->session_id;
+    ctx->handle->recv_buf_len = 0;
+    pthread_mutex_unlock(&ctx->handle->lock);
+
+    return CC_SUCCESS;
+}
+
+static cc_enclave_result_t get_svr_pubkey(cc_sec_chl_ctx_t *ctx)
+{
+    return request_report(ctx, SEC_CHL_MSG_GET_SVR_PUBKEY, true);
+}
+
+static cc_enclave_result_t get_svr_key_from_report(cc_sec_chl_ctx_t *ctx, cc_ra_buf_t *report)
+{
+    cc_enclave_result_t ret = CC_ERROR_SEC_CHL_INVALID_REPORT;
+    uint8_t *n = NULL;
+    uint8_t *e = NULL;
+
+    cJSON *cj_report = cJSON_ParseWithLength((char *)report->buf, report->len);
+    if (cj_report == NULL) {
+        printf("report to json failed\n");
+        return CC_ERROR_SEC_CHL_INVALID_REPORT;
+    }
+    cJSON *cj_payload = cJSON_GetObjectItemCaseSensitive(cj_report, "payload");
+    if (cj_payload == NULL) {
+        printf("report payload failed!\n");
+        goto end;
+    }
+    cJSON *cj_nonce = cJSON_GetObjectItemCaseSensitive(cj_payload, "nonce");
+    if(cj_nonce == NULL) {
+        printf("report nonce failed!\n");
+        goto end;
+    }
+    // comput pubkey
+    cJSON *cj_pub_key = cJSON_GetObjectItemCaseSensitive(cj_nonce, "pub_key");
+    if(cj_pub_key == NULL) {
+        printf("report pub_key failed!\n");
+        goto end;
+    }
+    char *b64_n = cJSON_GetStringValue(cJSON_GetObjectItem(cj_pub_key, "n"));
+    if (b64_n == NULL) {
+        printf("parse n from json pub_key failed\n");
+        goto end;
+    }
+    size_t n_len = 0;
+    n = kpsecl_base64urldecode(b64_n, strlen(b64_n), &n_len);
+    char *b64_e = cJSON_GetStringValue(cJSON_GetObjectItem(cj_pub_key, "e"));
+    if (b64_e == NULL) {
+        printf("parse e from json pub_key failed\n");
+        goto end;
+    }
+    size_t e_len = 0;
+    e = kpsecl_base64urldecode(b64_e, strlen(b64_e), &e_len);
+
+    RSA *svr_pub_key = RSA_new();
+    BIGNUM *modulus = BN_new();
+    BIGNUM *pub_exponent = BN_new();
+    BN_hex2bn(&modulus, (char *)n);
+    BN_hex2bn(&pub_exponent, (char *)e);
+    RSA_set0_key(svr_pub_key, modulus, pub_exponent, NULL);
+    // svr pub key
+    ctx->handle->rsa_svr_pubkey = svr_pub_key;
+
+    // save enc key to ctx
+    cJSON *cj_enc_key = cJSON_GetObjectItemCaseSensitive(cj_nonce, "enc_key");
+    if(cj_enc_key == NULL) {
+        printf("report enc_key failed!\n");
+        goto fail;
+    }
+    ctx->handle->b64_enc_key = calloc(1, strlen(cj_enc_key->valuestring) + 1);
+    if (ctx->handle->b64_enc_key == NULL) {
+        printf("malloc enc key buff failed\n");
+        ret = CC_ERROR_SEC_CHL_MEMORY;
+        goto fail;
+    }
+    (void)memcpy(ctx->handle->b64_enc_key, cj_enc_key->valuestring, strlen(cj_enc_key->valuestring));
+
+    ret = CC_SUCCESS;
+    goto end;
+
+fail:
+    if (svr_pub_key != NULL) {
+        RSA_free(svr_pub_key);
+    }
+end:
+    if (n != NULL) {
+        free(n);
+    }
+    if (e != NULL) {
+        free(e);
+    }
+    cJSON_Delete(cj_report);
+
+    return ret;
+}
+
+RSA *get_rsakey_from_buffer(const uint8_t *rsa_key_buffer, size_t rsa_key_buffer_len, bool is_private_key)
+{
+    BIO *r_key = NULL;
+    RSA *rsa_key = NULL;
+    r_key = BIO_new_mem_buf(rsa_key_buffer, rsa_key_buffer_len);
+    if (r_key == NULL) {
+        goto end;
+    }
+    if (is_private_key) {
+        rsa_key = PEM_read_bio_RSAPrivateKey(r_key, NULL, NULL, NULL);
+    } else {
+        rsa_key = PEM_read_bio_RSAPublicKey(r_key, NULL, NULL, NULL);
+    }
+
+    if (rsa_key == NULL) {
+        goto end;
+    }
+
+end:
+    BIO_free(r_key);
+    r_key = NULL;
+    return rsa_key;
+}
+
+static cc_enclave_result_t parse_svrpubkey_from_recv_msg(cc_sec_chl_ctx_t *ctx, sec_chl_msg_t *msg)
+{
+    cc_enclave_result_t ret;
+    if (msg->sub_type == GET_SVRPUBKEY_SUBTYPE_REPORT) {
+        cc_ra_buf_t report = {0};
+        report.buf = msg->data;
+        report.len = msg->data_len;
+
+        ret = get_svr_key_from_report(ctx, &report);
+        if (ret != CC_SUCCESS) {
+            return ret;
+        }
+    } else {
+        RSA *rsa_pubkey = get_rsakey_from_buffer(msg->data, msg->data_len, false);
+        if (rsa_pubkey == NULL) {
+            return CC_ERROR_SEC_CHL_PARSE_SVR_PUBKEY;
+        }
+        ctx->handle->rsa_svr_pubkey = rsa_pubkey;
+        ret = CC_SUCCESS;
+    }
+
+    return ret;
 }
 
 static cc_enclave_result_t recv_svr_pubkey(cc_sec_chl_ctx_t *ctx)
@@ -202,13 +436,12 @@ static cc_enclave_result_t recv_svr_pubkey(cc_sec_chl_ctx_t *ctx)
         return CC_ERROR_SEC_CHL_WAITING_RECV_MSG;
     }
     msg = (sec_chl_msg_t *)ctx->handle->recv_buf;
-    ctx->handle->svr_pubkey = calloc(1, msg->data_len);
-    if (ctx->handle->svr_pubkey == NULL) {
+    cc_enclave_result_t ret = parse_svrpubkey_from_recv_msg(ctx, msg);
+    if (ret != CC_SUCCESS) {
         pthread_mutex_unlock(&ctx->handle->lock);
-        return CC_ERROR_SEC_CHL_MEMORY;
+        return ret;
     }
-    memcpy(ctx->handle->svr_pubkey, msg->data, msg->data_len);
-    ctx->handle->svr_pubkey_len = msg->data_len;
+
     ctx->session_id = msg->session_id;
     ctx->handle->recv_buf_len = 0;
     pthread_mutex_unlock(&ctx->handle->lock);
@@ -216,28 +449,57 @@ static cc_enclave_result_t recv_svr_pubkey(cc_sec_chl_ctx_t *ctx)
     return CC_SUCCESS;
 }
 
-static cc_enclave_result_t get_ra_report(cc_sec_chl_ctx_t *ctx)
+static cc_enclave_result_t set_encrypt_key_to_server_ta(cc_sec_chl_ctx_t *ctx)
 {
-    (void)ctx;
-    return CC_SUCCESS;
+    int ret;
+    sec_chl_msg_t *msg = NULL;
+
+    if (ctx->handle->b64_enc_key == NULL) {
+        return CC_SUCCESS;
+    }
+
+    char *b64_enc_key = ctx->handle->b64_enc_key;
+    size_t len = sizeof(sec_chl_msg_t) + strlen(b64_enc_key);
+
+    msg = (sec_chl_msg_t *)calloc(1, len);
+    if (msg == NULL) {
+        return CC_ERROR_SEC_CHL_MEMORY;
+    }
+
+    memcpy(msg->data, b64_enc_key, strlen(b64_enc_key));
+    msg->data_len = strlen(b64_enc_key);
+
+    msg->session_id = ctx->session_id;
+    msg->msg_type = SEC_CHL_MSG_SET_ENC_KEY_TO_SVR;
+
+    ret = sec_chl_send_request(&ctx->conn_kit, msg);
+    free(msg);
+    if (ret != CC_SUCCESS) {
+        ret = CC_ERROR_SEC_CHL_SET_PARAM_TO_PEER;
+    }
+    return ret;
 }
 
-static cc_enclave_result_t recv_ra_report(cc_sec_chl_ctx_t *ctx)
+static cc_enclave_result_t recv_set_enc_key_ret(cc_sec_chl_ctx_t *ctx)
 {
-    (void)ctx;
-    return CC_SUCCESS;
-}
+    sec_chl_msg_t *msg = NULL;
+    cc_enclave_result_t ret;
+    
+    if (ctx->handle->b64_enc_key == NULL) {
+        return CC_SUCCESS;
+    }
 
-static cc_enclave_result_t verify_ra_report(cc_sec_chl_ctx_t *ctx)
-{
-    (void)ctx;
-    return CC_SUCCESS;
-}
+    pthread_mutex_lock(&ctx->handle->lock);
+    if (ctx->handle->recv_buf_len == 0) {
+        pthread_mutex_unlock(&ctx->handle->lock);
+        return CC_ERROR_SEC_CHL_WAITING_RECV_MSG;
+    }
+    msg = (sec_chl_msg_t *)ctx->handle->recv_buf;
+    ret = msg->ret;
+    ctx->handle->recv_buf_len = 0;
+    pthread_mutex_unlock(&ctx->handle->lock);
 
-static cc_enclave_result_t verify_svr_pubkey(cc_sec_chl_ctx_t *ctx)
-{
-    (void)ctx;
-    return CC_SUCCESS;
+    return ret;
 }
 
 static cc_enclave_result_t get_svr_param(cc_sec_chl_ctx_t *ctx)
@@ -266,7 +528,7 @@ static cc_enclave_result_t recv_svr_param(cc_sec_chl_ctx_t *ctx)
     msg = (sec_chl_msg_t *)ctx->handle->recv_buf;
     memcpy(&ec_nid, msg->data + RANDOM_LEN, sizeof(int));
 
-    ret = verify_signature(ctx->handle->svr_pubkey, ctx->handle->svr_pubkey_len, msg->data, msg->data_len);
+    ret = verify_signature(ctx->handle->rsa_svr_pubkey, msg->data, msg->data_len);
     if (ret != CC_SUCCESS) {
         pthread_mutex_unlock(&ctx->handle->lock);
         return ret;
@@ -372,18 +634,18 @@ static cc_enclave_result_t sec_chl_compute_session_key(cc_sec_chl_ctx_t *ctx)
 }
 
 static sec_chl_fsm_state_transform_t g_state_transform_table[] = {
-    {STATE_ORIGIN, EVENT_GET_SVRPUBKEY, STATE_WAIT_SVRPUBKEY, get_svr_pubkey},
-    {STATE_WAIT_SVRPUBKEY, EVENT_RECV_SVRPUBKEY, STATE_SVRPUBKEY_READY, recv_svr_pubkey},
-    {STATE_SVRPUBKEY_READY, EVENT_GET_RA_REPORT, STATE_WAIT_RA_REPORT, get_ra_report},
-    {STATE_WAIT_RA_REPORT, EVENT_RECV_RA_REPORT, STATE_RA_REPORT_READY, recv_ra_report},
-    {STATE_RA_REPORT_READY, EVENT_VERIFY_RA_REPORT, STATE_VERIFY_RA_SUCCESS, verify_ra_report},
-    {STATE_VERIFY_RA_SUCCESS, EVENT_VERIFY_SVRPUBKEY, STATE_VERIFY_SVRPUBKEY_SUCCESS, verify_svr_pubkey},
-    {STATE_VERIFY_SVRPUBKEY_SUCCESS, EVENT_GET_SVR_PARAM, STATE_WAIT_SVR_PARAM, get_svr_param},
-    {STATE_WAIT_SVR_PARAM, EVENT_RECV_SVR_PARAM, STATE_SVR_PARAM_READY, recv_svr_param},
-    {STATE_SVR_PARAM_READY, EVENT_GEN_LOCAL_PARAM, STATE_LOCAL_PARAM_READY, gen_local_param},
-    {STATE_LOCAL_PARAM_READY, EVENT_SET_PARAM_TO_PEER, STATE_WAIT_SET_PARAM_RET, set_local_param_to_peer},
-    {STATE_WAIT_SET_PARAM_RET, EVENT_RECV_SET_PARAM_RET, STATE_ALL_READY, recv_set_param_ret},
-    {STATE_ALL_READY, EVENT_COMPUTE_SESSIONKEY, STATE_SUCCESS, sec_chl_compute_session_key},
+    {get_ra_report},
+    {recv_ra_report},
+    {get_svr_pubkey},
+    {recv_svr_pubkey},
+    {set_encrypt_key_to_server_ta},
+    {recv_set_enc_key_ret},
+    {get_svr_param},
+    {recv_svr_param},
+    {gen_local_param},
+    {set_local_param_to_peer},
+    {recv_set_param_ret},
+    {sec_chl_compute_session_key},
 };
 
 #define RECV_MSG_TIMEOUT_CNT 1000

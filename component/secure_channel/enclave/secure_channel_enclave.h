@@ -13,6 +13,8 @@
 #ifndef SECURE_CHANNEL_ENCLAVE_H
 #define SECURE_CHANNEL_ENCLAVE_H
 
+#include <stddef.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif

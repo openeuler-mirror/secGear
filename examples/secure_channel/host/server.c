@@ -11,7 +11,7 @@
 #include "sc_demo_u.h"
 #include "usr_msg.h"
 
-#define MAXBUF 1024
+#define MAXBUF 10240
 #define MAX_LISTEN_NUM 100
 typedef struct {
     cc_sec_chl_svr_ctx_t *svr_ctx;

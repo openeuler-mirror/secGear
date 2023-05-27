@@ -39,7 +39,7 @@ if(CC_GP)
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
     endif()
-    target_link_libraries(${OUTPUT} secgear usecure_channel pthread)
+    target_link_libraries(${OUTPUT} secgear usecure_channel pthread qca)
 endif()
 
 if(CC_SGX)

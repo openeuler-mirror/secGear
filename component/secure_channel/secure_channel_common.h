@@ -12,6 +12,7 @@
 
 #ifndef SECURE_CHANNEL_COMMON_H
 #define SECURE_CHANNEL_COMMON_H
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,7 +47,8 @@ typedef enum {
     SEC_CHL_MSG_GET_SVR_PUBKEY = 1,
     SEC_CHL_MSG_GET_SVR_PUBKEY_RSP,
     SEC_CHL_MSG_GET_RA_REPORT,
-    SEC_CHL_MSG_VERIFY_SVR_PUBKEY,
+    SEC_CHL_MSG_GET_RA_REPORT_RSP,
+    SEC_CHL_MSG_SET_ENC_KEY_TO_SVR,
     SEC_CHL_MSG_GET_SVR_EXCH_PARAM,
     SEC_CHL_MSG_GET_SVR_EXCH_PARAM_RSP,
     SEC_CHL_MSG_GEN_LOCAL_EXCH_PARAM,
@@ -57,9 +59,25 @@ typedef enum {
     SEC_CHL_MSG_MAX,
 } sec_chl_msg_type_t;
 
+#define REPORT_OUT_LEN 0x3000
+typedef enum {
+    GET_SVRPUBKEY_SUBTYPE_SVR_GEN,
+    GET_SVRPUBKEY_SUBTYPE_REPORT,
+} sec_chl_get_svrpubkey_subtype_t;
+
+#define CC_TAID_LEN 36
+#define SEC_CHL_REQ_NONCE_LEN 32
+typedef struct {
+    char taid[CC_TAID_LEN + 1];
+    uint8_t nonce[SEC_CHL_REQ_NONCE_LEN + 1];
+    bool with_tcb;
+    bool req_key;
+} sec_chl_ra_req_t;
+
 #define RSP_BUF_LEN 640
 typedef struct sec_chl_msg {
     sec_chl_msg_type_t msg_type;
+    sec_chl_get_svrpubkey_subtype_t sub_type;
     size_t session_id;
     int32_t ret;
     size_t data_len;
@@ -84,7 +102,7 @@ void del_ecdh_ctx(sec_chl_ecdh_ctx_t *ecdh_ctx);
 cc_enclave_result_t compute_session_key(sec_chl_ecdh_ctx_t *ecdh_ctx, sec_chl_exch_param_t *local_exch_param,
     sec_chl_exch_param_t *peer_exch_param);
 cc_enclave_result_t get_exch_param_from_buf(uint8_t *exch_buf, size_t buf_len, sec_chl_exch_param_t **exch_param);
-cc_enclave_result_t verify_signature(uint8_t *pubkey, size_t pubkey_len, uint8_t *exch_buf, size_t buf_len);
+cc_enclave_result_t verify_signature(RSA *rsa_pubkey, uint8_t *exch_buf, size_t buf_len);
 int get_exch_buf_len(sec_chl_ecdh_ctx_t *ecdh_ctx);
 int get_exch_buf(sec_chl_ecdh_ctx_t *ecdh_ctx, uint8_t *exch_param, size_t exch_param_len);
 void del_exch_param(sec_chl_exch_param_t *exch_param);
