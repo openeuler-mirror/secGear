@@ -14,20 +14,19 @@
 #define SECGEAR_REPORT_STRUCT_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct cc_ra_buf {
+typedef struct {
     uint32_t len;
     uint8_t *buf;
 } cc_ra_buf_t;
 
 typedef enum {
     CC_RA_SCENARIO_NO_AS,
-    // CC_RA_SCENARIO_AS_NO_DAA,
-    // CC_RA_SCENARIO_AS_WITH_DAA
 } cc_ra_scenario_t;
 
 typedef enum {
@@ -35,6 +34,15 @@ typedef enum {
     CC_RA_VERIFY_TYPE_STRICT,
     CC_RA_VERIFY_TYPE_MAX
 } cc_ra_verify_type_t;
+
+#define MAX_NONCE_BUF_LEN 512
+typedef struct {
+    uint8_t *taid;
+    uint32_t nonce_len;
+    uint8_t nonce[MAX_NONCE_BUF_LEN];
+    bool with_tcb;
+    bool req_key;
+} cc_get_ra_report_input_t;
 
 #ifdef __cplusplus
 }

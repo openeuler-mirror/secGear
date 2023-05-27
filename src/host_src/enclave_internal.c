@@ -422,3 +422,13 @@ uint32_t check_node_exists_add(const struct list_ops_desc *node)
     }
     return res;
 }
+
+bool is_support_remote_attest(cc_enclave_t *context)
+{
+    if (context->list_ops_node != NULL) {
+        if (context->list_ops_node->ops_desc->type_version == GP_ENCLAVE_TYPE_0) {
+            return true;
+        }
+    }
+    return false;
+}

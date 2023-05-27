@@ -10,23 +10,24 @@
  * See the Mulan PSL v2 for more details.
  */
 
-#ifndef SECGEAR_BASE64URL_H
-#define SECGEAR_BASE64URL_H
+#include "sgx_ra_report_verify.h"
 
-#include <stddef.h>
-#include <stdint.h>
+#include "uni_ra_verify_agent.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-// warning, caller need free return ptr
-char* kpsecl_base64urlencode(const uint8_t *source, size_t source_len, size_t *dest_len);
-
-// warning, caller need free return ptr
-uint8_t* kpsecl_base64urldecode(const char *source, size_t source_len, size_t *dest_len);
-
-#ifdef __cplusplus
+cc_enclave_result_t sgx_verify_report(cc_ra_buf_t *report, cc_ra_buf_t *nonce,
+    cc_ra_verify_type_t type, char *basevalue)
+{
+    (void)report;
+    (void)nonce;
+    (void)type;
+    (void)basevalue;
+    return CC_SUCCESS;
 }
-#endif
 
-#endif
+uni_ra_verify_agent_t g_sgx_ra_verify_agent = {
+    .verify_ra_report = sgx_verify_report,
+};
+static __attribute__((constructor)) void gp_register_ra_agent()
+{
+    cc_register_ra_verify_agent(&g_sgx_ra_verify_agent);
+}

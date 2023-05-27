@@ -16,7 +16,6 @@
 
 #include "sg_ra_report.h"
 #include "sg_ra_report_verify.h"
-#include "gp_ra_helper.h"
 #include "enclave_log.h"
 
 #define TEST_NONCE_LEN 32
@@ -32,9 +31,9 @@ int main(void)
         return -1;
     }
 
-    gp_get_ra_report_input_t ra_input = {0};
+    cc_get_ra_report_input_t ra_input = {0};
 
-    ra_input.uuid = (uint8_t *)g_target_taid;
+    ra_input.taid = (uint8_t *)g_target_taid;
     ra_input.with_tcb = false;
 
     if (RAND_priv_bytes(ra_input.nonce, TEST_NONCE_LEN) <= 0) {
@@ -42,29 +41,25 @@ int main(void)
     }
     ra_input.nonce_len = TEST_NONCE_LEN + 1;
 
-    cc_ra_buf_t *in = NULL;
-    ret = gen_ra_report_in_buff(&ra_input, &in);
-    if (ret != CC_SUCCESS) {
-        print_debug("gen ra report in buff error! ret:%x\n", ret);
-        return -1;
-    }
-
     uint8_t data[TEST_REPORT_OUT_LEN] = {0};
     cc_ra_buf_t report = {TEST_REPORT_OUT_LEN, data};
 
-    ret = cc_get_ra_report(in, &report);
-    free_cc_ra_buf(in);
+    ret = cc_get_ra_report(&ra_input, &report);
     if (ret != CC_SUCCESS) {
         print_debug("get ra report error, ret:%x!\n", ret);
         return -1;
     }
 
-    print_ra_report(&report);
-
     cc_ra_buf_t cc_nonce;
     cc_nonce.buf = ra_input.nonce;
     cc_nonce.len = ra_input.nonce_len;
 
-    char *basevalue = "/home/hmy/secGear_ra_dev/examples/remote_attest/basevalue.txt";
-    return cc_verify_report(&report, &cc_nonce, CC_RA_VERIFY_TYPE_STRICT, basevalue);
+    char *basevalue = "./basevalue.txt";
+    ret = cc_verify_report(&report, &cc_nonce, CC_RA_VERIFY_TYPE_STRICT, basevalue);
+    if (ret != CC_SUCCESS) {
+        printf("verify report error\n");
+        return -1;
+    }
+    printf("verify report success\n");
+    return 0;
 }

@@ -14,7 +14,6 @@ ADD_SUBDIRECTORY(ra_verify)
 
 file(GLOB RA_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/sg_report_st.h
                     ${CMAKE_CURRENT_SOURCE_DIR}/ra_report/sg_ra_report.h
-                    ${CMAKE_CURRENT_SOURCE_DIR}/ra_report/gp_ra_helper.h
                     ${CMAKE_CURRENT_SOURCE_DIR}/ra_verify/sg_ra_report_verify.h)
 
 install(FILES ${RA_HEADERS}

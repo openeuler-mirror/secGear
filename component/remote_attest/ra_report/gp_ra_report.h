@@ -18,7 +18,7 @@
 
 cc_enclave_result_t gp_prepare_ra_env(cc_ra_scenario_t scenario);
 
-cc_enclave_result_t gp_get_ra_report(cc_ra_buf_t *in, cc_ra_buf_t *report);
+cc_enclave_result_t gp_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *report);
 
 #endif
 

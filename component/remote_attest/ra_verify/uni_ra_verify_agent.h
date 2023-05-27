@@ -10,20 +10,25 @@
  * See the Mulan PSL v2 for more details.
  */
 
-#ifndef SECGEAR_BASE64URL_H
-#define SECGEAR_BASE64URL_H
+#ifndef SECGEAR_UNI_RA_VERIFY_AGENT_H
+#define SECGEAR_UNI_RA_VERIFY_AGENT_H
 
-#include <stddef.h>
 #include <stdint.h>
+#include "status.h"
+#include "sg_report_st.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-// warning, caller need free return ptr
-char* kpsecl_base64urlencode(const uint8_t *source, size_t source_len, size_t *dest_len);
 
-// warning, caller need free return ptr
-uint8_t* kpsecl_base64urldecode(const char *source, size_t source_len, size_t *dest_len);
+typedef cc_enclave_result_t (*uni_ra_report_verify_proc_t)(cc_ra_buf_t *report, cc_ra_buf_t *nonce,
+    cc_ra_verify_type_t type, char *basevalue);
+
+typedef struct {
+    uni_ra_report_verify_proc_t verify_ra_report;
+} uni_ra_verify_agent_t;
+
+void cc_register_ra_verify_agent(uni_ra_verify_agent_t *agent);
 
 #ifdef __cplusplus
 }

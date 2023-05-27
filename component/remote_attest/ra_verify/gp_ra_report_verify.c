@@ -15,6 +15,8 @@
 #include "teeverifier.h"
 #include "enclave_log.h"
 
+#include "uni_ra_verify_agent.h"
+
 int convert_cctype_to_gptype(cc_ra_verify_type_t type)
 {
     // gp type, 1: compare image hash; 2: compare mem hash; 3: compare image and mem hash
@@ -45,7 +47,15 @@ cc_enclave_result_t gp_verify_report(cc_ra_buf_t *report, cc_ra_buf_t *nonce,
         case TVS_VERIFIED_HASH_FAILED:
             return CC_ERROR_RA_REPORT_VERIFY_HASH;
         default:
-            print_debug("verify report failed, unknown errorcode:%d!\n", ret);
+            printf("verify report failed, unknown errorcode:%d!\n", ret);
     }
     return ret;
+}
+
+uni_ra_verify_agent_t g_gp_ra_verify_agent = {
+    .verify_ra_report = gp_verify_report,
+};
+static __attribute__((constructor)) void gp_register_ra_agent()
+{
+    cc_register_ra_verify_agent(&g_gp_ra_verify_agent);
 }

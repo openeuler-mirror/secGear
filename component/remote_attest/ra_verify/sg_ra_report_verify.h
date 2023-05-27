@@ -10,8 +10,8 @@
  * See the Mulan PSL v2 for more details.
  */
 
-#ifndef SECGEAR_VERIFY_REPORT_H
-#define SECGEAR_VERIFY_REPORT_H
+#ifndef SECGEAR_RA_VERIFY_REPORT_H
+#define SECGEAR_RA_VERIFY_REPORT_H
 
 #include "status.h"
 #include "secgear_defs.h"

@@ -10,25 +10,35 @@
  * See the Mulan PSL v2 for more details.
  */
 
-#ifndef SECGEAR_RA_HELPER_H
-#define SECGEAR_RA_HELPER_H
+#ifndef SECGEAR_UNI_REE_AGENT_H
+#define SECGEAR_UNI_REE_AGENT_H
 
 #include <stdint.h>
-#include <stdbool.h>
 #include "status.h"
 #include "sg_report_st.h"
 
-#define MAX_NONCE_BUF_LEN 512
-typedef struct {
-    uint8_t *uuid;
-    uint32_t nonce_len;
-    uint8_t nonce[MAX_NONCE_BUF_LEN];
-    bool with_tcb;
-} gp_get_ra_report_input_t;
-
-cc_enclave_result_t gen_provision_no_as_in_buff(cc_ra_buf_t **in);
-cc_enclave_result_t gen_ra_report_in_buff(gp_get_ra_report_input_t *param, cc_ra_buf_t **json_buf);
-void print_ra_report(cc_ra_buf_t *report);
-void free_cc_ra_buf(cc_ra_buf_t *ra_buf);
+#ifdef __cplusplus
+extern "C" {
 #endif
 
+typedef cc_enclave_result_t (*uni_prepare_ra_env_proc_t)(cc_ra_scenario_t scenario);
+typedef cc_enclave_result_t (*uni_get_ra_report_proc_t)(cc_get_ra_report_input_t *in, cc_ra_buf_t *report);
+
+typedef enum {
+    CC_TEE_TYPE_GP,
+    CC_TEE_TYPE_SGX,
+} cc_tee_type_t;
+
+typedef struct {
+    cc_tee_type_t tee_type;
+    uni_prepare_ra_env_proc_t prepare_ra_env;
+    uni_get_ra_report_proc_t get_ra_report;
+} uni_ree_agent_t;
+
+void cc_register_ree_agent(uni_ree_agent_t *agent);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
