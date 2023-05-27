@@ -15,7 +15,11 @@ target_include_directories(${OUTPUT} PRIVATE
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
     target_link_directories(${OUTPUT} PRIVATE /usr/lib64 /usr/local/lib)
 endif()
-target_link_libraries(${OUTPUT} pthread csecure_channel)
+if (CC_GP)
+    set(THIRDPARTY_VERIFY teeverifier)
+endif()
+
+target_link_libraries(${OUTPUT} pthread csecure_channel ${THIRDPARTY_VERIFY})
 
 set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
 
