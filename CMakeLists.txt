@@ -17,9 +17,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
  
 set(LOCAL_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
- 
-set(SECGEAR_DEBUG_LEVEL SECGEAR_LOG_LEVEL_DEBUG)
-add_definitions(-DSECGEAR_DEBUG_LEVEL=${SECGEAR_DEBUG_LEVEL})
 message("=============cmake help info=======================") 
 message("Example default cmd: cmake ..")
 message("same with default: cmake -DENCLAVE=SGX -DSDK_PATH=/opt/intel/sgxsdk -DSSL_PATH=/opt/intel/sgxssl ..")
@@ -40,6 +37,12 @@ set(PL_SDK_DEFAULT_PATH /root/dev/sdk)
 
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
 	add_definitions(-DDEBUG_FILE_LINE)
+	#set enclave log level
+	set(PRINT_LEVEL 3)
+	add_definitions(-DPRINT_LEVEL=${PRINT_LEVEL})
+	#set host log level
+	set(SECGEAR_DEBUG_LEVEL SECGEAR_LOG_LEVEL_DEBUG)
+	add_definitions(-DSECGEAR_DEBUG_LEVEL=${SECGEAR_DEBUG_LEVEL})
 endif()
 
 if(COVERAGE_ENABLE)

@@ -49,6 +49,7 @@ int main(void)
         print_debug("get ra report error, ret:%x!\n", ret);
         return -1;
     }
+    printf("get ra report success\n");
 
     cc_ra_buf_t cc_nonce;
     cc_nonce.buf = ra_input.nonce;
