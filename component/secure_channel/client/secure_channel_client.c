@@ -191,10 +191,11 @@ static cc_enclave_result_t get_taid_from_file(char *file, char *taid)
     }
 
     int ret = fscanf(fp, "%s", taid);    // only read taid from line
-    
-    printf("read ret:%d, taid:%s\n", ret, taid);
-
     fclose(fp);
+    if (ret < 0) {
+        printf("secure channel init read taid and hash from file failed\n");
+        return CC_ERROR_SEC_CHL_INIT_GET_TAID;
+    }
 
     return CC_SUCCESS;
 }

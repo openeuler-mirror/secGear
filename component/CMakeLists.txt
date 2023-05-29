@@ -13,6 +13,7 @@ set(LIBRARY_INSTALL ${LOCAL_ROOT_PATH_INSTALL}/usr/lib64)
 ADD_SUBDIRECTORY(secure_channel)
 
 ADD_SUBDIRECTORY(remote_attest)
+ADD_SUBDIRECTORY(local_attest)
 
 
  

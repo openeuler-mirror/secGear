@@ -20,7 +20,7 @@ endif()
 if(CC_GP)
     aux_source_directory(${LOCAL_ROOT_PATH}/thirdparty/cjson/ CJSON_SRC)
     FILE (GLOB_RECURSE BASE64_SRC "${LOCAL_ROOT_PATH}/thirdparty/base64url/*.c")
-    set(SRC_FILES ${SRC_FILES} ${CJSON_SRC} ${BASE64_SRC} gp_ra_report.c)
+    set(SRC_FILES ${SRC_FILES} ${CJSON_SRC} ${BASE64_SRC} gp_ra_report.c gp_report_helper.c)
     set(INCLUDE_DIR ${SDK_PATH}/include/CA
                     ${LOCAL_ROOT_PATH}/thirdparty/cjson
                     ${LOCAL_ROOT_PATH}/thirdparty/libqca

@@ -49,6 +49,13 @@ int main(int argc, char **argv)
     cc_enclave_result_t ret;
     struct sockaddr_in svr_addr;
 
+    char *ta_basevalue_file = "../basevalue.txt";
+    char basevalue_real_path[PATH_MAX] = {0};
+    if (realpath(ta_basevalue_file, basevalue_real_path) == NULL) {
+        printf("ta basevalue file path error\n");
+        return -1;
+    }
+
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
         printf("create socket failed\n");
@@ -69,7 +76,7 @@ int main(int argc, char **argv)
     // step1: 初始化安全通道客户端，注册消息发送函数
     g_ctx.conn_kit.send = (void *)socket_write_and_read;
     g_ctx.conn_kit.conn = &sockfd;
-    g_ctx.basevalue = "/vendor/bin/basevalue.txt";  // content format:taid image_hash mem_hash
+    g_ctx.basevalue = basevalue_real_path;  // content format:taid image_hash mem_hash
     ret = cc_sec_chl_client_init(CC_SEC_CHL_ALGO_RSA_ECDH_AES_GCM, &g_ctx);
     if (ret != CC_SUCCESS) {
         printf("secure channel init failed:%u\n", ret);

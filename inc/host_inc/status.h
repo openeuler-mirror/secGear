@@ -89,6 +89,8 @@ typedef enum _enclave_result_t
 
     CC_ERROR_REE_AGENT_NOT_INIT,
     CC_ERROR_RA_VERIFY_AGENT_NOT_INIT,
+    CC_ERROR_LOCAL_REPORT_INVALID,
+    CC_ERROR_LOCAL_REPORT_HASH_MISMATCH,
 /* secure channel */
     CC_ERROR_SEC_CHL_INVALID_CONN,          /* invalid connection */
     CC_ERROR_SEC_CHL_LEN_NOT_ENOUGH,       /* the buf length to store secure channle encrypt/decrypt is not enough */

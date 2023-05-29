@@ -14,9 +14,6 @@ set(PREFIX secure_channel)
 set(SOURCE_FILES secure_channel_enclave.c ${CMAKE_CURRENT_SOURCE_DIR}/../secure_channel_common.c)
 FILE (GLOB_RECURSE BASE64_SRC "${LOCAL_ROOT_PATH}/thirdparty/base64url/*.c")
 
-set(PRINT_LEVEL 3)
-add_definitions(-DPRINT_LEVEL=${PRINT_LEVEL})
-
 if(CC_GP)
     add_definitions(-DGP_ENCLAVE)
     set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
