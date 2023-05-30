@@ -11,35 +11,35 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include <linux/limits.h>
+#include <openssl/rand.h>
 #include "enclave.h"
 #include "status.h"
-#include "la_demo_u.h"
+#include "ra_demo_u.h"
 #include "sg_ra_report.h"
+#include "sg_ra_report_verify.h"
 
+#define TEST_NONCE_LEN 32
+#define TEST_REPORT_OUT_LEN 0x3000
 int main(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
-    int ecall_ret;
     char taid[37] = {0};
-    char img_hash[65] = {0};
-    char mem_hash[65] = {0};
-
     char basevalue_real_path[PATH_MAX] = {0};
+
     char *ta_basevalue_file = "../basevalue.txt";
+
     if (realpath(ta_basevalue_file, basevalue_real_path) == NULL) {
         printf("ta basevalue file path error\n");
         return -1;
     }
     printf("input:%s\nreal path:%s\n", ta_basevalue_file, basevalue_real_path);
-
     FILE *fp = fopen(basevalue_real_path, "r");
     if (!fp) {
         printf("input ta basevalue file is invalid\n");
         return -1;
     }
-    int ret_f = fscanf(fp, "%s %s %s", taid, img_hash, mem_hash);
+    int ret_f = fscanf(fp, "%s", taid);
     fclose(fp);
     if (ret_f < 0) {
         printf("read taid and hash from basevalue file failed\n");
@@ -61,13 +61,38 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    ret = local_attest_test(&context, &ecall_ret, taid, img_hash, mem_hash);
-    if (ret != CC_SUCCESS || ecall_ret != CC_SUCCESS) {
-        printf("local attest error\n");
+    cc_get_ra_report_input_t ra_input = {0};
+    ra_input.taid = (uint8_t *)taid;
+    ra_input.with_tcb = false;
+
+    if (RAND_priv_bytes(ra_input.nonce, TEST_NONCE_LEN) <= 0) {
+        cc_enclave_destroy(&context);
+        return CC_FAIL;
+    }
+    ra_input.nonce_len = TEST_NONCE_LEN + 1;
+
+    uint8_t data[TEST_REPORT_OUT_LEN] = {0};
+    cc_ra_buf_t report = {TEST_REPORT_OUT_LEN, data};
+
+    ret = cc_get_ra_report(&ra_input, &report);
+    if (ret != CC_SUCCESS) {
+        printf("get ra report error, ret:%x!\n", ret);
         cc_enclave_destroy(&context);
         return -1;
     }
-    printf("local attest success\n");
+    printf("get ra report success\n");
+
+    cc_ra_buf_t cc_nonce;
+    cc_nonce.buf = ra_input.nonce;
+    cc_nonce.len = ra_input.nonce_len;
+
+    ret = cc_verify_report(&report, &cc_nonce, CC_RA_VERIFY_TYPE_STRICT, basevalue_real_path);
+    if (ret != CC_SUCCESS) {
+        printf("verify report error\n");
+        cc_enclave_destroy(&context);
+        return -1;
+    }
+    printf("verify report success\n");
   
     cc_enclave_destroy(&context);
 

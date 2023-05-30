@@ -1,5 +1,5 @@
 #set host exec name
-set(OUTPUT secgear_la_demo)
+set(OUTPUT secgear_ra_demo)
 #set host src code
 aux_source_directory(. SOURCE_FILE)
 
@@ -27,7 +27,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-maybe-uninitialized -fPIE")
 if(CC_GP)
     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
     target_include_directories(${OUTPUT} PRIVATE ${SECGEAR_INSTALL_DIR} ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(${OUTPUT} secgear secgear_ra qca)
+    target_link_libraries(${OUTPUT} secgear secgear_ra secgear_verify crypto qca teeverifier)
 endif()
 
 if(CC_SGX)
@@ -44,7 +44,7 @@ if(CC_SGX)
         target_link_directories(${OUTPUT} PRIVATE ${SDK_PATH}/lib64)
     endif()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${host_C_Flags}")
-    target_link_libraries(${OUTPUT} secgear secgear_ra)
+    target_link_libraries(${OUTPUT} secgear secgear_ra secgear_verify crypto)
 endif()
 
 set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)

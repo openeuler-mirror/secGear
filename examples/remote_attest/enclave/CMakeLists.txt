@@ -11,7 +11,7 @@ add_definitions(-DPRINT_LEVEL=${PRINT_LEVEL})
 if(CC_GP)
     #set whilelist. default: /vendor/bin/teec_hello
     set(WHITE_LIST_OWNER root)
-    set(WHITE_LIST_0 /vendor/bin/secgear_la_demo)
+    set(WHITE_LIST_0 /vendor/bin/secgear_ra_demo)
     set(WHITELIST WHITE_LIST_0)
 
     #set signed output
@@ -62,7 +62,7 @@ if(CC_GP)
     endforeach(WHITE_LIST)
     add_definitions(-DWHITE_LIST_OWNER="${WHITE_LIST_OWNER}")
 
-    target_link_libraries(${PREFIX} -lsecgear_tee -lsecgear_la)
+    target_link_libraries(${PREFIX} -lsecgear_tee)
     add_custom_command(TARGET ${PREFIX}
      	 POST_BUILD
     	         COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
@@ -109,7 +109,7 @@ if(CC_SGX)
             ${SGX_LIBRARY_PATH} ${SGX_LIBRARY_PATH})
     endif()
 
-    target_link_libraries(${PREFIX} -lsecgear_tee -lsecgear_la -Wl,--whole-archive ${Trts_Library_Name} -Wl,--no-whole-archive
+    target_link_libraries(${PREFIX} -lsecgear_tee -Wl,--whole-archive ${Trts_Library_Name} -Wl,--no-whole-archive
             -Wl,--start-group -lsgx_tstdc -lsgx_tcxx -lsgx_tcrypto -lsgx_pthread ${Service_Library_Name} -Wl,--end-group)
 
     add_custom_command(TARGET ${PREFIX}
