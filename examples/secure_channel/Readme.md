@@ -47,7 +47,13 @@ mkdir debug && cd debug && cmake .. && make && sudo make install
 ./bin/sc_client
 ```
 ### Arm Trustzone
-环境准备：申请TA开发者证书，[调测环境TA应用开发者证书申请方法](https://www.hikunpeng.com/document/detail/zh/kunpengcctrustzone/fg-tz/kunpengtrustzone_04_0009.html)
+#### 环境准备
+[参照远程证明环境准备](https://gitee.com/houmingyong/secGear/tree/master/examples/remote_attest#%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87)   
+与远程证明环境准备有两点差别
+1. 将/vendor/bin/sc_server修改到QTA的源码中
+2. 将Huawei IT Product CA.pem上传到环境 secGear/examples/secure_channel/build/目录下
+
+#### 编译运行secGear样例
 
 ```
 // intall build require depends openEuler 23.03 repo
@@ -71,10 +77,13 @@ add_custom_command(TARGET ${PREFIX}
 
 // build example secure channel
 cd secGear/examples/secure_channel
-mkdir debug && cd debug && cmake -DENCLAVE=GP .. && make && sudo make install
+mkdir build && cd build && cmake -DENCLAVE=GP .. && make && sudo make install
 
 // start server
 /vendor/bin/sc_server
+
+// config basevalue.txt
+// edit basevalue.txt to overwrite taid img_hash mem_hash, the img_hash and mem_hash comes from /opt/itrustee_sdk/build/signtools/hash_uuid.txt
 
 // start client 
 /vendor/bin/sc_client

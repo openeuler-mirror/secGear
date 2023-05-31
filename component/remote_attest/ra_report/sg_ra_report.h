@@ -21,11 +21,18 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+/**
+* [host REE API] prepare attest environment before get report by attestation service
+*
+* @param[in] scenario, the scenario of attestation service
+*
+* @retval, On success, return 0. 
+*          On error, cc_enclave_result_t errorno is returned.
+*/
 CC_API_SPEC cc_enclave_result_t cc_prepare_ra_env(cc_ra_scenario_t scenario);
 
 /**
-* get remote attestation report
+* [host REE API] get remote attestation report by attestation service
 *
 * @param[in] in, bytes of input
 *

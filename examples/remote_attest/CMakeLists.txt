@@ -1,46 +1,61 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
-# secGear is licensed under the Mulan PSL v2.
-# You can use this software according to the terms and conditions of the Mulan PSL v2.
-# You may obtain a copy of Mulan PSL v2 at:
-#     http://license.coscl.org.cn/MulanPSL2
-# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
-# PURPOSE.
-# See the Mulan PSL v2 for more details.
-
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-project(qca_demo C)
+project(remote_attest C)
 
-set(TARGET qca_demo)
+set(CMAKE_C_STANDARD 99)
+
+set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+
+set(PREFIX ra_demo)
+
+if (NOT DEFINED ENCLAVE)
+set(ENCLAVE "SGX")
+endif()
+set(SGX_SDK_DEFAULT_PATH /opt/intel/sgxsdk)
+set(GP_SDK_DEFAULT_PATH /opt/itrustee_sdk)
+
+if (NOT DEFINED SSL_PATH)
+set(SSL_PATH /opt/intel/sgxssl)
+endif()
+
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+if(${ENCLAVE} STREQUAL "GP")
+    if (NOT DEFINED SDK_PATH)
+        set(SDK_PATH ${GP_SDK_DEFAULT_PATH})
+    endif()
+    if(NOT IS_DIRECTORY ${SDK_PATH})
+        message(FATAL_ERROR "Please provide the correct SDK_PATH path")
+    endif()
+    set(CC_GP ON)
+endif()
+
+if(${ENCLAVE} STREQUAL "SGX")
+    if (NOT DEFINED SDK_PATH)
+        set(SDK_PATH ${SGX_SDK_DEFAULT_PATH})
+    endif()
+    if(NOT IS_DIRECTORY ${SDK_PATH})
+        message(FATAL_ERROR "Please provide the correct SDK_PATH path")
+    endif()
+    set(CC_SGX ON)
+endif()
+
+#set edl name
+set(EDL_FILE ra_demo.edl)
+set(CODEGEN codegen)
+set(SIGN_TOOL sign_tool.sh)
 
 set(SECGEAR_INSTALL_DIR /usr/include/secGear)
 
-aux_source_directory(. SRC_FILES)
-
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -g")
-
-if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
-    link_directories(/usr/lib64 /usr/local/lib)
+if(CC_GP)
+    set(CODETYPE trustzone)
+    set(UUID 7763a15a-0a9e-4e86-90cd-e4262583948a)
+    add_definitions(-DPATH="/data/${UUID}.sec")
 endif()
 
-include_directories( 
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${SECGEAR_INSTALL_DIR})
-
-add_executable(${TARGET} ${SRC_FILES})
-
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-    target_link_directories(${TARGET} PRIVATE /usr/lib64 /usr/local/lib)
+if(CC_SGX)
+    set(CODETYPE sgx)
+    add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/${PREFIX}.signed.so")
 endif()
 
-target_link_libraries(${TARGET} secgear secgear_ra secgear_verify crypto qca teeverifier)
-
-set(LIBRARY_INSTALL .)
-
-install(TARGETS ${TARGET} 
-        LIBRARY
-        DESTINATION ${LIBRARY_INSTALL}
-        PERMISSIONS  OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)
-
-
+add_subdirectory(${CURRENT_ROOT_PATH}/enclave)
+add_subdirectory(${CURRENT_ROOT_PATH}/host)
