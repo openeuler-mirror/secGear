@@ -36,7 +36,7 @@ CC_API_SPEC cc_enclave_result_t cc_prepare_ra_env(cc_ra_scenario_t scenario);
 *
 * @param[in] in, bytes of input
 *
-* @param[out] report, remote attestion report, 0x3000 =< len < 0x100000
+* @param[in/out] report, remote attestion report, 0x3000 =< report->len < 0x100000
 *
 * @retval, On success, return 0. 
 *          On error, cc_enclave_result_t errorno is returned.
