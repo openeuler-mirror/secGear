@@ -89,4 +89,8 @@ mkdir build && cd build && cmake -DENCLAVE=GP .. && make && sudo make install
 /vendor/bin/sc_client
 ```
 
-
+#### 注意事项
+- 网络连接
+安全通道仅封装密钥协商过程、加解密接口，不建立网络连接，协商过程复用业务的网络连接。其中客户端和服务端的网络连接由业务建立和维护，在安全通道客户端和服务端初始化时传入消息发送钩子函数和网络连接指针，两端的接收网络消息buffer长度需要设置足够大，能够容纳 12320 字节的安全通道初始化消息。
+- 客户端初始化
+客户端调用cc_sec_chl_client_init时，还需要初始化cc_sec_chl_ctx_t的basevalue字段，传入服务端TA的度量基线值文件，文件内容格式为"taid img_hash mem_hash"，否则安全通道初始化时远程证明会失败，导致安全通道协商失败。服务端TA的度量基线值是TA编译时自动生成的名为hash_uuid.txt的文件。

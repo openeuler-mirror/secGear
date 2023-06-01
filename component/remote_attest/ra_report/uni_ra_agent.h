@@ -10,8 +10,8 @@
  * See the Mulan PSL v2 for more details.
  */
 
-#ifndef SECGEAR_UNI_REE_AGENT_H
-#define SECGEAR_UNI_REE_AGENT_H
+#ifndef SECGEAR_UNI_RA_AGENT_H
+#define SECGEAR_UNI_RA_AGENT_H
 
 #include <stdint.h>
 #include "status.h"
@@ -33,9 +33,9 @@ typedef struct {
     cc_tee_type_t tee_type;
     uni_prepare_ra_env_proc_t prepare_ra_env;
     uni_get_ra_report_proc_t get_ra_report;
-} uni_ree_agent_t;
+} uni_ra_agent_t;
 
-void cc_register_ree_agent(uni_ree_agent_t *agent);
+void cc_register_ra_agent(uni_ra_agent_t *agent);
 
 #ifdef __cplusplus
 }

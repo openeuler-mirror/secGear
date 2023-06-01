@@ -10,15 +10,15 @@
  * See the Mulan PSL v2 for more details.
  */
 #include "sg_ra_report.h"
-#include "uni_ree_agent.h"
+#include "uni_ra_agent.h"
 
-static uni_ree_agent_t *g_ree_agent = NULL;
+static uni_ra_agent_t *g_ra_agent = NULL;
 cc_enclave_result_t cc_prepare_ra_env(cc_ra_scenario_t scenario)
 {
-    if (g_ree_agent == NULL) {
-        return CC_ERROR_REE_AGENT_NOT_INIT;
+    if (g_ra_agent == NULL) {
+        return CC_ERROR_RA_AGENT_NOT_INIT;
     }
-    return g_ree_agent->prepare_ra_env(scenario);
+    return g_ra_agent->prepare_ra_env(scenario);
 }
 
 cc_enclave_result_t cc_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *report)
@@ -26,13 +26,13 @@ cc_enclave_result_t cc_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *
     if (in == NULL || in->taid == NULL || report == NULL || report->buf == NULL) {
         return CC_ERROR_BAD_PARAMETERS;
     }
-    if (g_ree_agent == NULL) {
-        return CC_ERROR_REE_AGENT_NOT_INIT;
+    if (g_ra_agent == NULL) {
+        return CC_ERROR_RA_AGENT_NOT_INIT;
     }
-    return g_ree_agent->get_ra_report(in, report);
+    return g_ra_agent->get_ra_report(in, report);
 }
 
-void cc_register_ree_agent(uni_ree_agent_t *agent)
+void cc_register_ra_agent(uni_ra_agent_t *agent)
 {
-    g_ree_agent = agent;
+    g_ra_agent = agent;
 }

@@ -13,7 +13,7 @@
 #include <string.h>
 #include "ra_client_api.h"
 #include "enclave_log.h"
-#include "uni_ree_agent.h"
+#include "uni_ra_agent.h"
 #include "gp_report_helper.h"
 
 #define PROVISION_OUT_LEN 0x3000
@@ -71,12 +71,12 @@ static cc_enclave_result_t gp_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_
     return CC_SUCCESS;
 }
 
-static uni_ree_agent_t g_gp_agent = {
+static uni_ra_agent_t g_gp_agent = {
     .tee_type = CC_TEE_TYPE_GP,
     .prepare_ra_env = gp_prepare_ra_env,
     .get_ra_report = gp_get_ra_report,
 };
-static __attribute__((constructor)) void gp_register_ree_agent(void)
+static __attribute__((constructor)) void gp_register_ra_agent(void)
 {
-    cc_register_ree_agent(&g_gp_agent);
+    cc_register_ra_agent(&g_gp_agent);
 }
