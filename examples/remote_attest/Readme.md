@@ -59,21 +59,24 @@ cp e08f7eca-e875-440e-9ab0-5f381136c600.sec /data
 #### 验证者部署第三方依赖库
 
 ```
-// deploy libteeverifier.so
-git clone https://gitee.com/openeuler/kunpengsecl.git
-cd attestation/tee/tverlib/verifier
-make
-cp libteeverifier.so /usr/lib64/
-
 // deploy libcjson.so
 wget https://github.com/DaveGamble/cJSON/archive/refs/tags/v1.7.15.tar.gz
 tar xvf v1.7.15.tar.gz 
 cd cJSON-1.7.15/
 make && make install
 
+// deploy libteeverifier.so
+git clone https://gitee.com/openeuler/kunpengsecl.git
+cd attestation/tee/tverlib/miracl
+make
+cd attestation/tee/tverlib/verifier
+make
+cp libteeverifier.so /usr/lib64/
+
 // intall Huawei IT Product CA.pem
 // windows浏览器下载https://download.huawei.com/dl/download.do?actionFlag=download&nid=PKI1000000040&partNo=3001&mid=SUP_PKI
 // 上传到环境 secGear/examples/remote_attest/build/目录下
+// 实际应用开发中，证书需要上传到执行verify二进制时的目录，比如存在/usr/bin/verify_test，如果要在/home目录下执行verify_test，证书需要上传到/home目录。
 ```
 
 
