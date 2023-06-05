@@ -273,7 +273,6 @@ API清单
 |  ----  | ----  |
 | cc_enclave_create()  | 用于创建安全侧的安全进程，针对安全区进程进行内存和相关上下文的初始化 |
 | cc_enclave_destroy()  | 用于销毁相关安全进程，对安全内存进行释放 |
-| cc_enclave_get_sealed_data_size()  | 用于获取加密后 sealed_data 数据占用的总大小，主要用于解密后需要分配的内存空间，安全侧与非安全侧皆可调用 |
 | cc_malloc_shared_memory()  | 用于开启switchless特性后，创建共享内存 |
 | cc_free_shared_memory()  | 用于开启switchless特性后，释放共享内存 |
 | cc_sl_get_async_result()  | 检查异步调用结果并释放异步调用资源（当前仅支持ARM） |
@@ -282,7 +281,7 @@ API清单
 
 |  接口   | 接口说明  |
 |  ----  | ----  |
-| cc_enclave_get_sealed_data_size()  | 用于获取加密后 sealed_data 数据占用的总大小，主要用于解密后需要分配的内存空间，安全侧与非安全侧皆可调用 |
+| cc_enclave_get_sealed_data_size()  | 用于获取加密后 sealed_data 数据占用的总大小，主要用于解密后需要分配的内存空间 |
 | cc_enclave_get_encrypted_text_size()  | 获取加密数据中加密消息的长度 |
 | cc_enclave_unseal_data()  | 用于解密 enclave 密封过的数据，用于将外部持久化数据重新导回 enclave 环境中 |
 | cc_enclave_get_add_text_size()  | 获取加密数数据中附加消息的长度 |
