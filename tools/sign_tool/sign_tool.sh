@@ -122,8 +122,10 @@ itrustee_start_sign() {
         cp ${IN_ENCLAVE} ${IN_PATH}/libcombine.so
         OUT_PATH=$(dirname ${OUT_FILE})
         echo ${IN_PATH} ${OUT_PATH}
+        echo "CFLAGS += -DAPI_LEVEL=${API_LEVEL}" > ${IN_PATH}/config.mk
         python3 -B ${signtoolpath}/signtool_v3.py ${IN_PATH} ${OUT_PATH} --privateCfg ${A_CONFIG_FILE}
-        rm -rf ${IN_PATH}/libcombine.so
+        rm -f ${IN_PATH}/config.mk
+        rm -f ${IN_PATH}/libcombine.so
     else
         echo "Error: illegal command"
     fi
