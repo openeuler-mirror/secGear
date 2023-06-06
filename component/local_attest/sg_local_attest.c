@@ -14,7 +14,7 @@
 
 cc_enclave_result_t cc_local_attest(char *taid, char *img_hash, char *mem_hash)
 {
-    if (taid == NULL || (img_hash == NULL && mem_hash == NULL)) {
+    if (taid == NULL || img_hash == NULL || mem_hash == NULL) {
         return CC_ERROR_BAD_PARAMETERS;
     }
     
