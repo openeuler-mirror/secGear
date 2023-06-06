@@ -35,7 +35,7 @@ typedef enum {
     CC_RA_VERIFY_TYPE_MAX
 } cc_ra_verify_type_t;
 
-#define MAX_NONCE_BUF_LEN 512
+#define MAX_NONCE_BUF_LEN 64
 typedef struct {
     uint8_t *taid;
     uint32_t nonce_len;

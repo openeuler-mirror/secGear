@@ -59,8 +59,8 @@ static cc_enclave_result_t gp_compare_hash(gp_basevalue_t *basevalue, char *ta_i
     PrintInfo(PRINT_STRACE, "heximg:%s, hexmem:%s", heximg, hexmem);
     PrintInfo(PRINT_STRACE, "img_hash:%s, mem_hash:%s", basevalue->img_hash, basevalue->mem_hash);
 
-    if (memcmp(heximg, basevalue->img_hash, strlen(basevalue->img_hash)) != 0 ||
-        memcmp(hexmem, basevalue->mem_hash, strlen(basevalue->mem_hash)) != 0) {
+    if (memcmp(heximg, basevalue->img_hash, strlen(heximg)) != 0 ||
+        memcmp(hexmem, basevalue->mem_hash, strlen(hexmem)) != 0) {
         PrintInfo(PRINT_ERROR, "verify local report hash failed!\n");
         return CC_ERROR_LOCAL_REPORT_HASH_MISMATCH;
     }
