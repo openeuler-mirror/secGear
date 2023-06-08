@@ -17,9 +17,11 @@ print_help() {
     echo "-k <file>       private key required for single-step method. Note: single-step method is only for the debug mode,"
     echo "-k <file>       plaintext private key does exist in the production environment."
     echo "-m <file>       additional config_cloud.ini for trustzone."
-    echo "-o <file>       output parameter, the sign command outputs signed enclave, the digest command outputs signing"
-    echo "                material, the dump command outputs data containing the SIGStruct metadata for the SGX signed"
-    echo "                enclave, which is submitted to Intel for whitelisting."
+    echo "-o <file>       output parameter. "
+    echo "                sgx:  the sign command outputs signed enclave, the digest command outputs signing"
+    echo "                      material, the dump command outputs data containing the SIGStruct metadata for the SGX signed"
+    echo "                      enclave, which is submitted to Intel for whitelisting."
+    echo "                trustzone: /output_path/uuid.sec, uuid must be the same as the value of gpd.ta.appID in manifest.txt"
     echo "-p <file>       signing server public key certificate, required for sgx two-step method."
     echo "-s <file>       the signature value required for two-step method, this parameter is empty to indicate"
     echo "                single-step method."
@@ -114,6 +116,22 @@ itrustee_start_sign() {
     #    check_native_sign
     if [ -z "$A_CONFIG_FILE" ]; then
         echo "Error: missing additional config_cloud.ini file for signing iTrustee enclave"
+        exit 1
+    fi
+    if [ -z $CONFIG_FILE ]; then
+        echo "Error: missing basic config file for signing iTrustee enclave"
+        exit 1
+    fi
+    if [ ! -e $CONFIG_FILE ]; then
+        echo "No such file or directory"
+        exit 1
+    fi
+    if [ -z $IN_ENCLAVE ]; then
+        echo "Error: missing enclave file"
+        exit 1
+    fi
+    if [ ! -e $IN_ENCLAVE ]; then
+        echo "Error: No such file or directory"
         exit 1
     fi
 
