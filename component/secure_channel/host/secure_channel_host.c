@@ -96,15 +96,6 @@ static int sec_chl_get_ra_report(cc_enclave_t *context, sec_chl_msg_t *msg,
     return CC_SUCCESS;
 }
 
-static int sec_chl_get_ra_report_ex(cc_enclave_t *context, sec_chl_msg_t *msg,
-    sec_chl_msg_t **rsp_msg, size_t *rsp_msg_len)
-{
-    if (is_support_remote_attest(context)) {
-        return sec_chl_get_ra_report(context, msg, rsp_msg, rsp_msg_len);
-    }
-    return CC_SUCCESS;
-}
-
 static int sec_chl_get_pubkey(cc_enclave_t *context, sec_chl_msg_t *msg, sec_chl_msg_t **rsp_msg, size_t *rsp_msg_len)
 {
     if (is_support_remote_attest(context)) {
@@ -423,9 +414,6 @@ static cc_enclave_result_t handle_recv_msg(cc_enclave_t *context, sec_chl_msg_t 
 {
     cc_enclave_result_t ret = CC_FAIL;
     switch (msg->msg_type) {
-        case SEC_CHL_MSG_GET_RA_REPORT:
-            ret = sec_chl_get_ra_report_ex(context, msg, rsp_msg, rsp_msg_len);
-            break;
         case SEC_CHL_MSG_GET_SVR_PUBKEY:
             ret = sec_chl_get_pubkey(context, msg, rsp_msg, rsp_msg_len);
             break;

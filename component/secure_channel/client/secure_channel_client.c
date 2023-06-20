@@ -243,53 +243,6 @@ static cc_enclave_result_t request_report(cc_sec_chl_ctx_t *ctx, sec_chl_msg_typ
     return CC_SUCCESS;
 }
 
-static cc_enclave_result_t get_ra_report(cc_sec_chl_ctx_t *ctx)
-{
-    return request_report(ctx, SEC_CHL_MSG_GET_RA_REPORT, false);
-}
-
-static cc_enclave_result_t verify_report(cc_sec_chl_ctx_t *ctx, sec_chl_msg_t *msg)
-{
-    cc_enclave_result_t ret = CC_SUCCESS;
-    if (msg->sub_type == GET_SVRPUBKEY_SUBTYPE_REPORT) {
-        cc_ra_buf_t report = {0};
-        report.buf = msg->data;
-        report.len = msg->data_len;
-        cc_ra_buf_t nonce = {0};
-        nonce.len = SEC_CHL_REQ_NONCE_LEN;
-        nonce.buf = ctx->handle->ra_req.nonce;
-        ret = cc_verify_report(&report, &nonce, CC_RA_VERIFY_TYPE_STRICT, ctx->basevalue);
-        if (ret != CC_SUCCESS) {
-            printf("verify report failed ret:%u\n", ret);
-            return CC_ERROR_SEC_CHL_INIT_VERIFY_REPORT;
-        }
-    }
-    return ret;
-}
-
-static cc_enclave_result_t recv_ra_report(cc_sec_chl_ctx_t *ctx)
-{
-    sec_chl_msg_t *msg = NULL;
-
-    pthread_mutex_lock(&ctx->handle->lock);
-    if (ctx->handle->recv_buf_len == 0) {
-        pthread_mutex_unlock(&ctx->handle->lock);
-        return CC_ERROR_SEC_CHL_WAITING_RECV_MSG;
-    }
-    msg = (sec_chl_msg_t *)ctx->handle->recv_buf;
-    cc_enclave_result_t ret = verify_report(ctx, msg);
-    if (ret != CC_SUCCESS) {
-        pthread_mutex_unlock(&ctx->handle->lock);
-        return ret;
-    }
-
-    ctx->session_id = msg->session_id;
-    ctx->handle->recv_buf_len = 0;
-    pthread_mutex_unlock(&ctx->handle->lock);
-
-    return CC_SUCCESS;
-}
-
 static cc_enclave_result_t get_svr_pubkey(cc_sec_chl_ctx_t *ctx)
 {
     return request_report(ctx, SEC_CHL_MSG_GET_SVR_PUBKEY, true);
@@ -311,14 +264,14 @@ static cc_enclave_result_t get_svr_key_from_report(cc_sec_chl_ctx_t *ctx, cc_ra_
         printf("report payload failed!\n");
         goto end;
     }
-    cJSON *cj_nonce = cJSON_GetObjectItemCaseSensitive(cj_payload, "nonce");
-    if(cj_nonce == NULL) {
-        printf("report nonce failed!\n");
+    cJSON *cj_key = cJSON_GetObjectItemCaseSensitive(cj_payload, "key");
+    if (cj_key == NULL) {
+        printf("report key failed!\n");
         goto end;
     }
     // comput pubkey
-    cJSON *cj_pub_key = cJSON_GetObjectItemCaseSensitive(cj_nonce, "pub_key");
-    if(cj_pub_key == NULL) {
+    cJSON *cj_pub_key = cJSON_GetObjectItemCaseSensitive(cj_key, "pub_key");
+    if (cj_pub_key == NULL) {
         printf("report pub_key failed!\n");
         goto end;
     }
@@ -347,7 +300,7 @@ static cc_enclave_result_t get_svr_key_from_report(cc_sec_chl_ctx_t *ctx, cc_ra_
     ctx->handle->rsa_svr_pubkey = svr_pub_key;
 
     // save enc key to ctx
-    cJSON *cj_enc_key = cJSON_GetObjectItemCaseSensitive(cj_nonce, "enc_key");
+    cJSON *cj_enc_key = cJSON_GetObjectItemCaseSensitive(cj_key, "enc_key");
     if(cj_enc_key == NULL) {
         printf("report enc_key failed!\n");
         goto fail;
@@ -410,6 +363,15 @@ static cc_enclave_result_t parse_svrpubkey_from_recv_msg(cc_sec_chl_ctx_t *ctx, 
         cc_ra_buf_t report = {0};
         report.buf = msg->data;
         report.len = msg->data_len;
+        cc_ra_buf_t nonce = {0};
+        nonce.len = SEC_CHL_REQ_NONCE_LEN;
+        nonce.buf = ctx->handle->ra_req.nonce;
+
+        ret = cc_verify_report(&report, &nonce, CC_RA_VERIFY_TYPE_STRICT, ctx->basevalue);
+        if (ret != CC_SUCCESS) {
+            printf("verify report failed ret:%u\n", ret);
+            return CC_ERROR_SEC_CHL_INIT_VERIFY_REPORT;
+        }
 
         ret = get_svr_key_from_report(ctx, &report);
         if (ret != CC_SUCCESS) {
@@ -635,8 +597,6 @@ static cc_enclave_result_t sec_chl_compute_session_key(cc_sec_chl_ctx_t *ctx)
 }
 
 static sec_chl_fsm_state_transform_t g_state_transform_table[] = {
-    {get_ra_report},
-    {recv_ra_report},
     {get_svr_pubkey},
     {recv_svr_pubkey},
     {set_encrypt_key_to_server_ta},
