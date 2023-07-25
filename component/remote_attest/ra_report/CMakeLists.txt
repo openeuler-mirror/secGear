@@ -37,6 +37,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 include_directories( 
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${LOCAL_ROOT_PATH}/inc/host_inc)
 
 add_library(${TARGET} SHARED ${SRC_FILES} ${AUTO_FILES})

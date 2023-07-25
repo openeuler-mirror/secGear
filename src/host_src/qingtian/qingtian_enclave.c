@@ -57,7 +57,7 @@ static int enclave_deinit(uint32_t cid)
 }
 /************* port api *************/
 // return cmd length
-static int get_start_cmdline(char *cmd_buf, size_t cmd_buf_size, const qingtian_startup_t* pra,
+static int get_start_cmdline(char *cmd_buf, size_t cmd_buf_size, const cc_startup_t* pra,
                              const char *path, bool debug_mode)
 {
     char *cmd = "qt enclave start";
@@ -138,7 +138,7 @@ end:
 }
 
 // return length of command string
-int qt_start_cmd_construct(char *command, const qingtian_startup_t *pra, const char *eif, uint32_t flags)
+int qt_start_cmd_construct(char *command, const cc_startup_t *pra, const char *eif, uint32_t flags)
 {
     int ret = 0;
     char *resolved_path = calloc(1, PATH_MAX);
@@ -303,7 +303,7 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
         QT_ERR("Context parameter is NULL\n");
         return CC_ERROR_BAD_PARAMETERS;
     }
-    qingtian_startup_t *startup_pra = NULL;
+    cc_startup_t *startup_pra = NULL;
     for (uint32_t index = 0; index < features_count; index++) {
         if (features[index].setting_type & QINGTIAN_STARTUP_FEATURES) {
             startup_pra = features[index].feature_desc;

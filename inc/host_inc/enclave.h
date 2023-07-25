@@ -175,22 +175,16 @@ typedef enum {
     ENCLAVE_FEATURE_PROTECTED_CODE_LOADER
 } enclave_features_flag_t;
 
-typedef struct {
-    /* number of vCPUs to be allocated to the enclave VM, the default value 2 */
-    /* 指定要分配给enclave虚拟机的vCPU数量，不能大于隔离的cpu数目， 未配置使用默认值2 */
+#define QINGTIAN_STARTUP_FEATURES 0x00000001u
+
+typedef struct _cc_startup {
+    uint32_t enclave_cid;
     uint32_t cpus;
-
-    /* Specifies the memory size (MB) allocated to the Optimus Enclave VM. the default value 1024 MB */
-    /* 指定分配给擎天Enclave虚拟机的内存大小（MB），不能大于隔离内存大小，需大于擎天Enclave镜像大小，未配置使用默认值1024MB */
-    uint32_t mem;
-
-    /* Setting the Optimus Enclave VM CID, the default value 4 */
-    /* 设置擎天Enclave虚拟机cid，可用的cid范围为：4-4294967294，未配置使用默认值4 */
-    uint32_t cid;
-
-} cc_qingtian_config_t;
-
-#define CC_QINGTIAN_CONFIG_INITIALIZER   {2, 1024, 4}
+    uint32_t mem_mb;
+    const char *ip;
+    uint16_t port;
+    int query_retry;
+} cc_startup_t;
 
 # ifdef  __cplusplus
 }

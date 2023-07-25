@@ -10,10 +10,12 @@
  * See the Mulan PSL v2 for more details.
  */
 #include "qt_rpc_proxy.h"
+#include "status.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>

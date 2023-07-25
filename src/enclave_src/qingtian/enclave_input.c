@@ -26,8 +26,7 @@ cc_enclave_result_t cc_ocall_enclave(
     }
     QT_DEBUG("\n");
 #endif
-    result_cc = comm_call(func_id, in_buf, in_buf_size, out_buf, out_buf_size);
-    return result_cc;
+    return comm_call(func_id, in_buf, in_buf_size, out_buf, out_buf_size);
 }
 
 cc_enclave_result_t handle_ecall_function(

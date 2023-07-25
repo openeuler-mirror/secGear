@@ -27,6 +27,7 @@ typedef cc_enclave_result_t (*uni_get_ra_report_proc_t)(cc_get_ra_report_input_t
 typedef enum {
     CC_TEE_TYPE_GP,
     CC_TEE_TYPE_SGX,
+    CC_TEE_TYPE_QT
 } cc_tee_type_t;
 
 typedef struct {

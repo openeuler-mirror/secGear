@@ -20,23 +20,18 @@ set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/secgear_seal_data.c ${CMAKE_CURRENT
 #head file path
 include_directories(${LOCAL_ROOT_PATH}/inc/host_inc ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian
     ${LOCAL_ROOT_PATH}/inc/common/qingtian
-	${LOCAL_ROOT_PATH}/inc/enclave_inc)
+    ${LOCAL_ROOT_PATH}/inc/enclave_inc)
 
 if (CC_QT)
-#        set(COMMON_C_FLAGS "-D_FORTIFY_SOURCE=2 -O2 -ftrapv -fstack-protector-all  -fno-short-enums  -fno-omit-frame-pointer \
-#               --param ssp-buffer-size=4 -frecord-gcc-switches \
-#                -fno-peephole -fno-peephole2 -Wno-main -Wno-error=unused-parameter \
-#                -Wno-error=unused-but-set-variable -Wno-error=format-truncation=")
-
-        set(COMMON_C_FLAGS "-D_FORTIFY_SOURCE=2 -O0 -g -ftrapv -fstack-protector-all  -fno-short-enums  -fno-omit-frame-pointer \
-                --param ssp-buffer-size=4 -frecord-gcc-switches \
-                -fno-peephole -fno-peephole2 -Wno-main -Wno-error=unused-parameter \
-                -Wno-error=unused-but-set-variable -Wno-error=format-truncation=")
+    set(COMMON_C_FLAGS "-D_FORTIFY_SOURCE=2 -O2 -ftrapv -fstack-protector-all  -fno-short-enums  -fno-omit-frame-pointer \
+        --param ssp-buffer-size=4 -frecord-gcc-switches \
+        -fno-peephole -fno-peephole2 -Wno-main -Wno-error=unused-parameter \
+        -Wno-error=unused-but-set-variable -Wno-error=format-truncation=")
 else()
-        set(COMMON_C_FLAGS "-D_FORTIFY_SOURCE=2 -O2 -ftrapv -fstack-protector-all  -fno-short-enums  -fno-omit-frame-pointer \
-                --param ssp-buffer-size=4 -frecord-gcc-switches -nostdinc -nodefaultlibs \
-                -fno-peephole -fno-peephole2 -Wno-main -Wno-error=unused-parameter \
-                -Wno-error=unused-but-set-variable -Wno-error=format-truncation=")
+    set(COMMON_C_FLAGS "-D_FORTIFY_SOURCE=2 -O2 -ftrapv -fstack-protector-all  -fno-short-enums  -fno-omit-frame-pointer \
+        --param ssp-buffer-size=4 -frecord-gcc-switches -nostdinc -nodefaultlibs \
+        -fno-peephole -fno-peephole2 -Wno-main -Wno-error=unused-parameter \
+        -Wno-error=unused-but-set-variable -Wno-error=format-truncation=")
 endif()
 
 if(CC_GP)

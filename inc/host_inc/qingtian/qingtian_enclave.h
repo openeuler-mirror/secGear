@@ -19,20 +19,9 @@
 extern "C" {
 #endif
 
-#define QINGTIAN_STARTUP_FEATURES 0x00000001u
-
-typedef struct _qingtian_startup {
-    uint32_t enclave_cid;
-    uint32_t cpus;
-    uint32_t mem_mb;
-    const char *ip;
-    uint16_t port;
-    int query_retry;
-} qingtian_startup_t;
-
 typedef struct _qingtian_private_data {
     uint32_t enclave_id;
-    qingtian_startup_t startup;
+    cc_startup_t startup;
 } qingtian_private_data_t;
 
 #ifdef  __cplusplus

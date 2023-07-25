@@ -13,7 +13,7 @@ set(SOURCE_FILES ${SOURCE_FILES} qingtian_seal_data.c  bottom_memory_check.c err
                                     ${CMAKE_SOURCE_DIR}/src/common/qingtian/qt_rpc_proxy.c
                                     ${CMAKE_SOURCE_DIR}/src/common/qingtian/qt_call.c)
 
-set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -fPIC -g")
+set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -fPIC")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
 add_definitions(-DENCLAVE)
 

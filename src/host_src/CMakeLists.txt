@@ -26,13 +26,14 @@ endif()
 
 if (CC_QT)
     add_subdirectory(qingtian)
+    set(LINK_LIB crypto)
 endif()
 
 add_library(secgear SHARED enclave.c enclave_internal.c ocall_log.c enclave_ocall.c )
 
 add_library(secgearsim SHARED enclave.c enclave_internal.c ocall_log.c enclave_ocall.c)
 
-target_link_libraries(secgear dl pthread crypto)
+target_link_libraries(secgear dl pthread ${LINK_LIB})
 target_link_libraries(secgearsim dl pthread)
 
 set_target_properties(secgear PROPERTIES 

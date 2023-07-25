@@ -25,7 +25,7 @@ option(CC_SGX "default off" OFF)
 option(CC_QT  "default off" OFF)
 
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
-	add_definitions(-DDEBUG_FILE_LINE)
+    add_definitions(-DDEBUG_FILE_LINE)
     add_definitions(-DDEBUG)
 endif()
 
@@ -56,11 +56,6 @@ add_subdirectory(component)
 execute_process(COMMAND mkdir ${LOCAL_ROOT_PATH}/bin)
 
 add_subdirectory(examples)
-
-# TODO add tests
-#if(CC_QT)
-#    add_subdirectory(tests)
-#endif()
 
 install(FILES ${LOCAL_ROOT_PATH}/conf/logrotate.d/secgear
         DESTINATION /etc/logrotate.d/)
