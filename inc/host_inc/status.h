@@ -21,7 +21,6 @@ extern "C" {
 #define NULL    ((void *)0)
 #endif
 #define SECGEAR_ENUM_MAX 0xffffffff
-#define SGX_MK_ERROR(x)              (0x00000000|(x))
 
 typedef enum _enclave_result_t
 {
@@ -57,7 +56,7 @@ typedef enum _enclave_result_t
     CC_ERROR_INVALID_ISVSVN,         /* The isv svn is greater than the enclave's isv svn */
     CC_ERROR_INVALID_KEYNAME,        /* The key name is an unsupported value */  
     CC_ERROR_AE_INVALID_EPIDBLOB,    /* Indicates epid blob verification error */
-    CC_ERROR_SERVICE_INVALID_PRIVILEGE,  /* Enclave has no privilege to get launch token */
+    CC_ERROR_SERVICE_INVALID_PRIVILEGE,  /* Enclave not authorized to run */
     CC_ERROR_EPID_MEMBER_REVOKED,        /* The EPID group membership is revoked */
     CC_ERROR_UPDATE_NEEDED,          /* SDK need to be update*/
     CC_ERROR_MC_NOT_FOUND,           /* The Monotonic Counter doesn't exist or has been invalided */
@@ -181,7 +180,7 @@ __attribute__((visibility("default"))) const char *cc_enclave_res2_str(cc_enclav
         int32_t _res = (RES);                                           \
         if (_res != 0) {                                                \
             CCRES = CC_FAIL;                                            \
-            print_error_goto("Mutex acquisition or release error \n");  \
+            print_error_goto("%s Mutex acquisition or release error\n", cc_enclave_res2_str(CCRES)); \
         }                                                               \
     } while(0)
 
@@ -196,12 +195,21 @@ __attribute__((visibility("default"))) const char *cc_enclave_res2_str(cc_enclav
     } while(0)
 
 /* jump to done and log according to the type of res */
-#define SECGEAR_CHECK_RES(RES)                                \
-    do {                                                           \
-        cc_enclave_result_t _res = (RES);                        \
-        if (_res != CC_SUCCESS) {                                  \
-            print_error_goto(":%s \n", cc_enclave_res2_str(_res));    \
-        }                                                          \
+#define SECGEAR_CHECK_RES(RES)                                          \
+    do {                                                                \
+        cc_enclave_result_t _res = (RES);                               \
+        if (_res != CC_SUCCESS) {                                       \
+            print_error_goto("%s \n", cc_enclave_res2_str(_res));       \
+        }                                                               \
+    } while(0)
+
+#define SECGEAR_CHECK_RES_UNLOCK(RES)                                   \
+    do {                                                                \
+        cc_enclave_result_t _res = (RES);                               \
+        if (_res != CC_SUCCESS) {                                       \
+            pthread_mutex_unlock(&(g_list_ops.mutex_work));             \
+            print_error_goto("%s \n", cc_enclave_res2_str(_res));       \
+        }                                                               \
     } while(0)
 
 /* jump done, error log already printed in the previous error function */

@@ -1,4 +1,4 @@
-﻿<img src="docs/logo.png" alt="secGear" style="zoom:100%;" />
+<img src="docs/logo.png" alt="secGear" style="zoom:100%;" />
 
 secGear
 ============================
@@ -43,23 +43,22 @@ Then save as test.edl
 
 ### 2 Write the top-level CMakeLists.txt
 
-	cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+	cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 	project(TEST  C)
 	set(CMAKE_C_STANDARD 99)
 	set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 	set(EDL_FILE test.edl)
 	set(LOCAL_ROOT_PATH "$ENV{CC_SDK}")
-        set(SECGEAR_INSTALL_PATH /lib64/)
+        set(SECGEAR_INSTALL_PATH /usr/lib64/)
+	set(CODEGEN codegen)
 	if(CC_GP)
 		set(CODETYPE trustzone)
-		set(CODEGEN codegen_arm64)
 		execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
 		string(REPLACE "\n" "" UUID ${UUID})
 		add_definitions(-DPATH="/data/${UUID}.sec")
 	endif()
 	if(CC_SGX)
 		set(CODETYPE sgx)
-		set(CODEGEN codegen_x86_64)
 		add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/enclave.signed.so")
 	endif()
 	add_subdirectory(${CURRENT_ROOT_PATH}/enclave)
@@ -170,10 +169,9 @@ Set compile and link options
 		if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
 			target_link_directories(${OUTPUT} PRIVATE ${SECGEAR_INSTALL_PATH})
 		endif()
-		target_link_libraries(${OUTPUT} secgear)
 	endif()
 
-In the case of iTrustee, set the search paths of the header file and the link file, and compile the final non-secure binary.
+In the case of iTrustee, set the search paths of the header file and compile the final non-secure binary.
 
 	if(CC_SGX)
 		if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
@@ -187,12 +185,16 @@ In the case of iTrustee, set the search paths of the header file and the link fi
 		if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
 			target_link_directories(${OUTPUT} PRIVATE ${SECGEAR_INSTALL_PATH})
 		endif()
-		target_link_libraries(${OUTPUT} secgear)
 	endif()
 
-In the case of sgx, set the search paths of the header file and the link file, and compile the final non-secure binary.
+In the case of sgx, set the search paths of the header file and compile the final non-secure binary.
 
-	set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
+	if(CC_SIM)
+            target_link_libraries(${OUTPUT} secgearsim)
+        else()
+            target_link_libraries(${OUTPUT} secgear)
+        endif()
+        set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
 	if(CC_GP)
 		install(TARGETS  ${OUTPUT}
 				RUNTIME
@@ -206,8 +208,9 @@ In the case of sgx, set the search paths of the header file and the link file, a
 				PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)
 	endif()
 
-Specify the installation path of the final binary. The non-secure side image of iTrustee must be installed on the
-specified whitelist. The whitelist configuration will be introduced below.
+Based on -DCC_SIM=ON or none transferred from cmake, linking secgear or secgearsim. Specify the installation 
+path of the final binary. The non-secure side image of iTrustee must be installed on the specified whitelist. 
+The whitelist configuration will be introduced below.
 
 ### 4 Write security side code, CMakeLists.txt and some configuration files
 	
@@ -250,8 +253,6 @@ Set sign tool and the security side log printing level
 	if(CC_GP)
             #set signed output
             set(OUTPUT ${UUID}.sec)
-            #set itrustee device key
-            set(DEVICEPEM ${CMAKE_CURRENT_SOURCE_DIR}/rsa_public_key_cloud.pem)
 
             set(WHITE_LIST_0 /vendor/bin/helloworld)
             set(WHITE_LIST_1 /vendor/bin/secgear_test)
@@ -266,8 +267,7 @@ Set sign tool and the security side log printing level
 
 WHITE_LIS_X sets the whitelist of itrustee, only the host binary of these paths can call this secure image,
 and up to 8 list paths can be configured. WHITE_LIST_OWNER set user, this user will be applied to all whitelist paths.
-DEVICEPEM public key is used by itrustee and is used to encrypt the enclave image of the security side with the
-dynamically generated aes key. Finally, set the name of the security side image after the final signature, and
+Finally, set the name of the security side image after the final signature, and
 generate auxiliary code.
 
 	if(CC_SGX)
@@ -335,8 +335,8 @@ so -nostdinc -nodefaultlibs -nostdlib -nodefaultlibs compile link options was in
 
 		add_custom_command(TARGET ${PREFIX}
 			POST_BUILD
-			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -m ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt
-			-e ${DEVICEPEM} -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT})
+			COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini
+			-o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT})
 
 		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
 			DESTINATION /data
@@ -353,18 +353,17 @@ whitelist macro. Next, you need to link to the secgear_tee library, in which the
 random numbers, seal, unseal, etc. The last step is to sign and install.
 
 	if(CC_SGX)
-		set(SGX_MODE HW)
 		set(SGX_DIR ${SGXSDK})
 		set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -m64 -fvisibility=hidden")
 		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s")
 		set(LINK_LIBRARY_PATH ${SGX_DIR}/lib64)
 
-		if(${SGX_MODE} STREQUAL HW)
-			set(Trts_Library_Name sgx_trts)
-			set(Service_Library_Name sgx_tservice)
-		else()
+		if(CC_SIM)
 			set(Trts_Library_Name sgx_trts_sim)
 			set(Service_Library_Name sgx_tservice_sim)
+		else()
+			set(Trts_Library_Name sgx_trts)
+			set(Service_Library_Name sgx_tservice)
 		endif()
 
 		set(Crypto_Library_Name sgx_tcrypto)
@@ -422,9 +421,6 @@ configuration file.  For details, please refer to the official development docum
 Write itrustee related configuration files
 The gpd.ta.appID in the manifest.txt.in file is the uuid configuration item, which is dynamically generated, 
 and the other configuration items can refer to the itrustee development document.
-
-Copy the rsa_public_key_cloud.pem device public key from other examples in the project to the enclave directory.
-The device public key here is used to encrypt the enclave image with the temporarily generated aes key.
 	
 ### 5 build and install test
 
@@ -506,5 +502,5 @@ secGear introduce the signing tool to sign the enclave.
 
 Milestone
 ---------
-<img src="docs/milestone.png" alt="secGear" style="zoom:80%;" />
+<img src="docs/milestone_en.png" alt="secGear" style="zoom:80%;" />
 

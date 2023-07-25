@@ -16,18 +16,16 @@ set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 #set edl name
 set(EDL_FILE helloworld.edl)
+set(CODEGEN codegen)
 
 if(CC_GP)
     set(CODETYPE trustzone)
-    set(CODEGEN codegen_arm64)
-    execute_process(COMMAND uuidgen -r OUTPUT_VARIABLE UUID)
-    string(REPLACE "\n" "" UUID ${UUID})
+    set(UUID f68fd704-6eb1-4d14-b218-722850eb3ef0)
     add_definitions(-DPATH="/data/${UUID}.sec")
 endif()
 
 if(CC_SGX)
     set(CODETYPE sgx)
-    set(CODEGEN codegen_x86_64)
     add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/enclave.signed.so")
 endif()
 

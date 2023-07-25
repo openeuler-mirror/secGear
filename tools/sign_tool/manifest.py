@@ -1,10 +1,20 @@
 #!/usr/bin/env python
 # coding:utf-8
 #----------------------------------------------------------------------------
-# Copyright @ Huawei Technologies Co., Ltd. 2018-2019. All rights reserved.
-# tools for generating a trusted application load image
+# Copyright (c) Huawei Technologies Co., Ltd. 2018-2020. All rights reserved.
+# iTrustee licensed under the Mulan PSL v2.
+# You can use this software according to the terms and conditions of the Mulan
+# PSL v2.
+# You may obtain a copy of Mulan PSL v2 at:
+#     http://license.coscl.org.cn/MulanPSL2
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY
+# KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+# NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+# See the Mulan PSL v2 for more details.
+# Description: tools for generating a trusted application load image
+# Author: Li mingjuan
+# Create: 2018-02-20
 #----------------------------------------------------------------------------
-
 import string
 import struct
 import uuid
@@ -14,31 +24,32 @@ PRODUCT_TA_IMAGE        = 1
 PRODUCT_DYN_LIB         = 2
 PRODUCT_SERVICE_IMAGE   = 3
 
-class TEE_UUID:
+
+class PackUuid:
     # Structure object to align and package the TEE_UUID
-    s = struct.Struct('IHH8b')
+    data = struct.Struct('IHH8b')
 
     def __init__(self, data):
-        unpacked_data       = (TEE_UUID.s).unpack(str.encode(data))
+        unpacked_data       = (PackUuid.data).unpack(str.encode(data))
         self.unpacked_data  = unpacked_data
-        self.timeLow        = unpacked_data[0]
-        self.timeMid        = unpacked_data[1]
-        self.timeHiAndVersion = unpacked_data[2]
-        self.clockSeqAndNode  = unpacked_data[3]
+        self.time_low        = unpacked_data[0]
+        self.time_mid        = unpacked_data[1]
+        self.time_hi_version = unpacked_data[2]
+        self.clock_seq_node  = unpacked_data[3]
 
-    def printValues(self):
+    def print_values(self):
         print("ATTRIBUTE / VALUE")
         for attr, value in self.__dict__.items():
             print(attr, value)
 
-    def getPackedData(self):
-        values = [self.timeLow,
-                self.timeMid,
-                self.timeHiAndVersion,
-                self.clockSeqAndNode,
+    def get_pack_data(self):
+        values = [self.time_low,
+                self.time_mid,
+                self.time_hi_version,
+                self.clock_seq_node,
                 ]
 
-        return (TEE_UUID.s).pack(*values)
+        return (PackUuid.data).pack(*values)
 
 
 #----------------------------------------------------------------------------
@@ -47,10 +58,10 @@ class TEE_UUID:
 class Manifest:
 
     # Structure object to align and package the Manifest
-    s = struct.Struct('I' * 6)
+    data = struct.Struct('I' * 6)
 
     def __init__(self, data):
-        unpacked_data       = (Manifest.s).unpack(str.encode(data))
+        unpacked_data       = (Manifest.data).unpack(str.encode(data))
         self.unpacked_data  = unpacked_data
         self.single_instance = unpacked_data[0]
         self.multi_session  = unpacked_data[1]
@@ -59,12 +70,12 @@ class Manifest:
         self.stack_size     = unpacked_data[4]
         self.instancekeepalive = unpacked_data[5]
 
-    def printValues(self):
+    def print_values(self):
         print("ATTRIBUTE / VALUE")
         for attr, value in self.__dict__.items():
             print(attr, value)
 
-    def getPackedData(self):
+    def get_pack_data(self):
         values = [self.single_instance,
                 self.multi_session,
                 self.multi_command,
@@ -73,21 +84,22 @@ class Manifest:
                 self.instancekeepalive,
                 ]
 
-        return (Manifest.s).pack(*values)
+        return (Manifest.data).pack(*values)
+
 
 #----------------------------------------------------------------------------
 # verify property name in manifest file
 #----------------------------------------------------------------------------
-def verify_property_name(strLine):
+def verify_property_name(str_line):
     print('verify property name')
     alphas = string.ascii_letters + string.digits
     cont = "".join([alphas, '-', '_', '.'])
-    if len(strLine) > 1:
-        if strLine[0] not in alphas:
+    if len(str_line) > 1:
+        if str_line[0] not in alphas:
             print('invalid first letter in property name')
             return False
         else:
-            for otherchar in strLine[1:]:
+            for otherchar in str_line[1:]:
                 if otherchar not in cont:
                     print('invalid char in property name')
                     return False
@@ -97,35 +109,37 @@ def verify_property_name(strLine):
 
     return True
 
+
 #----------------------------------------------------------------------------
 # verify property value in manifest file
 #----------------------------------------------------------------------------
-def verify_property_value(strLine):
+def verify_property_value(str_line):
     print('verify property value')
-    filt_letter = chr(0) + chr(10) +chr(13)
-    for thechar in strLine:
+    filt_letter = chr(0) + chr(10) + chr(13)
+    for thechar in str_line:
         if thechar in filt_letter:
             print('invalid letter in prop value')
             return False
     return True
 
+
 #----------------------------------------------------------------------------
 # remove tabs and space in property value
 #----------------------------------------------------------------------------
-def trailing_space_tabs(strLine):
+def trailing_space_tabs(str_line):
     print('trailing space tabs in value head and trail')
-    space_tabs = chr(9) + chr(32) +chr(160)
-    space_tabs_newlines = space_tabs + chr(10) +chr(13)
+    space_tabs = chr(9) + chr(32) + chr(160)
+    space_tabs_newlines = space_tabs + chr(10) + chr(13)
     print('tab: {}'.format(space_tabs))
 
-    print('str in: {}'.format(strLine))
+    print('str in: {}'.format(str_line))
     index = 0
-    for thechar in strLine:
+    for thechar in str_line:
         if thechar in space_tabs:
             index += 1
         else:
             break
-    headvalue = strLine[index:]
+    headvalue = str_line[index:]
 
     strlen = len(headvalue)
 
@@ -137,21 +151,20 @@ def trailing_space_tabs(strLine):
         else:
             break
 
-    #print 'str len: '+str(strlen)
-    strRet = headvalue[0:strlen+1] + chr(10)
-    print('str ret: {}'.format(strRet))
+    str_ret = headvalue[0:strlen+1] + chr(10)
+    print('str ret: {}'.format(str_ret))
 
-    return strRet
+    return str_ret
+
 
 #----------------------------------------------------------------------------
 # verify manifest file, parse manifest file, generate a new manfiest file
 #----------------------------------------------------------------------------
-def parserManifest(manifest, manifestDataPath, mani_ext):
+def parser_manifest(manifest, manifest_data_path, mani_ext):
     print('verify manifest')
-    targetType = PRODUCT_TA_IMAGE
+    target_type = PRODUCT_TA_IMAGE
 
-    uuid_val_flag = 1
-    uuid_val = TEE_UUID('\0' * 16)
+    uuid_val = PackUuid('\0' * 16)
 
     #manifest default
     manifest_val = Manifest('\0'*24)
@@ -166,30 +179,29 @@ def parserManifest(manifest, manifestDataPath, mani_ext):
     service_name = 'external_service'
 
     with open(manifest, 'r') as mani_fp, open(mani_ext, 'wb') as mani_ext_fp:
-        for eachLine in mani_fp:
-            print(eachLine)
-            if eachLine.startswith("#") or not len(eachLine.strip()):
+        for each_line in mani_fp:
+            print(each_line)
+            if each_line.startswith("#") or not len(each_line.strip()):
                 continue
-            index = eachLine.find(':', 1, len(eachLine))
-            #print 'index name : value is ' + str(index)
+            index = each_line.find(':', 1, len(each_line))
 
-            prop_name = eachLine[0:index] #no ':'
-            prop_name_t = eachLine[0:index+1] #with ':'
-            prop_value_t = eachLine[index+1:]
+            prop_name = each_line[0:index]
+            prop_name_t = each_line[0:index+1]
+            prop_value_t = each_line[index+1:]
             print('name is: {}; value is: {}'.format(prop_name, prop_value_t))
 
             prop_value = trailing_space_tabs(prop_value_t)
             prop_len = len(prop_value)
-            prop_value_v = prop_value[0:prop_len-1]# mv last letter
+            prop_value_v = prop_value[0:prop_len-1]
             print('prop value_v: {}'.format(prop_value_v))
 
             if verify_property_name(prop_name) is False:
                 print('manifest format invalid, please check it')
-                return (False, 0, 0, 0)
+                return (False, 0)
 
             if verify_property_value(prop_value_v) is False:
                 print('manifest format invalid, please check it')
-                return (False, 0, 0, 0)
+                return (False, 0)
 
             # name:value to lowcase, and parse manifest
             prop_name_low = prop_name.lower()
@@ -197,58 +209,54 @@ def parserManifest(manifest, manifestDataPath, mani_ext):
             if 'gpd.ta.appid' == prop_name_low:
                 print("compare name is srv id")
                 uuid_val = uuid.UUID(prop_value_v)
-                uuid_val_flag = 0
                 print('uuid str {}'.format(uuid_val))
                 print('val fields {}'.format(uuid_val.fields))
 
             elif 'gpd.ta.singleinstance' == prop_name_low:
                 prop_value_low = prop_value_v.lower()
                 if 'true' == prop_value_low:
-                    manifest_val.single_instance = 1;
+                    manifest_val.single_instance = 1
                 elif 'false' == prop_value_low:
-                    manifest_val.single_instance = 0;
+                    manifest_val.single_instance = 0
                 else:
                     print('single_instance value error!')
 
             elif 'gpd.ta.multisession' == prop_name_low:
                 prop_value_low = prop_value_v.lower()
                 if 'true' == prop_value_low:
-                    manifest_val.multi_session = 1;
+                    manifest_val.multi_session = 1
                 elif 'false' == prop_value_low:
-                    manifest_val.multi_session = 0;
+                    manifest_val.multi_session = 0
                 else:
                     print('multi_session value error!')
 
             elif 'gpd.ta.multicommand' == prop_name_low:
                 prop_value_low = prop_value_v.lower()
                 if 'true' == prop_value_low:
-                    manifest_val.multi_command = 1;
+                    manifest_val.multi_command = 1
                 elif 'false' == prop_value_low:
-                    manifest_val.multi_command = 0;
+                    manifest_val.multi_command = 0
                 else:
                     print('multi_command value error!')
 
             elif 'gpd.ta.instancekeepalive' == prop_name_low:
                 prop_value_low = prop_value_v.lower()
                 if 'true' == prop_value_low:
-                    manifest_val.instancekeepalive = 1;
+                    manifest_val.instancekeepalive = 1
                 elif 'false' == prop_value_low:
-                    manifest_val.instancekeepalive = 0;
+                    manifest_val.instancekeepalive = 0
                 else:
                     print('instancekeepalive value error!')
 
             elif 'gpd.ta.datasize' == prop_name_low:
-                #manifest_val.heap_size = prop_value_v.atoi()
                 manifest_val.heap_size = int(prop_value_v)
                 print('b')
 
             elif 'gpd.ta.stacksize' == prop_name_low:
-                #manifest_val.stack_size = prop_value_v.atoi()
                 manifest_val.stack_size = int(prop_value_v)
                 print('b')
 
             elif 'gpd.ta.service_name' == prop_name_low:
-                #manifest_val.stack_size = prop_value_v.atoi()
                 service_name = prop_value_v
                 print('b')
 
@@ -260,11 +268,11 @@ def parserManifest(manifest, manifestDataPath, mani_ext):
                 if 'gpd.ta.is_tee_service' == prop_name_low:
                     prop_value_low = prop_value_v.lower()
                     if 'true' == prop_value_low:
-                         targetType = PRODUCT_SERVICE_IMAGE
+                        target_type = PRODUCT_SERVICE_IMAGE
                 elif 'gpd.ta.is_lib' == prop_name_low:
                     prop_value_low = prop_value_v.lower()
                     if 'true' == prop_value_low:
-                        targetType = PRODUCT_DYN_LIB
+                        target_type = PRODUCT_DYN_LIB
 
         #write the whole parsed manifest into sample.manifest file
 
@@ -277,14 +285,11 @@ def parserManifest(manifest, manifestDataPath, mani_ext):
 
     # get manifest string file len
     manifest_str_size = os.path.getsize(mani_ext)
-    if manifest_str_size > 152:
-        print("extra manifest string exceed MAX len 152")
-        raise RuntimeError
     print('manifest str size {}'.format(manifest_str_size))
 
     # 2> manifest + service_name
     print("bytes len {}".format(len(uuid_val.bytes_le)))
-    print("bytes len {}".format(len(manifest_val.getPackedData())))
+    print("bytes len {}".format(len(manifest_val.get_pack_data())))
     print("bytes len {}".format(len(service_name)))
 
     # 3> unparsed manifest, string manifest
@@ -294,23 +299,24 @@ def parserManifest(manifest, manifestDataPath, mani_ext):
         print("manifest strint: {}".format(manifest_string_buf))
 
     #---- write manifest parse context to manifest file
-    with open(manifestDataPath, 'wb') as out_manifest_fp:
+    with open(manifest_data_path, 'wb') as out_manifest_fp:
         out_manifest_fp.write(uuid_val.bytes_le)
         out_manifest_fp.write(str.encode(service_name))
-        out_manifest_fp.write(manifest_val.getPackedData())
+        out_manifest_fp.write(manifest_val.get_pack_data())
 
-    productName = str(uuid_val)
-    if targetType == PRODUCT_TA_IMAGE:
+    product_name = str(uuid_val)
+    if target_type == PRODUCT_TA_IMAGE:
         print("product type is ta image")
-        productName = "".join([productName,  ".sec"])
-    elif targetType == PRODUCT_SERVICE_IMAGE:
+        product_name = "".join([product_name,  ".sec"])
+    elif target_type == PRODUCT_SERVICE_IMAGE:
         print("product type is service")
-        productName = "".join([productName, service_name, "_svr.sec"])
-    elif targetType == PRODUCT_DYN_LIB:
+        product_name = "".join([product_name, service_name, "_svr.sec"])
+    elif target_type == PRODUCT_DYN_LIB:
         print("product type is dyn lib")
-        productName = "".join([productName, service_name, ".so.sec"])
+        product_name = "".join([product_name, service_name, ".so.sec"])
     else:
         print("invalid product type!")
         raise RuntimeError
 
-    return (True, productName, uuid_val_flag)
+    return (True, product_name)
+

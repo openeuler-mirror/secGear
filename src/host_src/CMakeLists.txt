@@ -10,7 +10,7 @@
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden -fPIC -Wno-stringop-overflow")
 
-set(LIBRARY_INSTALL /lib64)
+set(LIBRARY_INSTALL /usr/lib64)
 
 include_directories(${LOCAL_ROOT_PATH}/inc/host_inc)
 
@@ -25,8 +25,8 @@ endif()
 add_library(secgear SHARED enclave.c enclave_internal.c ocall_log.c enclave_ocall.c)
 add_library(secgearsim SHARED enclave.c enclave_internal.c ocall_log.c enclave_ocall.c)
 
-target_link_libraries(secgear dl)
-target_link_libraries(secgearsim dl)
+target_link_libraries(secgear dl pthread)
+target_link_libraries(secgearsim dl pthread)
 
 set_target_properties(secgear PROPERTIES 
             SKIP_BUILD_RPATH TRUE)

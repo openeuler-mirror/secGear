@@ -25,7 +25,7 @@
 
 #define OCALL_AGENT_REGISTER_SUCCESS 0
 #define OCALL_AGENT_REGISTER_FAIL    1
-
+#define SECGEAR_OCALL 0
 #define MAX_LEN 4096
 
 static pthread_cond_t g_cond = PTHREAD_COND_INITIALIZER;
@@ -79,7 +79,7 @@ static cc_enclave_result_t ta_path_to_uuid(const char *path, TEEC_UUID *uuid)
     const int clock_end = 7;
     const int unit = 8;
     const int uuid_base = 16;
-    char uuid_str[UUID_LEN];
+    char uuid_str[UUID_LEN + 1] = {0};
     uint64_t uuid_split[gp_token_nums];
 
     const char *uuid_pos = NULL;
@@ -255,10 +255,15 @@ static bool handle_ocall(uint32_t agent_id, int dev_fd, void *buffer, cc_ocall_f
     }
     ret = true;
 done:
-    free(tmp_input_buffer);
-    free(tmp_output_buffer);
-    tmp_input_buffer = NULL;
-    tmp_output_buffer = NULL;
+    if (tmp_input_buffer != NULL) {
+        free(tmp_input_buffer);
+        tmp_input_buffer = NULL;
+    }
+    if (tmp_output_buffer != NULL) {
+        free(tmp_output_buffer);
+        tmp_output_buffer = NULL;
+    }
+
     return ret;
 }
 
@@ -343,13 +348,13 @@ cleanup:
 }
 
 /* itrustee enclave engine create func */
-cc_enclave_result_t _gp_create(cc_enclave_t  **enclave,
+cc_enclave_result_t _gp_create(cc_enclave_t  *enclave,
     const enclave_features_t *features, const uint32_t features_count)
 {
     TEEC_Result result_tee;
     cc_enclave_result_t result_cc;
 
-    if (!*enclave) {
+    if (!enclave) {
         print_error_term("Context parameter error\n");
         return CC_ERROR_BAD_PARAMETERS;
     }
@@ -361,7 +366,7 @@ cc_enclave_result_t _gp_create(cc_enclave_t  **enclave,
     }
 
     gp_context_t *gp_context = NULL;
-    result_cc = malloc_and_init_context(&gp_context, (*enclave)->path, (*enclave)->type);
+    result_cc = malloc_and_init_context(&gp_context, enclave->path, enclave->type);
     if (result_cc != CC_SUCCESS) {
         return result_cc;
     }
@@ -372,18 +377,18 @@ cc_enclave_result_t _gp_create(cc_enclave_t  **enclave,
     operation.started = 1;
     operation.paramTypes = TEEC_PARAM_TYPES(TEEC_NONE, TEEC_NONE, TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_INPUT);
 
-    (gp_context->ctx).ta_path = (uint8_t*)(*enclave)->path;
+    (gp_context->ctx).ta_path = (uint8_t*)enclave->path;
 
     uint32_t origin;
     result_tee = TEEC_OpenSession(&(gp_context->ctx), &(gp_context->session), &gp_context->uuid,
         TEEC_LOGIN_IDENTIFY, NULL, &operation, &origin);
     if (result_tee != TEEC_SUCCESS) {
-        result_cc = conversion_res_status(result_tee, (*enclave)->type);
+        result_cc = conversion_res_status(result_tee, enclave->type);
         print_error_term("TEEC open session failed\n");
         goto cleanup;
     }
     print_debug("TEEC open session success\n");
-    (*enclave)->private_data = (void *)gp_context;
+    enclave->private_data = (void *)gp_context;
     return CC_SUCCESS;
 cleanup:
     TEEC_FinalizeContext(&(gp_context->ctx));
@@ -535,7 +540,7 @@ cc_enclave_result_t cc_enclave_call_function(
     /* for ocall thread */
     ires = pthread_mutex_lock(&g_mtx_flag);
     SECGEAR_CHECK_MUTEX_RES(ires);
-    if (!(g_list_ops.pthread_flag)) {
+    if (g_list_ops.pthread_flag || SECGEAR_OCALL) {
         param.agent_id = *(uint32_t *)ms;
         param.num = ((ocall_enclave_table_t *)ocall_table)->num;
         param.ocalls = ((ocall_enclave_table_t *)ocall_table)->ocalls;
@@ -606,17 +611,17 @@ struct list_ops_desc g_node = {
 #define OPS_STRU g_ops
 
 /* enclave engine registered */
-cc_enclave_result_t cc_tee_registered(cc_enclave_t **context, void *handle)
+cc_enclave_result_t cc_tee_registered(cc_enclave_t *context, void *handle)
 {
     /* 1 check enclave type; 2-4 check node fill */
     size_t len = strlen(OPS_NAME.name);
-    if (OPS_NAME.type_version != (*context)->type || OPS_NODE.ops_desc != &OPS_NAME ||
+    if (OPS_NAME.type_version != context->type || OPS_NODE.ops_desc != &OPS_NAME ||
         len >= MAX_ENGINE_NAME_LEN || OPS_NAME.ops != &OPS_STRU) {
         print_error_goto("The struct cc_enclave_ops_desc initialization error\n");
     }
 
     OPS_NAME.handle = handle;
-    (*context)->list_ops_node = &OPS_NODE;
+    context->list_ops_node = &OPS_NODE;
     add_ops_list(&OPS_NODE);
     return  CC_SUCCESS;
 done:

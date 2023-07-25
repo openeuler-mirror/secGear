@@ -25,7 +25,7 @@
 #define COUNT(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
 enum
 {
-    SECGEAR_ECALL_FUNCTION = 1,
+    SECGEAR_ECALL_FUNCTION = 0,
 };
 
 typedef cc_enclave_result_t (*cc_ecall_func_t)(

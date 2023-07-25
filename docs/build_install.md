@@ -3,7 +3,7 @@ Install secGear
 openEuler x86
 
 1. Refer to https://01.org/intel-software-guard-extensions/downloads download and install the 2.11 
-   sgx  driver, sgx psw, sgx sdx. In the directory of sgx sdk, source environment(for use sgx-sign)
+   sgx  driver, sgx psw, sgx sdk. In the directory of sgx sdk, source environment(for use sgx-sign)
    
 2. Refer to https://github.com/ocaml/opam/releases download and install the  opam-2.0.7-x86_64-linux.
    Run "./opam-2.0.7-x86_64-linux init"
@@ -13,6 +13,10 @@ openEuler x86
 3. source environment && mkdir debug && cd debug 
    && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK="sgx_sdk path" .. &&  make && sudo make install
 
+4. To run example tls_enclave, refer to https://gitee.com/src-openeuler/intel-sgx-ssl 
+   download and install intel-sgx-ssl firstly.
+   source environment && mkdir debug && cd debug && cmake -DCMAKE_BUILD_TYPE=Debug -DCC_SGX=ON -DSGXSDK="sgx_sdk path"
+   && -DENCLAVE_SSL="sgxssl path" .. &&  make && sudo make install
    
 openEuler arm
 

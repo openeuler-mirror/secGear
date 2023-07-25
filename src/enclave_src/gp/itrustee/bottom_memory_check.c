@@ -12,6 +12,8 @@
 
 #include "bottom_memory_check.h"
 #include "tee_mem_mgmt_api.h"
+#include "tee_log.h"
+
 /* 
  * param buffer [IN] point to buffer address
  * param size   [IN] buffer size to be checked
@@ -21,7 +23,12 @@
  */
 bool itrustee_memory_in_enclave(const void *buffer, uint32_t size)
 {
-    return TEE_IsSecureMemory(buffer, size);
+    if (!TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_READ | TEE_MEMORY_ACCESS_ANY_OWNER, buffer, size)) {
+        return true;
+    } else if (!TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_WRITE | TEE_MEMORY_ACCESS_ANY_OWNER, buffer, size)) {
+        return true;
+    }
+    return false;
 }
 
 /*
@@ -31,8 +38,12 @@ bool itrustee_memory_in_enclave(const void *buffer, uint32_t size)
  * retval false target buffer is within enclave
  * retval true target buffer is outside of enclave
  */
-
 bool itrustee_memory_out_enclave(const void *buffer, uint32_t size)
 {
-    return !TEE_IsSecureMemory(buffer, size);
+    if (!TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_READ | TEE_MEMORY_ACCESS_ANY_OWNER, buffer, size) &&
+        !TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_WRITE | TEE_MEMORY_ACCESS_ANY_OWNER, buffer, size)) {
+        return false;
+    }
+    return true;
 }
+

@@ -8,7 +8,7 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.10)
 
 project(SealData C)
 
@@ -17,19 +17,16 @@ set(CMAKE_C_STANDARD 99)
 set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(EDL_FILE seal_data.edl)
+set(CODEGEN codegen)
 
 if(CC_GP)
     set(CODETYPE trustzone)
-    set(CODEGEN codegen_arm64)
-    execute_process(COMMAND uuidgen -r 
-	OUTPUT_VARIABLE UUID)
-    string(REPLACE "\n" "" UUID ${UUID})
+    set(UUID 9cb38838-2766-42be-8b7b-0d184a996066)
     add_definitions(-DPATH="/data/${UUID}.sec")
 endif()
 
 if(CC_SGX)
     set(CODETYPE sgx)
-    set(CODEGEN codegen_x86_64)
     add_definitions(-DPATH="${CMAKE_CURRENT_BINARY_DIR}/enclave/seal_data.signed.so")
 endif()
 

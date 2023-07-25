@@ -62,7 +62,7 @@ let dedup_list lst =
 let usage (progname: string) =
   eprintf "usage: %s [options] <file> ...\n" progname;
   eprintf "\n[options]\n\
---search-path <path>  Specify the search path of EDL files\n\
+--search-path <path>  Specify the search path of the dependent files of the EDL files\n\
 --use-prefix          Prefix untrusted proxy with Enclave name\n\
 --header-only         Only generate header files\n\
 --untrusted           Generate untrusted proxy and bridge\n\
@@ -187,7 +187,7 @@ let get_file_path (fname: string) =
     try
       List.find Sys.file_exists fn_list
     with
-      Not_found -> failwithf "File not found within search paths: %s\n" fname
+      Not_found -> failwithf "File not found within search paths or search paths is permission denied: %s\n" fname
 
 (* Get the short name of the given file name.
  * ------------------------------------------

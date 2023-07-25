@@ -8,10 +8,10 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-project(secgear_tee)
+project(secgear_tee C)
 
 set(target_lib secgear_tee)
-set(LIBRARY_INSTALL /lib64)
+set(LIBRARY_INSTALL /usr/lib64)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 

@@ -64,7 +64,7 @@ static err2str g_secgearerror [] =
     {CC_ERROR_INVALID_ISVSVN,             "The isv svn is greater than the enclave's isv svn."},
     {CC_ERROR_INVALID_KEYNAME,            "The key name is an unsupported value."},
     {CC_ERROR_AE_INVALID_EPIDBLOB,        "Indicates epid blob verification error."},
-    {CC_ERROR_SERVICE_INVALID_PRIVILEGE,  "Enclave has no privilege to get launch token."},
+    {CC_ERROR_SERVICE_INVALID_PRIVILEGE,  "Enclave not authorized to run."},
     {CC_ERROR_EPID_MEMBER_REVOKED,        "The EPID group membership is revoked."},
     {CC_ERROR_UPDATE_NEEDED,              "SDK need to be update."},
     {CC_ERROR_MC_NOT_FOUND,               "The Monotonic Counter doesn't exist or has been invalided."},
@@ -117,8 +117,8 @@ static err2str g_secgearerror [] =
     {CC_ERROR_BAD_PARAMETERS,                    "Invalid parameter."},
     {CC_ERROR_BAD_STATE,                         "Bad state."},
     {CC_ERROR_ITEM_NOT_FOUND,                    "The requested item is not found."},
-    {CC_ERROR_NOT_IMPLEMENTED,                   "opration is not implemented."},
-    {CC_ERROR_NOT_SUPPORTED,                     "operation is not support."},
+    {CC_ERROR_NOT_IMPLEMENTED,                   "operation is not implemented."},
+    {CC_ERROR_NOT_SUPPORTED,                     "feature or type is not support."},
     {CC_ERROR_NO_DATA,                           "There is no data."},
     {CC_ERROR_OUT_OF_MEMORY,                     "Out of memory."},
     {CC_ERROR_BUSY,                              "Busy system."},
@@ -231,7 +231,7 @@ cc_enclave_result_t find_engine_open(enclave_type_version_t type, void **handle)
     }
     if (!*handle) {
         res = CC_ERROR_INVALID_HANDLE;
-        print_error_goto("The dlopen failure: reason is %s\n", dlerror());
+        print_error_goto("%s\n", dlerror());
     } else {
         res = CC_SUCCESS;
     }
@@ -318,7 +318,7 @@ enclave_type_version_t match_tee_type_version(enclave_type_t type, uint32_t vers
 /* find return 1， otherwise 0
  * Lock: prevent it from being intercepted by other insertion
  * operations when searching, not in this function, but in the calling function */
-uint32_t look_tee_in_list(enclave_type_version_t type, cc_enclave_t **context)
+uint32_t look_tee_in_list(enclave_type_version_t type, cc_enclave_t *context)
 {
     uint32_t res = 0;
     struct list_ops_desc *p = g_list_ops.list_head;
@@ -328,7 +328,7 @@ uint32_t look_tee_in_list(enclave_type_version_t type, cc_enclave_t **context)
             /* this enclave ref +1 */
             ++(p->ops_desc->count);
             /* Assign the found node to the context */
-            (*context)->list_ops_node = p;
+            context->list_ops_node = p;
             break;
         }
         p = p->next;

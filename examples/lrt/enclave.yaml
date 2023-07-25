@@ -1,0 +1,46 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
+# secGear is licensed under the Mulan PSL v2.
+# You can use this software according to the terms and conditions of the Mulan PSL v2.
+# You may obtain a copy of Mulan PSL v2 at:
+#     http://license.coscl.org.cn/MulanPSL2
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
+# PURPOSE.
+# See the Mulan PSL v2 for more details.
+# steps to deploy device plugin:
+#       # cd secGear/
+#       # cd ./examples/lrt/
+#       # kubectl apply -f ./enclave.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helloworld
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: helloworld
+  template:
+    metadata:
+      labels:
+        app: helloworld
+    spec:
+      containers:
+      - name: hell_lifeng
+        image: hub.oepkgs.net/lifeng2221dd1/hello_secgear:v1.0
+        imagePullPolicy: IfNotPresent
+        name: helloworld
+        resources:
+          limits:
+            cpu: 250m
+            memory: 512Mi
+            sgx.intel.com/huawei_sgx_epc_MiB: 2
+        volumeMounts:
+        - mountPath: /var/run/aesmd/aesm.socket
+          name: aesmsocket
+      volumes:
+      - hostPath:
+          path: /var/run/aesmd/aesm.socket
+          type: Socket
+        name: aesmsocket

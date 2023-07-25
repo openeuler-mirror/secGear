@@ -27,8 +27,6 @@ add_definitions(-DPRINT_LEVEL=${PRINT_LEVEL})
 if(CC_GP)
     #set signed output
     set(OUTPUT ${UUID}.sec)
-    #set itrustee device key
-    set(DEVICEPEM ${CMAKE_CURRENT_SOURCE_DIR}/rsa_public_key_cloud.pem)
     #set whilelist. default: /vendor/bin/teec_hello
     set(WHITE_LIST_0 /vendor/bin/helloworld)
     set(WHITE_LIST_OWNER root)
@@ -57,7 +55,6 @@ set(COMMON_C_FLAGS "-W -Wall -Werror  -fno-short-enums  -fno-omit-frame-pointer 
 set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
 
 if(CC_GP)
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt.in" "${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt")
 
     set(CMAKE_C_FLAGS "${COMMON_C_FLAGS}  -march=armv8-a ")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s -fPIC")
@@ -74,6 +71,7 @@ if(CC_GP)
 
     target_include_directories( ${PREFIX} PRIVATE
 	${CMAKE_CURRENT_BINARY_DIR}
+	${CMAKE_BINARY_DIR}/inc
 	${LOCAL_ROOT_PATH}/inc/host_inc
 	${LOCAL_ROOT_PATH}/inc/host_inc/gp
 	${LOCAL_ROOT_PATH}/inc/enclave_inc
@@ -99,14 +97,14 @@ if(CC_GP)
 
     target_link_libraries(${PREFIX} -lsecgear_tee)
 
-    add_custom_command(TARGET ${PREFIX}
-	      POST_BUILD
-              COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -m ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt 
-	      		-e ${DEVICEPEM} -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
+    #for trustzone compiling, you should connact us to get config and private_key.pem for test, so we will not sign and install binary in this example #
+    #    add_custom_command(TARGET ${PREFIX}
+    #	      POST_BUILD
+	      #	      COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
 
-    install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}  
-        DESTINATION /data
-        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE  WORLD_READ  WORLD_EXECUTE)
+      #    install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}  
+      #        DESTINATION /data
+      #        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE  WORLD_READ  WORLD_EXECUTE)
 
 endif()
 

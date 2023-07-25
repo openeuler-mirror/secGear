@@ -40,9 +40,10 @@ if(CC_GP)
     endif()
     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
     target_include_directories(${OUTPUT} PRIVATE
-                    ${LOCAL_ROOT_PATH}/inc/host_inc
-		    ${LOCAL_ROOT_PATH}/inc/host_inc/gp
-                    ${CMAKE_CURRENT_BINARY_DIR})
+            ${CMAKE_BINARY_DIR}/inc
+            ${LOCAL_ROOT_PATH}/inc/host_inc
+            ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+            ${CMAKE_CURRENT_BINARY_DIR})
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
     endif()
@@ -63,9 +64,9 @@ if(CC_SGX)
 endif()
 
 if(CC_SIM)
-    target_link_libraries(${OUTPUT} secgearsim)
+    target_link_libraries(${OUTPUT} secgearsim pthread)
 else()
-    target_link_libraries(${OUTPUT} secgear)
+    target_link_libraries(${OUTPUT} secgear pthread)
 endif()
 set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
 

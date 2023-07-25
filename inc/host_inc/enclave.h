@@ -16,7 +16,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-
+#include <pthread.h>
 
 #include "status.h"
 
@@ -34,7 +34,7 @@ extern "C" {
 
 /*the enclave types supported by cloud enclave*/
 typedef enum _enclave_type {
-    SGX_ENCLAVE_TYPE = 1,
+    SGX_ENCLAVE_TYPE = 0,
     GP_ENCLAVE_TYPE,
     AUTO_ENCLAVE_TYPE,
     ENCLAVE_TYPE_MAX
@@ -42,7 +42,7 @@ typedef enum _enclave_type {
 
 /*the enclave types and version supported by cloud enclave*/
 typedef enum _enclave_type_version {
-    SGX_ENCLAVE_TYPE_0 = 1,
+    SGX_ENCLAVE_TYPE_0 = 0,
     SGX_ENCLAVE_TYPE_MAX,
     GP_ENCLAVE_TYPE_0,
     GP_ENCLAVE_TYPE_MAX,
@@ -62,6 +62,8 @@ typedef struct _enclave {
     enclave_type_version_t type;
     char *path;
     uint32_t flags;
+    pthread_rwlock_t rwlock;
+    bool used_flag;
     void *private_data;
     /*enclave engine context manage, only one pointer*/
     struct  list_ops_desc *list_ops_node;
@@ -72,13 +74,13 @@ typedef struct _enclave {
  * hrough this attribute
  * */
 CC_API_SPEC cc_enclave_result_t cc_enclave_create(
-		const char *path, 
-		enclave_type_t type,
-		uint32_t version, 
-		uint32_t flags, 
-		const enclave_features_t *features, 
-		const uint32_t features_count,
-		cc_enclave_t  **enclave);
+                const char *path, 
+                enclave_type_t type,
+                uint32_t version, 
+                uint32_t flags, 
+                const enclave_features_t *features, 
+                const uint32_t features_count,
+                cc_enclave_t  *enclave);
 
 CC_API_SPEC cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context);
 

@@ -8,7 +8,7 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 project(secGear C)
  
 set(CMAKE_C_STANDARD 99)
@@ -49,15 +49,8 @@ add_subdirectory(src)
 
 execute_process(COMMAND mkdir ${LOCAL_ROOT_PATH}/bin)
 
-if(CC_GP)
-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/seal_data)
-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/helloworld)
-endif()
+add_subdirectory(examples)
 
-if(CC_SGX)
-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/helloworld)
-    add_subdirectory(${LOCAL_ROOT_PATH}/examples/seal_data)
-endif()
 
 install(FILES ${LOCAL_ROOT_PATH}/conf/logrotate.d/secgear
         DESTINATION /etc/logrotate.d/)

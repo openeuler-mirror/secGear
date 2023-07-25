@@ -27,23 +27,23 @@ let set_parameters_point (fd : func_decl) =
     let pre (_: parameter_type) = "" in
     let post = "" in
     let generator_in (_ : parameter_type) (_ : parameter_type) (decl : declarator) (mem_decl : declarator) =
-        sprintf "uint8_t *%s_%s_p;\n    " decl.identifier mem_decl.identifier in
+        sprintf "uint8_t *%s_%s_p = NULL;\n    " decl.identifier mem_decl.identifier in
     let generator_inout (_ : parameter_type) (_ : parameter_type) (decl : declarator) (mem_decl : declarator) =
-        (sprintf "uint8_t *%s_%s_in_p;\n    " decl.identifier mem_decl.identifier) ^ (sprintf "uint8_t *%s_%s_out_p;\n    " decl.identifier mem_decl.identifier) in
+        (sprintf "uint8_t *%s_%s_in_p = NULL;\n    " decl.identifier mem_decl.identifier) ^ (sprintf "uint8_t *%s_%s_out_p = NULL;\n    " decl.identifier mem_decl.identifier) in
     [
-        (match fd.rtype with Void -> "" | _ -> "uint8_t *retval_p;");
+        (match fd.rtype with Void -> "" | _ -> "uint8_t *retval_p = NULL;");
         concat "\n    "
             (List.map
                 (fun (_, decl) ->
-                        sprintf "uint8_t *%s_p;" decl.identifier)
+                        sprintf "uint8_t *%s_p = NULL;" decl.identifier)
             params);
         concat "\n    "
             (List.map (deep_copy_func pre generator_in post) deep_copy_in);
         concat "\n    "
             (List.map
                 (fun (_, decl) ->
-                        sprintf "uint8_t *%s_out_p;\n    " decl.identifier ^
-                        sprintf "uint8_t *%s_in_p;" decl.identifier)
+                        sprintf "uint8_t *%s_out_p = NULL;\n    " decl.identifier ^
+                        sprintf "uint8_t *%s_in_p = NULL;" decl.identifier)
             params_inout);
         concat "\n    "
             (List.map (deep_copy_func pre generator_inout post) deep_copy_inout);
@@ -156,6 +156,8 @@ let set_ecall_func (tf : trusted_func) =
         else    
                 "    /* There is no parameters point */"; 
         "";
+        "    if (in_buf == NULL)";
+        "        goto done;";
         sprintf "    %s_size_t *args_size = (%s_size_t *)in_buf;" tfd.fname tfd.fname;
         "    in_buf_offset += size_to_aligned_size(sizeof(*args_size));";
         "";
