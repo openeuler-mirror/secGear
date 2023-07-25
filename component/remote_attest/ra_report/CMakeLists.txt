@@ -10,23 +10,37 @@
 
 project(secgear_ra C)
 
+set(CMAKE_C_STANDARD 99)
 set(TARGET secgear_ra)
 
 set(SRC_FILES sg_ra_report.c)
+set(CODEGEN codegen)
 
 if(CC_QT)
-    #set(SRC_FILES ${SRC_FILES} qt_ra_report.c)
+    set(PREFIX sg_ra_report)
+    set(CODETYPE qingtian)
+
+    # Generate auto files from edl
+    set(EDL_FILE ${CMAKE_CURRENT_SOURCE_DIR}/sg_ra_report.edl)
+    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
+
+    add_custom_command(OUTPUT ${AUTO_FILES}
+        DEPENDS ${EDL_FILE}
+        COMMAND ${CODEGEN} --${CODETYPE} --untrusted --header-only ${EDL_FILE} --search-path ${CMAKE_SOURCE_DIR}/inc/host_inc/qingtian)
+
+    List(APPEND SRC_FILES qt_ra_report.c)
+    List(APPEND SRC_FILES qtsm_attestation_enclave.c)
 endif()
 
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 
 include_directories( 
+    ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${LOCAL_ROOT_PATH}/inc/host_inc)
 
-add_library(${TARGET} SHARED ${SRC_FILES})
+add_library(${TARGET} SHARED ${SRC_FILES} ${AUTO_FILES})
 
 install(TARGETS ${TARGET} 
         LIBRARY
