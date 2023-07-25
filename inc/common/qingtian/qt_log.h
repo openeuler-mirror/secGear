@@ -2,7 +2,6 @@
 #define QT_LOG_H
 
 #include <stdio.h>
-#include <stdint.h>
 
 #ifdef DEBUG
     #define QT_INFO(fmt, args...) printf(fmt, ##args)

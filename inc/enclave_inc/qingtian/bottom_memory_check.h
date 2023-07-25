@@ -14,7 +14,6 @@
 #define _QINGTIAN_MEMORY_CHECK_
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stddef.h>
 
 #define MEMORY_CHECK_IN_FN(buffer, size) qingtian_memory_in_enclave(buffer, size)

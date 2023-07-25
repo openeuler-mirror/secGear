@@ -14,7 +14,6 @@
 #define _QINGTIAN_SEAL_H_
 
 #include <stdint.h>
-#include <stdio.h>
 
 #define SEAL_DATA_FN(in, inl, out, outl, aad, aadl) qingtian_seal_data(in, inl, out, outl, aad, aadl)
 #define UNSEAL_DATA_FN(in, out, outl, aad, aadl) qingtian_unseal_data(in, out, outl, aad, aadl)
