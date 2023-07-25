@@ -28,10 +28,11 @@ extern "C" {
 *
 * @param[in/out] report, remote attestion report, 0x3000 =< report->len < 0x100000
 *
-* @retval, On success, return 0. 
+* @retval, On success, return 0.
 *          On error, cc_enclave_result_t errorno is returned.
 */
-__attribute__((visibility("default"))) cc_enclave_result_t cc_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *report);
+__attribute__((visibility("default"))) cc_enclave_result_t cc_get_ra_report(cc_get_ra_report_input_t *in,
+    cc_ra_buf_t *report);
 
 #ifdef __cplusplus
 }

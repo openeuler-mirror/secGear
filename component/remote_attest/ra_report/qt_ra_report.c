@@ -9,9 +9,9 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+#include "qt_ra_report.h"
 #include <stdio.h>
 #include "enclave.h"
-#include "qt_ra_report.h"
 #include "sg_ra_report_u.h"
 
 cc_enclave_result_t qt_get_attestation_doc(cc_get_ra_report_input_t *in, cc_ra_buf_t *report)
@@ -22,7 +22,7 @@ cc_enclave_result_t qt_get_attestation_doc(cc_get_ra_report_input_t *in, cc_ra_b
     cc_enclave_t *context = NULL;
 
     /* doc_cose_len is too long for cboren report, need to reduce it. */
-    if (!in || !report ) {
+    if (!in || !report) {
         printf("[Error] Invalid Remote attestation inputs.\n");
         return rc;
     }
@@ -42,7 +42,7 @@ cc_enclave_result_t qt_get_attestation_doc(cc_get_ra_report_input_t *in, cc_ra_b
 
     printf("Qiantian attestation ecall Done.\n");
     report->len = doc_cose_len; // Report real length of CBOR encoded qingtian attestation doc.
-    return rc; 
+    return rc;
 }
 
 static uni_ra_agent_t g_qt_agent = {

@@ -16,7 +16,7 @@
 
 #define QINGTIAN_REPORT_MAX_LENGTH 5000 // COBR encoded report should be less than 5000-byte.
 
-/* Qingtian Enclave Remote Attestation APIs*/
+/* Qingtian Enclave Remote Attestation APIs */
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -28,7 +28,7 @@ extern "C" {
 *
 * @param[in/out] report, remote attestion report, 0x3000 =< report->len < 0x100000
 *
-* @retval, On success, return 0. 
+* @retval, On success, return 0.
 *          On error, cc_enclave_result_t errorno is returned.
 */
 cc_enclave_result_t qt_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *report);

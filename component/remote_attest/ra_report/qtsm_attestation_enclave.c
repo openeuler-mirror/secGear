@@ -42,10 +42,10 @@ int qt_enclave_att_report(uint8_t *nonce, uint32_t nonce_len, uint8_t *report, u
     /* retrieve attestation report, currently pubkey and user_data are both NULL */
     doc_cose = (uint8_t *)calloc(1, doc_cose_len);
     printf("Calling qtsm_get_attestation ... ");
-    rc = qtsm_get_attestation(qtsm_dev_fd, 
-                              user_data, user_data_len, 
-                              nonce, nonce_len, 
-                              pubkey_data, pubkey_len, 
+    rc = qtsm_get_attestation(qtsm_dev_fd,
+                              user_data, user_data_len,
+                              nonce, nonce_len,
+                              pubkey_data, pubkey_len,
                               doc_cose, &doc_cose_len);
     printf("Done.\n");
 
@@ -70,5 +70,5 @@ exit:
         doc_cose = NULL;
     }
     printf("Measurement complete.\n");
-    return rc; 
+    return rc;
 }
