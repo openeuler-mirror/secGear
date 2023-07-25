@@ -36,6 +36,7 @@ extern "C" {
 typedef enum _enclave_type {
     SGX_ENCLAVE_TYPE = 0,
     GP_ENCLAVE_TYPE,
+    QINGTIAN_ENCLAVE_TYPE,
     AUTO_ENCLAVE_TYPE,
     ENCLAVE_TYPE_MAX
 } enclave_type_t;
@@ -46,6 +47,8 @@ typedef enum _enclave_type_version {
     SGX_ENCLAVE_TYPE_MAX,
     GP_ENCLAVE_TYPE_0,
     GP_ENCLAVE_TYPE_MAX,
+    QINGTIAN_ENCLAVE_TYPE_0,
+    QINGTIAN_ENCLAVE_TYPE_MAX,
     ENCLAVE_TYPE_VERSION_MAX
 } enclave_type_version_t;
 
@@ -130,12 +133,6 @@ static inline size_t size_to_aligned_size(size_t size)
 
 #define COUNT(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
 
-typedef cc_enclave_result_t (*cc_ocall_func_t)(
-    const uint8_t* input_buffer,
-    size_t input_buffer_size,
-    uint8_t* output_buffer,
-    size_t  output_buffer_size);
-
 typedef struct _call_cc_enclave_function_args {
     uint64_t function_id;
     const void *input_buffer;
@@ -171,10 +168,29 @@ cc_enclave_result_t cc_enclave_call_function(
         void *ms,
         const void *ocall_table);
 
-typedef struct _ocall_table {
-    uint64_t num;
-    cc_ocall_func_t ocalls[];
-} ocall_enclave_table_t;
+/* Enclave feature flag */
+typedef enum {
+    ENCLAVE_FEATURE_SWITCHLESS = 1,
+    ENCLAVE_FEATURE_QINGTIAN,
+    ENCLAVE_FEATURE_PROTECTED_CODE_LOADER
+} enclave_features_flag_t;
+
+typedef struct {
+    /* number of vCPUs to be allocated to the enclave VM, the default value 2 */
+    /* 指定要分配给enclave虚拟机的vCPU数量，不能大于隔离的cpu数目， 未配置使用默认值2 */
+    uint32_t cpus;
+
+    /* Specifies the memory size (MB) allocated to the Optimus Enclave VM. the default value 1024 MB */
+    /* 指定分配给擎天Enclave虚拟机的内存大小（MB），不能大于隔离内存大小，需大于擎天Enclave镜像大小，未配置使用默认值1024MB*/
+    uint32_t mem;
+
+    /* Setting the Optimus Enclave VM CID, the default value 4 */
+    /* 设置擎天Enclave虚拟机cid，可用的cid范围为：4-4294967294，未配置使用默认值4*/
+    uint32_t cid;
+
+} cc_qingtian_config_t;
+
+#define CC_QINGTIAN_CONFIG_INITIALIZER   {2, 1024, 4}
 
 # ifdef  __cplusplus
 }

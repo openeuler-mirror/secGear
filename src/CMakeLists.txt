@@ -13,3 +13,6 @@ set(CMAKE_STATIC_LINKER_FLAGS "")
 
 add_subdirectory(enclave_src)
 add_subdirectory(host_src)
+if(CC_QT)
+    add_subdirectory(common/qingtian)
+endif()

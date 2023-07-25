@@ -12,7 +12,9 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden -fPIC -Wno-stringop-over
 
 set(LIBRARY_INSTALL /usr/lib64)
 
+include_directories(${LOCAL_ROOT_PATH}/inc/common/qingtian)
 include_directories(${LOCAL_ROOT_PATH}/inc/host_inc)
+include_directories(${LOCAL_ROOT_PATH}/inc/host_inc/qingtian)
 
 if(CC_GP)
     add_subdirectory(gp)
@@ -22,10 +24,15 @@ if(CC_SGX)
     add_subdirectory(sgx)
 endif()
 
-add_library(secgear SHARED enclave.c enclave_internal.c ocall_log.c enclave_ocall.c)
+if (CC_QT)
+    add_subdirectory(qingtian)
+endif()
+
+add_library(secgear SHARED enclave.c enclave_internal.c ocall_log.c enclave_ocall.c )
+
 add_library(secgearsim SHARED enclave.c enclave_internal.c ocall_log.c enclave_ocall.c)
 
-target_link_libraries(secgear dl pthread)
+target_link_libraries(secgear dl pthread crypto)
 target_link_libraries(secgearsim dl pthread)
 
 set_target_properties(secgear PROPERTIES 

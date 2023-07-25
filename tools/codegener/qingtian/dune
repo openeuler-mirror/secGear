@@ -1,0 +1,11 @@
+(library
+ (name qingtian)
+ (synopsis "qingtian codegen")
+ (libraries str unix intel))
+
+; TODO: Upstream code has a lot of warnings still.
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))
