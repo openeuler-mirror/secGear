@@ -22,16 +22,6 @@
 extern "C" {
 #endif
 
-// #define OCALL_USER_DEFINED	4
-
-// /* New struct used to hint the in | out buf size. */
-// typedef struct _untrusted_mem_info_t
-// {
-//     uint8_t fid;
-//     size_t in_buf_size;
-//     size_t out_buf_size;
-// } untrusted_mem_info_t;
-
 typedef cc_enclave_result_t (*cc_ocall_func_t)(
     const uint8_t* input_buffer,
     size_t input_buffer_size,

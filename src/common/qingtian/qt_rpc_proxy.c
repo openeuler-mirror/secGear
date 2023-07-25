@@ -364,7 +364,6 @@ restart:
         }
         
         // new msg node by recv buf
-        // printf("recv buf len:%d\n", len);
         qt_proxy_msg_node_t *node = qt_new_recv_msg_node(buf, msg_len);
         if (node == NULL) {
             printf("recv thread malloc msg node failed\n");
@@ -468,21 +467,13 @@ static int add_msg_to_send_queue(uint64_t task_id, uint8_t *input, size_t input_
 
 static void qt_task_mng_thread_pool_destroy()
 {
-    int ret;
     pthread_t *thread_pool = g_qt_proxy.task_mng.thread_pool;
     uint32_t  thread_pool_size = g_qt_proxy.task_mng.proxy_config.thread_pool_size;
     for (uint32_t i = 0; i < thread_pool_size; i++) {
         if (thread_pool[i] != 0) {
-            ret = pthread_cancel(thread_pool[i]);
-            if (ret != 0) {
-                //printf("pthread cannel thread:%u, failed\n", thread_pool[i]);
-            }
-            ret = pthread_join(thread_pool[i], NULL);
-            if (ret != 0) {
-                //printf("pthread join thread:%u falied\n", thread_pool[i]);
-            }
+            pthread_cancel(thread_pool[i]);
+            pthread_join(thread_pool[i], NULL);
             thread_pool[i] = 0;
-            //printf("destroy thread:%u success\n", thread_pool[i]);
         }
     }
     return;
@@ -686,8 +677,7 @@ static int qt_add_task_to_mng(uint8_t *recv_buf, size_t len, qt_proxy_task_node_
     if (g_qt_proxy.task_mng.count >= QT_TASK_MAX_NUM) {
         pthread_mutex_unlock(&g_qt_proxy.task_mng.lock);
         qt_free_task_node(task_node);
-        // return CC_ERROR_TASK_NUM_EXCEED_MAX_LIMIT;
-        return 100;
+        return CC_ERROR_TASK_NUM_EXCEED_MAX_LIMIT;
     }
     g_qt_proxy.task_mng.count++;
     LIST_ADD(qt_proxy_task_node_t, &(g_qt_proxy.task_mng.task_list_head), task_node);

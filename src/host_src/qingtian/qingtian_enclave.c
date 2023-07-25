@@ -26,8 +26,6 @@
 #include "qt_log.h"
 #include "host_input.h"
 
-//#define DEBUG_MOCK
-
 extern list_ops_management g_list_ops;
 
 #define PRA_BUF_SIZE        (64)
