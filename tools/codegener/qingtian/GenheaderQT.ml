@@ -316,7 +316,7 @@ let generate_untrusted_header (ec: enclave_content) =
     in
     let hfile_end = "#endif\n" in
     let hfile_include =
-        sprintf "#include \"%s_args.h\"\n#include \"secGear/enclave_internal.h\"\n" ec.file_shortnm
+        sprintf "#include \"%s_args.h\"\n" ec.file_shortnm
     in
     let agent_id = "#ifndef TEE_SECE_AGENT_ID\n#define TEE_SECE_AGENT_ID 0x53656345\n#endif\n"
     in
