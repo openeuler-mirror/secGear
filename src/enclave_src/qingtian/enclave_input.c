@@ -9,11 +9,11 @@ extern const cc_ecall_func_t cc_ecall_tables[];
 extern const size_t ecall_table_size;
 
 cc_enclave_result_t cc_ocall_enclave(
-        size_t func_id,
-        const void *in_buf,
-        size_t in_buf_size,
-        void *out_buf,
-        size_t out_buf_size)
+    size_t func_id,
+    const void *in_buf,
+    size_t in_buf_size,
+    void *out_buf,
+    size_t out_buf_size)
 {
     cc_enclave_result_t result_cc = CC_SUCCESS;
 #ifdef DEBUG

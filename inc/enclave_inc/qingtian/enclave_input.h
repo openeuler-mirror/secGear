@@ -28,11 +28,11 @@ typedef struct _ecall_table {
 } enclave_table_t;
 
 cc_enclave_result_t cc_ocall_enclave(
-        size_t func_id,
-        const void *in_buf,
-        size_t in_buf_size,
-        void *out_buf,
-        size_t out_buf_size);
+    size_t func_id,
+    const void *in_buf,
+    size_t in_buf_size,
+    void *out_buf,
+    size_t out_buf_size);
 
 cc_enclave_result_t handle_ecall_function(
     const uint8_t *input_buffer,
