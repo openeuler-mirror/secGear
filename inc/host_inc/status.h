@@ -78,6 +78,8 @@ typedef enum _enclave_result_t
     CC_ERROR_ATT_KEY_UNINITIALIZED,             /* attestation key is not initialized*/
     CC_ERROR_INVALID_ATT_KEY_CERT_DATA,         /* attestation data is not valid*/
     CC_ERROR_PLATFORM_CERT_UNAVAILABLE,         /* cert is not available*/
+
+    CC_ERROR_RA_AGENT_NOT_INIT,
     
     CC_ERROR_OTRP_BASE = 0x80000100,  /* sec file config source is not inconsistent with the loading mode. */
     CC_ERROR_STORAGE_EIO        = 0x80001001, /* *<安全存储I/O错误 */

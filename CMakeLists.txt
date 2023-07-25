@@ -47,6 +47,8 @@ add_subdirectory(tools/codegener)
 
 add_subdirectory(src)
 
+add_subdirectory(component)
+
 execute_process(COMMAND mkdir ${LOCAL_ROOT_PATH}/bin)
 
 add_subdirectory(examples)
