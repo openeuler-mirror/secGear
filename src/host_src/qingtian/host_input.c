@@ -67,7 +67,7 @@ cc_enclave_result_t handle_ocall_function(
         goto end;
     }
     msg_send->function_id = msg_recv->function_id;
-    msg_send->out_buf_size = msg_recv->out_buf_size;//copy raw size
+    msg_send->out_buf_size = msg_recv->out_buf_size;// copy raw size
     msg_send->buf_size = msg_recv->out_buf_size;
     
     result_cc = func(msg_recv->buf, msg_recv->buf_size, msg_send->buf,

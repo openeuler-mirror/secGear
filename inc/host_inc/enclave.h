@@ -181,11 +181,11 @@ typedef struct {
     uint32_t cpus;
 
     /* Specifies the memory size (MB) allocated to the Optimus Enclave VM. the default value 1024 MB */
-    /* 指定分配给擎天Enclave虚拟机的内存大小（MB），不能大于隔离内存大小，需大于擎天Enclave镜像大小，未配置使用默认值1024MB*/
+    /* 指定分配给擎天Enclave虚拟机的内存大小（MB），不能大于隔离内存大小，需大于擎天Enclave镜像大小，未配置使用默认值1024MB */
     uint32_t mem;
 
     /* Setting the Optimus Enclave VM CID, the default value 4 */
-    /* 设置擎天Enclave虚拟机cid，可用的cid范围为：4-4294967294，未配置使用默认值4*/
+    /* 设置擎天Enclave虚拟机cid，可用的cid范围为：4-4294967294，未配置使用默认值4 */
     uint32_t cid;
 
 } cc_qingtian_config_t;

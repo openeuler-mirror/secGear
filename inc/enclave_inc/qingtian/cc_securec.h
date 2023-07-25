@@ -13,6 +13,6 @@
 #ifndef SECGEAR_CC_SECURE_H
 #define SECGEAR_CC_SECURE_H
 
-//qingtian not surport now
+// qingtian not surport now
 
-#endif //SECGEAR_CC_SECURE_H
+#endif // SECGEAR_CC_SECURE_H
