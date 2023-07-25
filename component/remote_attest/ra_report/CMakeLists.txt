@@ -29,7 +29,6 @@ if(CC_QT)
         COMMAND ${CODEGEN} --${CODETYPE} --untrusted --header-only ${EDL_FILE} --search-path ${CMAKE_SOURCE_DIR}/inc/host_inc/qingtian)
 
     List(APPEND SRC_FILES qt_ra_report.c)
-    List(APPEND SRC_FILES qtsm_attestation_enclave.c)
 endif()
 
 

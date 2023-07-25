@@ -13,13 +13,6 @@
 #include "uni_ra_agent.h"
 
 static uni_ra_agent_t *g_ra_agent = NULL;
-cc_enclave_result_t cc_prepare_ra_env(cc_ra_scenario_t scenario)
-{
-    if (g_ra_agent == NULL) {
-        return CC_ERROR_RA_AGENT_NOT_INIT;
-    }
-    return g_ra_agent->prepare_ra_env(scenario);
-}
 
 cc_enclave_result_t cc_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *report)
 {
