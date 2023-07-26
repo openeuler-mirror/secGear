@@ -16,7 +16,7 @@ print_help(){
     echo "[options]"
     echo "-c <file>       basic config file."
     echo "-d <parameter>  sign tool command, sign/digest/dump."
-    echo "                The sign command is used to generate a signed enclave."
+    echo "                The sign command is used to generate a signed enclave. qingtian enclave is only support sign"
     echo "                The digest command is used to generate signing material."
     echo "                The dump command is used to generate metadata for sgx signed enclave."
     echo "-i <file>       input parameter, which is enclave to be signed for digest/sign command, and signed enclave for"
@@ -30,7 +30,7 @@ print_help(){
     echo "-p <file>       signing server public key certificate, required for sgx two-step method."
     echo "-s <file>       the signature value required for two-step method, this parameter is empty to indicate"
     echo "                single-step method."
-    echo "-x <parameter>  enclave type, sgx or trustzone."
+    echo "-x <parameter>  enclave type, sgx/trustzone/qingtian."
     echo "-h              print help message."
 
 }
@@ -199,6 +199,24 @@ sgx_start_sign(){
     fi
 }
 
+qingtian_start_sign(){
+#    check_native_sign
+    if [ -z $A_CONFIG_FILE ]; then
+        echo "Error: missing additional config_cloud.ini file for signing iTrustee enclave"
+        exit 1
+    fi
+
+    if [ "${CMD}"x == "sign"x ]; then
+        if [ -z ${SIG_KEY} ] && [ -z ${SERVER_PUBKEY} ]; then
+            qt enclave make-img --docker-uri "${IN_ENCLAVE}" --eif "${OUT_FILE}" --private-key "${SIG_KEY}" --signing-certificate "${SERVER_PUBKEY}"
+        else
+            qt enclave make-img --docker-uri "${IN_ENCLAVE}" --eif "${OUT_FILE}"
+        fi
+    else
+        echo "Error: illegal command"
+    fi
+}
+
 
 if [ -z $CMD ]; then
     echo "Error: missing command"
@@ -224,6 +242,8 @@ elif [ "${ENCLAVE_TYPE}"x == "trustzone"x ]; then
         echo "Warning: the enclave type does not comply with current architecture"
     fi
     itrustee_start_sign
+elif [ "${ENCLAVE_TYPE}"x == "qingtian"x ]; then
+    qingtian_start_sign
 else
     echo "Error: illegal enclave type"
     exit 1

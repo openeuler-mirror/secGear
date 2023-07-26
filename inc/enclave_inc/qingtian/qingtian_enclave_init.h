@@ -10,18 +10,19 @@
  * See the Mulan PSL v2 for more details.
  */
 
-#include "status.h"
-#include "random_internal.h"
-#include "qingtian_enclave_init.h"
+#ifndef QINGTIAN_ENCLAVE_INIT_H
+#define QINGTIAN_ENCLAVE_INIT_H
 
-extern int qtsm_get_random(int fd, uint8_t *rnd_data, uint32_t rnd_data_len);
+#include <stdint.h>
+#include <stddef.h>
 
-int _cc_generate_random(void *buffer, size_t size)
-{
-    int qtsm_dev_fd = qt_get_qtsm_fd();
-    if (qtsm_get_random(qtsm_dev_fd, buffer, size) != 0) {
-        return CC_FAIL;
-    }
+#ifdef  __cplusplus
+extern "C" {
+#endif
 
-    return CC_SUCCESS;
+int qt_get_qtsm_fd();
+
+#ifdef  __cplusplus
 }
+#endif
+#endif

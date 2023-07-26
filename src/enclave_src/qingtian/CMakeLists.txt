@@ -8,10 +8,11 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-set(SOURCE_FILES ${SOURCE_FILES} qingtian_seal_data.c  bottom_memory_check.c error_conversion.c qingtian_random.c
-                                    enclave_input.c
-                                    ${CMAKE_SOURCE_DIR}/src/common/qingtian/qt_rpc_proxy.c
-                                    ${CMAKE_SOURCE_DIR}/src/common/qingtian/qt_call.c)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} TEE_SRC)
+set(SOURCE_FILES ${SOURCE_FILES} ${TEE_SRC}
+                 ${CMAKE_SOURCE_DIR}/src/common/qingtian/qt_rpc_proxy.c
+                 ${CMAKE_SOURCE_DIR}/src/common/qingtian/qt_call.c
+                 ${CMAKE_SOURCE_DIR}/component/remote_attest/ra_report/qtsm_attestation_enclave.c)
 
 set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -fPIC")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
@@ -20,7 +21,10 @@ add_definitions(-DENCLAVE)
 add_library(${target_lib} SHARED ${SOURCE_FILES})
 
 target_include_directories(${target_lib} PRIVATE
-    ${LOCAL_ROOT_PATH}/inc/enclave_inc/qingtian  ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian ${LOCAL_ROOT_PATH}/inc/common/qingtian)
+    ${LOCAL_ROOT_PATH}/inc/enclave_inc/qingtian
+    ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian
+    ${LOCAL_ROOT_PATH}/inc/common/qingtian
+    ${LOCAL_ROOT_PATH}/inc/thirdparty/qtsm)
 
 install(TARGETS  ${target_lib}
         ARCHIVE

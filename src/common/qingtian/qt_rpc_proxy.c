@@ -798,20 +798,3 @@ int qt_rpc_proxy_call(uint8_t *input, size_t input_len, uint8_t *output, size_t 
     return 0;
 }
 
-#ifdef ENCLAVE
-extern int handle_ecall_function(uint8_t *input, size_t input_len, uint8_t **output, size_t *output_len);
-
-static __attribute__((constructor)) void qt_enclave_proxy_init()
-{
-    int ret = qt_rpc_proxy_init(VMADDR_CID_ANY, handle_ecall_function);
-    if (ret != 0) {
-        printf("enclave proxy init failed\n");
-    }
-    printf("enclave proxy init success\n");
-}
-static __attribute__((destructor)) void qt_enclave_proxy_destroy()
-{
-    qt_rpc_proxy_destroy();
-    printf("destroy enclave proxy\n");
-}
-#endif

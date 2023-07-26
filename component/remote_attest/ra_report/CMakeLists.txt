@@ -14,7 +14,7 @@ set(CMAKE_C_STANDARD 99)
 set(TARGET secgear_ra)
 
 set(SRC_FILES sg_ra_report.c)
-set(CODEGEN codegen)
+set(CODEGEN ${LOCAL_ROOT_PATH}/bin/codegen)
 
 if(CC_QT)
     set(PREFIX sg_ra_report)

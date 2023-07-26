@@ -13,7 +13,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <qtsm_lib.h>
-#include "sg_ra_report_t.h"
+#include "status.h"
+#include "qingtian_enclave_init.h"
 
 int qt_enclave_att_report(uint8_t *nonce, uint32_t nonce_len, uint8_t *report, uint32_t report_len, uint32_t *real_len)
 {
@@ -33,7 +34,7 @@ int qt_enclave_att_report(uint8_t *nonce, uint32_t nonce_len, uint8_t *report, u
 
     printf("Trying to get Qingtian enclave attestation doc...\n");
     /* Open QTSM device for interactions */
-    qtsm_dev_fd = qtsm_lib_init();
+    qtsm_dev_fd = qt_get_qtsm_fd();
     if (qtsm_dev_fd < 0) {
         rc = INTERNAL_ERROR;
         goto exit;
@@ -61,10 +62,6 @@ exit:
         rc = CC_FAIL;
     }
 
-    /* Close device and exit. */
-    if (qtsm_dev_fd > 0) {
-        qtsm_lib_exit(qtsm_dev_fd);
-    }
     if (doc_cose) {
         free(doc_cose);
         doc_cose = NULL;
