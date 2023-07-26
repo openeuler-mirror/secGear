@@ -21,10 +21,10 @@
 #include "enclave_internal.h"
 #include "enclave_log.h"
 #include "qt_rpc_proxy.h"
-#include "qingtian_enclave.h"
 #include "qt_call.h"
 #include "qt_log.h"
 #include "host_input.h"
+#include "qingtian_enclave.h"
 
 extern list_ops_management g_list_ops;
 
@@ -115,7 +115,6 @@ static int check_eif(const char* path)
 
 static int get_eif_realpath(char *resolved_path, const char *path)
 {
-    // TODO 参数合法性检查
     int ret = 0;
     if (path == NULL) {
         print_error_term("path is NULL\n");
@@ -255,6 +254,7 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
 {
     FILE *fp = NULL;
     int ret = 0;
+    int left = retry;
     if (command == NULL || id == NULL) {
         ret = -1;
         goto end;
@@ -266,9 +266,9 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
         ret = -1;
         goto end;
     } else {
-        QT_DEBUG("get enclave id, total retry %d\n", retry);
-        while (retry-- > 0) {
-            QT_DEBUG("try %d\n", retry + 1);
+        QT_DEBUG("get enclave id, total retry %d\n", left);
+        while (left-- > 0) {
+            QT_DEBUG("try %d\n", left + 1);
             if (qt_query_id(cid, id) != 0) {
                 sleep(1);
                 continue;
@@ -276,7 +276,7 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
                 break;
             }
         }
-        if (retry <= 0) {
+        if (left <= 0) {
             ret = -1;
             QT_ERR("query id fail\n");
         } else {

@@ -334,7 +334,7 @@ static qt_proxy_msg_node_t *qt_new_recv_msg_node(uint8_t *recv_buf, size_t len)
     return msg_node;
 }
 
-#define QT_VOSCK_MAX_RECV_BUF (1024 *40)
+#define QT_VOSCK_MAX_RECV_BUF (1024 * 40)
 void *qt_msg_recv_thread_proc(void *arg)
 {
     (void)arg;
@@ -673,7 +673,7 @@ static void qt_task_mng_destroy(void)
 }
 
 #define LIST_ADD(type, head, node) \
-    type *tmp = (head)->next; (head)->next = (node); (node)->next = tmp;
+    do {type *tmp = (head)->next; (head)->next = (node); (node)->next = tmp;} while(0)
 
 static int qt_add_task_to_mng(uint8_t *recv_buf, size_t len, qt_proxy_task_node_t **node)
 {
