@@ -19,6 +19,7 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
 add_definitions(-DENCLAVE)
 
 add_library(${target_lib} SHARED ${SOURCE_FILES})
+target_link_libraries(${target_lib} -lcrypto)
 
 target_include_directories(${target_lib} PRIVATE
     ${LOCAL_ROOT_PATH}/inc/enclave_inc/qingtian

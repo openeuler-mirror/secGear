@@ -14,7 +14,7 @@
 #include "random_internal.h"
 #include "qingtian_enclave_init.h"
 
-extern int qtsm_get_random(int fd, uint8_t *rnd_data, uint32_t rnd_data_len);
+extern __attribute__((weak)) int qtsm_get_random(int fd, uint8_t *rnd_data, uint32_t rnd_data_len);
 
 int _cc_generate_random(void *buffer, size_t size)
 {

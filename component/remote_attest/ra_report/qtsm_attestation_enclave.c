@@ -16,6 +16,12 @@
 #include "status.h"
 #include "qingtian_enclave_init.h"
 
+extern __attribute__((weak)) int qtsm_get_attestation(const int fd,
+    const uint8_t *user_data, const uint32_t user_data_len,
+    const uint8_t *nonce_data, const uint32_t nonce_data_len,
+    const uint8_t *pubkey_data, const uint32_t pubkey_len,
+    uint8_t *att_doc_data, uint32_t *att_doc_data_len);
+
 int qt_enclave_att_report(uint8_t *nonce, uint32_t nonce_len, uint8_t *report, uint32_t report_len, uint32_t *real_len)
 {
     int qtsm_dev_fd = 0;

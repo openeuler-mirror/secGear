@@ -21,6 +21,9 @@
 #include <qtsm_lib.h>
 #include "qt_rpc_proxy.h"
 
+extern __attribute__((weak)) int qtsm_lib_init(void);
+extern __attribute__((weak)) void qtsm_lib_exit(int qtsm_dev_fd);
+
 static int g_qtsm_fd;
 extern int handle_ecall_function(uint8_t *input, size_t input_len, uint8_t **output, size_t *output_len);
 
