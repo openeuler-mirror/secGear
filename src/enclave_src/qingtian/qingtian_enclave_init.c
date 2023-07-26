@@ -27,7 +27,7 @@ extern __attribute__((weak)) void qtsm_lib_exit(int qtsm_dev_fd);
 static int g_qtsm_fd;
 extern int handle_ecall_function(uint8_t *input, size_t input_len, uint8_t **output, size_t *output_len);
 
-static __attribute__((constructor)) void qt_enclave_init()
+static __attribute__((constructor)) void qt_enclave_init(void)
 {
     int ret = qt_rpc_proxy_init(VMADDR_CID_ANY, handle_ecall_function);
     if (ret != 0) {
@@ -39,7 +39,7 @@ static __attribute__((constructor)) void qt_enclave_init()
         printf("enclave init qtsm lib failed\n");
     }
 }
-static __attribute__((destructor)) void qt_enclave_destroy()
+static __attribute__((destructor)) void qt_enclave_destroy(void)
 {
     if (g_qtsm_fd > 0) {
         qtsm_lib_exit(g_qtsm_fd);

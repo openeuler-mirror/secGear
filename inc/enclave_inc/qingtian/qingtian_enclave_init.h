@@ -20,7 +20,7 @@
 extern "C" {
 #endif
 
-int qt_get_qtsm_fd();
+int qt_get_qtsm_fd(void);
 
 #ifdef  __cplusplus
 }

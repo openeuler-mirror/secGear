@@ -24,8 +24,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/vfs.h>
-#include <linux/vm_sockets.h>
 #include <openssl/rand.h>
+#include <linux/vm_sockets.h>
 
 /* ==============vsock struct start============== */
 typedef struct {
@@ -119,7 +119,8 @@ static int qt_vsock_init(int cid)
 
 #ifdef SIM
     (void)cid;
-    struct sockaddr_in svr_addr, conn_addr;
+    struct sockaddr_in svr_addr;
+    struct sockaddr_in conn_addr;
     uint32_t conn_len = sizeof(conn_addr);
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
@@ -131,7 +132,8 @@ static int qt_vsock_init(int cid)
     svr_addr.sin_addr.s_addr = is_server ? htonl(INADDR_ANY) : inet_addr("127.0.0.1");
     svr_addr.sin_port = htons(8082);
 #else
-    struct sockaddr_vm svr_addr, conn_addr;
+    struct sockaddr_vm svr_addr;
+    struct sockaddr_vm conn_addr;
     uint32_t conn_len = sizeof(conn_addr);
     sockfd = socket(AF_VSOCK, SOCK_STREAM, 0);
     if (sockfd == -1) {
@@ -164,7 +166,6 @@ static int qt_vsock_init(int cid)
         }
         g_qt_proxy.vsock_mng.svr_fd = sockfd;
         g_qt_proxy.vsock_mng.connfd = connfd;
-
     } else {
         if (connect(sockfd, (struct sockaddr *)&svr_addr, sizeof(svr_addr)) != 0) {
             printf("connet to server failed\n");
@@ -177,7 +178,7 @@ static int qt_vsock_init(int cid)
     return 0;
 }
 
-static void qt_vsock_destroy()
+static void qt_vsock_destroy(void)
 {
     if (g_qt_proxy.vsock_mng.connfd != 0) {
         close(g_qt_proxy.vsock_mng.connfd);
@@ -296,14 +297,20 @@ void *qt_msg_send_thread_proc(void *arg)
         size_t send_len = sizeof(rpc_msg_len) + rpc_msg_len;
 
         uint8_t *send_buf = (uint8_t *)calloc(1, send_len);
+        if (send_buf == NULL) {
+            printf("send msg thread malloc error\n");
+            qt_free_msg_node(node);
+            continue;
+        }
         memcpy(send_buf, &rpc_msg_len, sizeof(rpc_msg_len));
         memcpy(send_buf + sizeof(rpc_msg_len), node->msg, rpc_msg_len);
 
         ret = write(g_qt_proxy.vsock_mng.connfd, send_buf, send_len);
-        if (ret) {}
+        if (ret < 0) {
+            printf("send msg failed\n");
+        }
         free(send_buf);
         qt_free_msg_node(node);
-
     }
 
     return NULL;
@@ -372,13 +379,14 @@ restart:
             continue;
         }
         qt_msg_queue_push(&g_qt_proxy.msg_mng.recv_queue, node);
-        printf("[recv thread] recv %s, len:%lu, task_id:%lu\n", get_msg_type_string(node->msg->type), msg_len, node->msg->task_id);
+        printf("[recv thread] recv %s, len:%lu, task_id:%lu\n", get_msg_type_string(node->msg->type),
+               msg_len, node->msg->task_id);
     }
 
     return NULL;
 }
 
-static void qt_msg_thread_destroy()
+static void qt_msg_thread_destroy(void)
 {
     if (g_qt_proxy.msg_mng.send_tid != 0) {
         pthread_cancel(g_qt_proxy.msg_mng.send_tid);
@@ -420,7 +428,7 @@ static int qt_msg_mng_init(qt_handle_request_msg_t handle_func)
     return 0;
 }
 
-static void qt_msg_mng_destroy()
+static void qt_msg_mng_destroy(void)
 {
     // before destroy list, need destroy all thread first
     // destroy all thread by qt_msg_thread_destroy and qt_task_mng_thread_pool_destroy
@@ -467,7 +475,7 @@ static int add_msg_to_send_queue(uint64_t task_id, uint8_t *input, size_t input_
     return 0;
 }
 
-static void qt_task_mng_thread_pool_destroy()
+static void qt_task_mng_thread_pool_destroy(void)
 {
     pthread_t *thread_pool = g_qt_proxy.task_mng.thread_pool;
     uint32_t  thread_pool_size = g_qt_proxy.task_mng.proxy_config.thread_pool_size;
@@ -581,7 +589,7 @@ void *qt_recv_task_proc(void *arg)
     return NULL;
 }
 
-static int qt_task_mng_init()
+static int qt_task_mng_init(void)
 {
     int ret;
     uint32_t task_size = 10;
@@ -640,7 +648,7 @@ static void qt_free_task_node(qt_proxy_task_node_t *task_node)
     return;
 }
 
-static void qt_task_mng_destroy()
+static void qt_task_mng_destroy(void)
 {
     pthread_mutex_lock(&g_qt_proxy.task_mng.lock);
     // destroy task list
@@ -718,7 +726,7 @@ int qt_rpc_proxy_init(int cid, qt_handle_request_msg_t handle_func)
     return 0;
 }
 
-void qt_rpc_proxy_destroy()
+void qt_rpc_proxy_destroy(void)
 {
     // destroy all thread
     qt_msg_thread_destroy();
