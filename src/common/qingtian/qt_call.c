@@ -63,7 +63,7 @@ cc_enclave_result_t comm_call(uint32_t function_id,
         goto end;
     }
 #if DEBUG
-    QT_DEBUG("received raw data[%d]: ",recv_len);
+    QT_DEBUG("received raw data[%d]: ", recv_len);
     for (int i = 0; i < recv_len; i++) {
         QT_DEBUG("%02X", *((uint8_t*)msg_recv + i));
     }

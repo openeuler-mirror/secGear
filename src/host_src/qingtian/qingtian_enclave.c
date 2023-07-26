@@ -52,7 +52,6 @@ static int enclave_deinit(uint32_t cid)
 {
     (void)cid;
     qt_rpc_proxy_destroy();
-    sleep(3);
     return 0;
 }
 /************* port api *************/
@@ -328,6 +327,11 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
 #ifdef DEBUG_MOCK
     QT_DEBUG("qingtian enclave mock create successfully! \n");
     qingtian_private_data_t *priv_data = (qingtian_private_data_t *)malloc(sizeof(qingtian_private_data_t));
+    if (priv_data == NULL) {
+        QT_ERR("malloc for private data is NULL\n");
+        result_cc = CC_ERROR_OUT_OF_MEMORY;
+        goto end;
+    }
     priv_data->enclave_id = 0;
     priv_data->startup = *startup_pra;
     enclave->private_data = (void *)priv_data;
@@ -347,12 +351,18 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
-    if (enclave_init(startup_pra->enclave_cid, startup_pra->port, (qt_handle_request_msg_t)handle_ocall_function) != 0) {
+    if (enclave_init(startup_pra->enclave_cid, startup_pra->port,
+        (qt_handle_request_msg_t)handle_ocall_function) != 0) {
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
     QT_DEBUG("qingtian enclave create successfully! \n");
     qingtian_private_data_t *priv_data = (qingtian_private_data_t *)malloc(sizeof(qingtian_private_data_t));
+    if (priv_data == NULL) {
+        QT_ERR("malloc for private data is NULL\n");
+        result_cc = CC_ERROR_OUT_OF_MEMORY;
+        goto end;
+    }
     priv_data->enclave_id = id;
     priv_data->startup = *startup_pra;
     enclave->private_data = (void *)priv_data;
@@ -480,7 +490,7 @@ cc_enclave_result_t cc_enclave_ecall_function(
 
     set_ocall_table(ocall_table);
     cc_enclave_result_t result_cc = CC_SUCCESS;
-    result_cc = comm_call(function_id, input_buffer, input_buffer_size, 
+    result_cc = comm_call(function_id, input_buffer, input_buffer_size,
                           output_buffer, output_buffer_size);
     return result_cc;
 }

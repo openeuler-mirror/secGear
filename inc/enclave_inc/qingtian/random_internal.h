@@ -14,6 +14,6 @@
 #define __QINGTIAN_CEGENERATE_API_H
 #include <stdio.h>
 
-int _cc_generate_random(void * buffer, size_t size);
+int _cc_generate_random(void *buffer, size_t size);
 
 #endif

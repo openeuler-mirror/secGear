@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "enclave_input.h"
 #include "qt_log.h"
 #include "qt_call.h"
+#include "enclave_input.h"
 
 extern const cc_ecall_func_t cc_ecall_tables[];
 extern const size_t ecall_table_size;
@@ -58,7 +58,8 @@ cc_enclave_result_t handle_ecall_function(
     ecall_table.num = ecall_table_size;
     if (msg_recv->function_id >= ecall_table.num) {
         result_cc = CC_ERROR_ECALL_NOT_ALLOWED;
-        QT_ERR("function id(%lu) not found(%lu), ecall table size = %zu\n", msg_recv->function_id, result_cc, ecall_table_size);
+        QT_ERR("function id(%lu) not found(%lu), ecall table size = %zu\n",
+            msg_recv->function_id, result_cc, ecall_table_size);
         goto end;
     }
     func = ecall_table.ecalls[msg_recv->function_id];
@@ -76,7 +77,7 @@ cc_enclave_result_t handle_ecall_function(
         goto end;
     }
     msg_send->function_id = msg_recv->function_id;
-    msg_send->out_buf_size = msg_recv->out_buf_size;// copy raw size
+    msg_send->out_buf_size = msg_recv->out_buf_size;
     msg_send->buf_size = msg_send->out_buf_size;
     size_t write_len = 0;
     result_cc = func(msg_recv->buf, msg_recv->buf_size, msg_send->buf,

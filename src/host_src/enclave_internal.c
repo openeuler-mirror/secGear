@@ -311,13 +311,15 @@ enclave_type_version_t type_check_sgx(uint32_t version)
 
 enclave_type_version_t type_check_qingtian(uint32_t version)
 {
-     switch (version) {
-         case 0:
-             return QINGTIAN_ENCLAVE_TYPE_0;
-         default:
-             print_error_term("This enclave version is not support\n");
-             return ENCLAVE_TYPE_VERSION_MAX;
-     }
+    switch (version) {
+        case 0: {
+            return QINGTIAN_ENCLAVE_TYPE_0;
+        }
+        default: {
+            print_error_term("This enclave version is not support\n");
+            return ENCLAVE_TYPE_VERSION_MAX;
+        }
+    }
 }
 
 /* Match enclave engine: lib<sgx/gp>_<version>.so */

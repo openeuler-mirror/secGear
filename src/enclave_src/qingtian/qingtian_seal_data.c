@@ -40,7 +40,7 @@ uint32_t qingtian_seal_data(uint8_t *seal_data, uint32_t seal_data_len,
 }
 
 uint32_t qingtian_unseal_data(void *sealed_data, uint8_t *decrypted_data,
-    uint32_t *decrypted_data_len,uint8_t *mac_data, uint32_t *mac_data_len)
+    uint32_t *decrypted_data_len, uint8_t *mac_data, uint32_t *mac_data_len)
 {
     /* qingtian does not support this API now */
     return CC_ERROR_NOT_SUPPORTED;
