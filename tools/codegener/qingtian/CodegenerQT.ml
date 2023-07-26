@@ -10,16 +10,16 @@
  * See the Mulan PSL v2 for more details.
  *)
 
-open Printf 
+open Printf
 open Intel.Util
 open Intel.Ast
-open Commonfunc
+open CommonfuncQT
 
 let g_undir = ref "."
 
 let g_dir = ref "."
 
-let get_args_header (fs : string) (flags : int) = 
+let get_args_header (fs : string) (flags : int) =
     if flags = 1 then !g_dir ^ Intel.Util.separator_str ^ fs ^ "_args.h"
     else !g_undir  ^ Intel.Util.separator_str ^ fs ^ "_args.h"
 
@@ -39,72 +39,72 @@ let create_args_header (ec : enclave_content) (flags : int) =
     let file_name = get_args_header ec.file_shortnm flags in
     let output = open_out file_name in
     output_string output (
-            String.concat "\n" (Genheader.generate_args_header ec));
+            String.concat "\n" (GenheaderQT.generate_args_header ec));
     close_out output
 
-let create_trusted_header (ec : enclave_content) = 
-    let file_name = get_trusted_header ec.file_shortnm in 
-    let output = open_out file_name in 
+let create_trusted_header (ec : enclave_content) =
+    let file_name = get_trusted_header ec.file_shortnm in
+    let output = open_out file_name in
     output_string output (
-            String.concat "\n" (Genheader.generate_trusted_header ec));
+            String.concat "\n" (GenheaderQT.generate_trusted_header ec));
     close_out output
 
-let create_trusted_source (ec : enclave_content) = 
+let create_trusted_source (ec : enclave_content) =
     let file_name = get_trusted_source ec.file_shortnm in
     let output = open_out file_name in
     output_string output (
-            String.concat "\n" (Gentrust.gen_trusted ec));
+            String.concat "\n" (GentrustQT.gen_trusted ec));
     close_out output
 
 let create_untrusted_header (ec : enclave_content) =
     let file_name = get_untrusted_header ec.file_shortnm in
     let output = open_out file_name in
     output_string output (
-            String.concat "\n" (Genheader.generate_untrusted_header ec));
+            String.concat "\n" (GenheaderQT.generate_untrusted_header ec));
     close_out output
 
 let create_untrusted_source (ec : enclave_content) =
     let file_name = get_untrusted_source ec.file_shortnm in
     let output = open_out file_name in
     output_string output (
-            String.concat "\n" (Genuntrust.gen_untrusted ec));
+            String.concat "\n" (GenuntrustQT.gen_untrusted ec));
     close_out output
 
 let params_is_userchk (p, _) = params_is_usercheck p
 
 let check_is_user_check (fd : func_decl) =
-    List.exists params_is_userchk fd.plist 
+    List.exists params_is_userchk fd.plist
 
-let check_trust_funcs_method (tfs : trusted_func list) (ep : edger8r_params)= 
-    if ep.use_prefix then failwithf "Trustzone mode is not support --use_perfix option";
-    List.iter 
-        (fun t -> 
+let check_trust_funcs_method (tfs : trusted_func list) (ep : edger8r_params)=
+    if ep.use_prefix then failwithf "QingTian mode is not support --use_perfix option";
+    List.iter
+        (fun t ->
             if t.tf_is_priv then
-                failwithf "%s :Trustzone mode is not support 'private' feature" 
+                failwithf "%s :QingTian mode is not support 'private' feature"
                     t.tf_fdecl.fname;
             if t.tf_is_switchless then
-                failwithf "%s :Trustzone mode is not support 'switchless' feature"
+                failwithf "%s :QingTian mode is not support 'switchless' feature"
                     t.tf_fdecl.fname;
-            if check_is_user_check t.tf_fdecl then 
-                failwithf "%s :Trustzone mode is not support 'user_check' feature"
+            if check_is_user_check t.tf_fdecl then
+                failwithf "%s :QingTian mode is not support 'user_check' feature"
                     t.tf_fdecl.fname)
             tfs
 
-let check_untrust_funcs_method (ufs : untrusted_func list) = 
+let check_untrust_funcs_method (ufs : untrusted_func list) =
     List.iter
         (fun t ->
-            if t.uf_fattr.fa_dllimport then 
-                failwithf "%s:Trustzone mode is not support dllimport\n"
+            if t.uf_fattr.fa_dllimport then
+                failwithf "%s:QingTian mode is not support dllimport\n"
                 t.uf_fdecl.fname;
             if t.uf_allow_list != [] then
                 printf "WARNING: %s: Reentrant ocalls are not supported by Open Enclave. Allow list ignored.\n"
                 t.uf_fdecl.fname;
-            if check_is_user_check t.uf_fdecl=true then 
-                failwithf "%s :Trustzone mode is not support 'user_check' feature\n"
+            if check_is_user_check t.uf_fdecl=true then
+                failwithf "%s :QingTian mode is not support 'user_check' feature\n"
                 t.uf_fdecl.fname;
             if t.uf_fattr.fa_convention <> CC_NONE then
                 let cconv_str = get_call_conv_str t.uf_fattr.fa_convention in
-                printf "WARNING: %s: Trustzone mode is not support Calling convention %s for ocalls\n"
+                printf "WARNING: %s: QingTian mode is not support Calling convention %s for ocalls\n"
                 t.uf_fdecl.fname cconv_str)
         ufs
 
@@ -161,7 +161,7 @@ let check_structure (ec: enclave_content) =
         ) fd.plist
     ) (trusted_fds @ untrusted_fds)
 
-let generate_trustzone_enclave_code (ec : enclave_content) (ep : edger8r_params) =
+let generate_qingtian_enclave_code (ec : enclave_content) (ep : edger8r_params) =
     g_undir := ep.untrusted_dir;
     g_dir := ep.trusted_dir;
     let trust_funcs = ec.tfunc_decls in
@@ -173,7 +173,7 @@ let generate_trustzone_enclave_code (ec : enclave_content) (ep : edger8r_params)
         create_args_header ec 1;
         create_trusted_header ec;
         if not ep.header_only then
-            create_trusted_source ec 
+            create_trusted_source ec
     );
     if ep.gen_untrusted then (
         create_args_header ec 0;
@@ -182,12 +182,3 @@ let generate_trustzone_enclave_code (ec : enclave_content) (ep : edger8r_params)
             create_untrusted_source ec
     );
     printf "Success. \n"
-
-let generate_enclave_code (ec : enclave_content) (ep : edger8r_params) =
-    if ep.trustzone_mode == true then (
-        Printf.printf "Generate trustzone code.\n";
-        generate_trustzone_enclave_code ec ep
-    ) else (
-        Printf.printf "Generate QintTian code.\n";
-        Qingtian.CodegenerQT.generate_qingtian_enclave_code ec ep
-    )

@@ -17,4 +17,4 @@
 (executable
  (name main)
  (public_name cc_gencoder)
- (libraries intel))
+ (libraries intel qingtian))

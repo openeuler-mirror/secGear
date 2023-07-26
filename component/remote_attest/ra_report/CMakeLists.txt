@@ -14,7 +14,7 @@ set(CMAKE_C_STANDARD 99)
 set(TARGET secgear_ra)
 
 set(SRC_FILES sg_ra_report.c)
-set(CODEGEN codegen)
+set(CODEGEN ${LOCAL_ROOT_PATH}/bin/codegen)
 
 if(CC_QT)
     set(PREFIX sg_ra_report)
@@ -37,6 +37,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 include_directories( 
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${LOCAL_ROOT_PATH}/inc/host_inc)
 
 add_library(${TARGET} SHARED ${SRC_FILES} ${AUTO_FILES})
