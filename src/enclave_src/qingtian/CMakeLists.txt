@@ -18,7 +18,7 @@ set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -fPIC")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
 add_definitions(-DENCLAVE)
 
-add_library(${target_lib} SHARED ${SOURCE_FILES})
+add_library(${target_lib} STATIC ${SOURCE_FILES})
 target_link_libraries(${target_lib} -lcrypto)
 
 target_include_directories(${target_lib} PRIVATE

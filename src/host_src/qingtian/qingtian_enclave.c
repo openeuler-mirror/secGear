@@ -345,7 +345,7 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
     }
 #else
     QT_DEBUG("exec cmd: %s\n", command);
-    uint32_t id;
+    uint32_t id = 0;
     if (qt_start(command, (unsigned int)startup_pra->enclave_cid, &id, startup_pra->query_retry) != 0) {
         QT_ERR("qingtian enclave create fail! \n");
         result_cc = CC_ERROR_GENERIC;
