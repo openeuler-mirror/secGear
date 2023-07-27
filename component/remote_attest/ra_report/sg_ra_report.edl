@@ -1,0 +1,10 @@
+enclave {
+
+    trusted {
+        public int qt_enclave_att_report([in, size=nonce_len] uint8_t *nonce,
+                                        uint32_t nonce_len,
+                                        [out, size=report_len] uint8_t *report,
+                                        uint32_t report_len,
+                                        [out] uint32_t *real_len);
+    };
+};
