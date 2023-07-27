@@ -210,7 +210,7 @@ done:
     return false;
 }
 
-static bool handle_ocall(uint32_t agent_id, int dev_fd, void *buffer, cc_ocall_func_t *ocalls, uint64_t num)
+static bool handle_ocall(uint32_t agent_id, int dev_fd, void *buffer, const cc_ocall_func_t *ocalls, uint64_t num)
 {
     bool ret = false;
     cc_enclave_result_t res_cc;
@@ -276,7 +276,7 @@ void *agent_thread(void *param)
     TEEC_Result ret;
     uint32_t agent_id = (uint32_t)((thread_param_t *)param)->agent_id;
     uint64_t num = ((thread_param_t *)param)->num;
-    cc_ocall_func_t *ocalls  = (((thread_param_t *)param)->ocalls);
+    const cc_ocall_func_t *ocalls  = (((thread_param_t *)param)->ocalls);
     ret = TEEC_EXT_RegisterAgent(agent_id, &dev_fd, &buffer);
     if (ret != TEEC_SUCCESS) {
         print_error_term("Failed to register agent %d\n", agent_id);

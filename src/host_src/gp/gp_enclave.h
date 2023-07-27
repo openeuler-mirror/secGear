@@ -29,7 +29,7 @@ typedef struct _gp_context{
 typedef struct _thread_param {
     uint32_t agent_id;
     uint64_t num;
-    cc_ocall_func_t *ocalls;
+    const cc_ocall_func_t *ocalls;
 } thread_param_t;
 
 #define GP_CHECK_MUTEX_RES_UNLOCK(RES)                                  \

@@ -36,6 +36,7 @@ extern "C" {
 typedef enum _enclave_type {
     SGX_ENCLAVE_TYPE = 0,
     GP_ENCLAVE_TYPE,
+    QINGTIAN_ENCLAVE_TYPE,
     AUTO_ENCLAVE_TYPE,
     ENCLAVE_TYPE_MAX
 } enclave_type_t;
@@ -46,6 +47,8 @@ typedef enum _enclave_type_version {
     SGX_ENCLAVE_TYPE_MAX,
     GP_ENCLAVE_TYPE_0,
     GP_ENCLAVE_TYPE_MAX,
+    QINGTIAN_ENCLAVE_TYPE_0,
+    QINGTIAN_ENCLAVE_TYPE_MAX,
     ENCLAVE_TYPE_VERSION_MAX
 } enclave_type_version_t;
 
@@ -172,9 +175,26 @@ cc_enclave_result_t cc_enclave_call_function(
         const void *ocall_table);
 
 typedef struct _ocall_table {
-    uint64_t num;
-    cc_ocall_func_t ocalls[];
+    size_t num;
+    const cc_ocall_func_t ocalls[];
 } ocall_enclave_table_t;
+
+/* Enclave feature flag */
+typedef enum {
+    ENCLAVE_FEATURE_SWITCHLESS = 1,
+    ENCLAVE_FEATURE_QINGTIAN,
+    ENCLAVE_FEATURE_PROTECTED_CODE_LOADER
+} enclave_features_flag_t;
+
+#define QINGTIAN_STARTUP_FEATURES 0x00000001u
+
+typedef struct _cc_startup {
+    uint32_t enclave_cid;
+    uint32_t cpus;
+    uint32_t mem_mb;
+    const char *ip;
+    int query_retry;
+} cc_startup_t;
 
 # ifdef  __cplusplus
 }
