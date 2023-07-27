@@ -40,11 +40,9 @@ extern list_ops_management g_list_ops;
 /************* port api *************/
 
 // init connect to enclave
-
-static int enclave_init(uint32_t cid, uint16_t port, qt_handle_request_msg_t call_back)
+static int enclave_init(uint32_t cid, qt_handle_request_msg_t call_back)
 {
     (void)cid;
-    (void)port;
     return qt_rpc_proxy_init(cid, call_back);
 }
 
@@ -351,8 +349,7 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
-    if (enclave_init(startup_pra->enclave_cid, startup_pra->port,
-        (qt_handle_request_msg_t)handle_ocall_function) != 0) {
+    if (enclave_init(startup_pra->enclave_cid, (qt_handle_request_msg_t)handle_ocall_function) != 0) {
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
@@ -371,7 +368,7 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
 end:
 #ifdef DEBUG_MOCK
     QT_DEBUG("enclave mock init\n");
-    enclave_init(startup_pra->enclave_cid, startup_pra->port, (qt_handle_request_msg_t)handle_ocall_function);
+    enclave_init(startup_pra->enclave_cid, (qt_handle_request_msg_t)handle_ocall_function);
 #endif
     if (command != NULL) {
         free(command);
