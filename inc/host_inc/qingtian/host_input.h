@@ -22,17 +22,6 @@
 extern "C" {
 #endif
 
-typedef cc_enclave_result_t (*cc_ocall_func_t)(
-    const uint8_t* input_buffer,
-    size_t input_buffer_size,
-    uint8_t* output_buffer,
-    size_t  output_buffer_size);
-
-typedef struct _ocall_table {
-    size_t num;
-    const cc_ocall_func_t ocalls[];
-} ocall_enclave_table_t;
-
 void set_ocall_table(const void *table);
 
 cc_enclave_result_t handle_ocall_function(

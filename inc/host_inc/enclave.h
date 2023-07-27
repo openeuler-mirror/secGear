@@ -133,6 +133,12 @@ static inline size_t size_to_aligned_size(size_t size)
 
 #define COUNT(ARR) (sizeof(ARR) / sizeof((ARR)[0]))
 
+typedef cc_enclave_result_t (*cc_ocall_func_t)(
+    const uint8_t* input_buffer,
+    size_t input_buffer_size,
+    uint8_t* output_buffer,
+    size_t  output_buffer_size);
+
 typedef struct _call_cc_enclave_function_args {
     uint64_t function_id;
     const void *input_buffer;
@@ -167,6 +173,11 @@ cc_enclave_result_t cc_enclave_call_function(
         size_t output_buffer_size,
         void *ms,
         const void *ocall_table);
+
+typedef struct _ocall_table {
+    size_t num;
+    const cc_ocall_func_t ocalls[];
+} ocall_enclave_table_t;
 
 /* Enclave feature flag */
 typedef enum {
