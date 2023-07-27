@@ -25,7 +25,7 @@ extern __attribute__((weak)) int qtsm_lib_init(void);
 extern __attribute__((weak)) void qtsm_lib_exit(int qtsm_dev_fd);
 
 static int g_qtsm_fd;
-extern int handle_ecall_function(uint8_t *input, size_t input_len, uint8_t **output, size_t *output_len);
+extern cc_enclave_result_t handle_ecall_function(uint8_t *input, size_t input_len, uint8_t **output, size_t *output_len);
 
 static __attribute__((constructor)) void qt_enclave_init(void)
 {
@@ -34,6 +34,9 @@ static __attribute__((constructor)) void qt_enclave_init(void)
         printf("enclave proxy init failed\n");
     }
     printf("enclave proxy init success\n");
+    if (qtsm_lib_init == NULL) {
+        return;
+    }
     g_qtsm_fd = qtsm_lib_init();
     if (g_qtsm_fd < 0) {
         printf("enclave init qtsm lib failed\n");
@@ -41,7 +44,7 @@ static __attribute__((constructor)) void qt_enclave_init(void)
 }
 static __attribute__((destructor)) void qt_enclave_destroy(void)
 {
-    if (g_qtsm_fd > 0) {
+    if (g_qtsm_fd > 0 && qtsm_lib_exit != NULL) {
         qtsm_lib_exit(g_qtsm_fd);
         g_qtsm_fd = 0;
     }

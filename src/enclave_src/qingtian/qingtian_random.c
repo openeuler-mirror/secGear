@@ -19,6 +19,10 @@ extern __attribute__((weak)) int qtsm_get_random(int fd, uint8_t *rnd_data, uint
 int _cc_generate_random(void *buffer, size_t size)
 {
     int qtsm_dev_fd = qt_get_qtsm_fd();
+    if (qtsm_get_random == NULL) {
+        printf("cant't find qtsm_get_random symbol\n");
+        return CC_ERROR_NOT_IMPLEMENTED;
+    }
     if (qtsm_get_random(qtsm_dev_fd, buffer, size) != 0) {
         return CC_FAIL;
     }

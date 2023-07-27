@@ -193,7 +193,6 @@ typedef struct _cc_startup {
     uint32_t cpus;
     uint32_t mem_mb;
     const char *ip;
-    uint16_t port;
     int query_retry;
 } cc_startup_t;
 

@@ -41,7 +41,7 @@ int qt_enclave_att_report(uint8_t *nonce, uint32_t nonce_len, uint8_t *report, u
     printf("Trying to get Qingtian enclave attestation doc...\n");
     /* Open QTSM device for interactions */
     qtsm_dev_fd = qt_get_qtsm_fd();
-    if (qtsm_dev_fd < 0) {
+    if (qtsm_dev_fd <= 0 || qtsm_get_attestation == NULL) {
         rc = INTERNAL_ERROR;
         goto exit;
     }
