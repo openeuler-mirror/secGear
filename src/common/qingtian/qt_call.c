@@ -10,7 +10,7 @@
 static int32_t msg_send_recv(uint8_t* send_buf, size_t send_buf_size, uint8_t* recv_buf, size_t recv_buf_size)
 {
     size_t recv_len = recv_buf_size;
-    int ret;
+    uint64_t ret;
     ret = qt_rpc_proxy_call(send_buf, send_buf_size, recv_buf, &recv_len);
     if (ret != 0) {
         return -1;
@@ -28,6 +28,10 @@ cc_enclave_result_t comm_call(uint32_t function_id,
     qt_comm_msg_t *msg_recv = NULL;
     qt_comm_msg_t *msg_send = NULL;
     size_t send_len_total = 0;
+
+    if (input_buffer == NULL || input_buffer_size == 0 || output_buffer == NULL || output_buffer_size == 0) {
+        return CC_ERROR_BAD_PARAMETERS;
+    }
 
     send_len_total = sizeof(qt_comm_msg_t) + input_buffer_size;
     msg_send = calloc(1, send_len_total);

@@ -32,11 +32,12 @@ cc_enclave_result_t handle_ocall_function(
     qt_comm_msg_t *msg_recv = NULL;
     qt_comm_msg_t *msg_send = NULL;
     cc_enclave_result_t result_cc = CC_SUCCESS;
-    // write nothing default
-    *output_bytes_written = 0;
+
     if (input_buffer == NULL || input_buffer_size == 0 || output_buffer == NULL || output_bytes_written == NULL) {
         return CC_ERROR_BAD_PARAMETERS;
     }
+    // write nothing default
+    *output_bytes_written = 0;
 #if DEBUG
     QT_DEBUG("ocall received(%zu): ", input_buffer_size);
     for (size_t i = 0; i < input_buffer_size; i++) {

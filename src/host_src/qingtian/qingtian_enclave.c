@@ -240,7 +240,7 @@ static int qt_query_id(unsigned int cid, unsigned int *id)
     print_debug("cid = %u, get id = %u\n", cid, *id);
 end:
     if (fp != NULL) {
-        fclose(fp);
+        pclose(fp);
     }
     if (buf != NULL) {
         free(buf);
