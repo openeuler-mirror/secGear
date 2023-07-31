@@ -27,6 +27,8 @@
 #include <openssl/rand.h>
 #include <linux/vm_sockets.h>
 #include <netinet/tcp.h>
+#include <time.h>
+#include <errno.h>
 
 #define PORT    8082
 
@@ -63,6 +65,7 @@ typedef struct {
     qt_proxy_msg_node_t         *head;
     qt_proxy_msg_node_t         *tail;
     pthread_mutex_t             lock;
+    pthread_cond_t              cond;
     uint64_t                    node_cnt;
 } qt_proxy_msg_queue_t;
 
@@ -111,14 +114,13 @@ typedef struct {
 
 static qt_rpc_proxy_t g_qt_proxy;
 
-// todo xuraoqing adapt cid port
 static int qt_vsock_init(int cid, uint port)
 {
     bool is_server = false;
     int sockfd;
     int connfd;
 
-#ifdef QT_ENCLAVE
+#ifdef QT_SERVER
     is_server = true;
 #endif
 
@@ -218,6 +220,7 @@ static void qt_msg_queue_push(qt_proxy_msg_queue_t *queue, qt_proxy_msg_node_t* 
     }
     if (queue->head == NULL) {
         queue->head = queue->tail = node;
+        pthread_cond_signal(&queue->cond);
     } else {
         queue->tail->next = node;
         queue->tail = node;
@@ -230,12 +233,15 @@ static qt_proxy_msg_node_t *qt_msg_queue_pop(qt_proxy_msg_queue_t *queue)
 {
     pthread_mutex_lock(&queue->lock);
     if (queue->head == NULL) {
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += 1;
+        pthread_cond_timedwait(&queue->cond, &queue->lock, &ts);
         pthread_mutex_unlock(&queue->lock);
         return NULL;
     }
     qt_proxy_msg_node_t *cur = queue->head;
     if (queue->head == queue->tail) {
-        // printf("qt_msg_queue_pop queue to be empty\n");
         queue->head = queue->tail = NULL;
     } else {
         queue->head = cur->next;
@@ -262,23 +268,6 @@ static void qt_msg_queue_clear(qt_proxy_msg_queue_t *queue)
     pthread_mutex_unlock(&queue->lock);
 }
 
-// todo delete , debug code
-static char *get_msg_type_string(qt_proxy_msg_type_t type)
-{
-    if (type == QT_MSG_ECALL) {
-        return "ecall msg";
-    } else if (type == QT_MSG_ECALL_RET) {
-        return "ecall ret msg";
-    } else if (type == QT_MSG_OCALL) {
-        return "ocall msg";
-    } else if (type == QT_MSG_OCALL_RET) {
-        return "ocall ret msg";
-    } else {
-        return "error msg type";
-    }
-}
-
-// todo cc_destroy_enclave 时怎么清理队列和终止线程
 void *qt_msg_send_thread_proc(void *arg)
 {
     (void)arg;
@@ -286,19 +275,16 @@ void *qt_msg_send_thread_proc(void *arg)
     qt_proxy_msg_node_t *node = NULL;
 
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL); // 收到cancel信号后，state设置为CANCELED状态
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL); // 退出形式为立即退出
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
     while (true) {
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
         pthread_testcancel();
+        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
         node = qt_msg_queue_pop(&g_qt_proxy.msg_mng.send_queue);
         if (node == NULL) {
-            // printf("send thread proc send queue is empty\n");
-            sleep(1);
             continue;
         }
-
-        // todo vsock send to remote peer
-        printf("[send thread] send %s, task_id:%lu\n", get_msg_type_string(node->msg->type), node->msg->task_id);
 
         size_t rpc_msg_len = node->msg->data_len + sizeof(qt_proxy_msg_t);
         size_t send_len = sizeof(rpc_msg_len) + rpc_msg_len;
@@ -341,7 +327,7 @@ static qt_proxy_msg_node_t *qt_new_recv_msg_node(uint8_t *recv_buf, size_t len)
     return msg_node;
 }
 
-#define QT_VOSCK_MAX_RECV_BUF (1024 * 40)
+#define QT_VOSCK_MAX_RECV_BUF (1024 * 1024)
 static bool is_socket_connected(int fd)
 {
     if (fd <= 0) {
@@ -368,23 +354,26 @@ void *qt_msg_recv_thread_proc(void *arg)
     uint8_t *buf = g_qt_proxy.msg_mng.recv_buf;
     uint8_t *buf_ptr = NULL;
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL); // 收到cancel信号后，state设置为CANCELED状态
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL); // 退出形式为立即退出
-
-#ifdef SIM
-    struct sockaddr_in conn_addr;
-    uint conn_len = sizeof(conn_addr);
-#else
-    struct sockaddr_vm conn_addr;
-    uint conn_len = sizeof(conn_addr);
-#endif
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+#ifdef QT_SERVER
+    #ifdef SIM
+        struct sockaddr_in conn_addr;
+        uint conn_len = sizeof(conn_addr);
+    #else
+        struct sockaddr_vm conn_addr;
+        uint conn_len = sizeof(conn_addr);
+    #endif
+#ifdef QT_SERVER
 
     while (true) {
 restart:
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
         pthread_testcancel();
         len = read(g_qt_proxy.vsock_mng.connfd, &msg_len, sizeof(size_t));    // read msg len first
         if (len <= 0 && !is_socket_connected(g_qt_proxy.vsock_mng.connfd)) {
             close(g_qt_proxy.vsock_mng.connfd);
             g_qt_proxy.vsock_mng.connfd = 0;
+#ifdef QT_SERVER
             printf("old socket disconnected, start accept new connect\n");
             while (true) {
                 int connfd = accept(g_qt_proxy.vsock_mng.svr_fd, (struct sockaddr *)&conn_addr, (socklen_t *)&conn_len);
@@ -396,11 +385,9 @@ restart:
                 printf("accept new connect success\n");
                 break;
             }
-
+#endif
             continue;
         }
-        printf("read msg len:%zu\n", msg_len);
-
         memset(buf, 0, QT_VOSCK_MAX_RECV_BUF);
         len = 0;
         buf_ptr = buf;
@@ -414,16 +401,14 @@ restart:
             tmp_msg_len -= len;
             buf_ptr += len;
         }
-        
-        // new msg node by recv buf
+        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
         qt_proxy_msg_node_t *node = qt_new_recv_msg_node(buf, msg_len);
         if (node == NULL) {
             printf("recv thread malloc msg node failed\n");
             continue;
         }
         qt_msg_queue_push(&g_qt_proxy.msg_mng.recv_queue, node);
-        printf("[recv thread] recv %s, len:%lu, task_id:%lu\n", get_msg_type_string(node->msg->type),
-               msg_len, node->msg->task_id);
     }
 
     return NULL;
@@ -459,7 +444,6 @@ static int qt_msg_mng_init(qt_handle_request_msg_t handle_func)
     }
     g_qt_proxy.msg_mng.recv_buf = recv_buf;
 
-    // create send thread
     ret = pthread_create(&g_qt_proxy.msg_mng.send_tid, NULL, qt_msg_send_thread_proc, NULL);
     if (ret != 0) {
         printf("qt msg mng init create send thread failed\n");
@@ -467,7 +451,6 @@ static int qt_msg_mng_init(qt_handle_request_msg_t handle_func)
         return ret;
     }
 
-    // create recv thread
     ret = pthread_create(&g_qt_proxy.msg_mng.recv_tid, NULL, qt_msg_recv_thread_proc, NULL);
     if (ret != 0) {
         printf("qt msg mng init create recv thread failed\n");
@@ -495,8 +478,8 @@ static qt_proxy_msg_node_t *qt_new_send_msg_node(uint64_t task_id, uint8_t *data
     if (msg == NULL) {
         return NULL;
     }
-    // todo add define in CmakeLists.txt
-#ifdef QT_ENCLAVE
+
+#ifdef QT_SERVER
     msg->type = is_rsp ? QT_MSG_ECALL_RET : QT_MSG_OCALL;
 #else
     msg->type = is_rsp ? QT_MSG_OCALL_RET : QT_MSG_ECALL;
@@ -547,7 +530,7 @@ static int qt_request_msg_proc(qt_proxy_msg_t *msg)
     size_t  rsp_len = 0;
 
     msg->ret = g_qt_proxy.msg_mng.handle_request_msg_func(msg->data, msg->data_len, &rsp_buf, &rsp_len);
-    // new response msg node
+
     qt_proxy_msg_node_t *rsp_node = qt_new_send_msg_node(msg->task_id, rsp_buf, rsp_len, true);
     free(rsp_buf);
     if (rsp_node == NULL) {
@@ -555,7 +538,6 @@ static int qt_request_msg_proc(qt_proxy_msg_t *msg)
         return -1;
     }
 
-    // push response msg to send queue
     qt_msg_queue_push(&g_qt_proxy.msg_mng.send_queue, rsp_node);
 
     return 0;
@@ -601,23 +583,22 @@ static int qt_response_msg_proc(qt_proxy_msg_t *msg)
 void *qt_recv_task_proc(void *arg)
 {
     (void)arg;
-    int ret;
+    int ret = 0;
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL); // 收到cancel信号后，state设置为CANCELED状态
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL); // 退出形式为立即退出
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
     qt_proxy_msg_node_t *cur_node = NULL;
     qt_proxy_msg_t *recv_msg = NULL;
     while (true) {
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
         pthread_testcancel();
+        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
         cur_node = qt_msg_queue_pop(&g_qt_proxy.msg_mng.recv_queue);
         if (cur_node == NULL) {
-            // printf("recv task thread proc recv queue is empty\n");
-            sleep(1);
             continue;
         }
 
         // handle recv msg node
         recv_msg = cur_node->msg;
-        printf("[task handle thread] handle %s, task_id:%lu\n", get_msg_type_string(recv_msg->type), recv_msg->task_id);
         switch (recv_msg->type) {
             case QT_MSG_ECALL:
             case QT_MSG_OCALL:
@@ -631,10 +612,12 @@ void *qt_recv_task_proc(void *arg)
                  printf("recv invalid msg type:%d\n", recv_msg->type);
                 break;
         }
+        if (ret != 0) {
+            printf("msg proc failed, msg type:%d, ret:%d\n", recv_msg->type, ret);
+        }
 
         qt_free_msg_node(cur_node);
     }
-    (void)ret;
 
     return NULL;
 }
@@ -780,17 +763,13 @@ int qt_rpc_proxy_init(int cid, qt_handle_request_msg_t handle_func)
 
 void qt_rpc_proxy_destroy(void)
 {
-    // destroy all thread
     qt_msg_thread_destroy();
     qt_task_mng_thread_pool_destroy();
 
-    // destroy msg mng
     qt_msg_mng_destroy();
 
-    // destroy task mng
     qt_task_mng_destroy();
 
-    // disconnet vsock
     qt_vsock_destroy();
 
     return;
@@ -816,6 +795,7 @@ static void qt_del_task_from_mng(uint64_t task_id)
     qt_free_task_node(cur);
 }
 
+#define QT_RPC_PROXY_CALL_TIMEOUT 60
 uint64_t qt_rpc_proxy_call(uint8_t *input, size_t input_len, uint8_t *output, size_t *output_len)
 {
     if (input == NULL || input_len == 0 || output == NULL || output_len == NULL) {
@@ -833,16 +813,29 @@ uint64_t qt_rpc_proxy_call(uint8_t *input, size_t input_len, uint8_t *output, si
     ret = add_msg_to_send_queue(task_node->task_id, input, input_len);
     if (ret != 0) {
         printf("add send msg to send list failed, ret:%d\n", ret);
-        // todo revert task_node
+        qt_del_task_from_mng(task_node->task_id);
         return CC_ERROR_QT_PROXY_ADD_SEND_QUEUE;
     }
     // wait recv msg
     pthread_mutex_lock(&task_node->lock);
-    pthread_cond_wait(&task_node->cond, &task_node->lock);
+    int timeout_cnt = 0;
+    int cond_ret = 0;
+    do {
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += 1;
+        cond_ret = pthread_cond_timedwait(&task_node->cond, &task_node->lock, &ts);
+    } while (cond_ret == ETIMEDOUT && timeout_cnt++ < QT_RPC_PROXY_CALL_TIMEOUT);
     pthread_mutex_unlock(&task_node->lock);
 
-    *output_len = task_node->recv_buf_len;
-    uint64_t u_ret = task_node->ret;
+    uint64_t u_ret;
+    if (cond_ret == 0) {
+        *output_len = task_node->recv_buf_len;
+        u_ret = task_node->ret;
+    } else {
+        u_ret = CC_ERROR_QT_PROXY_CALL_TIMEOUT;
+    }
+
     if (u_ret != 0) {
         printf("proxy call failed, ret:%lu\n", u_ret);
     }
