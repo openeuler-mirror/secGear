@@ -20,7 +20,11 @@
 extern "C" {
 #endif
 
-#define MAX_ENCLAVE 5
+#ifdef QT_ENCLAVE
+    #define MAX_ENCLAVE 1
+#else
+    #define MAX_ENCLAVE 5
+#endif
 #define MAX_ENCLAVE_TYPE 3
 #define MAX_ENGINE_NAME_LEN 10
 

@@ -46,6 +46,10 @@ if(CC_SGX)
 	endif()
 endif()
 
+if(CC_QT)
+add_definitions(-DQT_ENCLAVE)
+endif()
+
 add_subdirectory(tools/codegener)
 
 add_subdirectory(src)
