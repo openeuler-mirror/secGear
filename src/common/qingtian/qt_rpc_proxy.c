@@ -327,7 +327,7 @@ static qt_proxy_msg_node_t *qt_new_recv_msg_node(uint8_t *recv_buf, size_t len)
     return msg_node;
 }
 
-#define QT_VOSCK_MAX_RECV_BUF (1024 * 1024)
+#define QT_VSOCK_MAX_RECV_BUF (1024 * 1024)
 static bool is_socket_connected(int fd)
 {
     if (fd <= 0) {
@@ -363,7 +363,7 @@ void *qt_msg_recv_thread_proc(void *arg)
         struct sockaddr_vm conn_addr;
         uint conn_len = sizeof(conn_addr);
     #endif
-#ifdef QT_SERVER
+#endif
 
     while (true) {
 restart:
@@ -388,7 +388,7 @@ restart:
 #endif
             continue;
         }
-        memset(buf, 0, QT_VOSCK_MAX_RECV_BUF);
+        memset(buf, 0, QT_VSOCK_MAX_RECV_BUF);
         len = 0;
         buf_ptr = buf;
         tmp_msg_len = msg_len;
@@ -438,7 +438,7 @@ static int qt_msg_mng_init(qt_handle_request_msg_t handle_func)
     }
     g_qt_proxy.msg_mng.handle_request_msg_func = handle_func;
 
-    uint8_t *recv_buf = (uint8_t *)calloc(1, QT_VOSCK_MAX_RECV_BUF);
+    uint8_t *recv_buf = (uint8_t *)calloc(1, QT_VSOCK_MAX_RECV_BUF);
     if (recv_buf == NULL) {
         return -1;
     }
