@@ -21,11 +21,10 @@ int _cc_generate_random(void *buffer, size_t size)
     int qtsm_dev_fd = qt_get_qtsm_fd();
     if (qtsm_get_random == NULL) {
         printf("cant't find qtsm_get_random symbol\n");
-        return CC_ERROR_NOT_IMPLEMENTED;
+        return 1;
     }
     if (qtsm_get_random(qtsm_dev_fd, buffer, size) != 0) {
         return 1;
     }
-
-    return CC_SUCCESS;
+    return 0;
 }
