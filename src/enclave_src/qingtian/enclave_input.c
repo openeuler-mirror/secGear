@@ -15,7 +15,6 @@ cc_enclave_result_t cc_ocall_enclave(
     void *out_buf,
     size_t out_buf_size)
 {
-    cc_enclave_result_t result_cc = CC_SUCCESS;
 #ifdef DEBUG
     QT_DEBUG("ocall input function id %lu\n", (long unsigned int)func_id);
     QT_DEBUG("ocall input buffer size %zu\n", in_buf_size);
@@ -38,11 +37,12 @@ cc_enclave_result_t handle_ecall_function(
     qt_comm_msg_t *msg_recv = NULL;
     qt_comm_msg_t *msg_send = NULL;
     cc_enclave_result_t result_cc = CC_SUCCESS;
-    // write nothing default
-    *output_bytes_written = 0;
+
     if (input_buffer == NULL || input_buffer_size == 0 || output_buffer == NULL || output_bytes_written == NULL) {
         return CC_ERROR_BAD_PARAMETERS;
     }
+    // write nothing default
+    *output_bytes_written = 0;
 #if DEBUG
     QT_DEBUG("handle ecall received(%zu): ", input_buffer_size);
     for (size_t i = 0; i < input_buffer_size; i++) {
@@ -58,14 +58,14 @@ cc_enclave_result_t handle_ecall_function(
     ecall_table.num = ecall_table_size;
     if (msg_recv->function_id >= ecall_table.num) {
         result_cc = CC_ERROR_ECALL_NOT_ALLOWED;
-        QT_ERR("function id(%lu) not found(%lu), ecall table size = %zu\n",
+        QT_ERR("function id(%u) not found(%u), ecall table size = %zu\n",
             msg_recv->function_id, result_cc, ecall_table_size);
         goto end;
     }
     func = ecall_table.ecalls[msg_recv->function_id];
     if (func == NULL) {
         result_cc = CC_ERROR_ITEM_NOT_FOUND;
-        QT_ERR("ecall function not found(%lu)\n", result_cc);
+        QT_ERR("ecall function not found(%u)\n", result_cc);
         goto end;
     }
 
@@ -87,8 +87,8 @@ cc_enclave_result_t handle_ecall_function(
     *output_buffer = (uint8_t*)msg_send;
     *output_bytes_written = send_len_total - (msg_send->out_buf_size - write_len);
 #ifdef DEBUG
-    QT_DEBUG("ecall result send(%d): ", *output_bytes_written);
-    for (int i = 0; i < *output_bytes_written; i++) {
+    QT_DEBUG("ecall result send(%lu): ", *output_bytes_written);
+    for (size_t i = 0; i < *output_bytes_written; i++) {
         QT_DEBUG("%02X", *(*output_buffer + i));
     }
     QT_DEBUG("\n");

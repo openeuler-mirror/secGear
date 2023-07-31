@@ -24,7 +24,7 @@ int _cc_generate_random(void *buffer, size_t size)
         return CC_ERROR_NOT_IMPLEMENTED;
     }
     if (qtsm_get_random(qtsm_dev_fd, buffer, size) != 0) {
-        return CC_FAIL;
+        return 1;
     }
 
     return CC_SUCCESS;

@@ -81,6 +81,8 @@ typedef enum _enclave_result_t
 
     CC_ERROR_RA_AGENT_NOT_INIT,
     CC_ERROR_TASK_NUM_EXCEED_MAX_LIMIT,
+    CC_ERROR_QT_PROXY_ADD_TASK,
+    CC_ERROR_QT_PROXY_ADD_SEND_QUEUE,
 
     CC_ERROR_OTRP_BASE = 0x80000100,  /* sec file config source is not inconsistent with the loading mode. */
     CC_ERROR_STORAGE_EIO        = 0x80001001, /* *<安全存储I/O错误 */
