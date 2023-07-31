@@ -16,6 +16,7 @@ set(SOURCE_FILES ${SOURCE_FILES} ${TEE_SRC}
 
 set(CMAKE_C_FLAGS "${COMMON_C_FLAGS} -fPIC")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
+add_definitions(-DQT_SERVER)
 
 add_library(${target_lib} STATIC ${SOURCE_FILES})
 target_link_libraries(${target_lib} -lcrypto)

@@ -26,8 +26,6 @@
 #include "host_input.h"
 #include "qingtian_enclave.h"
 
-extern list_ops_management g_list_ops;
-
 #define PRA_BUF_SIZE        (64)
 #define CMD_PRA_BUF_SIZE    (128)
 #define CMD_BUF_MAX         (128 + PATH_MAX)
@@ -42,7 +40,6 @@ extern list_ops_management g_list_ops;
 // init connect to enclave
 static int enclave_init(uint32_t cid, qt_handle_request_msg_t call_back)
 {
-    (void)cid;
     return qt_rpc_proxy_init(cid, call_back);
 }
 
@@ -78,15 +75,15 @@ static int get_start_cmdline(char *cmd_buf, size_t cmd_buf_size, const cc_startu
         goto end;
     }
     if (pra->cpus != 0) {
-        sprintf(buf, " --cpus %lu", (long unsigned int)pra->cpus);
+        (void)sprintf(buf, " --cpus %lu", (long unsigned int)pra->cpus);
         strcat(cmd_buf, buf);
     }
     if (pra->mem_mb != 0) {
-        sprintf(buf, " --mem %lu", (long unsigned int)pra->mem_mb);
+        (void)sprintf(buf, " --mem %lu", (long unsigned int)pra->mem_mb);
         strcat(cmd_buf, buf);
     }
     if (pra->enclave_cid >= CID_MIN) {
-        sprintf(buf, " --cid %lu", (long unsigned int)pra->enclave_cid);
+        (void)sprintf(buf, " --cid %lu", (long unsigned int)pra->enclave_cid);
         strcat(cmd_buf, buf);
     } else {
         print_error_term("enclave id must not less %d\n", CID_MIN);
@@ -257,6 +254,11 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
         ret = -1;
         goto end;
     }
+    if (qt_query_id(cid, id) == 0) {
+        QT_ERR("cid %u id %u already exist\n", cid, *id);
+        ret = 1;
+        goto end;
+    }
     QT_DEBUG("exec cmd: %s\n", command);
     fp = popen(command, "r");
     if (fp == NULL) {
@@ -266,7 +268,7 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
     } else {
         QT_DEBUG("get enclave id, total retry %d\n", left);
         while (left-- > 0) {
-            QT_DEBUG("try %d\n", left + 1);
+            QT_DEBUG("try %d\n", (left + 1));
             if (qt_query_id(cid, id) != 0) {
                 sleep(1);
                 continue;
@@ -336,16 +338,26 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
     result_cc = CC_SUCCESS;
     goto end;
     uint32_t id;
-    if (qt_start(command, (unsigned int)startup_pra->enclave_cid, &id, startup_pra->query_retry) != 0) {
+    int ret = qt_start(command, (unsigned int)startup_pra->enclave_cid, &id, startup_pra->query_retry);
+    if (ret < 0 || ret > 1) {
         QT_ERR("qingtian enclave create fail! \n");
+        result_cc = CC_ERROR_GENERIC;
+        goto end;
+    } else if (ret == 1) {
+        QT_ERR("qingtian enclave already exist\n");
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
 #else
     QT_DEBUG("exec cmd: %s\n", command);
     uint32_t id = 0;
-    if (qt_start(command, (unsigned int)startup_pra->enclave_cid, &id, startup_pra->query_retry) != 0) {
+    int ret = qt_start(command, (unsigned int)startup_pra->enclave_cid, &id, startup_pra->query_retry);
+    if (ret < 0 || ret > 1) {
         QT_ERR("qingtian enclave create fail! \n");
+        result_cc = CC_ERROR_GENERIC;
+        goto end;
+    } else if (ret == 1) {
+        QT_ERR("qingtian enclave already exist\n");
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
