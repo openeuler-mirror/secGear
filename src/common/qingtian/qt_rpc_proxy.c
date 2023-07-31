@@ -118,7 +118,7 @@ static int qt_vsock_init(int cid, uint port)
     int sockfd;
     int connfd;
 
-#ifdef ENCLAVE
+#ifdef QT_ENCLAVE
     is_server = true;
 #endif
 
@@ -496,7 +496,7 @@ static qt_proxy_msg_node_t *qt_new_send_msg_node(uint64_t task_id, uint8_t *data
         return NULL;
     }
     // todo add define in CmakeLists.txt
-#ifdef ENCLAVE
+#ifdef QT_ENCLAVE
     msg->type = is_rsp ? QT_MSG_ECALL_RET : QT_MSG_OCALL;
 #else
     msg->type = is_rsp ? QT_MSG_OCALL_RET : QT_MSG_ECALL;
