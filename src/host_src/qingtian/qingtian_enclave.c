@@ -257,6 +257,11 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
         ret = -1;
         goto end;
     }
+    if (qt_query_id(cid, id) == 0) {
+        QT_ERR("cid %u id %u already exist\n", cid, *id);
+        ret = 1;
+        goto end;
+    }
     QT_DEBUG("exec cmd: %s\n", command);
     fp = popen(command, "r");
     if (fp == NULL) {
@@ -336,16 +341,26 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
     result_cc = CC_SUCCESS;
     goto end;
     uint32_t id;
-    if (qt_start(command, (unsigned int)startup_pra->enclave_cid, &id, startup_pra->query_retry) != 0) {
+    int ret = qt_start(command, (unsigned int)startup_pra->enclave_cid, &id, startup_pra->query_retry);
+    if (ret < 0 || ret > 1) {
         QT_ERR("qingtian enclave create fail! \n");
+        result_cc = CC_ERROR_GENERIC;
+        goto end;
+    } else if (ret == 1) {
+        QT_ERR("qingtian enclave already exist\n");
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
 #else
     QT_DEBUG("exec cmd: %s\n", command);
     uint32_t id = 0;
-    if (qt_start(command, (unsigned int)startup_pra->enclave_cid, &id, startup_pra->query_retry) != 0) {
+    int ret = qt_start(command, (unsigned int)startup_pra->enclave_cid, &id, startup_pra->query_retry);
+    if (ret < 0 || ret > 1) {
         QT_ERR("qingtian enclave create fail! \n");
+        result_cc = CC_ERROR_GENERIC;
+        goto end;
+    } else if (ret == 1) {
+        QT_ERR("qingtian enclave already exist\n");
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
