@@ -16,12 +16,12 @@ if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
     link_directories(${CMAKE_BINARY_DIR}/lib)
 endif()
 
-add_library(${qingtian_engine}  SHARED qingtian_enclave.c ${CMAKE_SOURCE_DIR}/inc/host_inc/qingtian/qingtian_enclave.h
-            host_input.c ${CMAKE_SOURCE_DIR}/inc/host_inc/qingtian/host_input.h
+include_directories(${LOCAL_ROOT_PATH}/inc/host_inc/qingtian
+    ${LOCAL_ROOT_PATH}/inc/common/qingtian)
+
+add_library(${qingtian_engine}  SHARED qingtian_enclave.c host_input.c
             ${CMAKE_SOURCE_DIR}/src/common/qingtian/qt_call.c
-            ${CMAKE_SOURCE_DIR}/inc/common/qingtian/qt_call.h
-            ${CMAKE_SOURCE_DIR}/src/common/qingtian/qt_rpc_proxy.c
-            ${CMAKE_SOURCE_DIR}/inc/common/qingtian/qt_rpc_proxy.h)
+            ${CMAKE_SOURCE_DIR}/src/common/qingtian/qt_rpc_proxy.c)
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
     target_link_directories(${qingtian_engine} PRIVATE
@@ -36,3 +36,11 @@ install(TARGETS ${qingtian_engine}
         LIBRARY
         DESTINATION ${LIBRARY_INSTALL}
         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ  GROUP_EXECUTE WORLD_READ  WORLD_EXECUTE)
+
+file(GLOB QT_HOST_HEADERS_1 ${LOCAL_ROOT_PATH}/inc/host_inc/*.h)
+file(GLOB QT_HOST_HEADERS_2 ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian/*.h)
+file(GLOB QT_HOST_HEADERS_3 ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian/*.edl)
+
+install(FILES ${QT_HOST_HEADERS_1} ${QT_HOST_HEADERS_2} ${QT_HOST_HEADERS_3}
+        DESTINATION /usr/include/secGear
+        PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)

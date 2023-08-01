@@ -18,8 +18,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/secgear_seal_data.c ${CMAKE_CURRENT_SOURCE_DIR}/memory_check.c 
     ${CMAKE_CURRENT_SOURCE_DIR}/secgear_random.c)
 #head file path
-include_directories(${LOCAL_ROOT_PATH}/inc/host_inc ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian
-    ${LOCAL_ROOT_PATH}/inc/common/qingtian
+include_directories(${LOCAL_ROOT_PATH}/inc/host_inc
     ${LOCAL_ROOT_PATH}/inc/enclave_inc)
 
 if (CC_QT)
