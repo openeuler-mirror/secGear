@@ -201,16 +201,15 @@ sgx_start_sign(){
 
 qingtian_start_sign(){
 #    check_native_sign
-    if [ -z $A_CONFIG_FILE ]; then
-        echo "Error: missing additional config_cloud.ini file for signing iTrustee enclave"
+    if [ -z $IN_ENCLAVE ]; then
+        echo "Error: missing enclave file"
         exit 1
     fi
-
     if [ "${CMD}"x == "sign"x ]; then
-        if [ -z ${SIG_KEY} ] && [ -z ${SERVER_PUBKEY} ]; then
-            qt enclave make-img --docker-uri "${IN_ENCLAVE}" --eif "${OUT_FILE}" --private-key "${SIG_KEY}" --signing-certificate "${SERVER_PUBKEY}"
-        else
+        if [ -z ${SIG_KEY} ] || [ -z ${SERVER_PUBKEY} ]; then
             qt enclave make-img --docker-uri "${IN_ENCLAVE}" --eif "${OUT_FILE}"
+        else
+            qt enclave make-img --docker-uri "${IN_ENCLAVE}" --eif "${OUT_FILE}" --private-key "${SIG_KEY}" --signing-certificate "${SERVER_PUBKEY}"
         fi
     else
         echo "Error: illegal command"
