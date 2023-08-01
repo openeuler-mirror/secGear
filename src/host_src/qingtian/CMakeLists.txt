@@ -16,12 +16,12 @@ if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
     link_directories(${CMAKE_BINARY_DIR}/lib)
 endif()
 
-add_library(${qingtian_engine}  SHARED qingtian_enclave.c ${CMAKE_SOURCE_DIR}/inc/host_inc/qingtian/qingtian_enclave.h
-            host_input.c ${CMAKE_SOURCE_DIR}/inc/host_inc/qingtian/host_input.h
+include_directories(${LOCAL_ROOT_PATH}/inc/host_inc/qingtian
+    ${LOCAL_ROOT_PATH}/inc/common/qingtian)
+
+add_library(${qingtian_engine}  SHARED qingtian_enclave.c host_input.c
             ${CMAKE_SOURCE_DIR}/src/common/qingtian/qt_call.c
-            ${CMAKE_SOURCE_DIR}/inc/common/qingtian/qt_call.h
-            ${CMAKE_SOURCE_DIR}/src/common/qingtian/qt_rpc_proxy.c
-            ${CMAKE_SOURCE_DIR}/inc/common/qingtian/qt_rpc_proxy.h)
+            ${CMAKE_SOURCE_DIR}/src/common/qingtian/qt_rpc_proxy.c)
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
     target_link_directories(${qingtian_engine} PRIVATE
