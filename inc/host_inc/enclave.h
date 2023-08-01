@@ -186,9 +186,7 @@ typedef struct _ocall_table {
 #ifdef QT_ENCLAVE
     /* Enclave feature flag */
     typedef enum {
-        ENCLAVE_FEATURE_SWITCHLESS = 1,
-        ENCLAVE_FEATURE_QINGTIAN,
-        ENCLAVE_FEATURE_PROTECTED_CODE_LOADER
+        ENCLAVE_FEATURE_QINGTIAN = 1,
     } enclave_features_flag_t;
 
     #define QINGTIAN_STARTUP_FEATURES 0x00000001u
@@ -197,7 +195,6 @@ typedef struct _ocall_table {
         uint32_t enclave_cid;
         uint32_t cpus;
         uint32_t mem_mb;
-        const char *ip;
         int query_retry;
     } cc_startup_t;
 #endif // QT_ENCLAVE
