@@ -93,13 +93,29 @@ end:
     return strlen(cmd_buf);
 }
 
-static int check_eif(const char* path)
+bool contain_illegal_char(const char *str)
 {
+    const char list[]={'|',';','&','$','>','<','`','\\','!','\n'};
+    for (unsigned long int i = 0; i < sizeof(list) / sizeof(list[0]); i++) {
+        if (strchr(str, list[i]) != NULL) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int check_eif(const char *path)
+{
+    // check forbidden character
+    if (contain_illegal_char(path)) {
+        print_error_term("%s contain illegal character\n", path);
+        return -1;
+    }
     if (access(path, F_OK) != 0) {
         print_error_term("%s can not access\n", path);
         return -1;
     }
-    // file extern must be "eif"
+    // file extern must be ".eif"
     char *ext = strrchr(path, '.');
     if (ext == NULL || strcmp(ext, ".eif") != 0) {
         print_error_term("%s must be end of .eif\n", path);
