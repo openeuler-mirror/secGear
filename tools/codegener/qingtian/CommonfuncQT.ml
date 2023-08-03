@@ -103,7 +103,7 @@ let get_sizestr_2 =
 
 let set_retval_pointer (fd : func_decl) =
     [
-        (match fd.rtype with Void -> "" | _ -> "size_t retval_p;");
+        (match fd.rtype with Void -> "" | _ -> "size_t retval_p = 0;");
     ]
 
 let is_deep_copy ((pty, _):(parameter_type * declarator)) =
@@ -292,14 +292,14 @@ let set_in_out_val_parameters_pointer (fd : func_decl) =
     let pre (_: parameter_type) = "" in
     let post = "" in
     let generator (pty: parameter_type) (_ : parameter_type) (decl : declarator) (mem_decl : declarator) =
-            ((sprintf "size_t %s_p;\n    size_t _%s_index = 0;\n    void** _%s = malloc(sizeof(void*) * (%s));\n    if(_%s == NULL)\n        return ret;\n    " mem_decl.identifier mem_decl.identifier mem_decl.identifier (get_param_count pty) mem_decl.identifier) ^
+            ((sprintf "size_t %s_p = 0;\n    size_t _%s_index = 0;\n    void** _%s = malloc(sizeof(void*) * (%s));\n    if(_%s == NULL)\n        return ret;\n    " mem_decl.identifier mem_decl.identifier mem_decl.identifier (get_param_count pty) mem_decl.identifier) ^
             (sprintf "for (int i = 0; i < %s; i++) {\n        if(%s)\n            _%s[_%s_index++]= (void *)(%s + i)->%s;\n    } " (get_param_count pty) decl.identifier mem_decl.identifier mem_decl.identifier decl.identifier mem_decl.identifier)) in
     [
        (* (match fd.rtype with Void -> "" | _ -> "uint8_t *retval_p;"); *)
         concat "\n    "
             (List.map  
                 (fun (_, decl) ->
-                    sprintf "size_t %s_p;" decl.identifier)
+                    sprintf "size_t %s_p = 0;" decl.identifier)
             params);
         concat "\n    "
             (List.map (deep_copy_func pre generator post) deep_copy);
@@ -314,14 +314,14 @@ let set_inout_parameters_pointer (fd : func_decl) =
     let pre (_ : parameter_type) = "" in
     let post = "" in
     let generator (pty : parameter_type) (_ : parameter_type) (decl : declarator) (mem_decl : declarator) =
-        ((sprintf "size_t %s_in_p;\n    size_t %s_out_p;\n    size_t _%s_index = 0;\n    void** _%s = malloc(sizeof(void*) * (%s));\n    if(_%s == NULL)\n        return ret;\n    " mem_decl.identifier mem_decl.identifier mem_decl.identifier mem_decl.identifier (get_param_count pty) mem_decl.identifier) ^
+        ((sprintf "size_t %s_in_p = 0;\n    size_t %s_out_p = 0;\n    size_t _%s_index = 0;\n    void** _%s = malloc(sizeof(void*) * (%s));\n    if(_%s == NULL)\n        return ret;\n    " mem_decl.identifier mem_decl.identifier mem_decl.identifier mem_decl.identifier (get_param_count pty) mem_decl.identifier) ^
         (sprintf "for (int i = 0; i < %s; i++) {\n        if(%s)\n            _%s[_%s_index++]= (void *)(%s + i)->%s;\n    } " (get_param_count pty) decl.identifier mem_decl.identifier mem_decl.identifier decl.identifier mem_decl.identifier)) in
     [
        (* (match fd.rtype with Void -> "" | _ -> "uint8_t *retval_p;"); *)
         concat "\n    "
             (List.map  
                 (fun (_, decl) ->
-                        sprintf "size_t %s_in_p;" decl.identifier ^ sprintf "\n    size_t %s_out_p;" decl.identifier)
+                        sprintf "size_t %s_in_p = 0;" decl.identifier ^ sprintf "\n    size_t %s_out_p = 0;" decl.identifier)
             params); 
         concat "\n    "
             (List.map (deep_copy_func pre generator post) deep_copy);

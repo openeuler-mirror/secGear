@@ -152,7 +152,7 @@ let generate_trust_marshal_struct (tf: trusted_func) =
     let pre (_: parameter_type) = "\n    " in
     let post = "" in
     let generator (_ : parameter_type) (_ : parameter_type) (decl : declarator) (mem_decl : declarator) =
-        sprintf "size_t %s_%s_size;" decl.identifier mem_decl.identifier in 
+        sprintf "size_t %s_%s_size = 0;" decl.identifier mem_decl.identifier in 
     let deep_copy_para = 
         String.concat "\n    "
             (List.map (deep_copy_func pre generator post) deep_copy);
@@ -181,7 +181,7 @@ let generate_untrust_marshal_struct (uf: untrusted_func) =
     let pre (_: parameter_type) = "\n    " in
     let post = "" in
     let generator (_ : parameter_type) (_ : parameter_type) (decl : declarator) (mem_decl : declarator) =
-        sprintf "size_t %s_%s_size;" decl.identifier mem_decl.identifier in
+        sprintf "size_t %s_%s_size = 0;" decl.identifier mem_decl.identifier in
     let deep_copy_para =
         String.concat "\n    "
             (List.map (deep_copy_func pre generator post) deep_copy);

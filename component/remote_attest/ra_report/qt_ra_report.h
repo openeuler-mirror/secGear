@@ -14,7 +14,7 @@
 
 #include "uni_ra_agent.h"
 
-#define QINGTIAN_REPORT_MAX_LENGTH 5000 // COBR encoded report should be less than 5000-byte.
+#define QINGTIAN_REPORT_MIN_LENGTH 5000 // COBR encoded report should be less than 5000-byte.
 
 /* Qingtian Enclave Remote Attestation APIs */
 #ifdef __cplusplus
