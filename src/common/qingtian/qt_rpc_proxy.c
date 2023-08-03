@@ -90,8 +90,8 @@ typedef struct qt_proxy_task_node_t {
     struct qt_proxy_task_node_t *next;
 } qt_proxy_task_node_t;
 
-#define QT_TASK_MAX_NUM 50
-#define QT_THREAD_POOL_MAX_SIZE 100
+#define QT_TASK_DEFAULT_NUM 50
+#define QT_THREAD_POOL_DEFAULT_SIZE 5
 typedef struct {
     uint32_t                    task_size;
     uint32_t                    thread_pool_size;
@@ -327,7 +327,9 @@ static qt_proxy_msg_node_t *qt_new_recv_msg_node(uint8_t *recv_buf, size_t len)
     return msg_node;
 }
 
-#define QT_VSOCK_MAX_RECV_BUF (1024 * 1024)
+#define QT_VSOCK_MSG_HEADER_LEN (256)
+#define QT_VSOCK_MAX_RECV_BUF_LEN ((QT_VSOCK_MAX_DATA_LEN) + (QT_VSOCK_MSG_HEADER_LEN))
+#ifdef QT_SERVER
 static bool is_socket_connected(int fd)
 {
     if (fd <= 0) {
@@ -343,6 +345,41 @@ static bool is_socket_connected(int fd)
         return true;
     }
     return false;
+}
+
+static void qt_svr_wait_new_connection(struct sockaddr *conn_addr, socklen_t *conn_len)
+{
+    if (!is_socket_connected(g_qt_proxy.vsock_mng.connfd)) {
+        close(g_qt_proxy.vsock_mng.connfd);
+        g_qt_proxy.vsock_mng.connfd = 0;
+
+        printf("old socket disconnected, start accept new connect\n");
+        while (true) {
+            int connfd = accept(g_qt_proxy.vsock_mng.svr_fd, conn_addr, conn_len);
+            if (connfd < 0) {
+                printf("accept error\n");
+                continue;
+            }
+            g_qt_proxy.vsock_mng.connfd = connfd;
+            printf("accept new connect success\n");
+            break;
+        }
+    }
+}
+#endif
+
+void qt_discard_exceed_len_msg(uint8_t *buf, size_t msg_len)
+{
+    size_t len = 0;
+    size_t tmp_msg_len = msg_len;
+    while (tmp_msg_len > 0) {
+        len = read(g_qt_proxy.vsock_mng.connfd, buf, tmp_msg_len);    // read msg data
+        if (len <= 0) {
+            break;
+        }
+        tmp_msg_len -= len;
+    }
+    return;
 }
 
 void *qt_msg_recv_thread_proc(void *arg)
@@ -370,25 +407,18 @@ restart:
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
         pthread_testcancel();
         len = read(g_qt_proxy.vsock_mng.connfd, &msg_len, sizeof(size_t));    // read msg len first
-        if (len <= 0 && !is_socket_connected(g_qt_proxy.vsock_mng.connfd)) {
-            close(g_qt_proxy.vsock_mng.connfd);
-            g_qt_proxy.vsock_mng.connfd = 0;
+        if (len <= 0) {
 #ifdef QT_SERVER
-            printf("old socket disconnected, start accept new connect\n");
-            while (true) {
-                int connfd = accept(g_qt_proxy.vsock_mng.svr_fd, (struct sockaddr *)&conn_addr, (socklen_t *)&conn_len);
-                if (connfd < 0) {
-                    printf("accept error\n");
-                    continue;
-                }
-                g_qt_proxy.vsock_mng.connfd = connfd;
-                printf("accept new connect success\n");
-                break;
-            }
+            qt_svr_wait_new_connection((struct sockaddr *)&conn_addr, &conn_len);
 #endif
             continue;
         }
-        memset(buf, 0, QT_VSOCK_MAX_RECV_BUF);
+
+        if (msg_len > QT_VSOCK_MAX_RECV_BUF_LEN) {
+            qt_discard_exceed_len_msg(buf, msg_len);
+            continue;
+        }
+
         len = 0;
         buf_ptr = buf;
         tmp_msg_len = msg_len;
@@ -438,7 +468,7 @@ static int qt_msg_mng_init(qt_handle_request_msg_t handle_func)
     }
     g_qt_proxy.msg_mng.handle_request_msg_func = handle_func;
 
-    uint8_t *recv_buf = (uint8_t *)calloc(1, QT_VSOCK_MAX_RECV_BUF);
+    uint8_t *recv_buf = (uint8_t *)calloc(1, QT_VSOCK_MAX_RECV_BUF_LEN);
     if (recv_buf == NULL) {
         return -1;
     }
@@ -625,25 +655,17 @@ void *qt_recv_task_proc(void *arg)
 static int qt_task_mng_init(void)
 {
     int ret;
-    uint32_t task_size = 10; // todo define default num
-    uint32_t thread_pool_size = 5;
 
-    // pool_size >= task_size * 2， 由于ecall中调用ocall会阻塞一个处理线程，极端情况下，pool_size应该等于num(ecall)+num(ocall)
-    if (task_size < 1 || task_size > QT_TASK_MAX_NUM ||
-        thread_pool_size < 1 || thread_pool_size > QT_THREAD_POOL_MAX_SIZE) {
-            printf("invalid task size or thread pool size\n");
-            return -1;
-    }
-    g_qt_proxy.task_mng.proxy_config.task_size = task_size;
-    g_qt_proxy.task_mng.proxy_config.thread_pool_size = thread_pool_size;
-    pthread_t *thread_pool = (pthread_t *)calloc(thread_pool_size, sizeof(pthread_t));
+    g_qt_proxy.task_mng.proxy_config.task_size = QT_TASK_DEFAULT_NUM;
+    g_qt_proxy.task_mng.proxy_config.thread_pool_size = QT_THREAD_POOL_DEFAULT_SIZE;
+    pthread_t *thread_pool = (pthread_t *)calloc(QT_THREAD_POOL_DEFAULT_SIZE, sizeof(pthread_t));
     if (thread_pool == NULL) {
         printf("malloc thread pool failed\n");
         return -1;
     }
     g_qt_proxy.task_mng.thread_pool = thread_pool;
 
-    for (uint32_t i = 0; i < thread_pool_size; i++) {
+    for (uint32_t i = 0; i < QT_THREAD_POOL_DEFAULT_SIZE; i++) {
         ret = pthread_create(thread_pool + i, NULL, qt_recv_task_proc, NULL);
         if (ret != 0) {
             qt_task_mng_thread_pool_destroy();
@@ -717,7 +739,7 @@ static int qt_add_task_to_mng(uint8_t *recv_buf, size_t len, qt_proxy_task_node_
     }
 
     pthread_mutex_lock(&g_qt_proxy.task_mng.lock);
-    if (g_qt_proxy.task_mng.count >= QT_TASK_MAX_NUM) {
+    if (g_qt_proxy.task_mng.count >= QT_TASK_DEFAULT_NUM) {
         pthread_mutex_unlock(&g_qt_proxy.task_mng.lock);
         qt_free_task_node(task_node);
         return CC_ERROR_TASK_NUM_EXCEED_MAX_LIMIT;
