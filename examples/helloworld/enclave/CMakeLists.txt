@@ -24,6 +24,18 @@ set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/hello.c)
 set(PRINT_LEVEL 3)
 add_definitions(-DPRINT_LEVEL=${PRINT_LEVEL})
 
+if(CC_QT)
+    #set signed output
+    set(OUTPUT enclave.eif)
+    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c
+        ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
+    add_custom_command(OUTPUT ${AUTO_FILES}
+        DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
+        COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
+        --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian)
+
+endif()
+
 if(CC_GP)
     #set signed output
     set(OUTPUT ${UUID}.sec)
@@ -33,10 +45,12 @@ if(CC_GP)
     set(WHITE_LIST_1 /vendor/bin/secgear_helloworld)
     set(WHITELIST WHITE_LIST_0 WHITE_LIST_1)
 
-    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
+    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c
+        ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
     add_custom_command(OUTPUT ${AUTO_FILES}
-    DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
+        DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
+        COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
+        --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
 endif()
 
 if(CC_SGX)
@@ -44,15 +58,81 @@ if(CC_SGX)
     set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SGXSDK}/include)
+    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE}
+    --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SGXSDK}/include)
 endif()
 
-set(COMMON_C_FLAGS "-W -Wall -Werror  -fno-short-enums  -fno-omit-frame-pointer -fstack-protector \
-	-Wstack-protector --param ssp-buffer-size=4 -frecord-gcc-switches -Wextra -nostdinc -nodefaultlibs \
-	-fno-peephole -fno-peephole2 -Wno-main -Wno-error=unused-parameter \
+if (CC_QT)
+    set(COMMON_C_FLAGS "-W -Wall -Werror -g -fno-short-enums  -fno-omit-frame-pointer -fstack-protector \
+        -Wstack-protector --param ssp-buffer-size=4 -frecord-gcc-switches -Wextra \
+        -fno-peephole -fno-peephole2 -Wno-main -Wno-error=unused-parameter \
         -Wno-error=unused-but-set-variable -Wno-error=format-truncation=")
 
-set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
+    set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack")
+else()
+    set(COMMON_C_FLAGS "-W -Wall -Werror  -fno-short-enums  -fno-omit-frame-pointer -fstack-protector \
+        -Wstack-protector --param ssp-buffer-size=4 -frecord-gcc-switches -Wextra -nostdinc -nodefaultlibs \
+        -fno-peephole -fno-peephole2 -Wno-main -Wno-error=unused-parameter \
+            -Wno-error=unused-but-set-variable -Wno-error=format-truncation=")
+
+    set(COMMON_C_LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -Wl,-z,noexecstack -Wl,-nostdlib -nodefaultlibs -nostartfiles")
+endif()
+
+if(CC_QT)
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}  -s -fPIC")
+    #set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-s")
+    set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS}")
+
+    if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
+        link_directories(${CMAKE_BINARY_DIR}/lib/)
+    endif()
+
+    add_library(${PREFIX} SHARED ${SOURCE_FILES} ${AUTO_FILES})
+
+    target_include_directories( ${PREFIX} PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR}
+        ${CMAKE_BINARY_DIR}/inc
+        ${CMAKE_BINARY_DIR}/inc/secGear
+        ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian
+        ${LOCAL_ROOT_PATH}/inc/enclave_inc/qingtian
+        /usr/include/secGear)
+
+    if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
+        target_link_directories(${PREFIX} PRIVATE ${CMAKE_BINARY_DIR}/lib/)
+    endif()
+
+    target_link_libraries(${PREFIX} -lsecgear_tee)
+
+    # TODO  添加生产docker镜像指令
+    # 1 生成enclave 入口
+    # 2 生成docker 镜像，修改Docker基础镜像名称
+    # 3 生成eif
+    set(ENCLAVE_ENTRY enclave)
+    add_executable(${ENCLAVE_ENTRY} enclave.c)
+    target_link_directories(${ENCLAVE_ENTRY} PRIVATE ${CMAKE_BINARY_DIR}/lib/)
+    target_link_libraries(${ENCLAVE_ENTRY} -lhelloworld -lqtsm)
+    
+    set(IMAGE_NAME enclave_image)
+    add_custom_command(TARGET ${ENCLAVE_ENTRY}
+        POST_BUILD
+        COMMAND mkdir -p  ${CMAKE_BINARY_DIR}/eif
+        COMMAND cp ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/*.so ${CMAKE_BINARY_DIR}/eif
+        COMMAND cp /usr/lib64/libqtsm.so ${CMAKE_BINARY_DIR}/eif
+        COMMAND cp ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/*.a ${CMAKE_BINARY_DIR}/eif
+        COMMAND cp ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/qingtian/*.so ${CMAKE_BINARY_DIR}/eif
+        COMMAND cp ${CMAKE_BINARY_DIR}/examples/helloworld/enclave/enclave ${CMAKE_BINARY_DIR}/eif
+        COMMAND cp ${CMAKE_SOURCE_DIR}/examples/helloworld/enclave/Dockerfile ${CMAKE_BINARY_DIR}/eif
+        COMMAND cp ${CMAKE_SOURCE_DIR}/examples/helloworld/enclave/secgear ${CMAKE_BINARY_DIR}/eif
+        COMMAND cp ${CMAKE_SOURCE_DIR}/examples/helloworld/enclave/secgear.conf ${CMAKE_BINARY_DIR}/eif
+        COMMAND docker build -t ${IMAGE_NAME} ${CMAKE_BINARY_DIR}/eif
+        COMMAND bash ${SIGN_TOOL} -d sign -x qingtian -i ${IMAGE_NAME} -o ${CMAKE_BINARY_DIR}/eif/${OUTPUT}
+        )
+
+    install(FILES ${CMAKE_BINARY_DIR}/eif/${OUTPUT}
+        DESTINATION /data
+        PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+
+endif()
 
 if(CC_GP)
 
@@ -70,28 +150,28 @@ if(CC_GP)
     add_library(${PREFIX} SHARED ${SOURCE_FILES} ${AUTO_FILES})
 
     target_include_directories( ${PREFIX} PRIVATE
-	${CMAKE_CURRENT_BINARY_DIR}
-	${CMAKE_BINARY_DIR}/inc
-	${LOCAL_ROOT_PATH}/inc/host_inc
-	${LOCAL_ROOT_PATH}/inc/host_inc/gp
-	${LOCAL_ROOT_PATH}/inc/enclave_inc
-	${LOCAL_ROOT_PATH}/inc/enclave_inc/gp
-	${ITRUSTEE_TEEDIR}/include/TA
-	${ITRUSTEE_TEEDIR}/include/TA/huawei_ext
-	${ITRUSTEE_LIBC}/arch/aarch64
-	${ITRUSTEE_LIBC}/
-	${ITRUSTEE_LIBC}/arch/arm/bits
-	${ITRUSTEE_LIBC}/arch/generic
-	${ITRUSTEE_LIBC}/arch/arm
-	${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee)
+        ${CMAKE_CURRENT_BINARY_DIR}
+        ${CMAKE_BINARY_DIR}/inc
+        ${LOCAL_ROOT_PATH}/inc/host_inc
+        ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+        ${LOCAL_ROOT_PATH}/inc/enclave_inc
+        ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp
+        ${ITRUSTEE_TEEDIR}/include/TA
+        ${ITRUSTEE_TEEDIR}/include/TA/huawei_ext
+        ${ITRUSTEE_LIBC}/arch/aarch64
+        ${ITRUSTEE_LIBC}/
+        ${ITRUSTEE_LIBC}/arch/arm/bits
+        ${ITRUSTEE_LIBC}/arch/generic
+        ${ITRUSTEE_LIBC}/arch/arm
+        ${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee)
 
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(${PREFIX} PRIVATE
-	        ${CMAKE_BINARY_DIR}/lib/)
+        ${CMAKE_BINARY_DIR}/lib/)
     endif()
 
     foreach(WHITE_LIST ${WHITELIST})
-	    add_definitions(-D${WHITE_LIST}="${${WHITE_LIST}}")
+        add_definitions(-D${WHITE_LIST}="${${WHITE_LIST}}")
     endforeach(WHITE_LIST)
     add_definitions(-DWHITE_LIST_OWNER="${WHITE_LIST_OWNER}")
 
@@ -99,8 +179,8 @@ if(CC_GP)
 
     #for trustzone compiling, you should connact us to get config and private_key.pem for test, so we will not sign and install binary in this example #
     #    add_custom_command(TARGET ${PREFIX}
-    #	      POST_BUILD
-	      #	      COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
+    #         POST_BUILD
+    #         COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
 
       #    install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}  
       #        DESTINATION /data
@@ -125,7 +205,7 @@ if(CC_SGX)
     set(Crypto_Library_Name sgx_tcrypto)
 
     set(CMAKE_SHARED_LINKER_FLAGS  "${COMMON_C_LINK_FLAGS} -Wl,-z,defs -Wl,-pie -Bstatic -Bsymbolic -eenclave_entry \
-	-Wl,--export-dynamic -Wl,--defsym,__ImageBase=0 -Wl,--gc-sections -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/Enclave.lds")
+    -Wl,--export-dynamic -Wl,--defsym,__ImageBase=0 -Wl,--gc-sections -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/Enclave.lds")
 
     if(${CMAKE_VERSION} VERSION_LESS "3.13.0") 
         link_directories(${LINK_LIBRARY_PATH})
@@ -134,20 +214,20 @@ if(CC_SGX)
     add_library(${PREFIX}  SHARED ${SOURCE_FILES} ${AUTO_FILES})
 
     target_include_directories(${PREFIX} PRIVATE
-	    ${CMAKE_CURRENT_BINARY_DIR}
-	    ${SGX_DIR}/include/tlibc
-	    ${SGX_DIR}/include/libcxx
-	    ${SGX_DIR}/include
-	    ${LOCAL_ROOT_PATH}/inc/host_inc
-	    ${LOCAL_ROOT_PATH}/inc/host_inc/sgx)
+        ${CMAKE_CURRENT_BINARY_DIR}
+        ${SGX_DIR}/include/tlibc
+        ${SGX_DIR}/include/libcxx
+        ${SGX_DIR}/include
+        ${LOCAL_ROOT_PATH}/inc/host_inc
+        ${LOCAL_ROOT_PATH}/inc/host_inc/sgx)
     
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0") 
         target_link_directories(${PREFIX} PRIVATE
-	        ${LINK_LIBRARY_PATH})
+            ${LINK_LIBRARY_PATH})
     endif()
 
     target_link_libraries(${PREFIX}  -Wl,--whole-archive ${Trts_Library_Name} -Wl,--no-whole-archive 
-    		-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l${Crypto_Library_Name} -l${Service_Library_Name}   -Wl,--end-group)
+            -Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l${Crypto_Library_Name} -l${Service_Library_Name}   -Wl,--end-group)
     add_custom_command(TARGET ${PREFIX} 
     POST_BUILD
     COMMAND umask 0177

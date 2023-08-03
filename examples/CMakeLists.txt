@@ -3,6 +3,17 @@ add_custom_target(copy ALL
 	COMMAND cp ${LOCAL_ROOT_PATH}/inc/host_inc/*.h ${CMAKE_BINARY_DIR}/inc/secGear/
 	COMMAND cp ${LOCAL_ROOT_PATH}/inc/enclave_inc/*.h ${CMAKE_BINARY_DIR}/inc/secGear/)
 
+if(CC_QT)
+	add_custom_command(TARGET copy
+		POST_BUILD
+		COMMAND cp ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian/*.edl ${CMAKE_BINARY_DIR}/inc/secGear/
+		COMMAND cp ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian/*.h ${CMAKE_BINARY_DIR}/inc/secGear/
+		COMMAND cp ${LOCAL_ROOT_PATH}/inc/enclave_inc/qingtian/*.h ${CMAKE_BINARY_DIR}/inc/secGear/)
+	#add_subdirectory(seal_data)
+	add_subdirectory(helloworld)
+	#add_subdirectory(lrt)
+endif()
+
 if(CC_GP)
 	add_custom_command(TARGET copy
 		POST_BUILD

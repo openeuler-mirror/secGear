@@ -1,0 +1,11 @@
+/var/log/secgear/secgear.log {
+	missingok
+	rotate 20
+	notifempty
+	nocompress
+	copytruncate
+	size 2048k
+	lastaction
+	chmod 0400 /var/log/secgear/secgear.log.*
+	endscript
+}
