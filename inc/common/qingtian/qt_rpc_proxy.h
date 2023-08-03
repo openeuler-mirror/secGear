@@ -21,6 +21,8 @@
 extern "C" {
 #endif
 
+#define QT_VSOCK_MAX_DATA_LEN (1024 * 1024)
+
 typedef cc_enclave_result_t (*qt_handle_request_msg_t)(uint8_t *input, size_t input_len, uint8_t **output, size_t *output_len);
 
 int qt_rpc_proxy_init(int cid, qt_handle_request_msg_t handle_func);
