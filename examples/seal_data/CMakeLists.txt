@@ -19,6 +19,12 @@ set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 set(EDL_FILE seal_data.edl)
 set(CODEGEN codegen)
 
+if(CC_QT)
+    set(CODETYPE trustzone)
+    set(UUID 9cb38838-2766-42be-8b7b-0d184a996066)
+    add_definitions(-DPATH="/data/${UUID}.sec")
+endif()
+
 if(CC_GP)
     set(CODETYPE trustzone)
     set(UUID 9cb38838-2766-42be-8b7b-0d184a996066)

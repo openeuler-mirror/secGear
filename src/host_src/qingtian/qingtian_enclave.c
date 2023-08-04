@@ -93,13 +93,29 @@ end:
     return strlen(cmd_buf);
 }
 
-static int check_eif(const char* path)
+bool contain_illegal_char(const char *str)
 {
+    const char list[]={'|',';','&','$','>','<','`','\\','!','\n'};
+    for (unsigned long int i = 0; i < sizeof(list) / sizeof(list[0]); i++) {
+        if (strchr(str, list[i]) != NULL) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int check_eif(const char *path)
+{
+    // check forbidden character
+    if (contain_illegal_char(path)) {
+        print_error_term("%s contain illegal character\n", path);
+        return -1;
+    }
     if (access(path, F_OK) != 0) {
         print_error_term("%s can not access\n", path);
         return -1;
     }
-    // file extern must be "eif"
+    // file extern must be ".eif"
     char *ext = strrchr(path, '.');
     if (ext == NULL || strcmp(ext, ".eif") != 0) {
         print_error_term("%s must be end of .eif\n", path);
@@ -259,7 +275,6 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
         ret = 1;
         goto end;
     }
-    QT_DEBUG("exec cmd: %s\n", command);
     fp = popen(command, "r");
     if (fp == NULL) {
         QT_ERR("command execute failed\n");
@@ -324,32 +339,6 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
-#ifdef DEBUG_MOCK
-    QT_DEBUG("qingtian enclave mock create successfully! \n");
-    qingtian_private_data_t *priv_data = (qingtian_private_data_t *)malloc(sizeof(qingtian_private_data_t));
-    if (priv_data == NULL) {
-        QT_ERR("malloc for private data is NULL\n");
-        result_cc = CC_ERROR_OUT_OF_MEMORY;
-        goto end;
-    }
-    priv_data->enclave_id = 0;
-    priv_data->startup = *startup_pra;
-    enclave->private_data = (void *)priv_data;
-    result_cc = CC_SUCCESS;
-    goto end;
-    uint32_t id;
-    int ret = qt_start(command, (unsigned int)startup_pra->enclave_cid, &id, startup_pra->query_retry);
-    if (ret < 0 || ret > 1) {
-        QT_ERR("qingtian enclave create fail! \n");
-        result_cc = CC_ERROR_GENERIC;
-        goto end;
-    } else if (ret == 1) {
-        QT_ERR("qingtian enclave already exist\n");
-        result_cc = CC_ERROR_GENERIC;
-        goto end;
-    }
-#else
-    QT_DEBUG("exec cmd: %s\n", command);
     uint32_t id = 0;
     int ret = qt_start(command, (unsigned int)startup_pra->enclave_cid, &id, startup_pra->query_retry);
     if (ret < 0 || ret > 1) {
@@ -376,12 +365,7 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
     priv_data->startup = *startup_pra;
     enclave->private_data = (void *)priv_data;
     result_cc = CC_SUCCESS;
-#endif
 end:
-#ifdef DEBUG_MOCK
-    QT_DEBUG("enclave mock init\n");
-    enclave_init(startup_pra->enclave_cid, (qt_handle_request_msg_t)handle_ocall_function);
-#endif
     if (command != NULL) {
         free(command);
     }
@@ -410,12 +394,6 @@ static int qt_stop(uint32_t enclave_id)
         ret = -1;
         goto end;
     }
-    QT_DEBUG("exec cmd: %s\n", command);
-#ifdef DEBUG_MOCK
-    QT_DEBUG("exec mock, return success\n");
-    ret = 0;
-    goto end;
-#endif
     fp = popen(command, "r");
     if (fp == NULL) {
         QT_ERR("popen failed\n");
@@ -453,12 +431,11 @@ cc_enclave_result_t _qingtian_destroy(cc_enclave_t *context)
         goto end;
     }
     qingtian_private_data_t *priv_data = context->private_data;
-    enclave_deinit(priv_data->startup.enclave_cid);
-
     if (priv_data == NULL) {
         result_cc = CC_ERROR_BAD_PARAMETERS;
         goto end;
     }
+    enclave_deinit(priv_data->startup.enclave_cid);
     if (qt_stop(priv_data->enclave_id) != 0) {
         result_cc = CC_ERROR_GENERIC;
         goto end;
@@ -485,18 +462,6 @@ cc_enclave_result_t cc_enclave_ecall_function(
 {
     (void)enclave;
     (void)ms;
-    (void)ocall_table;
-#ifdef DEBUG
-    QT_DEBUG("ecall input function id %lu\n", (long unsigned int)function_id);
-    QT_DEBUG("ecall input buffer size %zu\n", input_buffer_size);
-    QT_DEBUG("ecall output buffer size %zu\n", output_buffer_size);
-    QT_DEBUG("ecall input data: ");
-    for (size_t i = 0; i < input_buffer_size; i++) {
-        QT_DEBUG("%02X", *((uint8_t*)input_buffer + i));
-    }
-    QT_DEBUG("\n");
-#endif
-
     set_ocall_table(ocall_table);
     cc_enclave_result_t result_cc = CC_SUCCESS;
     result_cc = comm_call(function_id, input_buffer, input_buffer_size,

@@ -38,32 +38,25 @@ cc_enclave_result_t handle_ocall_function(
     }
     // write nothing default
     *output_bytes_written = 0;
-#if DEBUG
-    QT_DEBUG("ocall received(%zu): ", input_buffer_size);
-    for (size_t i = 0; i < input_buffer_size; i++) {
-        QT_DEBUG("%02X", input_buffer[i]);
-    }
-    QT_DEBUG("\n");
-#endif
     msg_recv = (qt_comm_msg_t *) input_buffer;
     cc_ocall_func_t func;
     if (msg_recv->function_id >= ocall_table->num) {
         result_cc = CC_ERROR_ECALL_NOT_ALLOWED;
-        printf("function id(%u) not found(%u), ocall table size = %zu\n",
+        QT_ERR("function id(%u) not found(%u), ocall table size = %zu\n",
             msg_recv->function_id, result_cc, ocall_table->num);
         goto end;
     }
     func = ocall_table->ocalls[msg_recv->function_id];
     if (func == NULL) {
         result_cc = CC_ERROR_ITEM_NOT_FOUND;
-        printf("ocall function not found(%u)\n", result_cc);
+        QT_ERR("ocall function not found(%u)\n", result_cc);
         goto end;
     }
     size_t send_len_total = sizeof(qt_comm_msg_t) + msg_recv->out_buf_size;
     msg_send = calloc(1, send_len_total);
     if (msg_send == NULL) {
         result_cc = CC_ERROR_SHORT_BUFFER;
-        printf("short buffer(%u)\n", result_cc);
+        QT_ERR("short buffer(%u)\n", result_cc);
         goto end;
     }
     msg_send->function_id = msg_recv->function_id;
@@ -75,13 +68,6 @@ cc_enclave_result_t handle_ocall_function(
 
     *output_buffer = (uint8_t *)msg_send;
     *output_bytes_written = send_len_total;
-#if DEBUG
-    QT_DEBUG("ocall result send(%zu): ", send_len_total);
-    for (size_t i = 0; i < send_len_total; i++) {
-        QT_DEBUG("%02X", *(*output_buffer + i));
-    }
-    QT_DEBUG("\n");
-#endif
 end:
     return result_cc;
 }

@@ -16,7 +16,12 @@ set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 #set edl name
 set(EDL_FILE helloworld.edl)
-set(CODEGEN codegen)
+set(CODEGEN ${LOCAL_ROOT_PATH}/bin/codegen)
+
+if(CC_QT)
+    set(CODETYPE qingtian)
+    add_definitions(-DPATH="/data/enclave.eif")
+endif()
 
 if(CC_GP)
     set(CODETYPE trustzone)

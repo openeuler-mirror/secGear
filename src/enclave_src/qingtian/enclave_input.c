@@ -3,6 +3,7 @@
 #include <string.h>
 #include "qt_log.h"
 #include "qt_call.h"
+#include "qt_rpc_proxy.h"
 #include "enclave_input.h"
 
 extern const cc_ecall_func_t cc_ecall_tables[];
@@ -15,16 +16,6 @@ cc_enclave_result_t cc_ocall_enclave(
     void *out_buf,
     size_t out_buf_size)
 {
-#ifdef DEBUG
-    QT_DEBUG("ocall input function id %lu\n", (long unsigned int)func_id);
-    QT_DEBUG("ocall input buffer size %zu\n", in_buf_size);
-    QT_DEBUG("ocall output buffer size %zu\n", out_buf_size);
-    QT_DEBUG("ecall input data: ");
-    for (size_t i = 0; i < in_buf_size; i++) {
-        QT_DEBUG("%02X", *((uint8_t*)in_buf + i));
-    }
-    QT_DEBUG("\n");
-#endif
     return comm_call(func_id, in_buf, in_buf_size, out_buf, out_buf_size);
 }
 
@@ -39,17 +30,11 @@ cc_enclave_result_t handle_ecall_function(
     cc_enclave_result_t result_cc = CC_SUCCESS;
 
     if (input_buffer == NULL || input_buffer_size == 0 || output_buffer == NULL || output_bytes_written == NULL) {
+        QT_ERR("handle ecall parameter check fail");
         return CC_ERROR_BAD_PARAMETERS;
     }
     // write nothing default
     *output_bytes_written = 0;
-#if DEBUG
-    QT_DEBUG("handle ecall received(%zu): ", input_buffer_size);
-    for (size_t i = 0; i < input_buffer_size; i++) {
-        QT_DEBUG("%02X", input_buffer[i]);
-    }
-    QT_DEBUG("\n");
-#endif
     msg_recv = (qt_comm_msg_t *) input_buffer;
 
     cc_ecall_func_t func;
@@ -68,7 +53,11 @@ cc_enclave_result_t handle_ecall_function(
         QT_ERR("ecall function not found(%u)\n", result_cc);
         goto end;
     }
-
+    if (msg_recv->out_buf_size > QT_VSOCK_MAX_DATA_LEN - sizeof(qt_comm_msg_t)) {
+        QT_ERR("handle ecall out buffer size out limit\n");
+        result_cc = CC_ERROR_BAD_PARAMETERS;
+        goto end;
+    }
     size_t send_len_total = sizeof(qt_comm_msg_t) + msg_recv->out_buf_size;
     msg_send = calloc(1, send_len_total);
     if (msg_send == NULL) {
@@ -86,13 +75,6 @@ cc_enclave_result_t handle_ecall_function(
 
     *output_buffer = (uint8_t*)msg_send;
     *output_bytes_written = send_len_total - (msg_send->out_buf_size - write_len);
-#ifdef DEBUG
-    QT_DEBUG("ecall result send(%lu): ", *output_bytes_written);
-    for (size_t i = 0; i < *output_bytes_written; i++) {
-        QT_DEBUG("%02X", *(*output_buffer + i));
-    }
-    QT_DEBUG("\n");
-#endif
 end:
     return result_cc;
 }

@@ -376,6 +376,12 @@ let gen_trusted(ec : enclave_content) =
         "#include \"host_input.h\"";
         sprintf "#include \"%s_t.h\"" ec.file_shortnm;
         "";
+        "/* nothing, just for include libsecgear_tee.a */";
+        "extern int qt_get_qtsm_fd(void);";
+        "void entry_init(void)";
+        "{";
+        "    qt_get_qtsm_fd();";
+        "}";
         " /* ECALL FUNCTIONs */";
         concat "\n" ecall_func;
         "";
