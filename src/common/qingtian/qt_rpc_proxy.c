@@ -264,6 +264,7 @@ static void qt_msg_queue_clear(qt_proxy_msg_queue_t *queue)
         qt_free_msg_node(cur);
         cur = next;
     }
+    qt_free_msg_node(queue->tail);
     queue->head = queue->tail = NULL;
     pthread_mutex_unlock(&queue->lock);
 }
@@ -478,6 +479,7 @@ static int qt_msg_mng_init(qt_handle_request_msg_t handle_func)
     if (ret != 0) {
         printf("qt msg mng init create send thread failed\n");
         free(recv_buf);
+        g_qt_proxy.msg_mng.recv_buf = NULL;
         return ret;
     }
 
@@ -486,6 +488,7 @@ static int qt_msg_mng_init(qt_handle_request_msg_t handle_func)
         printf("qt msg mng init create recv thread failed\n");
         qt_msg_thread_destroy();
         free(recv_buf);
+        g_qt_proxy.msg_mng.recv_buf = NULL;
         return ret;
     }
 
@@ -499,6 +502,7 @@ static void qt_msg_mng_destroy(void)
     qt_msg_queue_clear(&g_qt_proxy.msg_mng.send_queue);
     qt_msg_queue_clear(&g_qt_proxy.msg_mng.recv_queue);
     free(g_qt_proxy.msg_mng.recv_buf);
+    g_qt_proxy.msg_mng.recv_buf = NULL;
 }
 
 static qt_proxy_msg_node_t *qt_new_send_msg_node(uint64_t task_id, uint8_t *data, size_t data_len, bool is_rsp)
@@ -516,7 +520,9 @@ static qt_proxy_msg_node_t *qt_new_send_msg_node(uint64_t task_id, uint8_t *data
 #endif
     msg->task_id = task_id;
     msg->data_len = data_len;
-    memcpy(msg->data, data, data_len);
+    if (data != NULL) {
+        memcpy(msg->data, data, data_len);
+    }
 
     qt_proxy_msg_node_t *msg_node = calloc(1, sizeof(qt_proxy_msg_node_t));
     if (msg_node == NULL) {
@@ -670,6 +676,7 @@ static int qt_task_mng_init(void)
         if (ret != 0) {
             qt_task_mng_thread_pool_destroy();
             free(thread_pool);
+            g_qt_proxy.task_mng.thread_pool = NULL;
             return -1;
         }
     }
