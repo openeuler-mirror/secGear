@@ -136,8 +136,8 @@ let set_ecall_func (tf : trusted_func) =
         "";
         "    /* Allocate in_buf and out_buf */";
         "    in_buf = (uint8_t*)malloc(in_buf_size);";
-        "    out_buf = (uint8_t*)malloc(out_buf_size);";
-        "    if (in_buf == NULL || out_buf == NULL) {";
+        "    out_buf = out_buf_size > 0 ? (uint8_t*)malloc(out_buf_size) : NULL;";
+        "    if (in_buf == NULL || (out_buf_size != 0 && out_buf == NULL)) {";
         "        ret = CC_ERROR_OUT_OF_MEMORY;";
         "        goto exit;";
         "    }";
@@ -177,6 +177,8 @@ let set_ocall_func (uf : untrusted_func) =
         "    size_t out_buf_offset = 0;";
         "    OE_UNUSED(in_buf_size);";
         "    OE_UNUSED(out_buf_size);";
+        "    (void)out_buf;";
+        "    (void)out_buf_offset;";
         "";
         "    /* Prepare parameters point */";
         if not (params_point = ["";""]) then (
@@ -235,7 +237,6 @@ let gen_untrusted(ec : enclave_content) =
         "#include <string.h>";
         "#include <wchar.h>";
         sprintf "#include \"%s_u.h\"" ec.file_shortnm;
-        "#include \"host_input.h\"";
         "";
         if (List.length untrust_funcs <> 0) then concat "\n" ocall_func ^"\n"
         else "/* There is no ocall funcs */\n";
