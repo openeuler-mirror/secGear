@@ -213,12 +213,11 @@ static int get_match_id(char *str, unsigned int cid, unsigned int *id)
     const char *delimeter = "}";
     cur = strtok_r(str, delimeter, &next);
     while (cur != NULL) {
-        if (get_id(cur, &tmp_cid, &tmp_id) != 0) {
-            cur = strtok_r(NULL, delimeter, &next);
-        }
-        if (cid == tmp_cid) {
-            *id = tmp_id;
-            return 0;
+        if (get_id(cur, &tmp_cid, &tmp_id) == 0) {
+            if (cid == tmp_cid) {
+                *id = tmp_id;
+                return 0;
+            }
         }
         cur = strtok_r(NULL, delimeter, &next);
     }
@@ -282,7 +281,7 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
         goto end;
     } else {
         QT_DEBUG("get enclave id, total retry %d\n", left);
-        while (left-- > 0) {
+        while (--left >= 0) {
             QT_DEBUG("try %d\n", (left + 1));
             if (qt_query_id(cid, id) != 0) {
                 sleep(1);
@@ -291,7 +290,7 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
                 break;
             }
         }
-        if (left <= 0) {
+        if (left < 0) {
             ret = -1;
             QT_ERR("query id fail\n");
         } else {

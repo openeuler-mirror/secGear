@@ -37,7 +37,7 @@ typedef enum {
 
 #define MAX_NONCE_BUF_LEN 64
 typedef struct {
-    uint8_t *taid;
+    void *taid;
     uint32_t nonce_len;
     uint8_t nonce[MAX_NONCE_BUF_LEN];
     bool with_tcb;

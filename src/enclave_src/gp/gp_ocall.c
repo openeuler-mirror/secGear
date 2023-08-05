@@ -24,7 +24,7 @@ static int GetBuffer(
 {
     const int rc = -1;
     uint32_t ret;
-    uint32_t length = -1;
+    uint32_t length = SECGEAR_ENUM_MAX;
     ret = tee_get_agent_buffer(agent_id, &buffer, &length);
     if (ret != TEE_SUCCESS || length > MAX_LEN) {
         SLogError("Failed to get buffer for agent %d\n", agent_id);
@@ -66,7 +66,7 @@ static int GetOutBuffer(
 {
     int rc = -1;
     uint32_t ret;
-    uint32_t length = -1;
+    uint32_t length = SECGEAR_ENUM_MAX;
     ret = tee_get_agent_buffer(agent_id, &buf, &length);
     if (ret != TEE_SUCCESS || length > MAX_LEN) {
         SLogError("Failed to get buffer for agent %d\n", agent_id);
