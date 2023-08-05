@@ -371,8 +371,6 @@ let gen_trusted(ec : enclave_content) =
         "";
         "#include <stdio.h>";
         "#include <string.h>";
-        "#include \"qingtian_enclave.h\"";
-        "#include \"enclave_input.h\"";
         sprintf "#include \"%s_t.h\"" ec.file_shortnm;
         "";
         "/* nothing, just for include libsecgear_tee.a */";

@@ -24,6 +24,13 @@ typedef struct _qingtian_private_data {
     cc_startup_t startup;
 } qingtian_private_data_t;
 
+cc_enclave_result_t cc_ocall_enclave(
+    size_t func_id,
+    const void *in_buf,
+    size_t in_buf_size,
+    void *out_buf,
+    size_t out_buf_size);
+
 #ifdef  __cplusplus
 }
 #endif

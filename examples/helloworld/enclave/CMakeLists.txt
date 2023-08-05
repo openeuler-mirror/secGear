@@ -95,6 +95,7 @@ if(CC_QT)
         ${CMAKE_BINARY_DIR}/inc/secGear
         ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian
         ${LOCAL_ROOT_PATH}/inc/enclave_inc/qingtian
+        ${LOCAL_ROOT_PATH}/src/enclave_src/qingtian
         /usr/include/secGear)
 
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")

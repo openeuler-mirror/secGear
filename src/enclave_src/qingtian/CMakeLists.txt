@@ -25,7 +25,8 @@ target_include_directories(${target_lib} PRIVATE
     ${LOCAL_ROOT_PATH}/inc/enclave_inc/qingtian
     ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian
     ${LOCAL_ROOT_PATH}/inc/common/qingtian
-    ${LOCAL_ROOT_PATH}/inc/thirdparty/qtsm)
+    ${LOCAL_ROOT_PATH}/inc/thirdparty/qtsm
+    ${LOCAL_ROOT_PATH}/src/enclave_src/qingtian)
 
 install(TARGETS  ${target_lib}
         ARCHIVE
