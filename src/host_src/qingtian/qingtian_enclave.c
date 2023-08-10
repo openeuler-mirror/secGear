@@ -31,7 +31,7 @@
 #define CMD_BUF_MAX         (128 + PATH_MAX)
 
 #define CMD_BUF_RESULT_MAX      (1024 * 5)
-#define CMD_BUF_RESULT_LINE_MAX (128)
+#define CMD_BUF_RESULT_LINE_MAX (512)
 
 #define CID_MIN             (4)
 
@@ -241,15 +241,19 @@ static int qt_query_id(unsigned int cid, unsigned int *id)
         goto end;
     }
     while (fgets(read_buf, CMD_BUF_RESULT_LINE_MAX, fp) != NULL) {
-        strcat(buf, read_buf);
+        if (strlen(buf) + strlen(read_buf) < CMD_BUF_RESULT_MAX) {
+            strcat(buf, read_buf);
+        } else {
+            break;
+        }
     }
-    print_debug("qt query: %s \n", buf);
+    QT_DEBUG("qt query: %s \n", buf);
     if (get_match_id(buf, cid, id) != 0) {
-        print_debug("cid = %u, get id fail\n", cid);
+        QT_DEBUG("cid = %u, get id fail\n", cid);
         ret = -1;
         goto end;
     }
-    print_debug("cid = %u, get id = %u\n", cid, *id);
+    QT_DEBUG("cid = %u, get id = %u\n", cid, *id);
 end:
     if (fp != NULL) {
         pclose(fp);
@@ -297,7 +301,6 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
             ret = 0;
             QT_DEBUG("qingtian enclave id  %u\n", *id);
         }
-        ret = 0;
     }
 end:
     if (fp != NULL) {
@@ -350,6 +353,7 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
         goto end;
     }
     if (enclave_init(startup_pra->enclave_cid, (qt_handle_request_msg_t)handle_ocall_function) != 0) {
+        QT_ERR("qingtian enclave init fail\n");
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
