@@ -16,6 +16,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
+#include <stdint.h>
 
 #include "enclave.h"
 #include "enclave_internal.h"
@@ -35,6 +36,13 @@
 
 #define CID_MIN             (4)
 
+static const cc_startup_t default_startup = {
+    .enclave_cid = CID_MIN,
+    .cpus = 2, // at least 2 cpus
+    .mem_mb = 0,
+    .query_retry = 10 // query id by cid try 10 times by default
+};
+static int qt_query_id(unsigned int cid, unsigned int *id);
 /************* port api *************/
 
 // init connect to enclave
@@ -146,10 +154,76 @@ end:
     return ret;
 }
 
+static long get_file_size(char *file)
+{
+    long fsize = 0;
+    if (file == NULL) {
+        return 0;
+    }
+    FILE *fp = fopen(file, "rb");
+    if (fp == NULL) {
+        print_error_term("%s file open fail\n", file);
+        return 0; 
+    }
+    if (-1 == fseek(fp, 0, SEEK_END)) {
+        goto end;
+    }
+    fsize = ftell(fp);
+    if (fsize < 0) {
+        fsize = 0;
+    }
+end:
+    if (fclose(fp) != 0) {
+        return 0;
+    }
+    return fsize;
+}
+
+static long long cal_mem_size(long fsize)
+{
+    long long size = fsize;
+    size *= 4; // at least 4 times space size of eif for encalve
+    size = size / 1024 / 1024;// convert to MB by div 1024 twice
+    if (size % 256) { // if not multiple of 256
+        size = size / 256 * 256 + 256; // alianed to 256
+    }
+    return size;
+}
+
+int auto_set_parameter(cc_startup_t *pra, char *eif_file)
+{
+    if (pra == NULL || eif_file == NULL) {
+        return -1;
+    }
+    int ret = 0;
+    long fsize = get_file_size(eif_file);
+    if (fsize <= 0) {
+        ret = -1;
+        goto end;
+    }
+    long long mem_size = cal_mem_size(fsize);
+    if (mem_size > UINT32_MAX) {
+        ret = -1;
+        goto end;
+    }
+    pra->mem_mb = mem_size;
+    unsigned int id;
+    uint32_t cid = pra->enclave_cid;
+    while (qt_query_id(cid, &id) == 0) {
+        cid++;
+    }
+    pra->enclave_cid = cid;
+end:
+    return ret;
+}
+
 // return length of command string
-int qt_start_cmd_construct(char *command, const cc_startup_t *pra, const char *eif, uint32_t flags)
+int qt_start_cmd_construct(char *command, cc_startup_t *pra, const char *eif, uint32_t flags, bool auto_cfg)
 {
     int ret = 0;
+    if (command == NULL || pra == NULL || eif == NULL) {
+        return -1;
+    }
     char *resolved_path = calloc(1, PATH_MAX);
     if (resolved_path == NULL) {
         ret = -1;
@@ -164,6 +238,12 @@ int qt_start_cmd_construct(char *command, const cc_startup_t *pra, const char *e
         debug = true;
     } else {
         debug = false;
+    }
+    if (auto_cfg) {
+        ret = auto_set_parameter(pra, resolved_path);
+        if(ret == -1) {
+            goto end;
+        }
     }
     ret = get_start_cmdline(command, CMD_BUF_MAX, pra, resolved_path, debug);
     if (ret < 0) {
@@ -314,8 +394,10 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
                                      const uint32_t features_count)
 {
     cc_enclave_result_t result_cc = CC_SUCCESS;
+    bool auto_cfg = false;
     char *command = NULL;
-    if (enclave == NULL) {
+    cc_startup_t auto_pra = default_startup;
+    if (enclave == NULL || (features == NULL && features_count != 0) || (features != NULL && features_count == 0)) {
         QT_ERR("Context parameter is NULL\n");
         return CC_ERROR_BAD_PARAMETERS;
     }
@@ -327,8 +409,9 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
         }
     }
     if (startup_pra == NULL) {
-        QT_ERR("enclave startup parameter is NULL\n");
-        return CC_ERROR_BAD_PARAMETERS;
+        QT_ERR("enclave startup parameter is NULL, use default\n");
+        startup_pra = &auto_pra;
+        auto_cfg = true;
     }
     command = calloc(1, CMD_BUF_MAX);
     if (command == NULL) {
@@ -336,7 +419,7 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
         result_cc = CC_ERROR_OUT_OF_MEMORY;
         goto end;
     }
-    if (qt_start_cmd_construct(command, startup_pra, enclave->path, enclave->flags) <= 0) {
+    if (qt_start_cmd_construct(command, startup_pra, enclave->path, enclave->flags, auto_cfg) <= 0) {
         QT_ERR("construct qt start command fail\n");
         result_cc = CC_ERROR_GENERIC;
         goto end;

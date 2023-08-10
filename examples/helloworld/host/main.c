@@ -49,7 +49,7 @@ int main()
 enclave_features_t *feature = NULL;
 int feature_cnt = 0;
 enclave_type_t type = AUTO_ENCLAVE_TYPE;
-#ifdef QT_ENCLAVE
+#if (defined QT_ENCLAVE) && (defined QT_USE_FEATURE)
     enclave_features_t features[2];
     features[0].setting_type = QINGTIAN_STARTUP_FEATURES;
     cc_startup_t pra;
@@ -60,7 +60,7 @@ enclave_type_t type = AUTO_ENCLAVE_TYPE;
     features[0].feature_desc = &pra;
     feature = &features[0];
     feature_cnt = 1;
-    type = AUTO_ENCLAVE_TYPE;// QINGTIAN_ENCLAVE_TYPE;
+    type = AUTO_ENCLAVE_TYPE;
 #endif
     res = cc_enclave_create(real_p, type, 0, SECGEAR_DEBUG_FLAG, feature, feature_cnt, context);
     if (res != CC_SUCCESS) {
