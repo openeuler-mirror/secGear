@@ -85,12 +85,12 @@ static cc_enclave_result_t check_enclave_count()
         res = CC_ERROR_UNEXPECTED;
         print_error_goto("Lock mutex failure\n");
     }
-    ++g_list_ops.enclaveState.enclave_count;
-    if (g_list_ops.enclaveState.enclave_count > MAX_ENCLAVE) {
+    if (g_list_ops.enclaveState.enclave_count + 1 > MAX_ENCLAVE) {
         res = CC_ERROR_ENCLAVE_MAXIMUM;
         pthread_mutex_unlock(&(g_list_ops.mutex_work));
         print_error_goto("The number of enclaves exceed the maximum\n");
     }
+    ++g_list_ops.enclaveState.enclave_count;
     ires = pthread_mutex_unlock(&(g_list_ops.mutex_work));
     SECGEAR_CHECK_MUTEX_RES_CC(ires, res);
     res = CC_SUCCESS;
@@ -183,8 +183,9 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
     res = check_enclave_count();
     if (res == CC_ERROR_UNEXPECTED) {
         check = false;
+        print_error_term("%s \n", cc_enclave_res2_str(res));
+        return res;
     }
-    SECGEAR_CHECK_RES(res);
 
     if (!check_flag(&res, path, flags, features, features_count, enclave)) {
         print_error_term("%s\n", cc_enclave_res2_str(res));
