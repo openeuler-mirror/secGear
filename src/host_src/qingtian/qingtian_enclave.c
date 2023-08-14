@@ -421,7 +421,7 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
     }
     if (qt_start_cmd_construct(command, startup_pra, enclave->path, enclave->flags, auto_cfg) <= 0) {
         QT_ERR("construct qt start command fail\n");
-        result_cc = CC_ERROR_GENERIC;
+        result_cc = CC_ERROR_BAD_PARAMETERS;
         goto end;
     }
     uint32_t id = 0;

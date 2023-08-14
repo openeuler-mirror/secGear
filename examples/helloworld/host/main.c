@@ -49,7 +49,7 @@ int main()
 enclave_features_t *feature = NULL;
 int feature_cnt = 0;
 enclave_type_t type = AUTO_ENCLAVE_TYPE;
-#if (defined QT_ENCLAVE) && (defined QT_USE_FEATURE)
+#if (defined QT_ENCLAVE)
     enclave_features_t features[2];
     features[0].setting_type = QINGTIAN_STARTUP_FEATURES;
     cc_startup_t pra;
