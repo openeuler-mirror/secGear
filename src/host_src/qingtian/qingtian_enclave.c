@@ -182,9 +182,9 @@ static long long cal_mem_size(long fsize)
 {
     long long size = fsize;
     size *= 4; // at least 4 times space size of eif for encalve
-    size = size / 1024 / 1024;// convert to MB by div 1024 twice
+    size = (size / 1024) / 1024;// convert to MB by div 1024 twice
     if (size % 256) { // if not multiple of 256
-        size = size / 256 * 256 + 256; // alianed to 256
+        size = (size / 256) * 256 + 256; // alianed to 256
     }
     return size;
 }
@@ -335,7 +335,9 @@ static int qt_query_id(unsigned int cid, unsigned int *id)
     print_debug("cid = %u, get id = %u\n", cid, *id);
 end:
     if (fp != NULL) {
-        pclose(fp);
+        if (pclose(fp) == -1) {
+            print_error_term("pclose fail when query id\n");
+        }
     }
     if (buf != NULL) {
         free(buf);
@@ -383,7 +385,9 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
     }
 end:
     if (fp != NULL) {
-        pclose(fp);
+        if (pclose(fp) == -1) {
+            print_error_term("pclose fail while qt start\n");
+        }
         fp = NULL;
     }
     return ret;
@@ -496,7 +500,9 @@ static int qt_stop(uint32_t enclave_id)
     }
 end:
     if (fp != NULL) {
-        pclose(fp);
+        if (pclose(fp) == -1) {
+             print_error_term("pclose fail while qt stop\n");
+        }
     }
     if (command != NULL) {
         free(command);

@@ -278,13 +278,18 @@ static uint32_t check_processor()
     char buf[READ_BUF] = {0};
     const char *cmd = "lspci | grep -i \"107e\\|106b\\|106a\"";
     FILE *fp = NULL;
+    int ret = ENCLAVE_TYPE_MAX;
+    int err = 0;
     fp = popen(cmd, "r");
     if (fp != NULL) {
-        if (fgets(buf, READ_BUF, fp) == NULL) {
-            pclose(fp);
-        } else {
-            pclose(fp);
-            return QINGTIAN_ENCLAVE_TYPE;
+        if (fgets(buf, READ_BUF, fp) != NULL) {
+            ret = QINGTIAN_ENCLAVE_TYPE;
+        }
+        if (pclose(fp) == -1) {
+            print_error_term("check enclave type,but pclose error\n");
+        }
+        if (ret != ENCLAVE_TYPE_MAX) {
+            return ret;
         }
     }
 #endif
