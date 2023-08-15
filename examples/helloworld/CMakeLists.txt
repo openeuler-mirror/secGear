@@ -21,6 +21,7 @@ set(CODEGEN ${LOCAL_ROOT_PATH}/bin/codegen)
 if(CC_QT)
     set(CODETYPE qingtian)
     add_definitions(-DPATH="/data/enclave.eif")
+    add_definitions(-DQT_ENCLAVE)
 endif()
 
 if(CC_GP)

@@ -274,8 +274,18 @@ static uint32_t check_processor()
         return ENCLAVE_TYPE_MAX;
     }
 #ifdef QT_ENCLAVE
-    if (access("/dev/qtbox", F_OK) == 0) {
-        return QINGTIAN_ENCLAVE_TYPE;
+    #define READ_BUF    (512)
+    char buf[READ_BUF] = {0};
+    const char *cmd = "lspci | grep -i \"107e\\|106b\\|106a\"";
+    FILE *fp = NULL;
+    fp = popen(cmd, "r");
+    if (fp != NULL) {
+        if (fgets(buf, READ_BUF, fp) == NULL) {
+            pclose(fp);
+        } else {
+            pclose(fp);
+            return QINGTIAN_ENCLAVE_TYPE;
+        }
     }
 #endif
     const char *arch_name[] = {"x86_64", "aarch64"};

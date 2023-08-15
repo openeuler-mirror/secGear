@@ -350,8 +350,12 @@ static bool is_socket_connected(int fd)
 
 static void qt_svr_wait_new_connection(struct sockaddr *conn_addr, socklen_t *conn_len)
 {
+    int res = 0;
     if (!is_socket_connected(g_qt_proxy.vsock_mng.connfd)) {
-        close(g_qt_proxy.vsock_mng.connfd);
+        res = close(g_qt_proxy.vsock_mng.connfd);
+        if (res == -1 && errno == EINTR) {
+            (void)close(g_qt_proxy.vsock_mng.connfd);
+        }
         g_qt_proxy.vsock_mng.connfd = 0;
 
         printf("old socket disconnected, start accept new connect\n");
@@ -371,7 +375,7 @@ static void qt_svr_wait_new_connection(struct sockaddr *conn_addr, socklen_t *co
 
 void qt_discard_exceed_len_msg(uint8_t *buf, size_t msg_len)
 {
-    size_t len = 0;
+    ssize_t len = 0;
     size_t tmp_msg_len = msg_len;
     while (tmp_msg_len > 0) {
         len = read(g_qt_proxy.vsock_mng.connfd, buf, tmp_msg_len);    // read msg data

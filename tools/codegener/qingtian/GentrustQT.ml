@@ -271,7 +271,7 @@ let set_ocall_func (uf : untrusted_func) =
         "";
         "    /* Allocate in_buf and out_buf */";
         "    in_buf = (uint8_t*)malloc(in_buf_size);";
-        "    out_buf = (uint8_t*)malloc(out_buf_size);";
+        "    out_buf = out_buf_size > 0 ? (uint8_t*)malloc(out_buf_size) : NULL;";
         "    if (in_buf == NULL || (out_buf_size != 0 && out_buf == NULL)) {";
         "        ret = CC_ERROR_OUT_OF_MEMORY;";
         "        goto exit;";
@@ -371,9 +371,6 @@ let gen_trusted(ec : enclave_content) =
         "";
         "#include <stdio.h>";
         "#include <string.h>";
-        "#include \"qingtian_enclave.h\"";
-        "#include \"enclave_input.h\"";
-        "#include \"host_input.h\"";
         sprintf "#include \"%s_t.h\"" ec.file_shortnm;
         "";
         "/* nothing, just for include libsecgear_tee.a */";

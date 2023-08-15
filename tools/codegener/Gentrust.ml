@@ -269,7 +269,7 @@ let set_ocall_func (uf : untrusted_func) =
         "";
         "    /* Allocate in_buf and out_buf */";
         "    in_buf = (uint8_t*)malloc(in_buf_size);";
-        "    out_buf = (uint8_t*)malloc(out_buf_size);";
+        "    out_buf = out_buf_size > 0 ? (uint8_t*)malloc(out_buf_size) : NULL;";
         "    if (in_buf == NULL || (out_buf_size != 0 && out_buf == NULL)) {";
         "        ret = CC_ERROR_OUT_OF_MEMORY;";
         "        goto exit;";

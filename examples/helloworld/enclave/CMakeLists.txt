@@ -95,6 +95,7 @@ if(CC_QT)
         ${CMAKE_BINARY_DIR}/inc/secGear
         ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian
         ${LOCAL_ROOT_PATH}/inc/enclave_inc/qingtian
+        ${LOCAL_ROOT_PATH}/src/enclave_src/qingtian
         /usr/include/secGear)
 
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
@@ -103,10 +104,6 @@ if(CC_QT)
 
     target_link_libraries(${PREFIX} -lsecgear_tee)
 
-    # TODO  添加生产docker镜像指令
-    # 1 生成enclave 入口
-    # 2 生成docker 镜像，修改Docker基础镜像名称
-    # 3 生成eif
     set(ENCLAVE_ENTRY enclave)
     add_executable(${ENCLAVE_ENTRY} enclave.c)
     target_link_directories(${ENCLAVE_ENTRY} PRIVATE ${CMAKE_BINARY_DIR}/lib/)

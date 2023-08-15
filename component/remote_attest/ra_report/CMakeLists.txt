@@ -15,6 +15,7 @@ set(TARGET secgear_ra)
 
 set(SRC_FILES sg_ra_report.c)
 set(CODEGEN ${LOCAL_ROOT_PATH}/bin/codegen)
+set(INC_DIRS)
 
 if(CC_QT)
     set(PREFIX sg_ra_report)
@@ -29,16 +30,18 @@ if(CC_QT)
         COMMAND ${CODEGEN} --${CODETYPE} --untrusted --header-only ${EDL_FILE} --search-path ${CMAKE_SOURCE_DIR}/inc/host_inc/qingtian)
 
     List(APPEND SRC_FILES qt_ra_report.c)
+    set(INC_DIRS ${INC_DIRS} ${LOCAL_ROOT_PATH}/src/host_src/qingtian)
 endif()
 
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 
-include_directories( 
+include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
-    ${LOCAL_ROOT_PATH}/inc/host_inc)
+    ${LOCAL_ROOT_PATH}/inc/host_inc
+    ${INC_DIRS})
 
 add_library(${TARGET} SHARED ${SRC_FILES} ${AUTO_FILES})
 

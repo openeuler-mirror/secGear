@@ -284,7 +284,7 @@ let generate_trusted_header (ec: enclave_content) =
     in
     let hfile_end = "#endif\n" in
     let hfile_include =
-        sprintf "#include \"enclave.h\"\n\n#include \"%s_args.h\"\n#include \"status.h\"\n" ec.file_shortnm
+        sprintf "#include \"enclave.h\"\n\n#include \"%s_args.h\"\n#include \"secgear_log.h\"\n#include \"enclave_input.h\"\n#include \"qingtian_enclave.h\"\n#include \"status.h\"\n" ec.file_shortnm
     in
     let trust_fproto_com = "/**** Trusted function prototypes. ****/\n" in
     let untrust_fproto_com = "/**** Untrusted function prototypes. ****/\n" in

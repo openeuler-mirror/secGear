@@ -29,7 +29,7 @@ cc_enclave_result_t comm_call(uint32_t function_id,
     qt_comm_msg_t *msg_send = NULL;
     size_t send_len_total = 0;
 
-    if (input_buffer == NULL || input_buffer_size == 0 || output_buffer == NULL || output_buffer_size == 0) {
+    if (input_buffer == NULL || input_buffer_size == 0) {
         QT_ERR("comm call parameter check fail\n");
         return CC_ERROR_BAD_PARAMETERS;
     }
@@ -70,7 +70,14 @@ cc_enclave_result_t comm_call(uint32_t function_id,
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
-    (void)memcpy(output_buffer, msg_recv->buf, msg_recv->buf_size);
+    if (output_buffer != NULL) {
+        if (output_buffer_size >= msg_recv->buf_size) {
+            (void)memcpy(output_buffer, msg_recv->buf, msg_recv->buf_size);
+        } else {
+            result_cc = CC_ERROR_SHORT_BUFFER;
+            QT_ERR("short output buffer\n");
+        }
+    }
 end:
     if (msg_send) {
         free(msg_send);
