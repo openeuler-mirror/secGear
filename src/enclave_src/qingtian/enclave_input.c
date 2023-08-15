@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "qt_log.h"
+#include "secgear_log.h"
 #include "qt_call.h"
 #include "qt_rpc_proxy.h"
 #include "enclave_input.h"
@@ -30,7 +30,7 @@ cc_enclave_result_t handle_ecall_function(
     cc_enclave_result_t result_cc = CC_SUCCESS;
 
     if (input_buffer == NULL || input_buffer_size == 0 || output_buffer == NULL || output_bytes_written == NULL) {
-        QT_ERR("handle ecall parameter check fail");
+        PrintInfo(PRINT_ERROR, "handle ecall parameter check fail");
         return CC_ERROR_BAD_PARAMETERS;
     }
     // write nothing default
@@ -43,18 +43,18 @@ cc_enclave_result_t handle_ecall_function(
     ecall_table.num = ecall_table_size;
     if (msg_recv->function_id >= ecall_table.num) {
         result_cc = CC_ERROR_ECALL_NOT_ALLOWED;
-        QT_ERR("function id(%u) not found(%u), ecall table size = %zu\n",
+        PrintInfo(PRINT_ERROR, "function id(%u) not found(%u), ecall table size = %zu\n",
             msg_recv->function_id, result_cc, ecall_table_size);
         goto end;
     }
     func = ecall_table.ecalls[msg_recv->function_id];
     if (func == NULL) {
         result_cc = CC_ERROR_ITEM_NOT_FOUND;
-        QT_ERR("ecall function not found(%u)\n", result_cc);
+        PrintInfo(PRINT_ERROR, "ecall function not found(%u)\n", result_cc);
         goto end;
     }
     if (msg_recv->out_buf_size > QT_VSOCK_MAX_DATA_LEN - sizeof(qt_comm_msg_t)) {
-        QT_ERR("handle ecall out buffer size out limit\n");
+        PrintInfo(PRINT_ERROR, "handle ecall out buffer size out limit\n");
         result_cc = CC_ERROR_BAD_PARAMETERS;
         goto end;
     }
@@ -62,7 +62,7 @@ cc_enclave_result_t handle_ecall_function(
     msg_send = calloc(1, send_len_total);
     if (msg_send == NULL) {
         result_cc = CC_ERROR_SHORT_BUFFER;
-        QT_ERR("short buffer(%u)\n", result_cc);
+        PrintInfo(PRINT_ERROR, "short buffer(%u)\n", result_cc);
         goto end;
     }
     msg_send->function_id = msg_recv->function_id;

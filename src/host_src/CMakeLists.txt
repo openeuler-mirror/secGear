@@ -12,7 +12,8 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden -fPIC -Wno-stringop-over
 
 set(LIBRARY_INSTALL /usr/lib64)
 
-include_directories(${LOCAL_ROOT_PATH}/inc/host_inc)
+include_directories(${LOCAL_ROOT_PATH}/inc/host_inc
+                    ${LOCAL_ROOT_PATH}/inc/enclave_inc/qingtian)
 
 if(CC_GP)
     add_subdirectory(gp)

@@ -17,7 +17,7 @@
 #include <sys/types.h>
 #include <sys/vfs.h>
 #include <linux/vm_sockets.h>
-
+#include "secgear_log.h"
 #include <qtsm_lib.h>
 #include "qt_rpc_proxy.h"
 
@@ -31,15 +31,15 @@ static __attribute__((constructor)) void qt_enclave_init(void)
 {
     int ret = qt_rpc_proxy_init(VMADDR_CID_ANY, handle_ecall_function);
     if (ret != 0) {
-        printf("enclave proxy init failed\n");
+        PrintInfo(PRINT_DEBUG, "enclave proxy init failed\n");
     }
-    printf("enclave proxy init success\n");
+    PrintInfo(PRINT_DEBUG, "enclave proxy init success\n");
     if (qtsm_lib_init == NULL) {
         return;
     }
     g_qtsm_fd = qtsm_lib_init();
     if (g_qtsm_fd < 0) {
-        printf("enclave init qtsm lib failed\n");
+        PrintInfo(PRINT_DEBUG, "enclave init qtsm lib failed\n");
     }
 }
 static __attribute__((destructor)) void qt_enclave_destroy(void)
@@ -49,7 +49,7 @@ static __attribute__((destructor)) void qt_enclave_destroy(void)
         g_qtsm_fd = 0;
     }
     qt_rpc_proxy_destroy();
-    printf("destroy enclave proxy\n");
+    PrintInfo(PRINT_DEBUG, "destroy enclave proxy\n");
 }
 
 int qt_get_qtsm_fd(void)

@@ -9,6 +9,7 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+#include "secgear_log.h"
 #include "qt_rpc_proxy.h"
 #include "status.h"
 
@@ -131,7 +132,7 @@ static int qt_vsock_init(int cid, uint port)
     uint conn_len = sizeof(conn_addr);
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
-        printf("create socket failed\n");
+        PrintInfo(PRINT_ERROR, "create socket failed\n");
         return -1;
     }
     bzero(&svr_addr, sizeof(svr_addr));
@@ -144,7 +145,7 @@ static int qt_vsock_init(int cid, uint port)
     uint conn_len = sizeof(conn_addr);
     sockfd = socket(AF_VSOCK, SOCK_STREAM, 0);
     if (sockfd == -1) {
-        printf("create socket failed\n");
+        PrintInfo(PRINT_ERROR, "create socket failed\n");
         return -1;
     }
     bzero(&svr_addr, sizeof(svr_addr));
@@ -155,19 +156,19 @@ static int qt_vsock_init(int cid, uint port)
 
     if (is_server) {
         if (bind(sockfd, (struct sockaddr *)&svr_addr, sizeof(svr_addr)) != 0) {
-            printf("socket bind failed\n");
+            PrintInfo(PRINT_ERROR, "socket bind failed\n");
             close(sockfd);
             return -1;
         }
 
         if (listen(sockfd, 1) != 0) {
-            printf("listen failed\n");
+            PrintInfo(PRINT_ERROR, "listen failed\n");
             close(sockfd);
             return -1;
         }
         connfd = accept(sockfd, (struct sockaddr *)&conn_addr, (socklen_t *)&conn_len);
         if (connfd < 0) {
-            printf("accept error\n");
+            PrintInfo(PRINT_ERROR, "accept error\n");
             close(sockfd);
             return -1;
         }
@@ -175,7 +176,7 @@ static int qt_vsock_init(int cid, uint port)
         g_qt_proxy.vsock_mng.connfd = connfd;
     } else {
         if (connect(sockfd, (struct sockaddr *)&svr_addr, sizeof(svr_addr)) != 0) {
-            printf("connet to server failed\n");
+            PrintInfo(PRINT_ERROR, "connet to server failed\n");
             close(sockfd);
             return -1;
         }
@@ -214,7 +215,7 @@ static void qt_msg_queue_push(qt_proxy_msg_queue_t *queue, qt_proxy_msg_node_t* 
 {
     pthread_mutex_lock(&queue->lock);
     if (queue->node_cnt >= QT_MSG_MAX_NUM) {
-        printf("qt_msg_queue_push queue is full\n");
+        PrintInfo(PRINT_ERROR, "qt_msg_queue_push queue is full\n");
         pthread_mutex_unlock(&queue->lock);
         return;
     }
@@ -292,7 +293,7 @@ void *qt_msg_send_thread_proc(void *arg)
 
         uint8_t *send_buf = (uint8_t *)calloc(1, send_len);
         if (send_buf == NULL) {
-            printf("send msg thread malloc error\n");
+            PrintInfo(PRINT_ERROR, "send msg thread malloc error\n");
             qt_free_msg_node(node);
             continue;
         }
@@ -301,7 +302,7 @@ void *qt_msg_send_thread_proc(void *arg)
 
         ret = write(g_qt_proxy.vsock_mng.connfd, send_buf, send_len);
         if (ret < 0) {
-            printf("send msg failed\n");
+            PrintInfo(PRINT_ERROR, "send msg failed\n");
         }
         free(send_buf);
         qt_free_msg_node(node);
@@ -358,15 +359,15 @@ static void qt_svr_wait_new_connection(struct sockaddr *conn_addr, socklen_t *co
         }
         g_qt_proxy.vsock_mng.connfd = 0;
 
-        printf("old socket disconnected, start accept new connect\n");
+        PrintInfo(PRINT_DEBUG, "old socket disconnected, start accept new connect\n");
         while (true) {
             int connfd = accept(g_qt_proxy.vsock_mng.svr_fd, conn_addr, conn_len);
             if (connfd < 0) {
-                printf("accept error\n");
+                PrintInfo(PRINT_ERROR, "accept error\n");
                 continue;
             }
             g_qt_proxy.vsock_mng.connfd = connfd;
-            printf("accept new connect success\n");
+            PrintInfo(PRINT_DEBUG, "accept new connect success\n");
             break;
         }
     }
@@ -430,7 +431,7 @@ restart:
         while (tmp_msg_len > 0) {
             len = read(g_qt_proxy.vsock_mng.connfd, buf_ptr, tmp_msg_len);    // read msg data
             if (len <= 0) {
-                printf("receive msg data failed\n");
+                PrintInfo(PRINT_ERROR, "receive msg data failed\n");
                 goto restart;
             }
             tmp_msg_len -= len;
@@ -440,7 +441,7 @@ restart:
 
         qt_proxy_msg_node_t *node = qt_new_recv_msg_node(buf, msg_len);
         if (node == NULL) {
-            printf("recv thread malloc msg node failed\n");
+            PrintInfo(PRINT_ERROR, "recv thread malloc msg node failed\n");
             continue;
         }
         qt_msg_queue_push(&g_qt_proxy.msg_mng.recv_queue, node);
@@ -468,7 +469,7 @@ static int qt_msg_mng_init(qt_handle_request_msg_t handle_func)
     int ret;
 
     if (handle_func == NULL) {
-        printf("register error handle request msg function\n");
+        PrintInfo(PRINT_ERROR, "register error handle request msg function\n");
         return -1;
     }
     g_qt_proxy.msg_mng.handle_request_msg_func = handle_func;
@@ -481,7 +482,7 @@ static int qt_msg_mng_init(qt_handle_request_msg_t handle_func)
 
     ret = pthread_create(&g_qt_proxy.msg_mng.send_tid, NULL, qt_msg_send_thread_proc, NULL);
     if (ret != 0) {
-        printf("qt msg mng init create send thread failed\n");
+        PrintInfo(PRINT_ERROR, "qt msg mng init create send thread failed\n");
         free(recv_buf);
         g_qt_proxy.msg_mng.recv_buf = NULL;
         return ret;
@@ -489,7 +490,7 @@ static int qt_msg_mng_init(qt_handle_request_msg_t handle_func)
 
     ret = pthread_create(&g_qt_proxy.msg_mng.recv_tid, NULL, qt_msg_recv_thread_proc, NULL);
     if (ret != 0) {
-        printf("qt msg mng init create recv thread failed\n");
+        PrintInfo(PRINT_ERROR, "qt msg mng init create recv thread failed\n");
         qt_msg_thread_destroy();
         free(recv_buf);
         g_qt_proxy.msg_mng.recv_buf = NULL;
@@ -574,7 +575,7 @@ static int qt_request_msg_proc(qt_proxy_msg_t *msg)
     qt_proxy_msg_node_t *rsp_node = qt_new_send_msg_node(msg->task_id, rsp_buf, rsp_len, true);
     free(rsp_buf);
     if (rsp_node == NULL) {
-        printf("malloc ecall ret msg failed\n");
+        PrintInfo(PRINT_ERROR, "malloc ecall ret msg failed\n");
         return -1;
     }
 
@@ -596,14 +597,14 @@ static int qt_response_msg_proc(qt_proxy_msg_t *msg)
         cur = cur->next;
     }
     if (cur == NULL) {
-        printf("ecall ret msg proc not found task node by task_id:%lu\n", msg->task_id);
+        PrintInfo(PRINT_ERROR, "ecall ret msg proc not found task node by task_id:%lu\n", msg->task_id);
         pthread_mutex_unlock(&g_qt_proxy.task_mng.lock);
         return -1;
     }
 
     // copy msg->data to recv_buf
     if (msg->data_len > cur->recv_buf_len) {
-        printf("recv buf len:%lu is not enough, recv msg len:%lu\n", cur->recv_buf_len, msg->data_len);
+        PrintInfo(PRINT_ERROR, "recv buf len:%lu is not enough, recv msg len:%lu\n", cur->recv_buf_len, msg->data_len);
         pthread_mutex_unlock(&g_qt_proxy.task_mng.lock);
         return -1;
     }
@@ -649,11 +650,11 @@ void *qt_recv_task_proc(void *arg)
                 ret = qt_response_msg_proc(recv_msg);
                 break;
             default:
-                 printf("recv invalid msg type:%d\n", recv_msg->type);
+                 PrintInfo(PRINT_ERROR, "recv invalid msg type:%d\n", recv_msg->type);
                 break;
         }
         if (ret != 0) {
-            printf("msg proc failed, msg type:%d, ret:%d\n", recv_msg->type, ret);
+            PrintInfo(PRINT_ERROR, "msg proc failed, msg type:%d, ret:%d\n", recv_msg->type, ret);
         }
 
         qt_free_msg_node(cur_node);
@@ -670,7 +671,7 @@ static int qt_task_mng_init(void)
     g_qt_proxy.task_mng.proxy_config.thread_pool_size = QT_THREAD_POOL_DEFAULT_SIZE;
     pthread_t *thread_pool = (pthread_t *)calloc(QT_THREAD_POOL_DEFAULT_SIZE, sizeof(pthread_t));
     if (thread_pool == NULL) {
-        printf("malloc thread pool failed\n");
+        PrintInfo(PRINT_ERROR, "malloc thread pool failed\n");
         return -1;
     }
     g_qt_proxy.task_mng.thread_pool = thread_pool;
@@ -769,14 +770,14 @@ int qt_rpc_proxy_init(int cid, qt_handle_request_msg_t handle_func)
     // init qingtian vsock
     ret = qt_vsock_init(cid, PORT);
     if (ret != 0) {
-        printf("qt vsock init failed ret:%d\n", ret);
+        PrintInfo(PRINT_ERROR, "qt vsock init failed ret:%d\n", ret);
         return ret;
     }
 
     // init send/recv list and thread
     ret = qt_msg_mng_init(handle_func);
     if (ret != 0) {
-        printf("qt msg mng init failed ret:%d\n", ret);
+        PrintInfo(PRINT_ERROR, "qt msg mng init failed ret:%d\n", ret);
         qt_vsock_destroy();
         return ret;
     }
@@ -784,7 +785,7 @@ int qt_rpc_proxy_init(int cid, qt_handle_request_msg_t handle_func)
     // init task mng and thread pool
     ret = qt_task_mng_init();
     if (ret != 0) {
-        printf("qt task mng init failed ret:%d\n", ret);
+        PrintInfo(PRINT_ERROR, "qt task mng init failed ret:%d\n", ret);
         qt_msg_thread_destroy();
         qt_msg_mng_destroy();
         qt_vsock_destroy();
@@ -838,14 +839,14 @@ uint64_t qt_rpc_proxy_call(uint8_t *input, size_t input_len, uint8_t *output, si
     qt_proxy_task_node_t *task_node = NULL;
     int ret = qt_add_task_to_mng(output, *output_len, &task_node);
     if (ret != 0) {
-        printf("add task to mng failed, ret:%d\n", ret);
+        PrintInfo(PRINT_ERROR, "add task to mng failed, ret:%d\n", ret);
         return CC_ERROR_QT_PROXY_ADD_TASK;
     }
 
     // add send msg to send list
     ret = add_msg_to_send_queue(task_node->task_id, input, input_len);
     if (ret != 0) {
-        printf("add send msg to send list failed, ret:%d\n", ret);
+        PrintInfo(PRINT_ERROR, "add send msg to send list failed, ret:%d\n", ret);
         qt_del_task_from_mng(task_node->task_id);
         return CC_ERROR_QT_PROXY_ADD_SEND_QUEUE;
     }
@@ -870,7 +871,7 @@ uint64_t qt_rpc_proxy_call(uint8_t *input, size_t input_len, uint8_t *output, si
     }
 
     if (u_ret != 0) {
-        printf("proxy call failed, ret:%lu\n", u_ret);
+        PrintInfo(PRINT_ERROR, "proxy call failed, ret:%lu\n", u_ret);
     }
 
     // del task node

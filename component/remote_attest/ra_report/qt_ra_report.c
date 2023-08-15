@@ -10,7 +10,7 @@
  * See the Mulan PSL v2 for more details.
  */
 #include "qt_ra_report.h"
-#include <stdio.h>
+#include "enclave_log.h"
 #include "enclave.h"
 #include "sg_ra_report_u.h"
 
@@ -23,24 +23,24 @@ cc_enclave_result_t qt_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *
 
     /* doc_cose_len is too long for cboren report, need to reduce it. */
     if (!in || !report) {
-        printf("[Error] Invalid Remote attestation inputs.\n");
+        print_error_term("[Error] Invalid Remote attestation inputs.\n");
         return rc;
     }
 
     context = (cc_enclave_t *)in->taid;
     if (context == NULL || report->buf == NULL || report->len < QINGTIAN_REPORT_MIN_LENGTH) {
-        printf("[Error] Remote attestation input is suspiciously wrong.\n");
+        print_error_term("[Error] Remote attestation input is suspiciously wrong.\n");
         return rc;
     }
 
-    printf("Invoking Qingtian enclave attestation ecall...\n");
+    print_debug("Invoking Qingtian enclave attestation ecall...\n");
 
     rc = qt_enclave_att_report(context, &retval, in->nonce, in->nonce_len, report->buf, report->len, &doc_cose_len);
     if (rc != CC_SUCCESS || retval != CC_SUCCESS) {
-        printf("Invoke qiantian attestation ecall failed, rc = 0x%08X, retval = 0x%08X.\n", rc, retval);
+        print_error_term("Invoke qiantian attestation ecall failed, rc = 0x%08X, retval = 0x%08X.\n", rc, retval);
     }
 
-    printf("Qiantian attestation ecall Done.\n");
+    print_debug("Qiantian attestation ecall Done.\n");
     report->len = doc_cose_len; // Report real length of CBOR encoded qingtian attestation doc.
     return rc;
 }
