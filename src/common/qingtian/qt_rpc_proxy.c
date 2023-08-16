@@ -349,7 +349,8 @@ static bool is_socket_connected(int fd)
     return false;
 }
 
-static void qt_svr_wait_new_connection(struct sockaddr *conn_addr, socklen_t *conn_len)
+#define QT_SVR_VSOCK_DISCONNECT (3)
+static void qt_svr_handle_disconnection()
 {
     int res = 0;
     if (!is_socket_connected(g_qt_proxy.vsock_mng.connfd)) {
@@ -359,17 +360,8 @@ static void qt_svr_wait_new_connection(struct sockaddr *conn_addr, socklen_t *co
         }
         g_qt_proxy.vsock_mng.connfd = 0;
 
-        PrintInfo(PRINT_DEBUG, "old socket disconnected, start accept new connect\n");
-        while (true) {
-            int connfd = accept(g_qt_proxy.vsock_mng.svr_fd, conn_addr, conn_len);
-            if (connfd < 0) {
-                PrintInfo(PRINT_ERROR, "accept error\n");
-                continue;
-            }
-            g_qt_proxy.vsock_mng.connfd = connfd;
-            PrintInfo(PRINT_DEBUG, "accept new connect success\n");
-            break;
-        }
+        PrintInfo(PRINT_DEBUG, "client disconnected, enclave exit\n");
+        exit(QT_SVR_VSOCK_DISCONNECT);
     }
 }
 #endif
@@ -398,15 +390,6 @@ void *qt_msg_recv_thread_proc(void *arg)
     uint8_t *buf_ptr = NULL;
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL); // 收到cancel信号后，state设置为CANCELED状态
     pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
-#ifdef QT_SERVER
-    #ifdef SIM
-        struct sockaddr_in conn_addr;
-        uint conn_len = sizeof(conn_addr);
-    #else
-        struct sockaddr_vm conn_addr;
-        uint conn_len = sizeof(conn_addr);
-    #endif
-#endif
 
     while (true) {
 restart:
@@ -415,7 +398,7 @@ restart:
         len = read(g_qt_proxy.vsock_mng.connfd, &msg_len, sizeof(size_t));    // read msg len first
         if (len <= 0) {
 #ifdef QT_SERVER
-            qt_svr_wait_new_connection((struct sockaddr *)&conn_addr, &conn_len);
+            qt_svr_handle_disconnection();
 #endif
             continue;
         }

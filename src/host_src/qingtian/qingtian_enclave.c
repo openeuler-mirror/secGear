@@ -351,6 +351,7 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
     FILE *fp = NULL;
     int ret = 0;
     int left = retry;
+    char buf[CMD_BUF_RESULT_LINE_MAX] = {0};
     if (command == NULL || id == NULL) {
         ret = -1;
         goto end;
@@ -366,6 +367,14 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
         ret = -1;
         goto end;
     } else {
+        // get messages only when fail
+        while(fgets(buf, CMD_BUF_RESULT_LINE_MAX, fp) != NULL) {
+            if (strstr(buf, "error") != NULL) {
+                ret = -1;
+                goto end;
+            }
+            sleep(1);
+        }
         print_debug("get enclave id, total retry %d\n", left);
         while (--left >= 0) {
             print_debug("try %d\n", (left + 1));
@@ -463,7 +472,9 @@ end:
         free(command);
     }
     if (qt_clean) {
-        qt_stop(id);
+        if(qt_stop(id) != 0) {
+            print_error_term("qt stop fail\n");
+        }
     }
     return result_cc;
 }
