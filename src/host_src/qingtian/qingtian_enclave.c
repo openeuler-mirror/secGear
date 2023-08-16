@@ -42,6 +42,7 @@ static const cc_startup_t default_startup = {
     .query_retry = 10 // query id by cid try 10 times by default
 };
 static int qt_query_id(unsigned int cid, unsigned int *id);
+static int qt_stop(uint32_t enclave_id);
 /************* port api *************/
 
 // init connect to enclave
@@ -398,6 +399,7 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
 {
     cc_enclave_result_t result_cc = CC_SUCCESS;
     bool auto_cfg = false;
+    bool qt_clean = false;
     char *command = NULL;
     cc_startup_t auto_pra = default_startup;
     if (enclave == NULL || (features == NULL && features_count != 0) || (features != NULL && features_count == 0)) {
@@ -441,6 +443,7 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
     if (enclave_init(startup_pra->enclave_cid, (qt_handle_request_msg_t)handle_ocall_function) != 0) {
         print_error_term("qingtian enclave init fail\n");
         result_cc = CC_ERROR_GENERIC;
+        qt_clean = true;
         goto end;
     }
     print_debug("qingtian enclave create successfully! \n");
@@ -448,6 +451,7 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
     if (priv_data == NULL) {
         print_error_term("malloc for private data is NULL\n");
         result_cc = CC_ERROR_OUT_OF_MEMORY;
+        qt_clean = true;
         goto end;
     }
     priv_data->enclave_id = id;
@@ -457,6 +461,9 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
 end:
     if (command != NULL) {
         free(command);
+    }
+    if (qt_clean) {
+        qt_stop(id);
     }
     return result_cc;
 }
