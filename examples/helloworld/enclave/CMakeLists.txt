@@ -108,6 +108,7 @@ if(CC_QT)
     add_executable(${ENCLAVE_ENTRY} enclave.c)
     target_link_directories(${ENCLAVE_ENTRY} PRIVATE ${CMAKE_BINARY_DIR}/lib/)
     target_link_libraries(${ENCLAVE_ENTRY} -lhelloworld -lqtsm)
+    target_include_directories(${ENCLAVE_ENTRY} PRIVATE ${LOCAL_ROOT_PATH}/inc/enclave_inc/qingtian)
     
     set(IMAGE_NAME enclave_image)
     add_custom_command(TARGET ${ENCLAVE_ENTRY}

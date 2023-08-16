@@ -23,7 +23,6 @@
 #include "enclave_log.h"
 #include "qt_rpc_proxy.h"
 #include "qt_call.h"
-#include "qt_log.h"
 #include "host_input.h"
 #include "qingtian_enclave.h"
 
@@ -43,6 +42,7 @@ static const cc_startup_t default_startup = {
     .query_retry = 10 // query id by cid try 10 times by default
 };
 static int qt_query_id(unsigned int cid, unsigned int *id);
+static int qt_stop(uint32_t enclave_id);
 /************* port api *************/
 
 // init connect to enclave
@@ -183,9 +183,9 @@ static long long cal_mem_size(long fsize)
 {
     long long size = fsize;
     size *= 4; // at least 4 times space size of eif for encalve
-    size = size / 1024 / 1024;// convert to MB by div 1024 twice
+    size = (size / 1024) / 1024;// convert to MB by div 1024 twice
     if (size % 256) { // if not multiple of 256
-        size = size / 256 * 256 + 256; // alianed to 256
+        size = (size / 256) * 256 + 256; // alianed to 256
     }
     return size;
 }
@@ -327,16 +327,18 @@ static int qt_query_id(unsigned int cid, unsigned int *id)
             break;
         }
     }
-    QT_DEBUG("qt query: %s \n", buf);
+    print_debug("qt query: %s \n", buf);
     if (get_match_id(buf, cid, id) != 0) {
-        QT_DEBUG("cid = %u, get id fail\n", cid);
+        print_debug("cid = %u, get id fail\n", cid);
         ret = -1;
         goto end;
     }
-    QT_DEBUG("cid = %u, get id = %u\n", cid, *id);
+    print_debug("cid = %u, get id = %u\n", cid, *id);
 end:
     if (fp != NULL) {
-        pclose(fp);
+        if (pclose(fp) == -1) {
+            print_error_term("pclose fail when query id\n");
+        }
     }
     if (buf != NULL) {
         free(buf);
@@ -354,19 +356,19 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
         goto end;
     }
     if (qt_query_id(cid, id) == 0) {
-        QT_ERR("cid %u id %u already exist\n", cid, *id);
+        print_error_term("cid %u id %u already exist\n", cid, *id);
         ret = 1;
         goto end;
     }
     fp = popen(command, "r");
     if (fp == NULL) {
-        QT_ERR("command execute failed\n");
+        print_error_term("command execute failed\n");
         ret = -1;
         goto end;
     } else {
-        QT_DEBUG("get enclave id, total retry %d\n", left);
+        print_debug("get enclave id, total retry %d\n", left);
         while (--left >= 0) {
-            QT_DEBUG("try %d\n", (left + 1));
+            print_debug("try %d\n", (left + 1));
             if (qt_query_id(cid, id) != 0) {
                 sleep(1);
                 continue;
@@ -376,15 +378,17 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
         }
         if (left < 0) {
             ret = -1;
-            QT_ERR("query id fail\n");
+            print_error_term("query id fail\n");
         } else {
             ret = 0;
-            QT_DEBUG("qingtian enclave id  %u\n", *id);
+            print_debug("qingtian enclave id  %u\n", *id);
         }
     }
 end:
     if (fp != NULL) {
-        pclose(fp);
+        if (pclose(fp) == -1) {
+            print_error_term("pclose fail while qt start\n");
+        }
         fp = NULL;
     }
     return ret;
@@ -395,10 +399,11 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
 {
     cc_enclave_result_t result_cc = CC_SUCCESS;
     bool auto_cfg = false;
+    bool qt_clean = false;
     char *command = NULL;
     cc_startup_t auto_pra = default_startup;
     if (enclave == NULL || (features == NULL && features_count != 0) || (features != NULL && features_count == 0)) {
-        QT_ERR("Context parameter is NULL\n");
+        print_error_term("Context parameter is NULL\n");
         return CC_ERROR_BAD_PARAMETERS;
     }
     cc_startup_t *startup_pra = NULL;
@@ -409,42 +414,44 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
         }
     }
     if (startup_pra == NULL) {
-        QT_ERR("enclave startup parameter is NULL, use default\n");
+        print_error_term("enclave startup parameter is NULL, use default\n");
         startup_pra = &auto_pra;
         auto_cfg = true;
     }
     command = calloc(1, CMD_BUF_MAX);
     if (command == NULL) {
-        QT_ERR("malloc for start command is NULL\n");
+        print_error_term("malloc for start command is NULL\n");
         result_cc = CC_ERROR_OUT_OF_MEMORY;
         goto end;
     }
     if (qt_start_cmd_construct(command, startup_pra, enclave->path, enclave->flags, auto_cfg) <= 0) {
-        QT_ERR("construct qt start command fail\n");
+        print_error_term("construct qt start command fail\n");
         result_cc = CC_ERROR_BAD_PARAMETERS;
         goto end;
     }
     uint32_t id = 0;
     int ret = qt_start(command, (unsigned int)startup_pra->enclave_cid, &id, startup_pra->query_retry);
     if (ret < 0 || ret > 1) {
-        QT_ERR("qingtian enclave create fail! \n");
+        print_error_term("qingtian enclave create fail! \n");
         result_cc = CC_ERROR_GENERIC;
         goto end;
     } else if (ret == 1) {
-        QT_ERR("qingtian enclave already exist\n");
+        print_error_term("qingtian enclave already exist\n");
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
     if (enclave_init(startup_pra->enclave_cid, (qt_handle_request_msg_t)handle_ocall_function) != 0) {
-        QT_ERR("qingtian enclave init fail\n");
+        print_error_term("qingtian enclave init fail\n");
         result_cc = CC_ERROR_GENERIC;
+        qt_clean = true;
         goto end;
     }
-    QT_DEBUG("qingtian enclave create successfully! \n");
+    print_debug("qingtian enclave create successfully! \n");
     qingtian_private_data_t *priv_data = (qingtian_private_data_t *)malloc(sizeof(qingtian_private_data_t));
     if (priv_data == NULL) {
-        QT_ERR("malloc for private data is NULL\n");
+        print_error_term("malloc for private data is NULL\n");
         result_cc = CC_ERROR_OUT_OF_MEMORY;
+        qt_clean = true;
         goto end;
     }
     priv_data->enclave_id = id;
@@ -454,6 +461,9 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
 end:
     if (command != NULL) {
         free(command);
+    }
+    if (qt_clean) {
+        qt_stop(id);
     }
     return result_cc;
 }
@@ -471,7 +481,7 @@ static int qt_stop(uint32_t enclave_id)
     }
     ret = sprintf(command, "qt enclave stop --enclave-id %lu", (long unsigned int)enclave_id);
     if (ret <= 0) {
-        QT_ERR("host: construct command fail\n");
+        print_error_term("host: construct command fail\n");
         ret = -1;
         goto end;
     }
@@ -482,7 +492,7 @@ static int qt_stop(uint32_t enclave_id)
     }
     fp = popen(command, "r");
     if (fp == NULL) {
-        QT_ERR("popen failed\n");
+        print_error_term("popen failed\n");
         ret = -1;
         goto end;
     }
@@ -497,7 +507,9 @@ static int qt_stop(uint32_t enclave_id)
     }
 end:
     if (fp != NULL) {
-        pclose(fp);
+        if (pclose(fp) == -1) {
+             print_error_term("pclose fail while qt stop\n");
+        }
     }
     if (command != NULL) {
         free(command);
@@ -512,7 +524,7 @@ cc_enclave_result_t _qingtian_destroy(cc_enclave_t *context)
 {
     cc_enclave_result_t result_cc;
     if (context == NULL) {
-        QT_ERR("qinttian destroy parameter error\n");
+        print_error_term("qinttian destroy parameter error\n");
         result_cc = CC_ERROR_BAD_PARAMETERS;
         goto end;
     }
@@ -530,7 +542,7 @@ cc_enclave_result_t _qingtian_destroy(cc_enclave_t *context)
         free(priv_data);
         context->private_data = NULL;
     }
-    QT_DEBUG("qingtian destroy success\n");
+    print_debug("qingtian destroy success\n");
     result_cc = CC_SUCCESS;
 end:
     return result_cc;
@@ -582,7 +594,7 @@ cc_enclave_result_t cc_tee_registered(cc_enclave_t *context, void *handle)
     size_t len = strlen(OPS_NAME.name);
     if (OPS_NAME.type_version != context->type || OPS_NODE.ops_desc != &OPS_NAME ||
         len >= MAX_ENGINE_NAME_LEN || OPS_NAME.ops != &OPS_STRU) {
-        QT_ERR("The struct cc_enclave_ops_desc initialization error\n");
+        print_error_term("The struct cc_enclave_ops_desc initialization error\n");
         return CC_ERROR_BAD_PARAMETERS;
     }
     OPS_NAME.handle = handle;
@@ -594,7 +606,7 @@ cc_enclave_result_t cc_tee_registered(cc_enclave_t *context, void *handle)
 cc_enclave_result_t cc_tee_unregistered(cc_enclave_t *context, enclave_type_version_t type_version)
 {
     if (context == NULL || context->list_ops_node != &OPS_NODE || type_version != OPS_NAME.type_version) {
-        QT_ERR("Engine parameter error \n");
+        print_error_term("Engine parameter error \n");
         return CC_FAIL;
     }
     remove_ops_list(&OPS_NODE);

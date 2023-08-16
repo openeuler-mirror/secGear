@@ -1,13 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "secgear_log.h"
 
 int main(void)
 {
-    printf("enclave start\n");
+    PrintInfo(PRINT_DEBUG, "enclave start\n");
     while (1) {
         sleep(3);
-        printf(".");
+        PrintInfo(PRINT_DEBUG, ".");
     }
     return 0;
 }

@@ -19,6 +19,8 @@
 #define PRINT_LEVEL 0
 #endif
 
+#ifdef DEBUG
+
 #define PRINT_ERROR 0
 #define PRINT_WARNING 1
 #define PRINT_STRACE 2
@@ -40,5 +42,7 @@
                 printf("%s " fmt "\n", "[secGear][DEBUG]", ## args);   \
         }                                                            \
     }
-
+#else
+#define PrintInfo(level, fmt, args...)
+#endif
 #endif

@@ -11,7 +11,8 @@
 ADD_SUBDIRECTORY(ra_report)
 
 file(GLOB RA_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/sg_report_st.h
-                    ${CMAKE_CURRENT_SOURCE_DIR}/ra_report/sg_ra_report.h)
+                    ${CMAKE_CURRENT_SOURCE_DIR}/ra_report/sg_ra_report.h
+                    ${CMAKE_CURRENT_SOURCE_DIR}/ra_report/sg_ra_report.edl)
 
 install(FILES ${RA_HEADERS}
         DESTINATION /usr/include/secGear

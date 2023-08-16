@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include "qt_call.h"
 #include "enclave_log.h"
-#include "qt_log.h"
 #include "host_input.h"
 
 static const ocall_enclave_table_t *ocall_table;
@@ -42,21 +41,21 @@ cc_enclave_result_t handle_ocall_function(
     cc_ocall_func_t func;
     if (msg_recv->function_id >= ocall_table->num) {
         result_cc = CC_ERROR_ECALL_NOT_ALLOWED;
-        QT_ERR("function id(%u) not found(%u), ocall table size = %zu\n",
+        print_error_term("function id(%u) not found(%u), ocall table size = %zu\n",
             msg_recv->function_id, result_cc, ocall_table->num);
         goto end;
     }
     func = ocall_table->ocalls[msg_recv->function_id];
     if (func == NULL) {
         result_cc = CC_ERROR_ITEM_NOT_FOUND;
-        QT_ERR("ocall function not found(%u)\n", result_cc);
+        print_error_term("ocall function not found(%u)\n", result_cc);
         goto end;
     }
     size_t send_len_total = sizeof(qt_comm_msg_t) + msg_recv->out_buf_size;
     msg_send = calloc(1, send_len_total);
     if (msg_send == NULL) {
         result_cc = CC_ERROR_SHORT_BUFFER;
-        QT_ERR("short buffer(%u)\n", result_cc);
+        print_error_term("short buffer(%u)\n", result_cc);
         goto end;
     }
     msg_send->function_id = msg_recv->function_id;

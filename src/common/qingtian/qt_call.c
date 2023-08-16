@@ -3,7 +3,7 @@
 #include <string.h>
 #include "status.h"
 #include "qt_rpc_proxy.h"
-#include "qt_log.h"
+#include "secgear_log.h"
 #include "qt_call.h"
 
 // send call raw data and wait response
@@ -30,17 +30,17 @@ cc_enclave_result_t comm_call(uint32_t function_id,
     size_t send_len_total = 0;
 
     if (input_buffer == NULL || input_buffer_size == 0) {
-        QT_ERR("comm call parameter check fail\n");
+        PrintInfo(PRINT_ERROR, "comm call parameter check fail\n");
         return CC_ERROR_BAD_PARAMETERS;
     }
     if (input_buffer_size > QT_VSOCK_MAX_DATA_LEN - sizeof(qt_comm_msg_t)) {
-        QT_ERR("input buffer size out limit\n");
+        PrintInfo(PRINT_ERROR, "input buffer size out limit\n");
         return CC_ERROR_BAD_PARAMETERS;
     }
     send_len_total = sizeof(qt_comm_msg_t) + input_buffer_size;
     msg_send = calloc(1, send_len_total);
     if (msg_send == NULL) {
-        QT_ERR("calloc buffer for send message fail\n");
+        PrintInfo(PRINT_ERROR, "calloc buffer for send message fail\n");
         result_cc = CC_ERROR_OUT_OF_MEMORY;
         goto end;
     }
@@ -51,22 +51,22 @@ cc_enclave_result_t comm_call(uint32_t function_id,
 
     // send and wait receive
     if (output_buffer_size > QT_VSOCK_MAX_DATA_LEN - sizeof(qt_comm_msg_t)) {
-        QT_ERR("outpur buffer size out limit\n");
+        PrintInfo(PRINT_ERROR, "outpur buffer size out limit\n");
         result_cc = CC_ERROR_BAD_PARAMETERS;
         goto end;
     }
     size_t recv_buf_size = sizeof(qt_comm_msg_t) + output_buffer_size;
     msg_recv = calloc(1, recv_buf_size);
     if (msg_recv == NULL) {
-        QT_ERR("calloc buffer for recv message fail\n");
+        PrintInfo(PRINT_ERROR, "calloc buffer for recv message fail\n");
         result_cc = CC_ERROR_OUT_OF_MEMORY;
         goto end;
     }
-    QT_DEBUG("msg send and wait...\n");
+    PrintInfo(PRINT_DEBUG, "msg send and wait...\n");
     int recv_len = 0;
     recv_len = msg_send_recv((uint8_t *)msg_send, send_len_total, (uint8_t *)msg_recv, recv_buf_size);
     if (recv_len < 0) {
-        QT_ERR("message send and recv fail\n");
+        PrintInfo(PRINT_ERROR, "message send and recv fail\n");
         result_cc = CC_ERROR_GENERIC;
         goto end;
     }
@@ -75,7 +75,7 @@ cc_enclave_result_t comm_call(uint32_t function_id,
             (void)memcpy(output_buffer, msg_recv->buf, msg_recv->buf_size);
         } else {
             result_cc = CC_ERROR_SHORT_BUFFER;
-            QT_ERR("short output buffer\n");
+            PrintInfo(PRINT_ERROR, "short output buffer\n");
         }
     }
 end:

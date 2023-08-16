@@ -14,6 +14,7 @@
 #include <string.h>
 #include <qtsm_lib.h>
 #include "status.h"
+#include "secgear_log.h"
 #include "qingtian_enclave_init.h"
 
 extern __attribute__((weak)) int qtsm_get_attestation(const int fd,
@@ -34,11 +35,11 @@ int qt_enclave_att_report(uint8_t *nonce, uint32_t nonce_len, uint8_t *report, u
     int rc = -1;
 
     if (!nonce || !report || !real_len) {
-        printf("[Error] Remote attestation input is suspiciously wrong.\n");
+        PrintInfo(PRINT_ERROR, "[Error] Remote attestation input is suspiciously wrong.\n");
         return rc;
     }
 
-    printf("Trying to get Qingtian enclave attestation doc...\n");
+    PrintInfo(PRINT_DEBUG, "Trying to get Qingtian enclave attestation doc...\n");
     /* Open QTSM device for interactions */
     qtsm_dev_fd = qt_get_qtsm_fd();
     if (qtsm_dev_fd <= 0 || qtsm_get_attestation == NULL) {
@@ -53,13 +54,13 @@ int qt_enclave_att_report(uint8_t *nonce, uint32_t nonce_len, uint8_t *report, u
         goto exit;
     }
     
-    printf("Calling qtsm_get_attestation ... ");
+    PrintInfo(PRINT_DEBUG, "Calling qtsm_get_attestation ... ");
     rc = qtsm_get_attestation(qtsm_dev_fd,
                               user_data, user_data_len,
                               nonce, nonce_len,
                               pubkey_data, pubkey_len,
                               doc_cose, &doc_cose_len);
-    printf("Done.\n");
+    PrintInfo(PRINT_DEBUG, "Done.\n");
 
 exit:
     if (rc == NO_ERROR) {
@@ -77,6 +78,6 @@ exit:
         free(doc_cose);
         doc_cose = NULL;
     }
-    printf("Measurement complete.\n");
+    PrintInfo(PRINT_DEBUG, "Measurement complete.\n");
     return rc;
 }
