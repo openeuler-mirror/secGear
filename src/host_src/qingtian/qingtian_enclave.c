@@ -508,7 +508,7 @@ static int qt_stop(uint32_t enclave_id)
 end:
     if (fp != NULL) {
         if (pclose(fp) == -1) {
-             print_error_term("pclose fail while qt stop\n");
+            print_error_term("pclose fail while qt stop\n");
         }
     }
     if (command != NULL) {
