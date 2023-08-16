@@ -279,7 +279,6 @@ static uint32_t check_processor()
     const char *cmd = "lspci | grep -i \"107e\\|106b\\|106a\"";
     FILE *fp = NULL;
     int ret = ENCLAVE_TYPE_MAX;
-    int err = 0;
     fp = popen(cmd, "r");
     if (fp != NULL) {
         if (fgets(buf, READ_BUF, fp) != NULL) {
