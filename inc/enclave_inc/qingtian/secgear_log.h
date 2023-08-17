@@ -30,16 +30,16 @@
     if (level <= PRINT_LEVEL) {                                      \
         switch (level) {                                             \
             case 0:                                                  \
-                printf("%s " fmt "\n", "[secGear][ERROR]", ## args);   \
+                (void)printf("%s " fmt "\n", "[secGear][ERROR]", ## args);   \
                 break;                                               \
             case 1:                                                  \
-                printf("%s " fmt "\n", "[secGear][WARNING]", ## args); \
+                (void)printf("%s " fmt "\n", "[secGear][WARNING]", ## args); \
                 break;                                               \
             case 2:                                                  \
-                printf("%s " fmt "\n", "[secGear][STRACE]", ## args);  \
+                (void)printf("%s " fmt "\n", "[secGear][STRACE]", ## args);  \
                 break;                                               \
             default:                                                 \
-                printf("%s " fmt "\n", "[secGear][DEBUG]", ## args);   \
+                (void)printf("%s " fmt "\n", "[secGear][DEBUG]", ## args);   \
         }                                                            \
     }
 #else
