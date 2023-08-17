@@ -348,22 +348,6 @@ static bool is_socket_connected(int fd)
     }
     return false;
 }
-
-#define QT_SVR_VSOCK_DISCONNECT (3)
-static void qt_svr_handle_disconnection()
-{
-    int res = 0;
-    if (!is_socket_connected(g_qt_proxy.vsock_mng.connfd)) {
-        res = close(g_qt_proxy.vsock_mng.connfd);
-        if (res == -1 && errno == EINTR) {
-            (void)close(g_qt_proxy.vsock_mng.connfd);
-        }
-        g_qt_proxy.vsock_mng.connfd = 0;
-
-        PrintInfo(PRINT_DEBUG, "client disconnected, enclave exit\n");
-        exit(QT_SVR_VSOCK_DISCONNECT);
-    }
-}
 #endif
 
 void qt_discard_exceed_len_msg(uint8_t *buf, size_t msg_len)
@@ -398,7 +382,16 @@ restart:
         len = read(g_qt_proxy.vsock_mng.connfd, &msg_len, sizeof(size_t));    // read msg len first
         if (len <= 0) {
 #ifdef QT_SERVER
-            qt_svr_handle_disconnection();
+            if (!is_socket_connected(g_qt_proxy.vsock_mng.connfd)) {
+                int res = close(g_qt_proxy.vsock_mng.connfd);
+                if (res == -1 && errno == EINTR) {
+                    (void)close(g_qt_proxy.vsock_mng.connfd);
+                }
+                g_qt_proxy.vsock_mng.connfd = 0;
+
+                PrintInfo(PRINT_DEBUG, "client disconnected, recv thread exit\n");
+                break;
+            }
 #endif
             continue;
         }
