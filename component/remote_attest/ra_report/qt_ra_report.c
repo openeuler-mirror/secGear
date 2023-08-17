@@ -16,7 +16,7 @@
 
 cc_enclave_result_t qt_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *report)
 {
-    int retval = 0;
+    int retval = CC_FAIL;
     uint32_t doc_cose_len = 0;
     int rc = CC_FAIL;
     cc_enclave_t *context = NULL;
@@ -42,7 +42,7 @@ cc_enclave_result_t qt_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *
 
     print_debug("Qiantian attestation ecall Done.\n");
     report->len = doc_cose_len; // Report real length of CBOR encoded qingtian attestation doc.
-    return rc;
+    return retval; // Return ecall function result to avoid misunderstadning.
 }
 
 static uni_ra_agent_t g_qt_agent = {
