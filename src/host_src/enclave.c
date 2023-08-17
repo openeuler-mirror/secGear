@@ -181,7 +181,7 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
     p_tee_unregistered unregistered_func = NULL;
 
     res = check_enclave_count();
-    if (res == CC_ERROR_UNEXPECTED) {
+    if (res != CC_SUCCESS) {
         check = false;
         print_error_term("%s \n", cc_enclave_res2_str(res));
         return res;
@@ -189,6 +189,9 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
 
     if (!check_flag(&res, path, flags, features, features_count, enclave)) {
         print_error_term("%s\n", cc_enclave_res2_str(res));
+        (void)pthread_mutex_lock(&(g_list_ops.mutex_work));
+        --g_list_ops.enclaveState.enclave_count;
+        (void)pthread_mutex_unlock(&(g_list_ops.mutex_work));
         return res;
     }
 
@@ -197,6 +200,10 @@ cc_enclave_result_t cc_enclave_create(const char *path, enclave_type_t type, uin
         if (l_path) {
             free(l_path);
         }
+        print_error_term("%s\n", cc_enclave_res2_str(res));
+        (void)pthread_mutex_lock(&(g_list_ops.mutex_work));
+        --g_list_ops.enclaveState.enclave_count;
+        (void)pthread_mutex_unlock(&(g_list_ops.mutex_work));
         return res;
     }
 
