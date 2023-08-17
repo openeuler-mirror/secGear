@@ -16,7 +16,7 @@
 
 cc_enclave_result_t qt_get_ra_report(cc_get_ra_report_input_t *in, cc_ra_buf_t *report)
 {
-    int retval = 0;
+    int retval = CC_FAIL;
     uint32_t doc_cose_len = 0;
     int rc = CC_FAIL;
     cc_enclave_t *context = NULL;
