@@ -368,7 +368,7 @@ static int qt_start(char *command, unsigned int cid, uint32_t *id, int retry)
         goto end;
     } else {
         // get messages only when fail
-        while(fgets(buf, CMD_BUF_RESULT_LINE_MAX, fp) != NULL) {
+        while (fgets(buf, CMD_BUF_RESULT_LINE_MAX, fp) != NULL) {
             if (strstr(buf, "error") != NULL) {
                 ret = -1;
                 goto end;

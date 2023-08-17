@@ -36,7 +36,7 @@ __attribute__((visibility("default"))) int print_log(cc_enclave_level_t level, c
 #define print_log_internal(debug_level,fmt,...)         \
     do {                                                \
         if(debug_level <= SECGEAR_DEBUG_LEVEL)          \
-            print_log(debug_level, fmt, ##__VA_ARGS__); \
+            (void)print_log(debug_level, fmt, ##__VA_ARGS__); \
     } while(0)
 
 #ifdef DEBUG_FILE_LINE
