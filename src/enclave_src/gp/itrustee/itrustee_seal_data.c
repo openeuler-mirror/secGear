@@ -227,7 +227,6 @@ TEE_Result itrustee_unseal_data(void *sealed_data, uint8_t *decrypted_data, uint
         goto done;
     }
     *decrypted_data_len = tmp_sealed_data->encrypted_data_len;
-    *mac_data_len = tmp_sealed_data->aad_len;
     result = aes_seal_unseal_data(key_buf, key_len, (uint8_t *)&(tmp_sealed_data->nonce), SEAL_DATA_NONCE_LEN,
         TEE_MODE_DECRYPT, (uint8_t *)&(tmp_sealed_data->payload_data), tmp_sealed_data->encrypted_data_len,
         decrypted_data, decrypted_data_len, (uint8_t *)&(tmp_sealed_data->tag),
@@ -237,17 +236,16 @@ TEE_Result itrustee_unseal_data(void *sealed_data, uint8_t *decrypted_data, uint
         goto done;
     }
 
-    uint32_t temp_mac_len = *mac_data_len;
-    if (temp_mac_len < tmp_sealed_data->aad_len) {
-        result = TEE_ERROR_WRITE_DATA;
-        goto done;
-    }
     if (mac_data != NULL) {
         uint32_t encrypted_data_len = tmp_sealed_data->encrypted_data_len;
         if (*mac_data_len  >= tmp_sealed_data->aad_len) {
             memcpy(mac_data, &(tmp_sealed_data->payload_data[encrypted_data_len]), tmp_sealed_data->aad_len);
+            *mac_data_len = tmp_sealed_data->aad_len;
+        } else {
+            explicit_bzero(decrypted_data, *decrypted_data_len);
+            result = TEE_ERROR_WRITE_DATA;
+            goto done;
         }
-        *mac_data_len = tmp_sealed_data->aad_len;
     }
 
 done:
