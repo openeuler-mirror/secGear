@@ -21,7 +21,7 @@ set(CODEGEN codegen)
 
 if(CC_QT)
     set(CODETYPE qingtian)
-    add_definitions(-DPATH="/data/test_ta.eif")
+    add_definitions(-DPATH="${CMAKE_BINARY_DIR}/eif/test_ta.eif")
     add_definitions(-DQT_ENCLAVE)
 endif()
 

@@ -47,15 +47,14 @@ if(CC_QT)
     set(ENCLAVE_ENTRY enclave)
     add_executable(${ENCLAVE_ENTRY} docker_main.c)
     target_link_directories(${ENCLAVE_ENTRY} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(${ENCLAVE_ENTRY} -ltest_ta)
-    #target_link_libraries(${ENCLAVE_ENTRY} -ltest_ta -lqtsm)
+    target_link_libraries(${ENCLAVE_ENTRY} -ltest_ta -lqtsm)
     target_include_directories(${ENCLAVE_ENTRY} PRIVATE /usr/include/secGear)
     
     set(IMAGE_NAME enclave_image)
     add_custom_command(TARGET ${ENCLAVE_ENTRY}
         POST_BUILD
         COMMAND mkdir -p  ${CMAKE_BINARY_DIR}/eif
-        COMMAND cp /usr/lib64/libqtsm.so ${CMAKE_CURRENT_BINARY_DIR}/eif
+        COMMAND cp /usr/lib64/libqtsm.so ${CMAKE_BINARY_DIR}/eif
         COMMAND cp /usr/lib64/libsecgear_tee.a ${CMAKE_BINARY_DIR}/eif
         COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/libtest_ta.so ${CMAKE_BINARY_DIR}/eif
         COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/enclave ${CMAKE_BINARY_DIR}/eif
@@ -63,10 +62,6 @@ if(CC_QT)
         COMMAND docker build -t ${IMAGE_NAME} ${CMAKE_BINARY_DIR}/eif
         COMMAND bash ${SIGN_TOOL} -d sign -x qingtian -i ${IMAGE_NAME} -o ${CMAKE_BINARY_DIR}/eif/${OUTPUT}
         )
-
-    install(FILES ${CMAKE_BINARY_DIR}/eif/${OUTPUT}
-        DESTINATION /data
-        PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 
 endif()
 
