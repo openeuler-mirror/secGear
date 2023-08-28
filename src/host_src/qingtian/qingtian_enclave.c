@@ -423,7 +423,7 @@ cc_enclave_result_t _qingtian_create(cc_enclave_t *enclave, const enclave_featur
         }
     }
     if (startup_pra == NULL) {
-        print_error_term("enclave startup parameter is NULL, use default\n");
+        print_notice("enclave startup parameter is NULL, use default\n");
         startup_pra = &auto_pra;
         auto_cfg = true;
     }
