@@ -26,7 +26,7 @@ if(CC_QT)
 endif()
 
 set(PREFIX test_ta)
-set(CA_FILES test_ca.cc)
+set(CA_FILES test_ca.cc test_ocall.c)
 
 #set auto code
 set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
@@ -39,7 +39,12 @@ add_subdirectory(test_ta)
 set(SOURCE_FILES test_main.cc ${CA_FILES} ${AUTO_FILES})
 
 add_executable(secgear_test ${SOURCE_FILES})
+
 target_include_directories(secgear_test PRIVATE ${CMAKE_CURRENT_BINARY_DIR} /usr/include/secGear)
 target_link_libraries(secgear_test gtest secgear)
+
+add_executable(do_ecall do_ecall.c ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c test_ocall.c)
+target_include_directories(do_ecall PRIVATE ${CMAKE_CURRENT_BINARY_DIR} /usr/include/secGear)
+target_link_libraries(do_ecall secgear)
 
 add_test(NAME secgear_test COMMAND secgear_test)

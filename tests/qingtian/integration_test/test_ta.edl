@@ -15,5 +15,25 @@ enclave {
     from "secgear_tstdc.edl" import *; 
     trusted {
         public int get_string([out, size=32]char *buf);
+        public int get_40k([out, size=40960]char *buf);
+        public int get_add(int a, int b);
+        public int64_t get_add_int64(int64_t a, int64_t b);
+        public uint64_t get_add_uint64(uint64_t a, uint64_t b);
+        public size_t get_add_size(size_t a, size_t b);
+        public int increase(int who, int a);
+        public void test_void_void(void);
+        public void test_void_int(int a);
+        public int test_int_void(void);
+        public int test_int_inbuf([in, size=64]char *inbuf);
+        public int test_int_int_inbuf(int a, [in, size=64]char *inbuf);
+        public int test_int_outbuf([out, size=64]char *outbuf);
+        public int test_int_int_outbuf(int a, [out, size=64]char *outbuf);
+        public int test_int_inbuf_outbuf([in, size=64]char *inbuf, [out, size=64]char *outbuf);
+        public int test_int_in_out_buf([in, out, size=64]char *buf);
+        public uint32_t test_get_random([out, size=64]char *buf, int len);
+    };
+    untrusted {
+        int increase_result(int who, int a);
+        void ocall_void_void(void);
     };
 };
