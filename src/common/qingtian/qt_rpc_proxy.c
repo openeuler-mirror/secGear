@@ -211,13 +211,13 @@ static void qt_free_msg_node(qt_proxy_msg_node_t *node)
     return;
 }
 
-static void qt_msg_queue_push(qt_proxy_msg_queue_t *queue, qt_proxy_msg_node_t* node)
+static int qt_msg_queue_push(qt_proxy_msg_queue_t *queue, qt_proxy_msg_node_t* node)
 {
     pthread_mutex_lock(&queue->lock);
     if (queue->node_cnt >= QT_MSG_MAX_NUM) {
         PrintInfo(PRINT_ERROR, "qt_msg_queue_push queue is full\n");
         pthread_mutex_unlock(&queue->lock);
-        return;
+        return -1;
     }
     if (queue->head == NULL) {
         queue->head = queue->tail = node;
@@ -228,6 +228,7 @@ static void qt_msg_queue_push(qt_proxy_msg_queue_t *queue, qt_proxy_msg_node_t* 
     }
     queue->node_cnt++;
     pthread_mutex_unlock(&queue->lock);
+    return CC_SUCCESS;
 }
 
 static qt_proxy_msg_node_t *qt_msg_queue_pop(qt_proxy_msg_queue_t *queue)
@@ -420,7 +421,11 @@ restart:
             PrintInfo(PRINT_ERROR, "recv thread malloc msg node failed\n");
             continue;
         }
-        qt_msg_queue_push(&g_qt_proxy.msg_mng.recv_queue, node);
+        if (qt_msg_queue_push(&g_qt_proxy.msg_mng.recv_queue, node) != CC_SUCCESS) {
+            qt_free_msg_node(node);
+            node = NULL;
+            continue;
+        }
     }
 
     return NULL;
@@ -522,7 +527,10 @@ static int add_msg_to_send_queue(uint64_t task_id, uint8_t *input, size_t input_
         return -1;
     }
 
-    qt_msg_queue_push(&g_qt_proxy.msg_mng.send_queue, msg_node);
+    if (qt_msg_queue_push(&g_qt_proxy.msg_mng.send_queue, msg_node) != CC_SUCCESS) {
+        qt_free_msg_node(msg_node);
+        return -1;
+    }
 
     return 0;
 }
@@ -530,6 +538,9 @@ static int add_msg_to_send_queue(uint64_t task_id, uint8_t *input, size_t input_
 static void qt_task_mng_thread_pool_destroy(void)
 {
     pthread_t *thread_pool = g_qt_proxy.task_mng.thread_pool;
+    if (thread_pool == NULL) {
+        return;
+    }
     uint32_t  thread_pool_size = g_qt_proxy.task_mng.proxy_config.thread_pool_size;
     for (uint32_t i = 0; i < thread_pool_size; i++) {
         if (thread_pool[i] != 0) {
@@ -555,7 +566,10 @@ static int qt_request_msg_proc(qt_proxy_msg_t *msg)
         return -1;
     }
 
-    qt_msg_queue_push(&g_qt_proxy.msg_mng.send_queue, rsp_node);
+    if (qt_msg_queue_push(&g_qt_proxy.msg_mng.send_queue, rsp_node) != CC_SUCCESS) {
+        qt_free_msg_node(rsp_node);
+        return -1;
+    }
 
     return 0;
 }
@@ -671,7 +685,11 @@ static qt_proxy_task_node_t* qt_new_task_node(uint8_t *recv_buf, size_t len)
     if (task_node == NULL) {
         return NULL;
     }
-    RAND_priv_bytes((uint8_t *)&task_node->task_id, sizeof(uint64_t));
+    int ret = RAND_priv_bytes((uint8_t *)&task_node->task_id, sizeof(uint64_t));
+    if (ret != 1) {
+        free(task_node);
+        return NULL;
+    }
     pthread_mutex_init(&task_node->lock, NULL);
     pthread_cond_init(&task_node->cond, NULL);
     task_node->recv_buf = recv_buf;
@@ -711,6 +729,7 @@ static void qt_task_mng_destroy(void)
     }
     pthread_mutex_unlock(&g_qt_proxy.task_mng.lock);
     free(g_qt_proxy.task_mng.thread_pool);
+    g_qt_proxy.task_mng.thread_pool = NULL;
 
     return;
 }
