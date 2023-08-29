@@ -29,13 +29,19 @@ cc_enclave_result_t handle_ecall_function(
     qt_comm_msg_t *msg_send = NULL;
     cc_enclave_result_t result_cc = CC_SUCCESS;
 
-    if (input_buffer == NULL || input_buffer_size == 0 || output_buffer == NULL || output_bytes_written == NULL) {
+    if (input_buffer == NULL || input_buffer_size < sizeof(qt_comm_msg_t) ||
+        output_buffer == NULL || output_bytes_written == NULL) {
         PrintInfo(PRINT_ERROR, "handle ecall parameter check fail");
         return CC_ERROR_BAD_PARAMETERS;
     }
     // write nothing default
     *output_bytes_written = 0;
     msg_recv = (qt_comm_msg_t *) input_buffer;
+
+    if (msg_recv->buf_size != input_buffer_size - sizeof(qt_comm_msg_t)) {
+        PrintInfo(PRINT_ERROR, "handle ecall input_buffer_size error");
+        return CC_ERROR_BAD_PARAMETERS;
+    }
 
     cc_ecall_func_t func;
     enclave_table_t ecall_table;
