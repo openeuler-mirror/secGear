@@ -48,7 +48,7 @@ The tool supports the following two modes:
 	-i <file>       input parameter, which is enclave to be signed for digest/sign command, and signed enclave for
 	                dump command.
 	-k <file>       private key required for single-step method. NOTE: single-step method is only for the dubug mode,
-	                plaintext private key does exist in the production environment.
+	                private key does exist in the production environment.
 	-m <file>       additional config_cloud.ini for trustzone.
 	-o <file>       output parameter, the sign command outputs signed enclave, the digest command outputs signing
 	                material, the dump command outputs data containing the SIGStruct metadata for the SGX signed
@@ -61,4 +61,4 @@ The tool supports the following two modes:
 ```
 **Note**: 
 Using the `./sign_tool.sh -h` to get help information.
-For trustzone, it will randomly generate a AES key and temporarily stored in the file in plaintext, please ensure security.
+For trustzone, it will randomly generate a AES key and temporarily stored in the file, please ensure security.

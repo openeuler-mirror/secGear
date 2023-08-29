@@ -22,7 +22,7 @@ print_help(){
     echo "-i <file>       input parameter, which is enclave to be signed for digest/sign command, and signed enclave for"
     echo "                dump command."
     echo "-k <file>       private key required for single-step method. NOTE: single-step method is only for the dubug mode,"
-    echo "                plaintext private key does exist in the production environment."
+    echo "                private key does exist in the production environment."
     echo "-m <file>       additional config_cloud.ini for trustzone."
     echo "-o <file>       output parameter, the sign command outputs signed enclave, the digest command outputs signing"
     echo "                material, the dump command outputs data containing the SIGStruct metadata for the SGX signed"
