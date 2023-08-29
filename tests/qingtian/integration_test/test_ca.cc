@@ -171,9 +171,10 @@ static int encalve_init(cc_enclave_t **ctx, cc_startup_t *pra)
     pra->enclave_cid = 4; // cid is 4 by default
     pra->mem_mb = 512; // memmory size 512 MB
     pra->query_retry = 10; // query enclave try 10 times
+    return CC_SUCCESS;
 }
 
-static int encalve_deinit(cc_enclave_t *ctx)
+static void encalve_deinit(cc_enclave_t *ctx)
 {
     free(ctx);
 }
@@ -186,8 +187,8 @@ TEST(cc_enclave_test, test_enclave_repeat_start)
     cc_enclave_t *context2 = NULL;
     cc_startup_t pra;
     enclave_features_t feature;
-    encalve_init(&context, &pra);
-    encalve_init(&context2, &pra);
+    ASSERT_EQ(encalve_init(&context, &pra), CC_SUCCESS);
+    ASSERT_EQ(encalve_init(&context2, &pra), CC_SUCCESS);
     feature.setting_type = QINGTIAN_STARTUP_FEATURES;
     feature.feature_desc = &pra;
     const char *path = PATH;
@@ -212,7 +213,7 @@ protected:
     {
         context = (cc_enclave_t *)calloc(1, sizeof(cc_enclave_t));
         pra.cpus = 2; // number of cpu at least 2
-        pra.enclave_cid = cid;
+        pra.enclave_cid = 4; // default cid is 4
         pra.mem_mb = 512; // memmory size 512 MB
         pra.query_retry = 10; // query enclave try 10 times
 
@@ -249,8 +250,8 @@ TEST_F(QingtianEnclaveTest, test_repeat_ecall)
     ASSERT_EQ(res, CC_SUCCESS);
 
     int  retval = 0;
-    char *buf = static_cast<char *>calloc(1, 1024);
-    ASSERT_NE(buf, NULL);
+    char *buf = static_cast<char *>(calloc(1, 1024));
+    ASSERT_NE(buf, nullptr);
     int cnt = 10; // repate 10
 
     int a = 11;
@@ -286,7 +287,7 @@ static void *ecall_thread(void *arg)
     ctx_t *thread_ctx = (ctx_t *)arg;
     cc_enclave_t *ctx = thread_ctx->ctx;
     int  retval = 0;
-    char *buf = static_cast<char *>calloc(1, 1024);
+    char *buf = static_cast<char *>(calloc(1, 1024));
     if (buf == nullptr) {
         thread_ctx->fail = true;
         return nullptr;
@@ -339,7 +340,7 @@ TEST_F(QingtianEnclaveTest, test_ecall_multithread)
     ASSERT_EQ(res, CC_SUCCESS);
 
     list_size = thread_cnt;
-    list = static_cast<ctx_t *>calloc(1, list_size * sizeof(ctx_t));
+    list = static_cast<ctx_t *>(calloc(1, list_size * sizeof(ctx_t)));
     for (int i = 0; i < list_size; i++) {
         list[i].ctx = context;
         list[i].index = i;
@@ -379,8 +380,7 @@ TEST_F(QingtianEnclaveTest, test_ecall_multiprocess)
 {
     FILE *fp1 = NULL;
     FILE *fp2 = NULL;
-    char *cid1 = "4";
-    char *cid2 = "5";
+    const int max_line_buf = 256;
     printf("Test: do ecall by two process\n");
     fp1 = popen("./do_ecall 4 5", "r");
     ASSERT_TRUE(fp1 != NULL);
@@ -393,14 +393,14 @@ TEST_F(QingtianEnclaveTest, test_ecall_multiprocess)
     printf("wait and check child process result\n");
     while (cnt--) {
         printf(".%d ", cnt);
-        if (fgets(read_buf, MAX_BUF_LINE_MAX, fp1) != NULL) {
+        if (fgets(read_buf, max_line_buf, fp1) != NULL) {
             ASSERT_TRUE(strstr(read_buf, "error") == nullptr);
-            printf("CID = "CID1" :%s\n", read_buf);
+            printf("do_ecall 1 return : %s\n", read_buf);
         }
 
-        if (fgets(read_buf, MAX_BUF_LINE_MAX, fp2) != NULL) {
+        if (fgets(read_buf, max_line_buf, fp2) != NULL) {
             ASSERT_TRUE(strstr(read_buf, "error") == nullptr);
-            printf("CID = "CID2" :%s\n", read_buf);
+            printf("do_ecall 2 return : %s\n", read_buf);
         }
         sleep(1);
     }
@@ -424,7 +424,7 @@ TEST_F(QingtianEnclaveTest, test_func_all_types)
     ASSERT_EQ(retval, 12345); // return value 12345
 
     printf("do test_int_inbuf\n");
-    char *inbuf = "inbuf";
+    char inbuf[] = {"inbuf"};
     res = test_int_inbuf(context, &retval, inbuf);
     ASSERT_EQ(res, CC_SUCCESS);
     ASSERT_EQ(retval, strlen(inbuf));
@@ -467,8 +467,8 @@ TEST_F(QingtianEnclaveTest, test_40K_ecall)
     ASSERT_EQ(res, CC_SUCCESS);
 
     int  retval = 0;
-    char *buf = static_cast<char *>calloc(1, 40960 + 1);
-    ASSERT_NE(buf, NULL);
+    char *buf = static_cast<char *>(calloc(1, 40960 + 1));
+    ASSERT_NE(buf, nullptr);
     int cnt = 10;
     while (cnt--) {
         res = get_40k(context, &retval, buf);
@@ -488,7 +488,7 @@ TEST_F(QingtianEnclaveTest, test_func_get_random)
 
     uint32_t  retval = 0;
     uint8_t *buf = (uint8_t *)calloc(1, 1024 + 1);
-    ASSERT_NE(buf, NULL);
+    ASSERT_NE(buf, nullptr);
     const int len = 64;
     int cnt = 10;
     size_t zero_cnt = 0;

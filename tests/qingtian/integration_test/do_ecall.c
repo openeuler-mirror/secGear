@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 #include <pthread.h>
 #include <linux/limits.h>
 #include "enclave.h"
@@ -13,12 +14,12 @@ int main(int argc, char *argv[])
         printf("start like ecall $CID, example: ecall 4\n");
         return 1;
     }
-    if (1 != sscanf_s(argv[1], "%d", &cid)) { // index 1: cid
+    if (1 != sscanf(argv[1], "%d", &cid)) { // index 1: cid
         printf("start like ecall $CID, example: ecall 4 5\n");
         return 1;
     }
 
-    if (1 != sscanf_s(argv[2], "%d", &cnt)) { // index 2: ecall repeat times
+    if (1 != sscanf(argv[2], "%d", &cnt)) { // index 2: ecall repeat times
         printf("start like ecall $CID, example: ecall 4 5\n");
         return 1;
     }
