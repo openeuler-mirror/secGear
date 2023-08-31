@@ -16,66 +16,62 @@
 #include "enclave.h"
 #include "helloworld_u.h"
 #include "string.h"
+#include "sg_ra_report.h"
 
 #define BUF_LEN 32
+#define MAX_BUFFER_LEN 5120
 
 int main()
 {
     int  retval = 0;
     char *path = PATH;
     char buf[BUF_LEN];
-    cc_enclave_t *context = NULL;
-    context = (cc_enclave_t *)malloc(sizeof(cc_enclave_t));
-    if (!context) {
-        return CC_ERROR_OUT_OF_MEMORY;
-    }
+    cc_enclave_t context;
     cc_enclave_result_t res;
 
     printf("Create secgear enclave\n");
+    memset(&context, 0, sizeof(context));
 
-    char real_p[PATH_MAX];
-    /* check file exists, if not exist then use absolute path */
-    if (realpath(path, real_p) == NULL) {
-	    if (getcwd(real_p, sizeof(real_p)) == NULL) {
-		    printf("Cannot find enclave.sign.so");
-		    return -1;
-	    }
-	    if (PATH_MAX - strlen(real_p) <= strlen("/enclave.signed.so")) {
-		    printf("Failed to strcat enclave.sign.so path");
-		    return -1;
-	    }
-	    (void)strcat(real_p, "/enclave.signed.so");
-    }
-enclave_features_t *feature = NULL;
-int feature_cnt = 0;
-enclave_type_t type = AUTO_ENCLAVE_TYPE;
-#if (defined QT_ENCLAVE)
-    enclave_features_t features[2];
-    features[0].setting_type = QINGTIAN_STARTUP_FEATURES;
-    cc_startup_t pra;
-    pra.cpus = 2;
-    pra.enclave_cid = 4;
-    pra.mem_mb = 512;
-    pra.query_retry = 10;
-    features[0].feature_desc = &pra;
-    feature = &features[0];
-    feature_cnt = 1;
-    type = AUTO_ENCLAVE_TYPE;
-#endif
-    res = cc_enclave_create(real_p, type, 0, SECGEAR_DEBUG_FLAG, feature, feature_cnt, context);
+    res = cc_enclave_create(path, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, &context);
     if (res != CC_SUCCESS) {
         printf("Create enclave error\n");
         return res;
     }
 
-    res = get_string(context, &retval, buf);
+    res = get_string(&context, &retval, buf);
     if (res != CC_SUCCESS || retval != (int)CC_SUCCESS) {
         printf("Ecall enclave error\n");
     } else {
         printf("%s\n", buf);
     }
 
-    res = cc_enclave_destroy(context);
+    uint8_t random[BUF_LEN] = {0}; 
+    res = get_random(&context, &retval , random, BUF_LEN);
+    if (res != CC_SUCCESS || retval != (int)CC_SUCCESS) {
+        printf("get random from enclave error\n");
+    } else {
+        printf("get random from enclave success:\n");
+        for (int i = 0; i < BUF_LEN; i++) {
+            printf("%2x ", random[i]);
+        }
+        printf("\n");
+    }
+
+    cc_get_ra_report_input_t in = {0};
+    in.taid = (uint8_t *)&context;
+    in.nonce_len = BUF_LEN;
+    memcpy(in.nonce, random, BUF_LEN);
+
+    uint8_t out_buf[MAX_BUFFER_LEN] = {0};
+    cc_ra_buf_t out = {MAX_BUFFER_LEN, (uint8_t *)out_buf};
+    res = cc_get_ra_report(&in, &out);
+    if (res != CC_SUCCESS || retval != (int)CC_SUCCESS) {
+        printf("get report from enclave error\n");
+    } else {
+        printf("get report from enclave success\n");
+    }
+
+    res = cc_enclave_destroy(&context);
     if(res != CC_SUCCESS) {
         printf("Destroy enclave error\n");
     }

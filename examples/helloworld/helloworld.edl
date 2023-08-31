@@ -12,8 +12,10 @@
 
 enclave {
     include "secgear_urts.h"
-    from "secgear_tstdc.edl" import *; 
+    from "secgear_tstdc.edl" import *;
+    from "sg_ra_report.edl" import *;
     trusted {
         public int get_string([out, size=32]char *buf);
+        public int get_random([out, size=buf_len]char *buf, int buf_len);
     };
 };

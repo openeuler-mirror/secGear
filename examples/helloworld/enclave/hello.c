@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "helloworld_t.h"
+#include "secgear_random.h"
 
 #define TA_HELLO_WORLD        "secgear hello world!"
 #define BUF_MAX 32
@@ -20,4 +21,9 @@ int get_string(char *buf)
 {
     strncpy(buf, TA_HELLO_WORLD, strlen(TA_HELLO_WORLD) + 1);
     return 0;
+}
+
+int get_random(char *buf, int buf_len)
+{
+    return cc_enclave_generate_random(buf, (size_t)buf_len);
 }
