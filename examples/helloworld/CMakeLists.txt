@@ -8,7 +8,8 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-project(HelloWorld  C)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+project(secgear_helloworld VERSION 0.1.0)
 
 set(CMAKE_C_STANDARD 99)
 
@@ -16,17 +17,17 @@ set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 #set edl name
 set(EDL_FILE helloworld.edl)
-set(CODEGEN ${LOCAL_ROOT_PATH}/bin/codegen)
+set(CODEGEN codegen)
 
 if(CC_QT)
     set(CODETYPE qingtian)
-    add_definitions(-DPATH="/data/enclave.eif")
+    add_definitions(-DPATH="${CMAKE_BINARY_DIR}/eif/enclave.eif")
     add_definitions(-DQT_ENCLAVE)
 endif()
 
 if(CC_GP)
     set(CODETYPE trustzone)
-    set(UUID f68fd704-6eb1-4d14-b218-722850eb3ef0)
+    set(UUID 98937244-1403-4426-ba3c-d75badcdf3ae)
     add_definitions(-DPATH="/data/${UUID}.sec")
 endif()
 

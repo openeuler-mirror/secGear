@@ -1,7 +1,9 @@
-gpd.ta.appID:   		f68fd704-6eb1-4d14-b218-722850eb3ef0
-gpd.ta.service_name:		rsa-demo
-gpd.ta.singleInstance:		true
-gpd.ta.multiSession: 		false
-gpd.ta.instanceKeepAlive:	false
-gpd.ta.dataSize:		819200
-gpd.ta.stackSize:		40960
+gpd.ta.appID:               98937244-1403-4426-ba3c-d75badcdf3ae
+gpd.ta.service_name:        icbc-face-liusiming4
+gpd.ta.singleInstance:      true
+gpd.ta.multiSession:        true
+gpd.ta.instanceKeepAlive:   false
+gpd.ta.dataSize:            802816
+gpd.ta.stackSize:           1792
+gpd.ta.multiCommand:        false
+gpd.ta.mem_page_align:        true
