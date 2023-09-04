@@ -88,7 +88,7 @@ if(CC_QT)
     target_link_libraries(${PREFIX} -lsecgear_tee)
     set(ENCLAVE_ENTRY enclave)
     add_executable(${ENCLAVE_ENTRY} enclave.c)
-    target_link_directories(${ENCLAVE_ENTRY} PRIVATE ${CMAKE_BINARY_DIR}/lib/)
+    target_link_directories(${ENCLAVE_ENTRY} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_link_libraries(${ENCLAVE_ENTRY} -lhelloworld -lqtsm)
     target_include_directories(${ENCLAVE_ENTRY} PRIVATE /usr/include/secGear)
     
