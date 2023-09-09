@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "test_ta_t.h"
+#include "secgear_random.h"
 
 #define TA_HELLO_WORLD        "secgear hello world!"
 #define BUF_MAX 32
