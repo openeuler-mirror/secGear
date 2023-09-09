@@ -52,7 +52,7 @@ int main()
     } else {
         printf("get random from enclave success:\n");
         for (int i = 0; i < BUF_LEN; i++) {
-            printf("%2x ", random[i]);
+            printf("%02X", random[i]);
         }
         printf("\n");
     }
