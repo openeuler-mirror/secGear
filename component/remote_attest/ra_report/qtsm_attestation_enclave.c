@@ -63,7 +63,7 @@ int qt_enclave_att_report(uint8_t *nonce, uint32_t nonce_len, uint8_t *report, u
                               nonce, nonce_len,
                               pubkey_data, pubkey_len,
                               doc_cose, &doc_cose_len);
-    PrintInfo(PRINT_DEBUG, "Done.\n");
+    PrintInfo(PRINT_DEBUG, "Done. rc = %d\n", rc);
 
 exit:
     if (qtsm_dev_fd > 0) {
