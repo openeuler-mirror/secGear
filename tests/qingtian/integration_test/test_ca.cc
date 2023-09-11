@@ -485,16 +485,18 @@ TEST_F(QingtianEnclaveTest, test_func_get_random)
     printf("Test: get random\n");
     res = cc_enclave_create(path, QINGTIAN_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, &feature, 1, context);
     ASSERT_EQ(res, CC_SUCCESS);
-
+    sleep(1); // otherwise, get random may fail
     uint32_t  retval = 0;
     uint8_t *buf = (uint8_t *)calloc(1, 1024 + 1);
     ASSERT_NE(buf, nullptr);
-    const int len = 64;
+    int len = 64;
     int cnt = 10;
     size_t zero_cnt = 0;
     while (cnt--) {
         res = test_get_random(context, &retval, (char*)buf, len);
+        printf("res = %d retval = %X\n", res, retval);
         ASSERT_EQ(res, CC_SUCCESS);
+        ASSERT_EQ(retval, CC_SUCCESS);
         zero_cnt = 0;
         printf("random[%d]: ", len);
         for (int i = 0; i < len; i++) {
@@ -505,6 +507,7 @@ TEST_F(QingtianEnclaveTest, test_func_get_random)
         }
         printf("\n");
         ASSERT_NE(zero_cnt, len);
+        len++;
     }
     free(buf);
     res = cc_enclave_destroy(context);

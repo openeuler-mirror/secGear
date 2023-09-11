@@ -19,12 +19,17 @@ extern __attribute__((weak)) int qtsm_get_random(int fd, uint8_t *rnd_data, uint
 
 int _cc_generate_random(void *buffer, size_t size)
 {
-    int qtsm_dev_fd = qt_get_qtsm_fd();
     if (qtsm_get_random == NULL) {
         PrintInfo(PRINT_DEBUG, "cant't find qtsm_get_random symbol\n");
         return 1;
     }
-    if (qtsm_get_random(qtsm_dev_fd, buffer, size) != 0) {
+    int qtsm_dev_fd = qt_get_qtsm_fd();
+    if (qtsm_dev_fd < 0) {
+        return 1;
+    }
+    int ret = qtsm_get_random(qtsm_dev_fd, buffer, size);
+    qt_release_qtsm_fd(qtsm_dev_fd);
+    if (ret != 0) {
         return 1;
     }
     return 0;

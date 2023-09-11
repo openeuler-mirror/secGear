@@ -21,6 +21,7 @@ extern "C" {
 #endif
 
 int qt_get_qtsm_fd(void);
+void qt_release_qtsm_fd(int fd);
 
 #ifdef  __cplusplus
 }

@@ -88,7 +88,7 @@ if(CC_QT)
     target_link_libraries(${PREFIX} -lsecgear_tee)
     set(ENCLAVE_ENTRY enclave)
     add_executable(${ENCLAVE_ENTRY} enclave.c)
-    target_link_directories(${ENCLAVE_ENTRY} PRIVATE ${CMAKE_BINARY_DIR}/lib/)
+    target_link_directories(${ENCLAVE_ENTRY} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_link_libraries(${ENCLAVE_ENTRY} -lhelloworld -lqtsm)
     target_include_directories(${ENCLAVE_ENTRY} PRIVATE /usr/include/secGear)
     
@@ -96,6 +96,8 @@ if(CC_QT)
     add_custom_command(TARGET ${ENCLAVE_ENTRY}
         POST_BUILD
         COMMAND mkdir -p  ${CMAKE_BINARY_DIR}/eif
+        COMMAND cp /usr/lib64/libcbor.so.0.10.2 ${CMAKE_BINARY_DIR}/eif
+        COMMAND cp -d /usr/lib64/libcbor.so.0.10 ${CMAKE_BINARY_DIR}/eif
         COMMAND cp /usr/lib64/libqtsm.so ${CMAKE_BINARY_DIR}/eif
         COMMAND cp /usr/lib64/libsecgear_tee.a ${CMAKE_BINARY_DIR}/eif
         COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/libhelloworld.so ${CMAKE_BINARY_DIR}/eif

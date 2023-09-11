@@ -40,11 +40,14 @@ int qt_enclave_att_report(uint8_t *nonce, uint32_t nonce_len, uint8_t *report, u
     }
 
     PrintInfo(PRINT_DEBUG, "Trying to get Qingtian enclave attestation doc...\n");
+    if (qtsm_get_attestation == NULL) {
+        PrintInfo(PRINT_ERROR, "there is no symbol qtsm_get_attestation\n");
+        return rc;
+    }
     /* Open QTSM device for interactions */
     qtsm_dev_fd = qt_get_qtsm_fd();
-    if (qtsm_dev_fd <= 0 || qtsm_get_attestation == NULL) {
-        rc = CC_FAIL;
-        goto exit;
+    if (qtsm_dev_fd < 0) {
+        return rc;
     }
 
     /* retrieve attestation report, currently pubkey and user_data are both NULL */
@@ -60,9 +63,12 @@ int qt_enclave_att_report(uint8_t *nonce, uint32_t nonce_len, uint8_t *report, u
                               nonce, nonce_len,
                               pubkey_data, pubkey_len,
                               doc_cose, &doc_cose_len);
-    PrintInfo(PRINT_DEBUG, "Done.\n");
+    PrintInfo(PRINT_DEBUG, "Done. rc = %d\n", rc);
 
 exit:
+    if (qtsm_dev_fd > 0) {
+        qt_release_qtsm_fd(qtsm_dev_fd);
+    }
     if (rc == NO_ERROR) {
         memcpy(report, doc_cose, doc_cose_len);
         *real_len = doc_cose_len;

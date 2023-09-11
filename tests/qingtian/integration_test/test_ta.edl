@@ -30,7 +30,7 @@ enclave {
         public int test_int_int_outbuf(int a, [out, size=64]char *outbuf);
         public int test_int_inbuf_outbuf([in, size=64]char *inbuf, [out, size=64]char *outbuf);
         public int test_int_in_out_buf([in, out, size=64]char *buf);
-        public uint32_t test_get_random([out, size=64]char *buf, int len);
+        public uint32_t test_get_random([out, size=1024]char *buf, int len);
     };
     untrusted {
         int increase_result(int who, int a);
