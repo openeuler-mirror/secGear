@@ -61,4 +61,3 @@ The tool supports the following two modes:
 ```
 **Note**: 
 Using the `./sign_tool.sh -h` to get help information.
-For trustzone, it will randomly generate a AES key and temporarily stored in the file, please ensure security.
