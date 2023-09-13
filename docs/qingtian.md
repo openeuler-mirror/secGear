@@ -40,7 +40,7 @@ mkdir debug && cd debug && cmake -DCC_QT=ON .. && make && cd examples/helloworld
 
 | 接口                           | 接口说明             |
 |------------------------------|------------------|
-| cc_enclave_generate_random() | 用于在安全侧生成密码安全的随机数 |
+| cc_enclave_generate_random() | 用于在安全侧生成密码安全的随机数,cc_enclave_create成功返回后0.5S以上再调用此接口,否则可能会失败 |
 
 - 工具接口
 
