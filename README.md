@@ -141,6 +141,60 @@ test_t.h：该头文件为自动生成代码工具codegen通过edl文件生成�
 
 使用SIGN_TOOL对编译出的.so文件进行签名。
 
+### 6 配置开发者证书
+仅适用鲲鹏平台，以[examples/helloworld](./examples/helloworld)样例介绍
+- 修改uuid
+  修改[examples/helloworld/CMakeLists.txt](./examples/helloworld/CMakeLists.txt)中uuid
+  
+```
+if(CC_GP)
+    set(CODETYPE trustzone)
+    set(UUID f68fd704-6eb1-4d14-b218-722850eb3ef0)  # f68fd704-6eb1-4d14-b218-722850eb3ef0修改为自己申请证书对应的configs.xml中的uuid
+    add_definitions(-DPATH="/data/${UUID}.sec")
+  endif()
+```
+
+- 配置证书路径
+修改[examples/helloworld/enclave/config_cloud.ini](./examples/helloworld/enclave/config_cloud.ini)配置证书路径
+
+```
+;private key for signing TA
+;[private key owned by yourself]
+secSignKey = /home/TA_cert/private_key.pem    # 证书对应的私钥路径
+;;;
+;config file
+;[signed config file by Huawei]
+configPath = /home/TA_cert/secgear-app1/config  # config开发者证书的路径
+```
+
+- 修改manifest.txt
+参照申请证书是的configs.xml字段，修改[manifest.txt](./examples/helloworld/enclave/manifest.txt)中字段
+如果configs.xml中存在，manifest.txt中没有，需要自行添加。
+
+```
+gpd.ta.appID:   		f68fd704-6eb1-4d14-b218-722850eb3ef0
+gpd.ta.service_name:		rsa-demo
+gpd.ta.singleInstance:		true
+gpd.ta.multiSession: 		false
+gpd.ta.instanceKeepAlive:	false
+gpd.ta.dataSize:		819200
+gpd.ta.stackSize:		40960
+```
+
+- 开启签名
+在[examples/helloworld/enclave/CMakeLists.txt](./examples/helloworld/enclave/CMakeLists.txt)中找到如下注释的行，打开注释
+
+```
+        add_custom_command(TARGET ${PREFIX}
+    	      POST_BUILD
+	      COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
+
+          install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}  
+              DESTINATION /data
+              PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE  WORLD_READ  WORLD_EXECUTE)
+```
+
+配置开发者证书完成，重新编译安装执行即可。
 
 switchless特性
 -------------------------
