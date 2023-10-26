@@ -1,0 +1,48 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
+ * secGear is licensed under the Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *     http://license.coscl.org.cn/MulanPSL2
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
+ * PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ */
+
+enclave {
+    include "secgear_urts.h"
+    from "secgear_tstdc.edl" import *;  
+    trusted {
+        // 键值对分离
+        public int init_key([in, out]uint64_t* key_base_addr, uint32_t buf_len);
+        public int search_kv([in, out]int32_t* search_list, [in, out]uint64_t* ret_addr, uint32_t buf_len);
+        public int insert_kv([in, out]uint64_t* insert_list, uint32_t buf_len); 
+        public int update_kv([in, out]uint64_t* update_list, int32_t kk, uint32_t buf_len);
+        public int delete_kv([in, out]int32_t* delete_list, uint32_t buf_len);
+        // 键值对合并      
+        public int init_keyvalue(uint64_t kv_addr, uint32_t buf_len);
+        public int insert_keyvalue(uint64_t kv_addr, int32_t key);
+        public int search_keyvalue(uint64_t ret_addr, int32_t key);
+        public int delete_keyvalue(int32_t key); 
+        // AVL树
+        public int Initavl([in, out]uint64_t* insert_list, uint32_t buf_len);
+        public int Insertavl_([in, out]uint64_t* insert_list, uint32_t buf_len);
+        public int Insertavl(int32_t insert_element);
+        public int Searchavl(int32_t search_key);
+        public int Deleteavl(int32_t delete_key);
+        // 顺序表
+        public int InitOL([in, out]uint64_t* insert_list, uint32_t buf_len);
+        public int InsertOL(int32_t insert_key);
+        public int SearchOL(int32_t Search_key);
+        public int DeleteOL(int32_t Delete_key);
+        // 链表
+        public int InitLL(uint64_t key_list_addr, uint32_t buf_len);
+        public int SearchLL(int32_t key);
+        public int InsertLL(int32_t key);
+        public int DeleteLL(int32_t key);
+    };
+    untrusted {
+        void ocall_print(uint64_t data);
+    };
+};
