@@ -1,0 +1,44 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2020. All rights reserved.
+ * secGear is licensed under the Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *     http://license.coscl.org.cn/MulanPSL2
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
+ * PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ */
+
+enclave {
+    include "secgear_urts.h"
+    from "secgear_tstdc.edl" import *; 
+    from "secgear_tssl.edl" import *;
+    from "secgear_pthread.edl" import *;
+    
+    trusted {
+        public int init_device([in, size=len] const uint8_t *root_password, size_t len);
+        public int create_device([in, size=len] uint8_t *sealed_data, size_t len);
+        public int prepare_close_device([out] size_t *sealed_data_len);
+        public int close_device([out, size=len] uint8_t *sealed_data, size_t len);
+        public int create_private_key_access_password([in, size=root_password_len] uint8_t* root_password, size_t root_password_len, uint32_t key_id, [in, size=uiPwdLength] uint8_t *pucPassword, size_t uiPwdLength);
+        public int create_session([out, size=32]uint8_t *session_key);
+        public int close_session([in, size=32]uint8_t *session_key);
+        public int generate_random([in, size=32]uint8_t *session_key, [out, size=len] uint8_t *random, size_t len);
+        public int get_private_key_access_right([in, size=32]uint8_t *session_key, uint32_t key_id, [in, size=uiPwdLength] uint8_t *pucPassword, size_t uiPwdLength);
+        public int release_private_key_access_right([in, size=32]uint8_t *session_key, uint32_t key_id);
+        
+        public int ECC_ExportEncPublicKey([in, size=32]uint8_t *session_key, unsigned int uiKeyIndex, [out, size=64]uint8_t *pucPublicKey);
+        public int ECC_ExternalPublicKeyEncrypt([in, size=32]uint8_t *session_key, unsigned int uiAlgID, [in, size=64]uint8_t * pucPublicKey, [in, size=uiDataLength]unsigned char * pucData, unsigned int uiDataLength, [out, size=32]uint8_t * cipher_x, [out, size=32]uint8_t *cipher_y, [out, size=32]uint8_t *cipher_M, [out, size=uiDataLength]uint8_t *cipher_L);
+        public int ECC_InternalPrivateKeyDecrypt([in, size=32]uint8_t *session_key, unsigned int uiAlgID, unsigned int uiKeyIndex, [in, size=32]uint8_t *cipher_x, [in, size=32]uint8_t *cipher_y, [in, size=32]uint8_t *cipher_M, [in, size=cipher_L_len]uint8_t *cipher_L, unsigned int cipher_L_len, [out, size=pucDataBufferLength]unsigned char * pucDataOutput, unsigned int pucDataBufferLength, [out]unsigned int* pucDataOutputLength);
+        public int ECC_InternalPrivateKeySign([in, size=32]uint8_t *session_key, unsigned int uiKeyIndex, unsigned int uiAlgID, [in, size=uiDataLength]uint8_t *pucData, unsigned int uiDataLength, [out, size=32]uint8_t *sign_r, [out, size=32]uint8_t *sign_s);
+        public int ECC_ExternalPublicKeyVerify([in, size=32]uint8_t *session_key, unsigned int uiAlgID, [in, size=64]uint8_t *pucPublicKey, [in, size=uiDataLength]uint8_t *pucData, unsigned int uiDataLength, [in, size=32]uint8_t *sign_r, [in, size=32]uint8_t *sign_s);
+
+        public int sym_encrypt([in, size=32]uint8_t *session_key, uint32_t key_id, uint32_t uiAlgId, [in, out, size=16] uint8_t* IV, [in, size=plain_len] uint8_t *plain, size_t plain_len, [out, size=cipher_buffer_len] uint8_t *cipher, size_t cipher_buffer_len, [out] unsigned int *cipher_len);
+        public int sym_decrypt([in, size=32]uint8_t *session_key, uint32_t key_id, uint32_t uiAlgId, [in, out, size=16] uint8_t* IV, [in, size=cipher_len] uint8_t *cipher, size_t cipher_len, [out, size=cipher_len] uint8_t *plain,[out] unsigned int *plain_len);
+        
+        public int hash_init([in, size=32]uint8_t *session_key, uint32_t uiAlgId);
+        public int hash_update([in, size=32]uint8_t *session_key, [in, size=len] uint8_t *data, size_t len);
+        public int hash_final([in, size=32]uint8_t *session_key, [out, size=buffer_len] uint8_t *hash, size_t buffer_len, [out] unsigned int *hash_len);
+    };
+};
