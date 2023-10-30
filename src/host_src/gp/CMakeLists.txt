@@ -18,7 +18,6 @@ if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=implicit-function-declaration")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
 
 add_library(${gp_engine} SHARED gp_enclave.h gp_enclave.c gp_uswitchless.c gp_shared_memory.c)
 
