@@ -13,7 +13,7 @@ set(PREFIX secure_channel)
 set(EDL_FILE ${CMAKE_CURRENT_SOURCE_DIR}/secure_channel.edl)
 message(${EDL_FILE})
 
-set(CODEGEN codegen)
+set(CODEGEN ${LOCAL_ROOT_PATH}/bin/codegen)
 
 if(CC_GP)
     set(CODETYPE trustzone)
