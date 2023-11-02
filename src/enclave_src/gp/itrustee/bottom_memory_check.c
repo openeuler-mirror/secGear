@@ -23,12 +23,10 @@
  */
 bool itrustee_memory_in_enclave(const void *buffer, uint32_t size)
 {
-    if (!TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_READ | TEE_MEMORY_ACCESS_ANY_OWNER, buffer, size)) {
-        return true;
-    } else if (!TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_WRITE | TEE_MEMORY_ACCESS_ANY_OWNER, buffer, size)) {
-        return true;
-    }
-    return false;
+    (void)buffer;
+    (void)size;
+
+    return true;
 }
 
 /*
@@ -40,10 +38,9 @@ bool itrustee_memory_in_enclave(const void *buffer, uint32_t size)
  */
 bool itrustee_memory_out_enclave(const void *buffer, uint32_t size)
 {
-    if (!TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_READ | TEE_MEMORY_ACCESS_ANY_OWNER, buffer, size) &&
-        !TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_WRITE | TEE_MEMORY_ACCESS_ANY_OWNER, buffer, size)) {
-        return false;
-    }
-    return true;
+    (void)buffer;
+    (void)size;
+
+    return false;
 }
 
