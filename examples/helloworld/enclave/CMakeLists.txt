@@ -96,8 +96,7 @@ if(CC_QT)
     add_custom_command(TARGET ${ENCLAVE_ENTRY}
         POST_BUILD
         COMMAND mkdir -p  ${CMAKE_BINARY_DIR}/eif
-        COMMAND cp /usr/lib64/libcbor.so.0.10.2 ${CMAKE_BINARY_DIR}/eif
-        COMMAND cp -d /usr/lib64/libcbor.so.0.10 ${CMAKE_BINARY_DIR}/eif
+        COMMAND cp /usr/lib64/libcbor.so.* ${CMAKE_BINARY_DIR}/eif
         COMMAND cp /usr/lib64/libqtsm.so ${CMAKE_BINARY_DIR}/eif
         COMMAND cp /usr/lib64/libsecgear_tee.a ${CMAKE_BINARY_DIR}/eif
         COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/libhelloworld.so ${CMAKE_BINARY_DIR}/eif
