@@ -13,6 +13,7 @@
 #include "bottom_memory_check.h"
 #include "tee_mem_mgmt_api.h"
 #include "tee_log.h"
+#include "status.h"
 
 /* 
  * param buffer [IN] point to buffer address
@@ -23,10 +24,15 @@
  */
 bool itrustee_memory_in_enclave(const void *buffer, uint32_t size)
 {
-    (void)buffer;
-    (void)size;
-
-    return true;
+    if (TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_READ, buffer, size) == CC_ERROR_NOT_SUPPORTED) {
+        return true;
+    }
+    if (!TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_READ | TEE_MEMORY_ACCESS_ANY_OWNER, buffer, size)) {
+        return true;
+    } else if (!TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_WRITE | TEE_MEMORY_ACCESS_ANY_OWNER, buffer, size)) {
+        return true;
+    }
+    return false;
 }
 
 /*
@@ -38,9 +44,13 @@ bool itrustee_memory_in_enclave(const void *buffer, uint32_t size)
  */
 bool itrustee_memory_out_enclave(const void *buffer, uint32_t size)
 {
-    (void)buffer;
-    (void)size;
-
-    return false;
+    if (TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_READ, buffer, size) == CC_ERROR_NOT_SUPPORTED) {
+        return false;
+    }
+    if (!TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_READ | TEE_MEMORY_ACCESS_ANY_OWNER, buffer, size) &&
+        !TEE_CheckMemoryAccessRights(TEE_MEMORY_ACCESS_WRITE | TEE_MEMORY_ACCESS_ANY_OWNER, buffer, size)) {
+        return false;
+    }
+    return true;
 }
 
