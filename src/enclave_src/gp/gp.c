@@ -36,6 +36,9 @@ bool cc_is_within_enclave(const void *ptr, size_t sz)
 
     result = TEE_CheckMemoryAccessRights(
         TEE_MEMORY_ACCESS_WRITE, (void*)ptr, (uint32_t)sz);
+    if (result == CC_ERROR_NOT_SUPPORTED) {
+        return true;
+    }
     return result == TEE_SUCCESS;
 }
 
