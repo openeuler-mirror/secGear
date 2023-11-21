@@ -46,6 +46,8 @@ mkdir debug && cd debug && cmake .. && make && sudo make install
 // start client
 ./bin/sc_client
 ```
+注意：在运行该用例的过程中需保证系统中的openssl版本高于或等于intel-sgx-ssl中的openssl版本才能正常运行。
+
 ### Arm Trustzone
 #### 环境准备
 [参照远程证明环境准备](https://gitee.com/houmingyong/secGear/tree/master/examples/remote_attest#%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87)   
