@@ -97,7 +97,10 @@ if(${ENCLAVE} STREQUAL "PL")
 	set(CC_PL ON)
 endif()
 
-add_subdirectory(tools/codegener)
+option(CODEGEN "default off" ON)
+if(CODEGEN)
+	add_subdirectory(tools/codegener)
+endif()
 
 add_subdirectory(src)
 add_subdirectory(component)
