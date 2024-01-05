@@ -14,9 +14,6 @@ set(PREFIX helloworld)
 #set sign key
 set(PEM Enclave_private.pem)
 
-#set sign tool
-set(SIGN_TOOL ${LOCAL_ROOT_PATH}/tools/sign_tool/sign_tool.sh)
-
 #set enclave src code
 set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/hello.c)
 
@@ -33,26 +30,26 @@ if(CC_GP)
     set(WHITE_LIST_1 /vendor/bin/secgear_helloworld)
     set(WHITELIST WHITE_LIST_0 WHITE_LIST_1)
 
-    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
+    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
+    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${SECGEAR_INSTALL_DIR})
 endif()
 
 if(CC_SGX)
     set(OUTPUT enclave.signed.so)
-    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
+    set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx --search-path ${SDK_PATH}/include)
+    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${SECGEAR_INSTALL_DIR} --search-path ${SDK_PATH}/include)
 endif()
 
 if(CC_PL)
     set(OUTPUT penglai-ELF)
-    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
+    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_t.c)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/penglai)
+    COMMAND ${CODEGEN} --${CODETYPE} --trusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${SECGEAR_INSTALL_DIR})
 endif()
 
 set(COMMON_C_FLAGS "-W -Wall -Werror  -fno-short-enums  -fno-omit-frame-pointer -fstack-protector \
@@ -79,19 +76,14 @@ if(CC_GP)
 
     target_include_directories( ${PREFIX} PRIVATE
 	${CMAKE_CURRENT_BINARY_DIR}
-	${CMAKE_BINARY_DIR}/inc
-	${LOCAL_ROOT_PATH}/inc/host_inc
-	${LOCAL_ROOT_PATH}/inc/host_inc/gp
-	${LOCAL_ROOT_PATH}/inc/enclave_inc
-	${LOCAL_ROOT_PATH}/inc/enclave_inc/gp
+	${SECGEAR_INSTALL_DIR}/
 	${ITRUSTEE_TEEDIR}/include/TA
 	${ITRUSTEE_TEEDIR}/include/TA/huawei_ext
 	${ITRUSTEE_LIBC}/arch/aarch64
 	${ITRUSTEE_LIBC}/
 	${ITRUSTEE_LIBC}/arch/arm/bits
 	${ITRUSTEE_LIBC}/arch/generic
-	${ITRUSTEE_LIBC}/arch/arm
-	${LOCAL_ROOT_PATH}/inc/enclave_inc/gp/itrustee)
+	${ITRUSTEE_LIBC}/arch/arm)
 
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(${PREFIX} PRIVATE
@@ -106,13 +98,13 @@ if(CC_GP)
     target_link_libraries(${PREFIX} -lsecgear_tee)
 
     #for trustzone compiling, you should connact us to get config and private_key.pem for test, so we will not sign and install binary in this example #
-    #    add_custom_command(TARGET ${PREFIX}
-    #	      POST_BUILD
-	      #	      COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
+        add_custom_command(TARGET ${PREFIX}
+    	      POST_BUILD
+	      	      COMMAND bash ${SIGN_TOOL} -d sign -x trustzone -i ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${PREFIX}.so -c ${CMAKE_CURRENT_SOURCE_DIR}/manifest.txt -m ${CMAKE_CURRENT_SOURCE_DIR}/config_cloud.ini -o ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT})
 
-      #    install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}  
-      #        DESTINATION /data
-      #        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE  WORLD_READ  WORLD_EXECUTE)
+          install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${OUTPUT}  
+              DESTINATION /data
+              PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE  WORLD_READ  WORLD_EXECUTE)
 
 endif()
 
@@ -146,8 +138,7 @@ if(CC_SGX)
 	    ${SGX_DIR}/include/tlibc
 	    ${SGX_DIR}/include/libcxx
 	    ${SGX_DIR}/include
-	    ${LOCAL_ROOT_PATH}/inc/host_inc
-	    ${LOCAL_ROOT_PATH}/inc/host_inc/sgx)
+	    ${SECGEAR_INSTALL_DIR}/)
     
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0") 
         target_link_directories(${PREFIX} PRIVATE

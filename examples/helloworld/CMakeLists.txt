@@ -8,15 +8,73 @@
 # PURPOSE.
 # See the Mulan PSL v2 for more details.
 
-project(HelloWorld  C)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+project(secure_channel C)
 
 set(CMAKE_C_STANDARD 99)
 
 set(CURRENT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
+set(PREFIX helloworld)
+
+if (NOT DEFINED ENCLAVE)
+    set(ENCLAVE "SGX")
+endif()
+set(SGX_SDK_DEFAULT_PATH /opt/intel/sgxsdk)
+set(GP_SDK_DEFAULT_PATH /opt/itrustee_sdk)
+set(PL_SDK_DEFAULT_PATH /root/dev/sdk)
+
+if (NOT DEFINED SSL_PATH)
+    set(SSL_PATH /opt/intel/sgxssl)
+endif()
+
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+if(${ENCLAVE} STREQUAL "GP")
+    if (NOT DEFINED SDK_PATH)
+        set(SDK_PATH ${GP_SDK_DEFAULT_PATH})
+    else()
+        set(SDK_PATH ${SDK_PATH})
+    endif()
+    message("Current Platform: ARM Trustzone, iTrustee SDK PATH:${SDK_PATH}")
+    if(NOT IS_DIRECTORY ${SDK_PATH})
+        message(FATAL_ERROR "Please provide the correct SDK_PATH path")
+    endif()
+    set(CC_GP ON)
+endif()
+
+if(${ENCLAVE} STREQUAL "SGX")
+    if (NOT DEFINED SDK_PATH)
+        set(SDK_PATH ${SGX_SDK_DEFAULT_PATH})
+    else()
+        set(SDK_PATH ${SDK_PATH})
+    endif()
+    message("Current Platform: Intel SGX, SGX SDK PATH:${SDK_PATH}")
+    if(NOT IS_DIRECTORY ${SDK_PATH})
+        message(FATAL_ERROR "Please provide the correct SDK_PATH path")
+    endif()
+    set(CC_SGX ON)
+endif()
+
+if(${ENCLAVE} STREQUAL "PL")
+    if (NOT DEFINED SDK_PATH)
+        set(SDK_PATH ${PL_SDK_DEFAULT_PATH})
+    else()
+        set(SDK_PATH ${SDK_PATH})
+    endif()
+    message("Current Platform: Penglai, PL SDK PATH:${SDK_PATH}")
+    if(NOT IS_DIRECTORY ${SDK_PATH})
+        message(FATAL_ERROR "Please provide the correct SDK_PATH path")
+    endif()
+    set(CC_PL ON)
+endif()
+
 #set edl name
 set(EDL_FILE helloworld.edl)
 set(CODEGEN codegen)
+set(SIGN_TOOL sign_tool.sh)
+
+set(SECGEAR_INSTALL_DIR /usr/include/secGear)
 
 if(CC_GP)
     set(CODETYPE trustzone)

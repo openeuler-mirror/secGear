@@ -17,24 +17,24 @@ set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/main.c)
 
 #set auto code
 if(CC_GP)
-    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_args.h)
+    set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/gp)
+    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${SECGEAR_INSTALL_DIR})
 endif()
     
 if(CC_SGX)
-    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
+    set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/sgx  --search-path ${SDK_PATH}/include)
+    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${SECGEAR_INSTALL_DIR} --search-path ${SDK_PATH}/include)
 endif()
 
 if(CC_PL)
-    set(AUTO_FILES  ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.h ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
+    set(AUTO_FILES ${CMAKE_CURRENT_BINARY_DIR}/${PREFIX}_u.c)
     add_custom_command(OUTPUT ${AUTO_FILES}
     DEPENDS ${CURRENT_ROOT_PATH}/${EDL_FILE}
-    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${LOCAL_ROOT_PATH}/inc/host_inc/penglai)
+    COMMAND ${CODEGEN} --${CODETYPE} --untrusted ${CURRENT_ROOT_PATH}/${EDL_FILE} --search-path ${SECGEAR_INSTALL_DIR})
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
@@ -47,8 +47,7 @@ if(CC_GP)
     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
     target_include_directories(${OUTPUT} PRIVATE
             ${CMAKE_BINARY_DIR}/inc
-            ${LOCAL_ROOT_PATH}/inc/host_inc
-            ${LOCAL_ROOT_PATH}/inc/host_inc/gp
+            ${SECGEAR_INSTALL_DIR}/
             ${CMAKE_CURRENT_BINARY_DIR})
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
@@ -61,8 +60,7 @@ if(CC_SGX)
     endif()
     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
     target_include_directories(${OUTPUT} PRIVATE
-			${LOCAL_ROOT_PATH}/inc/host_inc 
-			${LOCAL_ROOT_PATH}/inc/host_inc/sgx
+			${SECGEAR_INSTALL_DIR}/
 			${CMAKE_CURRENT_BINARY_DIR})
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
@@ -75,8 +73,7 @@ if(CC_PL)
     endif()
     add_executable(${OUTPUT} ${SOURCE_FILE} ${AUTO_FILES})
     target_include_directories(${OUTPUT} PRIVATE
-			${LOCAL_ROOT_PATH}/inc/host_inc
-			${LOCAL_ROOT_PATH}/inc/host_inc/penglai
+			${SECGEAR_INSTALL_DIR}/
 			${CMAKE_CURRENT_BINARY_DIR})
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(${OUTPUT} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
