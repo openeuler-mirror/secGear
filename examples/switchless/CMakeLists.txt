@@ -20,7 +20,7 @@ set(CODEGEN codegen)
 
 if(CC_GP)
     set(CODETYPE trustzone)
-    set(UUID 7763a15a-0a9e-4e86-90cd-e4262583948a)
+    set(UUID f68fd704-6eb1-4d14-b218-722850eb3ef0)
     add_definitions(-DPATH="/data/${UUID}.sec")
 endif()
 

@@ -68,7 +68,7 @@ set(SECGEAR_INSTALL_DIR /usr/include/secGear)
 
 if(CC_GP)
     set(CODETYPE trustzone)
-    set(UUID 7763a15a-0a9e-4e86-90cd-e4262583948a)
+    set(UUID 9cb38838-2766-42be-8b7b-0d184a996066)
     add_definitions(-DPATH="/data/${UUID}.sec")
 endif()
 
