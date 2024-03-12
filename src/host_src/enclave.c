@@ -70,7 +70,7 @@ static void error_handle(cc_enclave_t *enclave, void *handle, p_tee_registered r
 
     if (enclave) {
         pthread_rwlock_destroy(&enclave->rwlock);
-        explicit_bzero(enclave, sizeof(cc_enclave_t));
+        memset(enclave, 0, sizeof(cc_enclave_t));
     }
 }
 
@@ -310,7 +310,7 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
     }
     pthread_rwlock_unlock(&context->rwlock);
     pthread_rwlock_destroy(&context->rwlock);
-    explicit_bzero(context, sizeof(cc_enclave_t));
+    memset(context, 0, sizeof(cc_enclave_t));
 
     return CC_SUCCESS;
 }

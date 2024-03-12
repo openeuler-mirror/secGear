@@ -139,13 +139,13 @@ TEE_Result itrustee_seal_data(uint8_t *seal_data, uint32_t seal_data_len, void *
     result = data_copy(tmp_sealed_data, salt, nonce, mac_data, mac_data_len);
 
 error0:
-    explicit_bzero(nonce, SEAL_DATA_NONCE_LEN);
+    memset(nonce, 0, SEAL_DATA_NONCE_LEN);
     TEE_Free(nonce);
 error1:
-    explicit_bzero(salt, SEAL_KEY_SALT_LEN);
+    memset(salt, 0, SEAL_KEY_SALT_LEN);
     TEE_Free(salt);
 error2:
-    explicit_bzero(key_buf, SEAL_KEY_LEN);
+    memset(key_buf, 0, SEAL_KEY_LEN);
     TEE_Free(key_buf);
     return result;
 }
@@ -242,14 +242,14 @@ TEE_Result itrustee_unseal_data(void *sealed_data, uint8_t *decrypted_data, uint
             memcpy(mac_data, &(tmp_sealed_data->payload_data[encrypted_data_len]), tmp_sealed_data->aad_len);
             *mac_data_len = tmp_sealed_data->aad_len;
         } else {
-            explicit_bzero(decrypted_data, *decrypted_data_len);
+            memset(decrypted_data, 0, *decrypted_data_len);
             result = TEE_ERROR_WRITE_DATA;
             goto done;
         }
     }
 
 done:
-    explicit_bzero(key_buf, SEAL_KEY_LEN);
+    memset(key_buf, 0, SEAL_KEY_LEN);
     TEE_Free(key_buf);
     return result;
 }
