@@ -15,6 +15,13 @@
 #include "tee_crypto_api.h"
 #include "dataseal_internal.h"
 #include "tee_trusted_storage.h"
+
+#define CC_OPTIMIZE_OFF __attribute__((optimize("O0")))
+CC_OPTIMIZE_OFF static void *memset_no_optimize(void *ptr, int value, size_t num)
+{
+    memset(ptr, 0, num);
+}
+
 uint32_t get_sealed_data_size_ex(uint32_t seal_data_len, uint32_t aad_len)
 {
     if (UINT32_MAX - aad_len <= seal_data_len) {
@@ -139,13 +146,13 @@ TEE_Result itrustee_seal_data(uint8_t *seal_data, uint32_t seal_data_len, void *
     result = data_copy(tmp_sealed_data, salt, nonce, mac_data, mac_data_len);
 
 error0:
-    memset(nonce, 0, SEAL_DATA_NONCE_LEN);
+    memset_no_optimize(nonce, 0, SEAL_DATA_NONCE_LEN);
     TEE_Free(nonce);
 error1:
-    memset(salt, 0, SEAL_KEY_SALT_LEN);
+    memset_no_optimize(salt, 0, SEAL_KEY_SALT_LEN);
     TEE_Free(salt);
 error2:
-    memset(key_buf, 0, SEAL_KEY_LEN);
+    memset_no_optimize(key_buf, 0, SEAL_KEY_LEN);
     TEE_Free(key_buf);
     return result;
 }
@@ -249,7 +256,7 @@ TEE_Result itrustee_unseal_data(void *sealed_data, uint8_t *decrypted_data, uint
     }
 
 done:
-    memset(key_buf, 0, SEAL_KEY_LEN);
+    memset_no_optimize(key_buf, 0, SEAL_KEY_LEN);
     TEE_Free(key_buf);
     return result;
 }
