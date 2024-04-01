@@ -103,7 +103,10 @@ if(CODEGEN)
 endif()
 
 add_subdirectory(src)
-add_subdirectory(component)
+option(COMPONENT "default off" ON)
+if(COMPONENT)
+	add_subdirectory(component)
+endif()
 
 if(NOT IS_DIRECTORY ${LOCAL_ROOT_PATH}/bin)
 	execute_process(COMMAND mkdir ${LOCAL_ROOT_PATH}/bin)
