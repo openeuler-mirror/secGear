@@ -179,7 +179,7 @@ typedef enum _enclave_result_t
     CC_CLIENT_INTR                    = 0xFFFF4000, /* Interrupted by CFC. Broken control flow is detected. */
     CC_ERROR_TIME_NOT_SET             = 0xFFFF5000, /* *< 时间未设置 */
     CC_ERROR_TIME_NEEDS_RESET         = 0xFFFF5001, /* *< 时间需要重置 */
-    CC_FAIL                           = 0xFFFF5002, /* *< 时间需要重置 */
+    CC_FAIL                           = 0xFFFF5002, /* *< 操作失败 */
     CC_ERROR_TIMER                    = 0xFFFF6000,
     CC_ERROR_TIMER_CREATE_FAILED,
     CC_ERROR_TIMER_DESTORY_FAILED,
