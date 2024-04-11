@@ -10,7 +10,8 @@ if(CC_QT)
 		COMMAND cp ${LOCAL_ROOT_PATH}/inc/host_inc/qingtian/*.h ${CMAKE_BINARY_DIR}/inc/secGear/
 		COMMAND cp ${LOCAL_ROOT_PATH}/inc/enclave_inc/qingtian/*.h ${CMAKE_BINARY_DIR}/inc/secGear/)
 	#add_subdirectory(seal_data)
-	add_subdirectory(helloworld)
+	#add_subdirectory(helloworld)
+	add_subdirectory(qingtian_verify_report)
 	#add_subdirectory(lrt)
 endif()
 

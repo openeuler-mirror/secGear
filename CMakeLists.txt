@@ -59,7 +59,7 @@ add_subdirectory(component)
 execute_process(COMMAND mkdir ${LOCAL_ROOT_PATH}/bin)
 
 
-# add_subdirectory(examples)
+add_subdirectory(examples)
 
 install(FILES ${LOCAL_ROOT_PATH}/conf/logrotate.d/secgear
         DESTINATION /etc/logrotate.d/)

@@ -85,6 +85,14 @@ typedef enum _enclave_result_t
     CC_ERROR_QT_PROXY_ADD_TASK,
     CC_ERROR_QT_PROXY_ADD_SEND_QUEUE,
     CC_ERROR_QT_PROXY_CALL_TIMEOUT,
+    CC_ERROR_RA_REPORT_VERIFY_FORMAT,               /* report format error */
+    CC_ERROR_RA_REPORT_VERIFY_NONCE,                /* nonce validation failure */
+    CC_ERROR_RA_REPORT_VERIFY_SIGNATURE,            /* report signature check failed */
+    CC_ERROR_RA_REPORT_VERIFY_HASH,                 /* report hashsum mismatch */
+    CC_ERROR_RA_REPORT_VERIFY_INVALID_TYPE,         /* invalid report data type */
+    CC_ERROR_RA_REPORT_VERIFY_INVALID_TIMESTAMP,    /* report exceeded time threshold */
+    CC_ERROR_RA_REPORT_VERIFY_INVALID_ATTRIBUTE,    /* report subfield data error */
+    CC_ERROR_RA_REPORT_VERIFY_INVALID_CERTS,        /* report cert check failed */
 #endif
 
     CC_ERROR_OTRP_BASE = 0x80000100,  /* sec file config source is not inconsistent with the loading mode. */
