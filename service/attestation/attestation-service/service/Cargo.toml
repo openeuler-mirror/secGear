@@ -1,0 +1,29 @@
+[package]
+name = "attestation-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+hex.workspace = true
+serde_json.workspace = true
+
+actix-web.workspace = true
+env_logger.workspace = true
+tokio.workspace = true
+log.workspace = true
+base64-url.workspace = true
+
+attester.workspace = true
+verifier = { path = "../verifier" }
+token = { path = "../token" }
+strum.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+futures.workspace = true
+rand.workspace = true
+
+[features]
+
