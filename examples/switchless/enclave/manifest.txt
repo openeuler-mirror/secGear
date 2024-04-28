@@ -1,7 +1,8 @@
-gpd.ta.appID:               f68fd704-6eb1-4d14-b218-722850eb3ef0
-gpd.ta.service_name:        rsa-demo
+gpd.ta.appID:               92b56ae2-d3e2-4322-87ac-6a51f1824347
+gpd.ta.service_name:        liusiming-icbc1
 gpd.ta.singleInstance:      true
 gpd.ta.multiSession:        true
 gpd.ta.instanceKeepAlive:   false
-gpd.ta.dataSize:            819200
-gpd.ta.stackSize:           40960
+gpd.ta.dataSize:            802816
+gpd.ta.stackSize:           1792
+gpd.ta.mem_page_align:      true
