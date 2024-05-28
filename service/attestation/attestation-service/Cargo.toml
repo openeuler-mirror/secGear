@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = [
+    #"service",
+    "verifier",
+]
+
+[workspace.dependencies]
+anyhow = "1.0"
+serde = "1.0"
+serde_json = "1.0"
+async-trait = "0.1.78"
+cose-rust = "0.1.7"
+ciborium = "0.2.2"
+hex = "0.4"
+openssl = "0.10.64"
+log = "0.4.14"
+
+attester = {path = "../attestation-agent/attester"}
