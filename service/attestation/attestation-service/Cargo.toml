@@ -6,14 +6,17 @@ members = [
 ]
 
 [workspace.dependencies]
+serde = "=1.0.203"
+half = "=1.6"
+ciborium-ll = "=0.2.0"
+ciborium-io = "=0.2.0"
+ciborium = "=0.2.0"
 anyhow = "1.0"
-serde = "1.0"
 serde_json = "1.0"
-async-trait = "0.1.78"
-cose-rust = "0.1.7"
-ciborium = "0.2.2"
+async-trait = "=0.1.78"
+cose-rust = "=0.1.7"
 hex = "0.4"
-openssl = "0.10.64"
-log = "0.4.14"
+openssl = "=0.10.64"
+log = "=0.4.14"
 
 attester = {path = "../attestation-agent/attester"}
