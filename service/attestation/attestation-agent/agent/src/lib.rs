@@ -7,10 +7,19 @@ use futures::executor::block_on;
 use attester::EvidenceRequest;
 
 #[ffi_export]
-pub fn get_reprot(c_uuid: &repr_c::String, c_challenge: &repr_c::Vec<u8>) -> repr_c::Vec<u8> {
-    let input = EvidenceRequest {
-        uuid: c_uuid.clone().to_string(),
-        challenge: c_challenge.clone().to_vec(),
+pub fn get_reprot(c_uuid: Option<&repr_c::String>, c_challenge: Option<&repr_c::Vec<u8>>) -> repr_c::Vec<u8> {
+    let uuid = match c_uuid {
+        None => {println!("uuid is null"); return Vec::new().into();},
+        Some(uuid) => uuid.clone().to_string(),
+    };
+    let challenge = match c_challenge {
+        None => {println!("challenge is null"); return Vec::new().into();},
+        Some(cha) => cha.clone().to_vec(),
+    };
+
+    let input: EvidenceRequest = EvidenceRequest {
+        uuid: uuid,
+        challenge: challenge,
     };
 
     let fut = async {
@@ -28,9 +37,19 @@ pub fn get_reprot(c_uuid: &repr_c::String, c_challenge: &repr_c::Vec<u8>) -> rep
 }
 
 #[ffi_export]
-pub fn verify_report(c_challenge: &repr_c::Vec<u8>, report: &repr_c::Vec<u8>) -> safer_ffi::libc::c_int {
+pub fn verify_report(c_challenge: Option<&repr_c::Vec<u8>>, report: Option<&repr_c::Vec<u8>>) -> safer_ffi::libc::c_int {
+    let challenge = match c_challenge {
+        None => {println!("challenge is null"); return 1;},
+        Some(cha) => cha.clone().to_vec(),
+    };
+
+    let report = match report {
+        None => {println!("report is null"); return 1;},
+        Some(report) => report.clone().to_vec(),
+    };
+
     let fut = async {agent::AttestationAgent::default().verify_evidence(
-            &c_challenge.clone().to_vec(), &report.clone().to_vec()).await};
+            &challenge, &report).await};
     let ret = block_on(fut);
     if ret.is_err() {
         println!("verfiy report failed");
