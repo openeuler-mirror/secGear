@@ -48,9 +48,10 @@ impl AttestationAgentAPIs for AttestationAgent {
     async fn verify_evidence(&self, challenge: &[u8], evidence: &[u8]) -> Result<()> {
         #[cfg(feature = "no_as")]
         let _ret = Verifier::default().verify_evidence(challenge, evidence).await?;
-
+        #[cfg(feature = "with_as")]
         let _ret = request_as(challenge, evidence);
-        return _ret;
+
+        return Ok(_ret);
     }
 }
 
