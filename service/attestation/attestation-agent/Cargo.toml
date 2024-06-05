@@ -6,25 +6,17 @@ members = [
 ]
 
 [workspace.dependencies]
-serde = "=1.0.203"
-half = "=1.6"
-ciborium-ll = "=0.2.0"
-ciborium-io = "=0.2.0"
-ciborium = "=0.2.0"
 anyhow = "1.0"
+config = "0.14.0"
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-async-trait = "=0.1.78"
-cose-rust = "=0.1.7"
-hex = "0.4"
-openssl = "=0.10.64"
-log = "=0.4.14"
-
-config = "=0.13.0"
-rand = "=0.8.5"
-base64-url = "=3.0.0"
+rand = "0.8.5"
+base64-url = "3.0.0"
+async-trait = "0.1.78"
 tokio = "1.0"
-env_logger = "=0.4.0"
-safer-ffi = "=0.1.8"
-futures = "=0.3.30"
+log = "0.4.14"
+env_logger = "0.9"
+safer-ffi = "0.1.8"
+futures = "0.3.30"
 
 verifier = {path = "../attestation-service/verifier", default-features = false}
