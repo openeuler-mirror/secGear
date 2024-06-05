@@ -38,7 +38,7 @@ free_report (
 
 /** <No documentation available> */
 Vec_uint8_t
-get_reprot (
+get_report (
     Vec_uint8_t const * c_uuid,
     Vec_uint8_t const * c_challenge);
 

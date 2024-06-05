@@ -7,7 +7,7 @@ use futures::executor::block_on;
 use attester::EvidenceRequest;
 
 #[ffi_export]
-pub fn get_reprot(c_uuid: Option<&repr_c::String>, c_challenge: Option<&repr_c::Vec<u8>>) -> repr_c::Vec<u8> {
+pub fn get_report(c_uuid: Option<&repr_c::String>, c_challenge: Option<&repr_c::Vec<u8>>) -> repr_c::Vec<u8> {
     let uuid = match c_uuid {
         None => {println!("uuid is null"); return Vec::new().into();},
         Some(uuid) => uuid.clone().to_string(),
