@@ -15,11 +15,14 @@ name = "attestation_agent"
 crate-type = ["lib", "cdylib"]
 
 [features]
-no_as = [ "verifier" ]
+no_as = []
 with_as = []
-all = ["itrustee", "virtcca"]
-itrustee = ["attester/itrustee-attester", "verifier/itrustee-verifier"]
-virtcca = ["attester/virtcca-attester", "verifier/virtcca-verifier"]
+itrustee-attester = ["attester/itrustee-attester"]
+virtcca-attester = ["attester/virtcca-attester"]
+all-attester = ["attester/itrustee-attester", "attester/virtcca-attester"]
+itrustee-verifier = ["verifier/itrustee-verifier"]
+virtcca-verifier = ["verifier/virtcca-verifier"]
+all-verifier = ["verifier/itrustee-verifier", "verifier/virtcca-verifier"]
 headers = ["safer-ffi/headers"]
 
 [dependencies]
