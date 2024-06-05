@@ -16,7 +16,7 @@ use anyhow::{Result, bail, anyhow};
 use cose::keys::CoseKey;
 use cose::message::CoseMessage;
 use ciborium;
-use ciborium::value::Value;
+use ciborium::Value;
 use openssl::rsa;
 use openssl::pkey::Public;
 use openssl::x509;
@@ -199,7 +199,6 @@ impl Evidence {
         // decode CBOR evidence to ciborium Value
         let val: Value = ciborium::de::from_reader(raw_evidence.as_slice())?;
         log::debug!("[debug] decode CBOR virtcca token to ciborium Value:{:?}", val);
-        println!("[debug] decode CBOR virtcca token to ciborium Value:{:?}", val);
         if let Value::Tag(t, m) = val {
             if t != CBOR_TAG {
                 log::error!("input evidence error, expecting tag {}, got {}", CBOR_TAG, t);

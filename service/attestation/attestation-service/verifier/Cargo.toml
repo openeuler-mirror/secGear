@@ -5,14 +5,11 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-ciborium-ll.workspace = true
-ciborium-io.workspace = true
-ciborium.workspace = true
-half.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 async-trait.workspace = true
 cose-rust.workspace = true
+ciborium.workspace = true
 hex.workspace = true
 openssl.workspace = true
 log.workspace = true
