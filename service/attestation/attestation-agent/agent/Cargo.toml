@@ -16,7 +16,6 @@ crate-type = ["lib", "cdylib"]
 
 [features]
 no_as = []
-with_as = []
 itrustee-attester = ["attester/itrustee-attester"]
 virtcca-attester = ["attester/virtcca-attester"]
 all-attester = ["attester/itrustee-attester", "attester/virtcca-attester"]

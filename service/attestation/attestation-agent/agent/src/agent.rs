@@ -47,15 +47,16 @@ impl AttestationAgentAPIs for AttestationAgent {
     }
     async fn verify_evidence(&self, challenge: &[u8], evidence: &[u8]) -> Result<()> {
         #[cfg(feature = "no_as")]
-        let _ret = Verifier::default().verify_evidence(challenge, evidence).await?;
-        #[cfg(feature = "with_as")]
-        let _ret = request_as(challenge, evidence);
+        return Verifier::default().verify_evidence(challenge, evidence).await;
 
-        return Ok(_ret);
+        #[cfg(not(feature = "no_as"))]
+        return request_as(challenge, evidence).await;
+
     }
 }
 
-fn request_as(challenge: &[u8], evidence: &[u8]) -> Result<()> {
+#[cfg(not(feature = "no_as"))]
+async fn request_as(challenge: &[u8], evidence: &[u8]) -> Result<()> {
     let _ = challenge;
     let _ = evidence;
     // todo send request to attestation service
