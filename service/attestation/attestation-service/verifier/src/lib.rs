@@ -34,9 +34,16 @@ pub trait VerifierAPIs {
     async fn verify_evidence(&self, user_data: &[u8], evidence: &[u8]) -> Result<()>;
 }
 
+const MAX_CHALLENGE_LEN: usize = 64;
+
 #[async_trait]
 impl VerifierAPIs for Verifier {
     async fn verify_evidence(&self, user_data: &[u8], evidence: &[u8]) -> Result<()> {
+        let len = user_data.len();
+        if len <= 0 || len > MAX_CHALLENGE_LEN {
+            log::error!("challenge len is error, expecting 0 < len <= {}, got {}", MAX_CHALLENGE_LEN, len);
+            bail!("challenge len is error, expecting 0 < len <= {}, got {}", MAX_CHALLENGE_LEN, len);
+        }
         let aa_evidence: Evidence = serde_json::from_slice(evidence)?;
         let tee_type = aa_evidence.tee;
         let evidence = aa_evidence.evidence.as_bytes();

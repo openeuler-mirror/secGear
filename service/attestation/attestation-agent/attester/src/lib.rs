@@ -61,8 +61,8 @@ impl AttesterAPIs for Attester {
     async fn tee_get_evidence(&self, _user_data: EvidenceRequest) -> Result<Vec<u8>> {
         let len = _user_data.challenge.len();
         if len <= 0 || len > MAX_CHALLENGE_LEN {
-            log::error!("challenge len is error, expecting 0 < len < {}, got {}", MAX_CHALLENGE_LEN, len);
-            bail!("challenge len is error, expecting 0 < len < {}, got {}", MAX_CHALLENGE_LEN, len);
+            log::error!("challenge len is error, expecting 0 < len <= {}, got {}", MAX_CHALLENGE_LEN, len);
+            bail!("challenge len is error, expecting 0 < len <= {}, got {}", MAX_CHALLENGE_LEN, len);
         }
         #[cfg(feature = "itrustee-attester")]
         if itrustee::detect_platform() {
