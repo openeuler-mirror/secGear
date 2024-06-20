@@ -51,7 +51,7 @@ async fn attestation_proc(i: i64) {
     };
 
     // Step2: get tee evidence
-    let evidence = aa.get_evidence(user_data).await;
+    let evidence = aa.get_evidence(user_data.clone()).await;
     match evidence {
         Ok(evidence) => {
             println!("get evidence success");
@@ -59,10 +59,23 @@ async fn attestation_proc(i: i64) {
             let ret = aa.verify_evidence(&nonce, &evidence).await;
             match ret {
                 Ok(_) => println!("verify evidence success"),
-                Err(_) =>println!("verify evidence failed"),
+                Err(e) =>println!("verify evidence failed {:?}", e),
             }
         },
         Err(e) => println!("get evidence failed: {}", e),
     }
+
+    let token = aa.get_token(user_data).await;
+    match token {
+        Ok(token) => {
+            let ret = aa.verify_token(token).await;
+            match ret {
+                Ok(_) => println!("verify token success"),
+                Err(e) =>println!("verify token failed {:?}", e),
+            }
+        },
+        Err(e) => println!("get token failed {}", e),
+    }
+
     println!("attestation_proc {} end", i);
 }
