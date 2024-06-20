@@ -14,22 +14,23 @@
 
 use super::*;
 use log;
+use serde_json::json;
 use std::path::Path;
 
 mod itrustee;
 
-const ITRUSTEE_REF_VALUE_FILE: &str = "/etc/attestation/itrustee/basevalue.txt";
+const ITRUSTEE_REF_VALUE_FILE: &str = "/etc/attestation/attestation-service/verifier/itrustee/basevalue.txt";
 
 #[derive(Debug, Default)]
 pub struct ItrusteeVerifier {}
 
 impl ItrusteeVerifier {
-    pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<()> {
+    pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         return evalute_wrapper(user_data, evidence);
     }
 }
 
-fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<()> {
+fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     let mut in_data = user_data.to_vec();
     let mut in_evidence = evidence.to_vec();
     let mut data_buf: itrustee::buffer_data = itrustee::buffer_data {
@@ -54,5 +55,19 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<()> {
             bail!("itrustee verify report failed ret:{}", ret);
         }
     }
-    Ok(())
+    let js_evidence: serde_json::Value = serde_json::from_slice(evidence)?;
+    let payload = json!({
+        "nonce": js_evidence["payload"]["nonce"].clone(),
+        "hash_alg": js_evidence["payload"]["hash_alg"].clone(),
+        "key": js_evidence["payload"]["key"].clone(),
+        "ta_img": js_evidence["payload"]["ta_img"].clone(),
+        "ta_mem": js_evidence["payload"]["ta_mem"].clone(),
+        "uuid": js_evidence["payload"]["uuid"].clone(),
+        "version": js_evidence["payload"]["version"].clone(),
+    });
+    let claim = json!({
+        "tee_type": "kunpeng",
+        "payload" : payload,
+    });
+    Ok(claim as TeeClaim)
 }
