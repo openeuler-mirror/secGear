@@ -50,7 +50,7 @@ pub fn verify_report(c_challenge: Option<&repr_c::Vec<u8>>, report: Option<&repr
 
     let fut = async {agent::AttestationAgent::default().verify_evidence(
             &challenge, &report).await};
-    let ret = match block_on(fut) {
+    match block_on(fut) {
         Ok(_) => return 0,
         Err(e) => {
             println!("verify report failed {:?}", e);

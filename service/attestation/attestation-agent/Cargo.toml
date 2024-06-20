@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "agent",
     "attester",
+    "token"
 ]
 
 [workspace.dependencies]
@@ -18,5 +19,7 @@ log = "0.4.14"
 env_logger = "0.9"
 safer-ffi = "0.1.8"
 futures = "0.3.30"
+reqwest = { version = "0.12" }
+jsonwebtoken = "9.3.0"
 
 verifier = {path = "../attestation-service/verifier", default-features = false}

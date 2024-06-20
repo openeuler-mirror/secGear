@@ -25,7 +25,7 @@ mod itrustee;
 #[cfg(feature = "virtcca-attester")]
 pub mod virtcca;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EvidenceRequest {
     pub uuid: String,
     pub challenge: Vec<u8>,

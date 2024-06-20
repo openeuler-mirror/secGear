@@ -36,6 +36,9 @@ log.workspace = true
 env_logger.workspace = true
 safer-ffi.workspace = true
 futures.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+base64-url.workspace = true
 
 attester = { path = "../attester" }
+token = { path = "../token" }
 verifier = { workspace = true, optional = true }
