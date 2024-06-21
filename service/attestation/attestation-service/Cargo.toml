@@ -1,8 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    #"service",
+    "service",
     "verifier",
+    "token"
 ]
 
 [workspace.dependencies]
@@ -15,5 +16,15 @@ ciborium = "0.2.2"
 hex = "0.4"
 openssl = "0.10.64"
 log = "0.4.14"
+futures = "0.3.30"
+rand = "0.8.5"
+
+actix-web = "4.5"
+env_logger = "0.9"
+tokio = "1.0"
+strum = { version = "0.25", features = ["derive"] }
+thiserror = "1.0"
+base64-url = "3.0.0"
+jsonwebtoken = "9.3.0"
 
 attester = {path = "../attestation-agent/attester"}

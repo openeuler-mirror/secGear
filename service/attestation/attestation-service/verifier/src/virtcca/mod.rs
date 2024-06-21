@@ -11,6 +11,7 @@
  */
 
 //! virtcca verifier plugin
+use super::TeeClaim;
 
 use anyhow::{Result, bail, anyhow};
 use cose::keys::CoseKey;
@@ -22,18 +23,19 @@ use openssl::pkey::Public;
 use openssl::x509;
 use openssl::pkey::PKey;
 use log;
+use serde_json::json;
 
-use attester::virtcca::VirtccaEvidence;
+pub use attester::virtcca::VirtccaEvidence; // todo delete, add pub to debug service lib testcase
 
-const VIRTCCA_ROOT_CERT: &str = "/etc/attestation/virtcca/Huawei Equipment Root CA.pem";
-const VIRTCCA_SUB_CERT: &str = "/etc/attestation/virtcca/Huawei IT Product CA.pem";
-const VIRTCCA_REF_VALUE_FILE: &str = "/etc/attestation/virtcca/ref_value.json";
+const VIRTCCA_ROOT_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei Equipment Root CA.pem";
+const VIRTCCA_SUB_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei IT Product CA.pem";
+const VIRTCCA_REF_VALUE_FILE: &str = "/etc/attestation/attestation-service/verifier/virtcca/ref_value.json";
 
 #[derive(Debug, Default)]
 pub struct VirtCCAVerifier {}
 
 impl VirtCCAVerifier {
-    pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<()> {
+    pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         return Evidence::verify(user_data, evidence);
     }
 }
@@ -79,7 +81,7 @@ impl Evidence {
             cvm_token: CvmToken::new(),
         }
     }
-    pub fn verify(user_data: &[u8], evidence: &[u8]) -> Result<()> {
+    pub fn verify(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         let virtcca_ev: VirtccaEvidence = serde_json::from_slice(evidence)?;
         let evidence = virtcca_ev.evidence;
         let dev_cert = virtcca_ev.dev_cert;
@@ -91,7 +93,31 @@ impl Evidence {
         // verify cvm token
         evidence.verify_cvm_token(user_data)?;
 
-        Ok(())
+        // todo parsed TeeClaim
+        evidence.parse_claim_from_evidence()
+    }
+    fn parse_claim_from_evidence(&self) -> Result<TeeClaim> {
+        let payload = json!({
+            "cvm": {
+                "challenge": hex::encode(self.cvm_token.challenge.clone()),
+                "rpv": hex::encode(self.cvm_token.rpv.clone()),
+                "rim": hex::encode(self.cvm_token.rim.clone()),
+                "rem": [
+                    hex::encode(self.cvm_token.rem[0].clone()),
+                    hex::encode(self.cvm_token.rem[1].clone()),
+                    hex::encode(self.cvm_token.rem[2].clone()),
+                    hex::encode(self.cvm_token.rem[3].clone())
+                ],
+            },
+            "platform" : {
+                // todo
+            }
+        });
+        let claim = json!({
+            "tee_type": "virtcca",
+            "payload" : payload,
+        });
+        Ok(claim as TeeClaim)
     }
     fn verify_platform_token(&mut self, dev_cert: &[u8]) -> Result<()> {
         // todo verify platform COSE_Sign1 by dev_cert
@@ -387,6 +413,9 @@ mod tests {
         };
         let virtcca_ev = serde_json::to_vec(&virtcca_ev).unwrap();
         let r = Evidence::verify(&challenge, &virtcca_ev);
-        assert!(r.is_ok());
+        match r {
+            Ok(claim) => println!("verify success {:?}", claim),
+            Err(e) => assert!(false, "verify failed {:?}", e),
+        }
     }
 }

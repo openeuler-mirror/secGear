@@ -24,21 +24,23 @@ use attester::{Evidence, TeeType};
 mod itrustee;
 
 #[cfg(feature = "virtcca-verifier")]
-mod virtcca;
+pub mod virtcca; // todo delete, add pub to debug service lib testcase
+
+pub type TeeClaim = serde_json::Value;
 
 #[derive(Debug, Default)]
 pub struct Verifier {}
 
 #[async_trait]
 pub trait VerifierAPIs {
-    async fn verify_evidence(&self, user_data: &[u8], evidence: &[u8]) -> Result<()>;
+    async fn verify_evidence(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim>;
 }
 
 const MAX_CHALLENGE_LEN: usize = 64;
 
 #[async_trait]
 impl VerifierAPIs for Verifier {
-    async fn verify_evidence(&self, user_data: &[u8], evidence: &[u8]) -> Result<()> {
+    async fn verify_evidence(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         let len = user_data.len();
         if len <= 0 || len > MAX_CHALLENGE_LEN {
             log::error!("challenge len is error, expecting 0 < len <= {}, got {}", MAX_CHALLENGE_LEN, len);
