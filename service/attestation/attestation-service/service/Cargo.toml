@@ -20,6 +20,7 @@ verifier = { path = "../verifier" }
 token = { path = "../token" }
 strum.workspace = true
 thiserror.workspace = true
+clap.workspace = true
 
 [dev-dependencies]
 futures.workspace = true

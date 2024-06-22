@@ -116,7 +116,7 @@ impl TryFrom<&Path> for AAConfig {
     ///        "svr_url": "http://127.0.0.1:8080",
     ///        "token_cfg": {
     ///            "cert": "/etc/attestation/attestation-agent/as_cert.pem",
-    ///            "iss": "oeas",
+    ///            "iss": "oeas"
     ///        }
     ///    }
     type Error = anyhow::Error;

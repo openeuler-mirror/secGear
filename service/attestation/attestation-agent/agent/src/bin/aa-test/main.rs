@@ -18,6 +18,7 @@ use tokio;
 use env_logger;
 
 const TEST_THREAD_NUM: i64 = 1; // multi thread num
+const DEFAULT_AACONFIG_FILE: &str = "/etc/attestation/attestation-agent/attestation-agent.conf";
 
 //mod agent;
 use attestation_agent::agent::*;
@@ -39,7 +40,7 @@ async fn main() {
 
 async fn attestation_proc(i: i64) {
     println!("attestation_proc {} start", i);
-    let aa: AttestationAgent = AttestationAgent::default();
+    let aa: AttestationAgent = AttestationAgent::new(Some(DEFAULT_AACONFIG_FILE)).unwrap();
 
     let mut nonce: [u8; 16] = [0; 16];
     rand::thread_rng().fill_bytes(&mut nonce);
