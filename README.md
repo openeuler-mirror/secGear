@@ -259,6 +259,93 @@ typedef struct {
     由于switchless的实际应用场景是存在频繁ecall调用，所以初始化switchless特性后，通常会有ecall调用，不会存在问题。
     
 
+远程证明特性
+-------------------------
+
+### 1 远程证明特性介绍
+**技术定义：** 目前不同的TEE的远程证明报告格式及验证流程各有差异，用户对接不同的TEE，需要集成不同TEE证明报告的验证流程，增加了用户的集成负担，并且不利于扩展新的TEE类型。远程证明服务将TEE证明报告的验证独立出来，同时支持不同TEE报告的验证，易扩展，用户仅需集成证明代理即可实现不同TEE之间的相互验证，并建立安全通道，大大降低了机密计算的使用门槛，促进机密计算生态的发展
+
+ **支持硬件平台：** 
+
+- virtCCA(920B/C)
+- ARM TrustZone 鲲鹏920
+
+### 2 约束限制
+当前仅提供远程证明服务相关组件，服务由用户自己部署、运维。
+
+### 3 远程证明API清单
+|  接口   | 接口说明  |
+|  ----  | ----  |
+| get_report()  | 获取证明报告。<br>参数：<br>&uuid：唯一标识。<br>&challenge: 随机数nonce。<br>返回值：<br>成功，返回证明报告，否则返回失败。<br> |
+| verify_report()  | 校验证明报告。<br>参数：<br>&challenge: 获取证明报告时用户输入的nonce随机数。<br>&report：待校验的证明报告。<br>返回值：<br>校验成功返回0，否则返回失败。<br> |
+
+### 4 远程证明开发流程 
+- 编译流程
+
+  当前使用cargo build对service/attestation/attestation-agent路径进行编译，提供如下编译选项：
+```
+    --features
+        all-attester ： 编译所有平台的获取报告agent
+        itrustee-attester ： 编译itrustee的获取报告agent
+        virtcca-attester ：编译virtcca的获取报告agent
+
+        all-verifier : 编译所有平台的报告验证service
+        itrustee-verifier : 编译itrustee的报告验证service
+        virtcca-verifier: 编译virtcca的报告验证service
+
+        no_as : 不对接as服务
+```
+
+  例：使用如下命令编译itrustee平台的报告获取和验证：
+```
+     cargo build --features no_as,all-attester,itrustee-verifier --lib
+```
+- 本地验证使用方法
+
+  注意：
+
+      itrustee平台需先自行使用源码编译libqca和qta，且用户二进制要同时链接libqca和libattestation_agent.so文件；
+      virtcca平台需要下载virtCCA_sdk和virtCCA_sdk-devel软件包。
+
+  1. 编译证明代理期间，配置no_as，把校验插件框架编译到证明代理中，本地调用证明报告校验插件框架完成验证。本地验证时需要用户配置TEE公钥证书、TCB和应用基线值。
+
+  2. 使用如下demo：
+```
+    #include <stdlib.h>
+    #include <stdio.h>
+    #include <string.h>
+    #include "rust_attestation_agent.h"
+
+    int main() {
+            char *ptr = "f68fd704-6eb1-4d14-b218-722850eb3ef0";
+            Vec_uint8_t uuid = {
+                    .ptr = (uint8_t *)ptr,
+                    .len = strlen(ptr),
+                    .cap = strlen(ptr),
+            };
+
+            uint8_t nonce[16] = {1};
+            Vec_uint8_t challenge = {
+                    .ptr = (uint8_t *)&nonce,
+                    .len = 16,
+                    .cap = 16,
+            };
+
+            // 获取报告
+            Vec_uint8_t report = get_report(&uuid, &challenge);
+            int ret = -1;
+            if (report.cap != 0) {
+                // 验证报告
+                ret = verify_report(&challenge, &report);
+            }
+
+            printf("ret:%d\n", ret);
+            free_report(report);
+            return 0;
+    }
+```
+
+
 中间层组件使用指导
 -------------------------
 
