@@ -106,8 +106,7 @@ impl TokenVerifier {
         };
 
         let mut validation = Validation::new(alg);
-
-        validation.set_issuer(&["openEulerAS"]);
+        validation.set_issuer(&[self.config.iss.clone()]);
         validation.validate_exp = true;
 
         let data = decode::<Claims>(&token, &key_value, &validation);

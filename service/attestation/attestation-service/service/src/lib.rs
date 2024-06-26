@@ -23,14 +23,17 @@ impl Default for ASConfig {
 }
 
 impl TryFrom<&Path> for ASConfig {
-    /// Load `AAConfig` from a configuration file like:
+    /// Load `ASConfig` from a configuration file like:
     ///    {
-    ///        "svr_url": "http://127.0.0.1:8080",
-    ///        "token_cfg": {
-    ///            "cert": "/etc/attestation/attestation-agent/as_cert.pem",
-    ///            "iss": "oeas",
-    ///        }
+    ///         "token_cfg": {
+    ///             "key": "/etc/attestation/attestation-service/token/private.pem",
+    ///             "iss": "oeas",
+    ///             "nbf": 0,
+    ///             "valid_duration": 300,
+    ///             "alg": "PS256"
+    ///         }
     ///    }
+
     type Error = anyhow::Error;
     fn try_from(config_path: &Path) -> Result<Self, Self::Error> {
         let file = File::open(config_path)?;
@@ -57,7 +60,7 @@ impl Default for AttestationService {
 }
 
 impl AttestationService {
-    pub fn new(conf_path: Option<&str>) -> Result<Self> {
+    pub fn new(conf_path: Option<String>) -> Result<Self> {
         let config = match conf_path {
             Some(conf_path) => {
                 log::info!("Attestation Service config file:{conf_path}");

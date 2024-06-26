@@ -26,5 +26,6 @@ strum = { version = "0.25", features = ["derive"] }
 thiserror = "1.0"
 base64-url = "3.0.0"
 jsonwebtoken = "9.3.0"
+clap = { version = "4.5.7", features = ["derive"] }
 
 attester = {path = "../attestation-agent/attester"}
