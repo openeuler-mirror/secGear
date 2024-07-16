@@ -20,6 +20,7 @@ pub fn get_report(c_uuid: Option<&repr_c::String>, c_challenge: Option<&repr_c::
     let input: EvidenceRequest = EvidenceRequest {
         uuid: uuid,
         challenge: challenge,
+        ima: None,
     };
 
     let fut = async {

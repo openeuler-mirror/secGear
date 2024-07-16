@@ -49,6 +49,7 @@ async fn attestation_proc(i: i64) {
     let user_data: attester::EvidenceRequest = attester::EvidenceRequest {
         uuid: String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),
         challenge: nonce.to_vec(),
+        ima: None,
     };
 
     // Step2: get tee evidence

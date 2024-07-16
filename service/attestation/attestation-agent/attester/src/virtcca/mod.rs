@@ -31,7 +31,7 @@ pub struct VirtccaAttester {}
 
 impl VirtccaAttester {
     pub async fn tee_get_evidence(&self, user_data: EvidenceRequest) -> Result<String> {
-        let evidence = virtcca_get_token(&user_data.challenge)?;
+        let evidence = virtcca_get_token(user_data)?;
         let evidence = serde_json::to_string(&evidence)?;
         Ok(evidence)
     }
@@ -45,13 +45,14 @@ pub fn detect_platform() -> bool {
 pub struct VirtccaEvidence {
     pub evidence: Vec<u8>,
     pub dev_cert: Vec<u8>,
+    pub ima_log: Option<Vec<u8>>,
 }
 
-fn virtcca_get_token(challenge: &[u8]) -> Result<VirtccaEvidence> {
+fn virtcca_get_token(user_data: EvidenceRequest) -> Result<VirtccaEvidence> {
     unsafe {
         let ctx = tsi_new_ctx();
 
-        let mut challenge = challenge.to_vec();
+        let mut challenge = user_data.challenge.to_vec();
         let p_challenge = challenge.as_mut_ptr() as *mut ::std::os::raw::c_uchar;
         let challenge_len = challenge.len() as usize;
         let mut token = Vec::new();
@@ -78,9 +79,19 @@ fn virtcca_get_token(challenge: &[u8]) -> Result<VirtccaEvidence> {
         }
         dev_cert.set_len(dev_cert_len);
 
+        let with_ima = match user_data.ima {
+            Some(ima) => ima,
+            None => false,
+        };
+        let ima_log = match with_ima {
+            true => Some(std::fs::read("/sys/kernel/security/ima/binary_runtime_measurements").unwrap()),
+            false => None,
+        };
+
         let evidence = VirtccaEvidence {
             evidence: token,
             dev_cert: dev_cert,
+            ima_log: ima_log,
         };
         let _ = tsi_free_ctx(ctx);
         Ok(evidence)

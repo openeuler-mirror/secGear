@@ -26,6 +26,7 @@ use log;
 use serde_json::json;
 
 pub use attester::virtcca::VirtccaEvidence; // todo delete, add pub to debug service lib testcase
+pub mod ima;
 
 const VIRTCCA_ROOT_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei Equipment Root CA.pem";
 const VIRTCCA_SUB_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei IT Product CA.pem";
@@ -410,6 +411,7 @@ mod tests {
         let virtcca_ev = VirtccaEvidence {
             evidence: token.to_vec(),
             dev_cert: dev_cert,
+            ima_log: None,
         };
         let virtcca_ev = serde_json::to_vec(&virtcca_ev).unwrap();
         let r = Evidence::verify(&challenge, &virtcca_ev);

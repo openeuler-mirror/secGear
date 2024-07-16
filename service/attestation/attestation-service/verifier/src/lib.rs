@@ -25,6 +25,7 @@ mod itrustee;
 
 #[cfg(feature = "virtcca-verifier")]
 pub mod virtcca; // todo delete, add pub to debug service lib testcase
+pub use virtcca::ima;
 
 pub type TeeClaim = serde_json::Value;
 
