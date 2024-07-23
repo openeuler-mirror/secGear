@@ -1,6 +1,8 @@
+/// RESTful Attestation Service
+
 use attestation_service::AttestationService;
-mod session;
 mod restapi;
+use restapi::{attestation, reference, get_policy, set_policy};
 
 use anyhow::Result;
 use env_logger;
@@ -44,9 +46,11 @@ async fn main() -> Result<()> {
     let service = web::Data::new(Arc::new(RwLock::new(server)));
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(session::Session {}))
             .app_data(web::Data::clone(&service))
-            .service(restapi::attest::attest)
+            .service(attestation)
+            .service(reference)
+            .service(set_policy)
+            .service(get_policy)
     })
     .bind((cli.socketaddr.ip().to_string(), cli.socketaddr.port()))?
     .run()

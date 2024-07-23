@@ -2,6 +2,7 @@ use actix_web::{body::BoxBody, HttpResponse, ResponseError};
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// libdevice error
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 #[allow(missing_docs)]
