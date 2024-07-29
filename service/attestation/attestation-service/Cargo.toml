@@ -18,6 +18,8 @@ openssl = "0.10.64"
 log = "0.4.14"
 futures = "0.3.30"
 rand = "0.8.5"
+ima-measurements = "0.2.0"
+fallible-iterator = "0.2.0"
 
 actix-web = "4.5"
 env_logger = "0.9"

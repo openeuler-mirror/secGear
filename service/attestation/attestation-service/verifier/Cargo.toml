@@ -13,6 +13,9 @@ ciborium.workspace = true
 hex.workspace = true
 openssl.workspace = true
 log.workspace = true
+ima-measurements.workspace = true
+rand.workspace = true
+fallible-iterator.workspace = true
 
 attester.workspace = true
 

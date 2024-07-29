@@ -3,10 +3,8 @@ use std::fs::File;
 use std::path::Path;
 use serde::{Serialize, Deserialize};
 
-use verifier::{Verifier, VerifierAPIs};
+use verifier::{Verifier, VerifierAPIs, virtcca::ima::ImaVerify};
 use token::{EvlReport, EvlResult, TokenSigner, TokenSignConfig};
-
-
 
 pub mod result;
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -82,6 +80,11 @@ impl AttestationService {
         let verifier = Verifier::default();
         let claims_evidence = verifier.verify_evidence(user_data, evidence).await?;
 
+        let mut passed = false;
+        let ima_result = ImaVerify::default().ima_verify(evidence, &claims_evidence, "/etc/attestation/attestation-service/verifier/digest_list_file".to_string());
+        if ima_result.is_ok() {
+            passed = true;
+        }
         // get reference by keys in claims_evidence
 
         // apply policy to verify claims_evidence with reference value
@@ -91,7 +94,7 @@ impl AttestationService {
             tee: token::TeeType::KUNPENG(claims_evidence["tee_type"].to_string()),
             result: EvlResult {
                 policy: vec![String::from("default")],
-                passed: true,
+                passed: passed,
             },
             tcb_status: claims_evidence["payload"].clone(),
         };

@@ -29,6 +29,7 @@ pub mod virtcca;
 pub struct EvidenceRequest {
     pub uuid: String,
     pub challenge: Vec<u8>,
+    pub ima: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
