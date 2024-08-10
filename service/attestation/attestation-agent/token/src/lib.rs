@@ -1,8 +1,8 @@
 use anyhow::{Result, bail};
 use std::path::Path;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation };
+use token_signer::Claims;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TokenVerifyConfig {
@@ -36,30 +36,8 @@ impl Default for TokenVerifier
 // 返回token的原始数据
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct TokenRawData {
-    header: String,
-    claim: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct EvlResult {
-    pub policy: Vec<String>,
-    pub passed: bool,
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TeeType {
-    KUNPENG(String),
-    VIRTCCA(String),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Claims {
-    iss: String,
-    iat: usize,
-    nbf: usize,
-    exp: usize,
-    evaluation_reports: EvlResult,
-    tee: TeeType,
-    tcb_status: Value,
+    pub header: String,
+    pub claim: String,
 }
 
 impl TokenVerifier {

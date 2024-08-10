@@ -51,11 +51,12 @@ pub async fn verify_evidence(
     let request = request.0;
     log::debug!("verify evidence request: {:?}", request);
     let challenge = base64_url::decode(&request.challenge).expect("base64 decode challenge");
-    let evidence = base64_url::decode(&request.evidence).expect("base64 decode evidence");
+    let evidence = request.evidence;
 
-    let token = agent.read().await.verify_evidence(&challenge, &evidence).await?;
+    let claim = agent.read().await.verify_evidence(&challenge, evidence.as_bytes()).await?;
+    let string_claim = serde_json::to_string(&claim)?;
 
-    Ok(HttpResponse::Ok().body(token))
+    Ok(HttpResponse::Ok().body(string_claim))
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -71,7 +72,7 @@ pub async fn get_token(
     agent: web::Data<Arc<RwLock<AttestationAgent>>>,
 ) -> Result<HttpResponse> {
     let request = request.0;
-    log::debug!("get evidence request: {:?}", request);
+    log::debug!("get token request: {:?}", request);
     let challenge = base64_url::decode(&request.challenge).expect("base64 decode challenge");
     let uuid = request.uuid;
     let ima = request.ima;
@@ -96,7 +97,7 @@ pub async fn verify_token(
     agent: web::Data<Arc<RwLock<AttestationAgent>>>,
 ) -> Result<HttpResponse> {
     let request = request.0;
-    log::debug!("verify evidence request: {:?}", request);
+    log::debug!("verify token request: {:?}", request);
 
     let claim = agent.read().await.verify_token(request.token).await?;
     let string_claim = serde_json::to_string(&claim)?;

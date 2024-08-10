@@ -4,7 +4,7 @@ use std::path::Path;
 use serde::{Serialize, Deserialize};
 
 use verifier::{Verifier, VerifierAPIs, virtcca::ima::ImaVerify};
-use token::{EvlReport, EvlResult, TokenSigner, TokenSignConfig};
+use token_signer::{EvlReport, EvlResult, TokenSigner, TokenSignConfig};
 
 pub mod result;
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -91,7 +91,7 @@ impl AttestationService {
 
         // issue attestation result token
         let evl_report = EvlReport {
-            tee: token::TeeType::KUNPENG(claims_evidence["tee_type"].to_string()),
+            tee: claims_evidence["tee"].to_string(),
             result: EvlResult {
                 policy: vec![String::from("default")],
                 passed: passed,

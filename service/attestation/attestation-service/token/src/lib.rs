@@ -7,13 +7,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Claims {
+pub struct Claims {
     iss: String,
     iat: usize,
     nbf: usize,
     exp: usize,
     evaluation_reports: EvlResult,
-    tee: TeeType,
+    tee: String,
     tcb_status: Value,
 }
 
@@ -45,14 +45,8 @@ pub struct EvlResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TeeType {
-    KUNPENG(String),
-    VIRTCCA(String),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvlReport {
-    pub tee: TeeType,
+    pub tee: String,
     pub result: EvlResult,
     pub tcb_status: Value,
 }

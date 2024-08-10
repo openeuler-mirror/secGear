@@ -17,7 +17,7 @@ base64-url.workspace = true
 
 attester.workspace = true
 verifier = { path = "../verifier" }
-token = { path = "../token" }
+token_signer = { path = "../token" }
 strum.workspace = true
 thiserror.workspace = true
 clap.workspace = true
