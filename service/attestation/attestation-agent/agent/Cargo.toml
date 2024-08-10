@@ -43,5 +43,5 @@ actix-web.workspace = true
 clap.workspace = true
 
 attester = { path = "../attester" }
-token = { path = "../token" }
+token_verifier = { path = "../token" }
 verifier = { workspace = true, optional = true }

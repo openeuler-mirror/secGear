@@ -1,5 +1,5 @@
 [package]
-name = "token"
+name = "token_verifier"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,3 +10,4 @@ jsonwebtoken.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
+token_signer.workspace = true

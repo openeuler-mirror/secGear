@@ -26,3 +26,4 @@ actix-web = "4.5"
 clap = { version = "4.5.7", features = ["derive"] }
 
 verifier = {path = "../attestation-service/verifier", default-features = false}
+token_signer = {path = "../attestation-service/token"}

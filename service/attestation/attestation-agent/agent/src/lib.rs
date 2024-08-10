@@ -23,7 +23,7 @@ use std::fs::File;
 use std::path::Path;
 
 use attester::{Attester, AttesterAPIs};
-use token::{TokenVerifyConfig, TokenVerifier, TokenRawData};
+use token_verifier::{TokenVerifyConfig, TokenVerifier, TokenRawData};
 
 pub mod result;
 pub type TeeClaim = serde_json::Value;
@@ -46,7 +46,7 @@ pub trait AttestationAgentAPIs {
 
     /// `verify_evidence`: verify the integrity of TEE evidence and evaluate the
     /// claims against the supplied reference values
-    async fn verify_evidence(&self, challenge: &[u8], evidence: &[u8]) -> Result<()>;
+    async fn verify_evidence(&self, challenge: &[u8], evidence: &[u8]) -> Result<TeeClaim>;
 
     #[cfg(not(feature = "no_as"))]
     async fn get_token(&self, user_data: EvidenceRequest) -> Result<String>;
@@ -59,13 +59,16 @@ impl AttestationAgentAPIs for AttestationAgent {
     async fn get_evidence(&self, user_data: EvidenceRequest) -> Result<Vec<u8>> {
         Attester::default().tee_get_evidence(user_data).await
     }
-    async fn verify_evidence(&self, challenge: &[u8], evidence: &[u8]) -> Result<()> {
+    async fn verify_evidence(&self, challenge: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         #[cfg(feature = "no_as")]
         {
             let ret = Verifier::default().verify_evidence(challenge, evidence).await;
             match ret {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
+                Ok(tee_claim) => Ok(TeeClaim),
+                Err(e) => {
+                    log::error!("attestation agent verify evidence with no as failed:{:?}", e);
+                    Err(e)
+                },
             }
         }
 
@@ -73,8 +76,11 @@ impl AttestationAgentAPIs for AttestationAgent {
         {
             let ret = self.request_as(challenge, evidence).await;
             match ret {
-                Ok(_) => Ok(()),
-                Err(e) => bail!("verify evidence failed {:?}", e),
+                Ok(token) => { self.token_to_teeclaim(token).await },
+                Err(e) => {
+                    log::error!("verify evidence with as failed:{:?}", e);
+                    Err(e)
+                },
             }
         }
     }
@@ -176,15 +182,31 @@ impl AttestationAgent {
         match res.status() {
             reqwest::StatusCode::OK => {
                 let token = res.text().await?;
-                println!("Remote Attestation success, AS Response: {:?}", token);
+                log::debug!("Remote Attestation success, AS Response: {:?}", token);
                 Ok(token)
             }
             _ => {
-                bail!(
-                    "Remote Attestation Failed, AS Response: {:?}",
-                    res.text().await?
-                );
+                bail!("Remote Attestation Failed, AS Response: {:?}", res.text().await?);
             }
+        }
+    }
+
+    #[cfg(not(feature = "no_as"))]
+    async fn token_to_teeclaim(&self, token: String) -> Result<TeeClaim> {
+        let ret = self.verify_token(token).await;
+        match ret {
+            Ok(token) => {
+                let token_claim: serde_json::Value = serde_json::from_slice(token.claim.as_bytes())?;
+                let tee_claim = json!({
+                    "tee": token_claim["tee"].clone(),
+                    "payload" : token_claim["tcb_status"].clone(),
+                });
+                Ok(tee_claim as TeeClaim)
+            },
+            Err(e) => {
+                log::error!("token to teeclaim failed:{:?}", e);
+                Err(e)
+            },
         }
     }
 }

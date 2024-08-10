@@ -66,7 +66,7 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         "version": js_evidence["payload"]["version"].clone(),
     });
     let claim = json!({
-        "tee_type": "kunpeng",
+        "tee": "kunpeng",
         "payload" : payload,
     });
     Ok(claim as TeeClaim)

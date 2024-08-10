@@ -115,13 +115,13 @@ impl Evidence {
             }
         });
         let claim = json!({
-            "tee_type": "virtcca",
+            "tee": "virtcca",
             "payload" : payload,
         });
         Ok(claim as TeeClaim)
     }
     fn verify_platform_token(&mut self, dev_cert: &[u8]) -> Result<()> {
-        // todo verify platform COSE_Sign1 by dev_cert
+        // todo verify platform COSE_Sign1 by dev_cert, virtCCA report has no platform token now
 
         // verify dev_cet by cert chain
         Evidence::verify_dev_cert_chain(dev_cert)?;
@@ -167,7 +167,7 @@ impl Evidence {
                 token_challenge, challenge);
         }
 
-        // todo verify cvm pubkey by platform.challenge
+        // todo verify cvm pubkey by platform.challenge, virtCCA report has no platform token now
 
         // verify COSE_Sign1 signature begin
         let raw_pub_key = self.cvm_token.pub_key;
