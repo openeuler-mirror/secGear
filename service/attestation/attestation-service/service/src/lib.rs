@@ -13,6 +13,8 @@ use anyhow::{Result, anyhow};
 use std::fs::File;
 use std::path::Path;
 use serde::{Serialize, Deserialize};
+use rand::RngCore;
+use base64_url;
 
 use verifier::{Verifier, VerifierAPIs, virtcca::ima::ImaVerify};
 use token_signer::{EvlReport, EvlResult, TokenSigner, TokenSignConfig};
@@ -23,7 +25,7 @@ use policy::policy_engine::{PolicyEngine, PolicyEngineError};
 pub mod result;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ASConfig {
-    token_cfg: TokenSignConfig,
+    pub token_cfg: TokenSignConfig,
 }
 
 impl Default for ASConfig {
@@ -54,7 +56,7 @@ impl TryFrom<&Path> for ASConfig {
 }
 
 pub struct AttestationService {
-    config: ASConfig,
+    pub config: ASConfig,
     // verify policy sub service
     //policy: ,
     // reference value provider sub service
@@ -132,6 +134,12 @@ impl AttestationService {
         let signer = TokenSigner::new(self.config.token_cfg.clone())?;
 
         signer.sign(&evl_report)
+    }
+
+    pub async fn generate_challenge(&self) -> String {
+        let mut nonce: [u8; 32] = [0; 32];
+        rand::thread_rng().fill_bytes(&mut nonce);
+        base64_url::encode(&nonce)
     }
 
     // todo pub fun set policy

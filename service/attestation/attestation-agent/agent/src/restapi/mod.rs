@@ -9,6 +9,20 @@ use tokio::sync::RwLock;
 use log;
 use base64_url;
 
+#[derive(Deserialize, Serialize, Debug)]
+struct GetChallengeRequest {}
+
+#[get("/challenge")]
+pub async fn get_challenge(
+    //_request: web::Json<GetChallengeRequest>,
+    agent: web::Data<Arc<RwLock<AttestationAgent>>>,
+) -> Result<HttpResponse> {
+    //let request = request.0;
+    log::debug!("get challenge request");
+    let challenge = agent.read().await.get_challenge().await?;
+
+    Ok(HttpResponse::Ok().body(challenge))
+}
 
 #[derive(Deserialize, Serialize, Debug)]
 struct GetEvidenceRequest {

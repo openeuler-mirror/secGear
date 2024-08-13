@@ -13,7 +13,9 @@
 
 use attestation_service::AttestationService;
 mod restapi;
-use restapi::{attestation, reference, get_policy, set_policy};
+use restapi::{get_challenge, attestation, reference, get_policy, set_policy};
+mod session;
+use session::SessionMap;
 
 use anyhow::Result;
 use env_logger;
@@ -52,12 +54,15 @@ async fn main() -> Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let cli = Cli::parse();
-    let server = AttestationService::new(Some(cli.config)).unwrap();
+    let server:AttestationService = AttestationService::new(Some(cli.config)).unwrap();
+    let session_map = web::Data::new(SessionMap::new());
 
     let service = web::Data::new(Arc::new(RwLock::new(server)));
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::clone(&service))
+            .app_data(web::Data::clone(&session_map))
+            .service(get_challenge)
             .service(attestation)
             .service(reference)
             .service(set_policy)

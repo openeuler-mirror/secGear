@@ -1,6 +1,6 @@
 use attestation_agent::AttestationAgent;
 mod restapi;
-use restapi::{get_evidence, verify_evidence, get_token, verify_token};
+use restapi::{get_challenge, get_evidence, verify_evidence, get_token, verify_token};
 
 use anyhow::Result;
 use env_logger;
@@ -33,7 +33,7 @@ struct Cli {
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("debug"));
 
     let cli = Cli::parse();
     let server = AttestationAgent::new(Some(cli.config)).unwrap();
@@ -42,6 +42,7 @@ async fn main() -> Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::clone(&service))
+            .service(get_challenge)
             .service(get_evidence)
             .service(verify_evidence)
             .service(get_token)

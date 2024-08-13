@@ -24,10 +24,12 @@ policy = { path = "../policy" }
 strum.workspace = true
 thiserror.workspace = true
 clap.workspace = true
+uuid.workspace = true
+rand.workspace = true
+scc.workspace = true
 
 [dev-dependencies]
 futures.workspace = true
-rand.workspace = true
 
 [features]
 

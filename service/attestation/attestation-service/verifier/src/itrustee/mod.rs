@@ -41,6 +41,7 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         size: in_data.len() as ::std::os::raw::c_uint,
         buf: in_data.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
     };
+    log::info!("input nonce:{:?}", nonce);
     let policy: std::os::raw::c_int = 1;
     if !Path::new(ITRUSTEE_REF_VALUE_FILE).exists() {
         log::error!("itrustee verify report {} not exists", ITRUSTEE_REF_VALUE_FILE);
