@@ -342,6 +342,7 @@ static pthread_t *tswitchless_init_workers(sl_task_pool_t *pool)
             SLogError("Create tee thread failed, index:%u, ret:%d.", i, ret);
             return NULL;
         }
+        pthread_setaffinity_np(tids[i], sizeof(pool_cfg->tworkers_cores), &(pool_cfg->tworkers_cores));
     }
 
     CC_THREAD_ATTR_DESTROY(&attr);

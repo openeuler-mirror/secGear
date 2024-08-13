@@ -19,6 +19,8 @@ set(SOURCE_FILES ${SOURCE_FILES} ../gp.c ../gp_ocall.c itrustee_seal_data.c erro
 set(ITRUSTEE_TEEDIR ${SDK_PATH}/)
 set(ITRUSTEE_LIBC ${SDK_PATH}/thirdparty/open_source/musl/libc)
 
+add_definitions(-D_GNU_SOURCE)
+
 if (CMAKE_COMPILER_IS_GNUCC)
     execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpfullversion -dumpversion
                     OUTPUT_VARIABLE GCC_VERSION)
