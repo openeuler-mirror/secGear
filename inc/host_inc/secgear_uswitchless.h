@@ -41,7 +41,9 @@
 #ifndef SECGEAR_USWITCHLESS_H
 #define SECGEAR_USWITCHLESS_H
 
+#include <sched.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -85,9 +87,12 @@ typedef struct {
 
     /* Indicates whether to roll back to common invoking when asynchronous switchless invoking fails, only for GP */
     uint32_t rollback_to_common;
+
+    /* Specifies the name of the bound core. */
+    cpu_set_t tworkers_cores;
 } cc_sl_config_t;
 
-#define CC_USWITCHLESS_CONFIG_INITIALIZER   {1, 1, 1, 16, 0, 0, WORKERS_POLICY_BUSY, 0}
+#define CC_USWITCHLESS_CONFIG_INITIALIZER   {1, 1, 1, 16, 0, 0, WORKERS_POLICY_BUSY, 0, {{0}} }
 
 #ifdef __cplusplus
 }
