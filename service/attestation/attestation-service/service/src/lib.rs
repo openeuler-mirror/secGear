@@ -1,3 +1,14 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+ * secGear is licensed under the Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *     http://license.coscl.org.cn/MulanPSL2
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
+ * PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ */
 use anyhow::{Result, anyhow};
 use std::fs::File;
 use std::path::Path;
@@ -5,6 +16,9 @@ use serde::{Serialize, Deserialize};
 
 use verifier::{Verifier, VerifierAPIs, virtcca::ima::ImaVerify};
 use token_signer::{EvlReport, EvlResult, TokenSigner, TokenSignConfig};
+use reference::reference::{ReferenceOps, RefOpError};
+use policy::opa::OPA;
+use policy::policy_engine::{PolicyEngine, PolicyEngineError};
 
 pub mod result;
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -76,6 +90,7 @@ impl AttestationService {
         &self,
         user_data: &[u8],
         evidence: &[u8],
+        policy_ids: &Vec<String>
     ) -> Result<String> {
         let verifier = Verifier::default();
         let claims_evidence = verifier.verify_evidence(user_data, evidence).await?;
@@ -86,15 +101,30 @@ impl AttestationService {
             passed = true;
         }
         // get reference by keys in claims_evidence
-
+        let mut ops_refs = ReferenceOps::default();
+        let refs_of_claims = ops_refs.query(&claims_evidence.to_string());
         // apply policy to verify claims_evidence with reference value
-
+        let policy_dir = String::from("/etc/attestation/attestation-service/policy");
+        let engine = OPA::new(&policy_dir).await.unwrap();
+        let data = String::new();
+        let result = engine.evaluate(&refs_of_claims.unwrap(), &data, policy_ids).await;
+        let mut report = serde_json::json!({});
+        match result {
+            Ok(eval) => {
+                for id in eval.keys() {
+                    report.as_object_mut().unwrap().insert(id.clone(), serde_json::Value::String(eval[id].clone()));
+                }
+            }
+            Err(err) => {
+                return Err(anyhow!("evaluate error: {err}"));
+            }
+        }
         // issue attestation result token
         let evl_report = EvlReport {
             tee: claims_evidence["tee"].to_string(),
             result: EvlResult {
-                policy: vec![String::from("default")],
-                passed: passed,
+                policy: policy_ids.clone(),
+                report: report,
             },
             tcb_status: claims_evidence["payload"].clone(),
         };
@@ -105,9 +135,39 @@ impl AttestationService {
     }
 
     // todo pub fun set policy
-
+    pub async fn set_policy(&self,
+        id: &String,
+        policy: &String,
+        policy_dir: &String,
+    ) -> Result<(), PolicyEngineError> {
+        let engine = OPA::new(policy_dir).await;
+        engine.unwrap()
+            .set_policy(id, policy)
+            .await
+    }
     // todo pub fun get policy
-
+    pub async fn get_policy(&self,
+        policy_dir: &String,
+    ) -> Result<String, PolicyEngineError> {
+        let engine = OPA::new(policy_dir).await;
+        match engine.unwrap().get_all_policy().await {
+            Ok(map) => {
+                let mut json_obj: serde_json::Value = serde_json::json!({});
+                for key in map.keys() {
+                    json_obj.as_object_mut()
+                    .unwrap()
+                    .insert(key.clone(), serde_json::json!(map[key]));
+                }
+                Ok(json_obj.to_string())
+            }
+            Err(err) => Err(err)
+        }
+    }
     // todo pub fun import reference value
-    
+    pub async fn register_reference(&self,
+        ref_set: &String
+    ) -> Result<(), RefOpError> {
+        let mut ops_default = ReferenceOps::default();
+        ops_default.register(ref_set)
+    }
 }
