@@ -17,8 +17,7 @@ use std::process::Command;
 use serde_json::Value;
 use rand::Rng;
 
-use attester::Evidence;
-pub use attester::virtcca::VirtccaEvidence;
+use attestation_types::{Evidence, VirtccaEvidence};
 
 #[derive(Debug)]
 pub struct ImaVerify {

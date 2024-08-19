@@ -16,7 +16,6 @@ log.workspace = true
 base64-url.workspace = true
 base64.workspace = true
 
-attester.workspace = true
 verifier = { path = "../verifier" }
 token_signer = { path = "../token" }
 reference = { path = "../reference" }
@@ -27,6 +26,7 @@ clap.workspace = true
 uuid.workspace = true
 rand.workspace = true
 scc.workspace = true
+attestation-types.workspace = true
 
 [dev-dependencies]
 futures.workspace = true

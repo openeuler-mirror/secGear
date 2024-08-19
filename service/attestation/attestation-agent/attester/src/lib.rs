@@ -15,9 +15,9 @@
 //! This crate provides unified APIs to get TEE evidence.
 
 use anyhow::*;
-use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
 use log;
+use attestation_types::{TeeType, Evidence};
 
 #[cfg(feature = "itrustee-attester")]
 mod itrustee;
@@ -33,12 +33,6 @@ pub struct EvidenceRequest {
     pub policy_id: Option<Vec<String>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Evidence {
-    pub tee: TeeType,
-    pub evidence: String,
-}
-
 #[async_trait]
 pub trait AttesterAPIs {
     /// Call tee plugin to get the hardware evidence.
@@ -49,12 +43,6 @@ pub trait AttesterAPIs {
 #[derive(Default)]
 pub struct Attester {}
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum TeeType {
-    Itrustee = 1,
-    Virtcca,
-    Invalid,
-}
 
 const MAX_CHALLENGE_LEN: usize = 64;
 

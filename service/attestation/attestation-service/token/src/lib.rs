@@ -16,17 +16,8 @@ use jsonwebtoken::{encode, get_current_timestamp,
 use std::path::Path;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use attestation_types::{EvlResult, Claims};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Claims {
-    iss: String,
-    iat: usize,
-    nbf: usize,
-    exp: usize,
-    evaluation_reports: EvlResult,
-    tee: String,
-    tcb_status: Value,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenSignConfig {
@@ -49,12 +40,6 @@ impl Default for TokenSignConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EvlResult {
-    pub eval_reulst: bool,
-    pub policy: Vec<String>,
-    pub report: Value,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvlReport {

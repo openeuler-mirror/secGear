@@ -25,7 +25,7 @@ use openssl::pkey::PKey;
 use log;
 use serde_json::json;
 
-pub use attester::virtcca::VirtccaEvidence; // todo delete, add pub to debug service lib testcase
+pub use attestation_types::VirtccaEvidence;
 pub mod ima;
 
 const VIRTCCA_ROOT_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei Equipment Root CA.pem";
