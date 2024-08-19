@@ -50,7 +50,11 @@ pub trait AttestationAgentAPIs {
 
     /// `verify_evidence`: verify the integrity of TEE evidence and evaluate the
     /// claims against the supplied reference values
-    async fn verify_evidence(&self, challenge: &[u8], evidence: &[u8]) -> Result<TeeClaim>;
+    async fn verify_evidence(&self,
+        challenge: &[u8],
+        evidence: &[u8],
+        policy_id: Option<Vec<String>>
+    ) -> Result<TeeClaim>;
 
     //#[cfg(not(feature = "no_as"))]
     async fn get_token(&self, user_data: EvidenceRequest) -> Result<String>;
@@ -71,7 +75,11 @@ impl AttestationAgentAPIs for AttestationAgent {
     async fn get_evidence(&self, user_data: EvidenceRequest) -> Result<Vec<u8>> {
         Attester::default().tee_get_evidence(user_data).await
     }
-    async fn verify_evidence(&self, challenge: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
+    async fn verify_evidence(&self,
+        challenge: &[u8],
+        evidence: &[u8],
+        _policy_id: Option<Vec<String>>
+    ) -> Result<TeeClaim> {
         #[cfg(feature = "no_as")]
         {
             let ret = Verifier::default().verify_evidence(challenge, evidence).await;
@@ -86,7 +94,7 @@ impl AttestationAgentAPIs for AttestationAgent {
 
         #[cfg(not(feature = "no_as"))]
         {
-            let ret = self.verify_evidence_by_as(challenge, evidence).await;
+            let ret = self.verify_evidence_by_as(challenge, evidence, _policy_id).await;
             match ret {
                 Ok(token) => { self.token_to_teeclaim(token).await },
                 Err(e) => {
@@ -107,8 +115,9 @@ impl AttestationAgentAPIs for AttestationAgent {
         {
             let evidence = self.get_evidence(user_data.clone()).await?;
             let challenge = &user_data.challenge;
+            let policy_id = user_data.policy_id;
             // request as
-            return self.verify_evidence_by_as(challenge, &evidence).await;
+            return self.verify_evidence_by_as(challenge, &evidence, policy_id).await;
         }
     }
 
@@ -184,10 +193,15 @@ impl AttestationAgent {
     }
 
     #[cfg(not(feature = "no_as"))]
-    async fn verify_evidence_by_as(&self, challenge: &[u8], evidence: &[u8]) -> Result<String> {
+    async fn verify_evidence_by_as(&self,
+        challenge: &[u8],
+        evidence: &[u8],
+        policy_id: Option<Vec<String>>
+    ) -> Result<String> {
         let request_body = json!({
             "challenge": base64_url::encode(challenge),
             "evidence": base64_url::encode(evidence),
+            "policy_id": policy_id,
         });
 
         let attest_endpoint = format!("{}/attestation", self.config.svr_url);

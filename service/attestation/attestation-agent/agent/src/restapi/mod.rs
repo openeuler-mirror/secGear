@@ -45,6 +45,7 @@ pub async fn get_evidence(
         uuid: uuid,
         challenge: challenge,
         ima: ima,
+        policy_id: None,
     };
     let evidence = agent.read().await.get_evidence(input).await?;
 
@@ -56,6 +57,7 @@ pub async fn get_evidence(
 struct VerifyEvidenceRequest {
     challenge: String,
     evidence: String,
+    policy_id: Option<Vec<String>>,
 }
 #[post("/evidence")]
 pub async fn verify_evidence(
@@ -66,8 +68,9 @@ pub async fn verify_evidence(
     log::debug!("verify evidence request: {:?}", request);
     let challenge = base64_url::decode(&request.challenge).expect("base64 decode challenge");
     let evidence = request.evidence;
+    let policy_id =  request.policy_id;
 
-    let claim = agent.read().await.verify_evidence(&challenge, evidence.as_bytes()).await?;
+    let claim = agent.read().await.verify_evidence(&challenge, evidence.as_bytes(), policy_id).await?;
     let string_claim = serde_json::to_string(&claim)?;
 
     Ok(HttpResponse::Ok().body(string_claim))
@@ -78,6 +81,7 @@ struct GetTokenRequest {
     challenge: String,
     uuid: String,
     ima: Option<bool>,
+    policy_id: Option<Vec<String>>,
 }
 
 #[get("/token")]
@@ -90,10 +94,12 @@ pub async fn get_token(
     let challenge = base64_url::decode(&request.challenge).expect("base64 decode challenge");
     let uuid = request.uuid;
     let ima = request.ima;
+    let policy_id =  request.policy_id;
     let input = EvidenceRequest {
         uuid: uuid,
         challenge: challenge,
         ima: ima,
+        policy_id: policy_id,
     };
     let token = agent.read().await.get_token(input).await?;
 

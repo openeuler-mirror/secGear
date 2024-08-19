@@ -21,18 +21,15 @@ use log;
 use base64_url;
 use serde_json::{json, Value};
 
-use attestation_service::result::Result;
 const DEFAULT_POLICY_DIR: &str = "/etc/attestation/attestation-service/policy";
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ChallengeRequest {}
 
 #[get("/challenge")]
 pub async fn get_challenge(
-    //_request: web::Json<ChallengeRequest>,
     map: web::Data<SessionMap>,
     service: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
-    //let request = request.0;
     log::debug!("challenge request");
 
     let challenge = service.read().await.generate_challenge().await;
@@ -50,7 +47,7 @@ pub async fn get_challenge(
 pub struct AttestationRequest {
     challenge: String,
     evidence: String,
-    policy_id: Vec<String>,
+    policy_id: Option<Vec<String>>,
 }
 
 #[post("/attestation")]
@@ -73,11 +70,11 @@ pub async fn attestation(
     }
 
     let request = request.0;
-    log::info!("session challenge:{}", session.challenge);
+    log::debug!("session challenge:{}", session.challenge);
     let nonce = base64_url::decode(&session.challenge).expect("base64 decode nonce");
     let evidence = base64_url::decode(&request.evidence).expect("base64 decode evidence");
-    let ids: Vec<String> = request.policy_id;
-    let token = service.read().await.evaluate(&challenge, &evidence, &ids).await?;
+    let ids = request.policy_id;
+    let token = service.read().await.evaluate(&nonce, &evidence, &ids).await?;
 
     Ok(HttpResponse::Ok()
         .cookie(session.cookie())
