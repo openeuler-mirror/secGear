@@ -18,7 +18,7 @@ use anyhow::*;
 use serde_json;
 use async_trait::async_trait;
 
-use attester::{Evidence, TeeType};
+use attestation_types::{Evidence, TeeType};
 
 #[cfg(feature = "itrustee-verifier")]
 pub mod itrustee;
@@ -34,6 +34,10 @@ pub struct Verifier {}
 #[async_trait]
 pub trait VerifierAPIs {
     async fn verify_evidence(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim>;
+    async fn verify_ima(&self,
+        evidence: &[u8],
+        claim: &serde_json::Value,
+    ) -> Result<()>;
 }
 
 const MAX_CHALLENGE_LEN: usize = 64;
@@ -55,6 +59,22 @@ impl VerifierAPIs for Verifier {
             #[cfg(feature = "virtcca-verifier")]
             TeeType::Virtcca => virtcca::VirtCCAVerifier::default().evaluate(user_data, evidence).await,
             _ => bail!("unsupported tee type:{:?}", tee_type),
+        }
+    }
+    async fn verify_ima(&self,
+        evidence: &[u8],
+        claim: &serde_json::Value,
+    ) -> Result<()> {
+        let aa_evidence: Evidence = serde_json::from_slice(evidence)?;
+        let tee_type = aa_evidence.tee;
+        let digest_list_file = "/etc/attestation/attestation-service/verifier/digest_list_file".to_string();
+        match tee_type {
+            #[cfg(feature = "virtcca-verifier")]
+            TeeType::Virtcca => virtcca::ima::ImaVerify::default().ima_verify(evidence, claim, digest_list_file),
+            _ => {
+                    log::info!("unsupported ima type:{:?}", tee_type);
+                    Ok(())
+                },
         }
     }
 }

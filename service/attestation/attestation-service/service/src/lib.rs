@@ -16,11 +16,12 @@ use serde::{Serialize, Deserialize};
 use rand::RngCore;
 use base64_url;
 
-use verifier::{Verifier, VerifierAPIs, virtcca::ima::ImaVerify};
-use token_signer::{EvlReport, EvlResult, TokenSigner, TokenSignConfig};
+use verifier::{Verifier, VerifierAPIs};
+use token_signer::{EvlReport, TokenSigner, TokenSignConfig};
 use reference::reference::{ReferenceOps, RefOpError};
 use policy::opa::OPA;
 use policy::policy_engine::{PolicyEngine, PolicyEngineError};
+use attestation_types::EvlResult;
 
 pub mod result;
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -98,7 +99,7 @@ impl AttestationService {
         let claims_evidence = verifier.verify_evidence(user_data, evidence).await?;
 
         let mut passed = false;
-        let ima_result = ImaVerify::default().ima_verify(evidence, &claims_evidence, "/etc/attestation/attestation-service/verifier/digest_list_file".to_string());
+        let ima_result = verifier.verify_ima(evidence, &claims_evidence).await;
         if ima_result.is_ok() {
             passed = true;
         }

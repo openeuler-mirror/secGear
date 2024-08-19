@@ -16,12 +16,11 @@ log.workspace = true
 ima-measurements.workspace = true
 rand.workspace = true
 fallible-iterator.workspace = true
-
-attester.workspace = true
+attestation-types.workspace = true
 
 [dev-dependencies]
 
 [features]
 default = [ "itrustee-verifier","virtcca-verifier" ]
 itrustee-verifier = []
-virtcca-verifier = ["attester/virtcca-attester"]
+virtcca-verifier = []

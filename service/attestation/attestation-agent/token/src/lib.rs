@@ -2,7 +2,7 @@ use anyhow::{Result, bail};
 use std::path::Path;
 use serde::{Deserialize, Serialize};
 use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation };
-use token_signer::Claims;
+use attestation_types::Claims;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TokenVerifyConfig {

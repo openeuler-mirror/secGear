@@ -15,10 +15,4 @@ rand = { workspace = true, optional = true }
 base64-url = { workspace = true, optional = true }
 async-trait.workspace = true
 log.workspace = true
-
-[dev-dependencies]
-
-
-
-
-
+attestation-types.workspace = true

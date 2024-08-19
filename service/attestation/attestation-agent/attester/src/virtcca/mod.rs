@@ -16,8 +16,8 @@
 
 use anyhow::{Result, bail};
 use std::path::Path;
-use serde::{Serialize, Deserialize};
 use log;
+use attestation_types::VirtccaEvidence;
 
 use crate::EvidenceRequest;
 use crate::virtcca::virtcca::tsi_free_ctx;
@@ -41,12 +41,6 @@ pub fn detect_platform() -> bool {
     Path::new("/dev/tsi").exists()
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct VirtccaEvidence {
-    pub evidence: Vec<u8>,
-    pub dev_cert: Vec<u8>,
-    pub ima_log: Option<Vec<u8>>,
-}
 
 fn virtcca_get_token(user_data: EvidenceRequest) -> Result<VirtccaEvidence> {
     unsafe {

@@ -39,4 +39,4 @@ lazy_static = "1.5.0"
 uuid = { version = "1.2.2", features = ["serde", "v4"] }
 scc = "2.1"
 
-attester = {path = "../attestation-agent/attester"}
+attestation-types = {path = "../attestation-types"}
