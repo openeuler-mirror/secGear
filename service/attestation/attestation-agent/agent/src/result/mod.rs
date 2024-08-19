@@ -25,6 +25,9 @@ pub enum Error {
         source: serde_json::Error,
     },
 
+    #[error("Attestation Agent error:{0}")]
+    AttestationAgentError(String),
+
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

@@ -12,13 +12,10 @@
 
 //! This is a test bin, test get evidence and verify
 //! on kunpeng platform, libqca has white ta lists, need copy target/debug/attestation-agent to /vendor/bin/
-
-use rand::{self, RngCore};
 use tokio;
 use env_logger;
 use serde_json::json;
 use reqwest;
-use base64_url;
 
 const TEST_THREAD_NUM: i64 = 1; // multi thread num
 
@@ -40,11 +37,33 @@ async fn main() {
 async fn aa_proc(i: i64) {
     println!("attestation_proc {} start", i);
     
+    // get challenge
+    let client = reqwest::Client::new();
+    let challenge_endpoint = "http://127.0.0.1:8081/challenge";
+    let res = client
+        .get(challenge_endpoint)
+        .header("Content-Type", "application/json")
+        .header("content-length", 0)
+        //.json(&request_body)
+        .send()
+        .await
+        .unwrap();
+
+    let challenge = match res.status() {
+        reqwest::StatusCode::OK => {
+            let respone = res.text().await.unwrap();
+            println!("get challenge success, AA Response: {:?}", respone);
+            respone
+        }
+        status => {
+            println!("get challenge Failed, AA Response: {:?}", status);
+            return;
+        }
+    };
+
     // get evidence
-    let mut nonce: [u8; 16] = [0; 16];
-    rand::thread_rng().fill_bytes(&mut nonce);
     let request_body = json!({
-        "challenge": base64_url::encode(&nonce),
+        "challenge": challenge,
         "uuid": String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),
     });
 
@@ -72,7 +91,7 @@ async fn aa_proc(i: i64) {
 
     // verify evidence
     let request_body = json!({
-        "challenge": base64_url::encode(&nonce),
+        "challenge": challenge,
         "evidence": evidence,
     });
 
@@ -93,56 +112,59 @@ async fn aa_proc(i: i64) {
             println!("verify evidence Failed, AA Response: {:?}", status);
         }
     }
+    #[cfg(not(feature = "no_as"))]
+    {
+        // get token
+        let token_endpoint = "http://127.0.0.1:8081/token";
+        let request_body = json!({
+            "challenge": challenge,
+            "uuid": String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),
+        });
 
-    // get token
-    let token_endpoint = "http://127.0.0.1:8081/token";
-    let request_body = json!({
-        "challenge": base64_url::encode(&nonce),
-        "uuid": String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),
-    });
+        let res = client
+            .get(token_endpoint)
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await
+            .unwrap();
 
-    let res = client
-        .get(token_endpoint)
-        .header("Content-Type", "application/json")
-        .json(&request_body)
-        .send()
-        .await
-        .unwrap();
+        let token = match res.status() {
+            reqwest::StatusCode::OK => {
+                let respone = res.text().await.unwrap();
+                println!("get token success, AA Response: {:?}", respone);
+                respone
+            }
+            status => {
+                println!("get token Failed, AA Response: {:?}", status);
+                return;
+            }
+        };
 
-    let token = match res.status() {
-        reqwest::StatusCode::OK => {
-            let respone = res.text().await.unwrap();
-            println!("get token success, AA Response: {:?}", respone);
-            respone
-        }
-        status => {
-            println!("get token Failed, AA Response: {:?}", status);
-            return;
-        }
-    };
+        // verify token
+        let request_body = json!({
+            "token": token,
+        });
 
-    // verify token
-    let request_body = json!({
-        "token": token,
-    });
+        let res = client
+            .post(token_endpoint)
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await
+            .unwrap();
 
-    let res = client
-        .post(token_endpoint)
-        .header("Content-Type", "application/json")
-        .json(&request_body)
-        .send()
-        .await
-        .unwrap();
-
-    match res.status() {
-        reqwest::StatusCode::OK => {
-            let respone = res.text().await.unwrap();
-            println!("verify token success, AA Response: {:?}", respone);
-        }
-        status => {
-            println!("verify token Failed, AA Response: {:?}", status);
+        match res.status() {
+            reqwest::StatusCode::OK => {
+                let respone = res.text().await.unwrap();
+                println!("verify token success, AA Response: {:?}", respone);
+            }
+            status => {
+                println!("verify token Failed, AA Response: {:?}", status);
+            }
         }
     }
+    
 
     println!("attestation_proc {} end", i);
 }

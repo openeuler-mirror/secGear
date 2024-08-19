@@ -21,11 +21,13 @@ use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
 use std::fs::File;
 use std::path::Path;
+use rand::RngCore;
 
 use attester::{Attester, AttesterAPIs};
 use token_verifier::{TokenVerifyConfig, TokenVerifier, TokenRawData};
 
 pub mod result;
+use result::Error;
 pub type TeeClaim = serde_json::Value;
 
 #[cfg(feature = "no_as")]
@@ -40,15 +42,21 @@ pub type AsTokenClaim = TokenRawData;
 
 #[async_trait]
 pub trait AttestationAgentAPIs {
+    async fn get_challenge(&self) -> Result<String>;
+
     /// `get_evidence`: get hardware TEE signed evidence due to given user_data,
     /// such as input random challenge to prevent replay attacks
     async fn get_evidence(&self, user_data: EvidenceRequest) -> Result<Vec<u8>>;
 
     /// `verify_evidence`: verify the integrity of TEE evidence and evaluate the
     /// claims against the supplied reference values
-    async fn verify_evidence(&self, challenge: &[u8], evidence: &[u8]) -> Result<TeeClaim>;
+    async fn verify_evidence(&self,
+        challenge: &[u8],
+        evidence: &[u8],
+        policy_id: Option<Vec<String>>
+    ) -> Result<TeeClaim>;
 
-    #[cfg(not(feature = "no_as"))]
+    //#[cfg(not(feature = "no_as"))]
     async fn get_token(&self, user_data: EvidenceRequest) -> Result<String>;
 
     async fn verify_token(&self, token: String) -> Result<AsTokenClaim>;
@@ -56,15 +64,27 @@ pub trait AttestationAgentAPIs {
 
 #[async_trait]
 impl AttestationAgentAPIs for AttestationAgent {
+    // no_as generate by agent; has as generate by as
+    async fn get_challenge(&self) -> Result<String> {
+        #[cfg(feature = "no_as")]
+        return self.generate_challenge_local().await;
+
+        #[cfg(not(feature = "no_as"))]
+        return self.get_challenge_from_as().await;
+    }
     async fn get_evidence(&self, user_data: EvidenceRequest) -> Result<Vec<u8>> {
         Attester::default().tee_get_evidence(user_data).await
     }
-    async fn verify_evidence(&self, challenge: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
+    async fn verify_evidence(&self,
+        challenge: &[u8],
+        evidence: &[u8],
+        _policy_id: Option<Vec<String>>
+    ) -> Result<TeeClaim> {
         #[cfg(feature = "no_as")]
         {
             let ret = Verifier::default().verify_evidence(challenge, evidence).await;
             match ret {
-                Ok(tee_claim) => Ok(TeeClaim),
+                Ok(tee_claim) => Ok(tee_claim),
                 Err(e) => {
                     log::error!("attestation agent verify evidence with no as failed:{:?}", e);
                     Err(e)
@@ -74,7 +94,7 @@ impl AttestationAgentAPIs for AttestationAgent {
 
         #[cfg(not(feature = "no_as"))]
         {
-            let ret = self.request_as(challenge, evidence).await;
+            let ret = self.verify_evidence_by_as(challenge, evidence, _policy_id).await;
             match ret {
                 Ok(token) => { self.token_to_teeclaim(token).await },
                 Err(e) => {
@@ -84,13 +104,21 @@ impl AttestationAgentAPIs for AttestationAgent {
             }
         }
     }
-    #[cfg(not(feature = "no_as"))]
+    
     async fn get_token(&self, user_data: EvidenceRequest) -> Result<String> {
+        #[cfg(feature = "no_as")]
+        {
+            return Ok("no as in not supprot get token".to_string());
+        }
         // todo token 有效期内，不再重新获取报告
-        let evidence = self.get_evidence(user_data.clone()).await?;
-        let challenge = &user_data.challenge;
-        // request as
-        return self.request_as(challenge, &evidence).await;
+        #[cfg(not(feature = "no_as"))]
+        {
+            let evidence = self.get_evidence(user_data.clone()).await?;
+            let challenge = &user_data.challenge;
+            let policy_id = user_data.policy_id;
+            // request as
+            return self.verify_evidence_by_as(challenge, &evidence, policy_id).await;
+        }
     }
 
     async fn verify_token(&self, token: String) -> Result<AsTokenClaim> {
@@ -137,19 +165,12 @@ impl TryFrom<&Path> for AAConfig {
 #[derive(Debug)]
 pub struct AttestationAgent {
     config: AAConfig,
-}
-
-impl Default for AttestationAgent {
-    fn default() -> Self {
-        AttestationAgent {
-            config: AAConfig::default(),
-        }
-    }
+    client: reqwest::Client,
 }
 
 #[allow(dead_code)]
 impl AttestationAgent {
-    pub fn new(conf_path: Option<String>) -> Result<Self> {
+    pub fn new(conf_path: Option<String>) -> Result<Self, Error> {
         let config = match conf_path {
             Some(conf_path) => {
                 log::info!("Attestation Agent config file:{conf_path}");
@@ -160,19 +181,31 @@ impl AttestationAgent {
                 AAConfig::default()
             }
         };
-        Ok(AttestationAgent {config})
+        let client = reqwest::ClientBuilder::new()
+        .cookie_store(true)
+        .user_agent("attestation-agent-client")
+        .build()
+        .map_err(|e| result::Error::AttestationAgentError(format!("build http client {e}")))?;
+        Ok(AttestationAgent {
+            config,
+            client,
+        })
     }
 
     #[cfg(not(feature = "no_as"))]
-    async fn request_as(&self, challenge: &[u8], evidence: &[u8]) -> Result<String> {
+    async fn verify_evidence_by_as(&self,
+        challenge: &[u8],
+        evidence: &[u8],
+        policy_id: Option<Vec<String>>
+    ) -> Result<String> {
         let request_body = json!({
             "challenge": base64_url::encode(challenge),
             "evidence": base64_url::encode(evidence),
+            "policy_id": policy_id,
         });
 
-        let client = reqwest::Client::new();
         let attest_endpoint = format!("{}/attestation", self.config.svr_url);
-        let res = client
+        let res = self.client
             .post(attest_endpoint)
             .header("Content-Type", "application/json")
             .json(&request_body)
@@ -209,19 +242,39 @@ impl AttestationAgent {
             },
         }
     }
+
+    async fn generate_challenge_local(&self) -> Result<String> {
+        let mut nonce: [u8; 32] = [0; 32];
+        rand::thread_rng().fill_bytes(&mut nonce);
+        Ok(base64_url::encode(&nonce))
+    }
+    async fn get_challenge_from_as(&self) -> Result<String> {
+        let challenge_endpoint = format!("{}/challenge", self.config.svr_url);
+        let res = self.client
+            .get(challenge_endpoint)
+            .header("Content-Type", "application/json")
+            .header("content-length", 0)
+            //.json(&request_body)
+            .send()
+            .await?;
+        let challenge = match res.status() {
+            reqwest::StatusCode::OK => {
+                let respone = res.json().await.unwrap();
+                log::info!("get challenge success, AS Response: {:?}", respone);
+                respone
+            }
+            status => {
+                log::info!("get challenge Failed, AS Response: {:?}", status);
+                bail!("get challenge Failed")
+            }
+        };
+        Ok(challenge)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::*;
-
-    #[test]
-    fn aa_default_conf_file() {
-        let aa = AttestationAgent::default();
-        assert_eq!(aa.config.svr_url, "http://127.0.0.1:8080");
-        assert_eq!(aa.config.token_cfg.cert, "/etc/attestation/attestation-agent/as_cert.pem");
-        assert_eq!(aa.config.token_cfg.iss, "openEulerAS");
-    }
 
     #[test]
     fn aa_new_no_conf_path() {

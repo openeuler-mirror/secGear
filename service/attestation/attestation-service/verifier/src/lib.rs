@@ -21,11 +21,10 @@ use async_trait::async_trait;
 use attester::{Evidence, TeeType};
 
 #[cfg(feature = "itrustee-verifier")]
-mod itrustee;
+pub mod itrustee;
 
 #[cfg(feature = "virtcca-verifier")]
-pub mod virtcca; // todo delete, add pub to debug service lib testcase
-pub use virtcca::ima;
+pub mod virtcca;
 
 pub type TeeClaim = serde_json::Value;
 

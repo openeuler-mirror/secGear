@@ -13,6 +13,8 @@ use anyhow::{Result, anyhow};
 use std::fs::File;
 use std::path::Path;
 use serde::{Serialize, Deserialize};
+use rand::RngCore;
+use base64_url;
 
 use verifier::{Verifier, VerifierAPIs, virtcca::ima::ImaVerify};
 use token_signer::{EvlReport, EvlResult, TokenSigner, TokenSignConfig};
@@ -23,7 +25,7 @@ use policy::policy_engine::{PolicyEngine, PolicyEngineError};
 pub mod result;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ASConfig {
-    token_cfg: TokenSignConfig,
+    pub token_cfg: TokenSignConfig,
 }
 
 impl Default for ASConfig {
@@ -54,7 +56,7 @@ impl TryFrom<&Path> for ASConfig {
 }
 
 pub struct AttestationService {
-    config: ASConfig,
+    pub config: ASConfig,
     // verify policy sub service
     //policy: ,
     // reference value provider sub service
@@ -90,7 +92,7 @@ impl AttestationService {
         &self,
         user_data: &[u8],
         evidence: &[u8],
-        policy_ids: &Vec<String>
+        policy_ids: &Option<Vec<String>>
     ) -> Result<String> {
         let verifier = Verifier::default();
         let claims_evidence = verifier.verify_evidence(user_data, evidence).await?;
@@ -104,10 +106,14 @@ impl AttestationService {
         let mut ops_refs = ReferenceOps::default();
         let refs_of_claims = ops_refs.query(&claims_evidence.to_string());
         // apply policy to verify claims_evidence with reference value
+        let policy_ids = match policy_ids {
+            Some(polciy_id) => polciy_id.clone(),
+            None => vec![],
+        };
         let policy_dir = String::from("/etc/attestation/attestation-service/policy");
         let engine = OPA::new(&policy_dir).await.unwrap();
         let data = String::new();
-        let result = engine.evaluate(&refs_of_claims.unwrap(), &data, policy_ids).await;
+        let result = engine.evaluate(&refs_of_claims.unwrap(), &data, &policy_ids).await;
         let mut report = serde_json::json!({});
         match result {
             Ok(eval) => {
@@ -119,11 +125,13 @@ impl AttestationService {
                 return Err(anyhow!("evaluate error: {err}"));
             }
         }
+        
         // issue attestation result token
         let evl_report = EvlReport {
             tee: claims_evidence["tee"].to_string(),
             result: EvlResult {
-                policy: policy_ids.clone(),
+                eval_reulst: passed,
+                policy: policy_ids,
                 report: report,
             },
             tcb_status: claims_evidence["payload"].clone(),
@@ -132,6 +140,12 @@ impl AttestationService {
         let signer = TokenSigner::new(self.config.token_cfg.clone())?;
 
         signer.sign(&evl_report)
+    }
+
+    pub async fn generate_challenge(&self) -> String {
+        let mut nonce: [u8; 32] = [0; 32];
+        rand::thread_rng().fill_bytes(&mut nonce);
+        base64_url::encode(&nonce)
     }
 
     // todo pub fun set policy

@@ -51,6 +51,7 @@ impl Default for TokenSignConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvlResult {
+    pub eval_reulst: bool,
     pub policy: Vec<String>,
     pub report: Value,
 }

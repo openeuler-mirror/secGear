@@ -9,13 +9,13 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+use thiserror::Error;
 use actix_web::{body::BoxBody, HttpResponse, ResponseError};
-
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-#[derive(Debug, thiserror::Error)]
-#[non_exhaustive]
-#[allow(missing_docs)]
+#[derive(Debug, Error)]
+//#[non_exhaustive]
+//#[allow(missing_docs)]
 pub enum Error {
     #[error("IO error: {source:?}")]
     Io {
@@ -35,12 +35,21 @@ pub enum Error {
         source: serde_json::Error,
     },
 
+    #[error("Request cookie is missing")]
+    CookieMissing,
+
+    #[error("Request cookie is not found")]
+    CookieNotFound,
+
+    #[error("The session of request cookie is expired")]
+    SessionExpired,
+
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
 impl ResponseError for Error {
-    fn error_response(&self) -> actix_web::HttpResponse<actix_web::body::BoxBody> {
+    fn error_response(&self) -> HttpResponse {
         HttpResponse::InternalServerError().body(BoxBody::new(format!("{self:#?}")))
     }
 }
