@@ -12,6 +12,7 @@
 use anyhow::{Result, anyhow};
 use std::fs::File;
 use std::path::Path;
+use std::str::FromStr;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use rand::RngCore;
@@ -121,10 +122,16 @@ impl AttestationService {
         match result {
             Ok(eval) => {
                 for id in eval.keys() {
-                    let val:Value = Value::from(eval[id].clone());
-                    // reference value is null means not found
-                    if val.is_null() {
-                        ref_exist_null = true;
+                    let val = Value::from_str(&eval[id].clone())?;
+                    let refs = match val.as_object().ok_or(Err(anyhow!(""))) {
+                        Err(err) => { return Err(err.unwrap()); }
+                        Ok(ret) => { ret }
+                    };
+                    for key in refs.keys() {
+                        // reference value is null means not found
+                        if refs[key].is_null() {
+                            ref_exist_null = true;
+                        }  
                     }
                     report.as_object_mut().unwrap().insert(id.clone(), serde_json::Value::String(eval[id].clone()));
                 }
