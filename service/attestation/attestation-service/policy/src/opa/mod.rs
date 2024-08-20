@@ -36,7 +36,7 @@ impl PolicyEngine for OPA {
         }
         let mut result: HashMap<String, String> = HashMap::new();
         for id in policy_id_use {
-            let policy_path:String = format!(
+            let policy_path: String = format!(
                 "{}/{}",
                 self.policy_dir
                     .to_str()
@@ -139,9 +139,7 @@ impl PolicyEngine for OPA {
 }
 
 impl OPA {
-    pub async fn new(
-        policy_dir: &String,
-    ) -> Result<Self, PolicyEngineError> {
+    pub async fn new(policy_dir: &String) -> Result<Self, PolicyEngineError> {
         let policy_path = PathBuf::from(policy_dir);
         if !policy_path.as_path().exists() {
             std::fs::create_dir_all(&policy_dir).map_err(|_| {

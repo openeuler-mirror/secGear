@@ -35,7 +35,7 @@ pub struct Evidence {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvlResult {
-    pub eval_reulst: bool,
+    pub eval_result: bool,
     pub policy: Vec<String>,
     pub report: Value,
 }

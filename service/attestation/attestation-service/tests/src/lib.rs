@@ -19,8 +19,9 @@ mod tests {
     #[test]
     fn api_register_reference_test() {
         let request_body = json!({
-            "key":"RIM",
-            "value": "7d2e49c8d29f18b748e658e7243ecf26bc292e5fee93f72af11ad9da9810142a"
+            "refs":r#"{ "RIM": "7d2e49c8d29f18b748e658e7243ecf26bc292e5fee93f72af11ad9da9810142a",
+                        "PRV": "cGFja2FnZSBhdHRlc3RhdGlvbgppbXBvcnQgcmVnby52MQpleHBlY3Rfa2V5cyA6"
+                    }"#
         });
 
         let client = Client::new();
@@ -38,12 +39,13 @@ mod tests {
     #[test]
     fn api_register_concurrently() {
         let mut thread_all = vec![];
-        let thread_cnt = 1000;
+        let thread_cnt = 100;
         for _i in 0..thread_cnt {
             thread_all.push(thread::spawn(|| {
                 let mut request_body = json!({
-                    "key":"RIM",
-                    "value": "7d2e49c8d29f18b748e658e7243ecf26bc292e5fee93f72af11ad9da9810142a"
+                    "refs":r#"{ "RIM": "7d2e49c8d29f18b748e658e7243ecf26bc292e5fee93f72af11ad9da9810142a",
+                                "PRV": "cGFja2FnZSBhdHRlc3RhdGlvbgppbXBvcnQgcmVnby52MQpleHBlY3Rfa2V5cyA6"
+                    }"#
                 });
                 let rng = rand::thread_rng();
                 request_body["value"] = Value::String(
@@ -79,8 +81,7 @@ mod tests {
     #[test]
     fn api_register_complex_reference_test() {
         let request_body = json!({
-            "key":"complex_ref",
-            "value": "{\"level1_1\":[1,2,3],\"level1_2\":{\"name1\":\"value1\"}}"
+            "refs":r#"{"complex_ref":{"level1_1":[1,2,3],"level1_2":{"name1":"value1"}}}"#
            }
         );
 
@@ -149,4 +150,17 @@ mod tests {
         assert_eq!(res.status(), reqwest::StatusCode::OK);
         println!("{:?}", res.text().unwrap());
     }
+
+    #[test]
+    fn api_get_challenge() {
+        let client: Client = Client::new();
+        let endpoint = "http://127.0.0.1:8080/challenge";
+        let res = client
+            .get(endpoint)
+            .send()
+            .unwrap();
+        assert_eq!(res.status(), reqwest::StatusCode::OK);
+        println!("{:?}", res.text().unwrap());
+    }
+
 }

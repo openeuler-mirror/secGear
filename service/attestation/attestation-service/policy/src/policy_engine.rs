@@ -30,13 +30,19 @@ impl Display for PolicyEngineError {
             PolicyEngineError::InvalidPolicy(msg) => write!(f, "invalid policy: {}", msg),
             PolicyEngineError::InvalidPolicyId(msg) => write!(f, "invalid policy id: {}", msg),
             PolicyEngineError::InvalidReport(msg) => write!(f, "invalid report: {}", msg),
-            PolicyEngineError::CreatePolicyDirError(msg) => write!(f, "create policy dir error: {}", msg),
+            PolicyEngineError::CreatePolicyDirError(msg) => {
+                write!(f, "create policy dir error: {}", msg)
+            }
             PolicyEngineError::CreatePolicyError(msg) => write!(f, "create policy error: {}", msg),
             PolicyEngineError::ReadPolicyError(msg) => write!(f, "read policy error: {}", msg),
             PolicyEngineError::InvalidPolicyDir(msg) => write!(f, "invalid policy error: {}", msg),
             PolicyEngineError::WritePolicyError(msg) => write!(f, "write policy error: {}", msg),
-            PolicyEngineError::EngineLoadPolicyError(msg) => write!(f, "engine load policy error: {}", msg),
-            PolicyEngineError::EngineLoadDataError(msg) => write!(f, "engine read data error: {}", msg),
+            PolicyEngineError::EngineLoadPolicyError(msg) => {
+                write!(f, "engine load policy error: {}", msg)
+            }
+            PolicyEngineError::EngineLoadDataError(msg) => {
+                write!(f, "engine read data error: {}", msg)
+            }
             PolicyEngineError::EngineEvalError(msg) => write!(f, "engine evaluate error: {}", msg),
         }
     }
@@ -54,6 +60,11 @@ pub trait PolicyEngine {
         policy_id: &String,
         policy: &String,
     ) -> impl std::future::Future<Output = Result<(), PolicyEngineError>> + Send;
-    fn get_all_policy(&self) -> impl std::future::Future<Output = Result<HashMap<String, String>, PolicyEngineError>> + Send;
-    fn get_policy(&self, policy_id: &String) -> impl std::future::Future<Output = Result<String, PolicyEngineError>> + Send;
+    fn get_all_policy(
+        &self,
+    ) -> impl std::future::Future<Output = Result<HashMap<String, String>, PolicyEngineError>> + Send;
+    fn get_policy(
+        &self,
+        policy_id: &String,
+    ) -> impl std::future::Future<Output = Result<String, PolicyEngineError>> + Send;
 }
