@@ -58,27 +58,28 @@ pub async fn attestation(
     service: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
     log::debug!("attestation request is coming");
-    let cookie = http_req.cookie("oeas-session-id").ok_or(Error::CookieMissing)?;
-
-    let session = map
-        .session_map
-        .get_async(cookie.value())
-        .await
-        .ok_or(Error::CookieNotFound)?;
-    if session.is_expired() {
-        return Err(Error::SessionExpired);
+    let request = request.0;
+    let mut challenge = request.challenge;
+    if challenge == "" {
+        let cookie = http_req.cookie("oeas-session-id").ok_or(Error::CookieMissing)?;
+        let session = map
+            .session_map
+            .get_async(cookie.value())
+            .await
+            .ok_or(Error::CookieNotFound)?;
+        if session.is_expired() {
+            return Err(Error::SessionExpired);
+        }
+        log::debug!("session challenge:{}", session.challenge);
+        challenge = session.challenge.clone();
     }
 
-    let request = request.0;
-    log::debug!("session challenge:{}", session.challenge);
-    let nonce = base64_url::decode(&session.challenge).expect("base64 decode nonce");
+    let nonce = base64_url::decode(&challenge).expect("base64 decode nonce");
     let evidence = base64_url::decode(&request.evidence).expect("base64 decode evidence");
     let ids = request.policy_id;
     let token = service.read().await.evaluate(&nonce, &evidence, &ids).await?;
 
-    Ok(HttpResponse::Ok()
-        .cookie(session.cookie())
-        .body(token))
+    Ok(HttpResponse::Ok().body(token))
 }
 
 #[derive(Deserialize, Serialize, Debug)]

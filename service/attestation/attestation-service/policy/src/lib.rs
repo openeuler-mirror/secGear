@@ -70,7 +70,8 @@ output[exist] := null if {
 output["Other"] := "other" if {
     "test" in input_keys
 }"#;
-        let _ = tokio::fs::remove_file("/etc/attestation/attestation-service/policy/test.rego").await;
+        let _ =
+            tokio::fs::remove_file("/etc/attestation/attestation-service/policy/test.rego").await;
 
         let ret = engine
             .unwrap()
@@ -95,13 +96,15 @@ output["Other"] := "other" if {
     async fn test_evaluate_by_default() {
         let policy_dir = String::from("/etc/attestation/attestation-service/policy");
         let engine = OPA::new(&policy_dir).await.unwrap();
-        let refs_from_report = String::from(r#"{
+        let refs_from_report = String::from(
+            r#"{
             "RIM": "7d2e49c8d29f18b748e658e7243ecf26bc292e5fee93f72af11ad9da9810142a",
             "RPV": "igliurbwjlkfxvr3wk2kqrttyz4gds42h9sdf72dgpcw8lspts1nnmxuvqzeqyq0",
             "test": "u4eyoqgqsiju43aooetb02j0rymx6ijhhxs5oryj8344x7kehzjrwsi3vi7wqo2y"
-        }"#);
+        }"#,
+        );
         let data = String::new();
-        let policy_id:Vec<String> = vec![];
+        let policy_id: Vec<String> = vec![];
         let result = engine.evaluate(&refs_from_report, &data, &policy_id).await;
         println!("{:?}", result);
         assert!(result.is_ok());
@@ -116,7 +119,7 @@ output["Other"] := "other" if {
             }
         }
     }
-    
+
     #[tokio::test]
     async fn test_evaluate_use_specified_policy() {
         // 先设置指定的策略
@@ -141,7 +144,8 @@ output["Other"] := "other" if {
     "test" in input_keys
 }"#;
         // 删除已重复存在的policy
-        let _ = tokio::fs::remove_file("/etc/attestation/attestation-service/policy/test.rego").await;
+        let _ =
+            tokio::fs::remove_file("/etc/attestation/attestation-service/policy/test.rego").await;
 
         let ret = engine
             .set_policy(
@@ -150,15 +154,17 @@ output["Other"] := "other" if {
             )
             .await;
         assert!(ret.is_ok());
-        
+
         // 使用自定义的策略进行报告评估
-        let refs_from_report = String::from(r#"{
+        let refs_from_report = String::from(
+            r#"{
             "RIM": "7d2e49c8d29f18b748e658e7243ecf26bc292e5fee93f72af11ad9da9810142a",
             "RPV": "v598upciquf97yngfi4g2k5r9z6pyl1gcudj1vsgpn7v49ad2oafs11m0esdgv7r",
             "test": "c4ca91mhcxwqi4ka6ysjgl8nn5hhhln9k2n7ppn3zs1jes4aohlflh5krsogqlpz"
-        }"#);
+        }"#,
+        );
         let data = String::new();
-        let policy_id:Vec<String> = vec!["test.rego".to_string()];
+        let policy_id: Vec<String> = vec!["test.rego".to_string()];
         let result = engine.evaluate(&refs_from_report, &data, &policy_id).await;
         assert!(result.is_ok());
         match result {
