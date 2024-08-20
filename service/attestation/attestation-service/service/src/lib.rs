@@ -13,6 +13,7 @@ use anyhow::{Result, anyhow};
 use std::fs::File;
 use std::path::Path;
 use serde::{Serialize, Deserialize};
+use serde_json::Value;
 use rand::RngCore;
 use base64_url;
 
@@ -116,9 +117,15 @@ impl AttestationService {
         let data = String::new();
         let result = engine.evaluate(&refs_of_claims.unwrap(), &data, &policy_ids).await;
         let mut report = serde_json::json!({});
+        let mut ref_exist_null: bool = false;
         match result {
             Ok(eval) => {
                 for id in eval.keys() {
+                    let val:Value = Value::from(eval[id].clone());
+                    // reference value is null means not found
+                    if val.is_null() {
+                        ref_exist_null = true;
+                    }
                     report.as_object_mut().unwrap().insert(id.clone(), serde_json::Value::String(eval[id].clone()));
                 }
             }
@@ -131,7 +138,7 @@ impl AttestationService {
         let evl_report = EvlReport {
             tee: claims_evidence["tee"].to_string(),
             result: EvlResult {
-                eval_reulst: passed,
+                eval_result: passed & !ref_exist_null,
                 policy: policy_ids,
                 report: report,
             },
