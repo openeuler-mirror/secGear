@@ -19,7 +19,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use log;
 use base64_url;
-use serde_json::{json, Value};
 
 const DEFAULT_POLICY_DIR: &str = "/etc/attestation/attestation-service/policy";
 #[derive(Deserialize, Serialize, Debug)]
@@ -84,8 +83,7 @@ pub async fn attestation(
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ReferenceRequest {
-    key: String,
-    value: String,
+    refs: String
 }
 
 #[post("/reference")]
@@ -95,11 +93,7 @@ pub async fn reference(
 ) -> Result<HttpResponse> {
     let request = request.0;
     log::debug!("reference request: {:?}", request);
-    let key = request.key.clone();
-    let value = request.value.clone();
-    let mut json_obj: Value = json!({});
-    json_obj.as_object_mut().unwrap().insert(key, serde_json::Value::String(value));
-    match service.read().await.register_reference(&json_obj.to_string()).await {
+    match service.read().await.register_reference(&request.refs).await {
         Ok(_) => Ok(HttpResponse::Ok().body("set reference success")),
         Err(_err) => Ok(HttpResponse::Ok().body("set reference fail")),
     }
