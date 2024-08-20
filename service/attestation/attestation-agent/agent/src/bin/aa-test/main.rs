@@ -36,7 +36,7 @@ async fn main() {
 
 async fn aa_proc(i: i64) {
     println!("attestation_proc {} start", i);
-    
+
     // get challenge
     let client = reqwest::Client::new();
     let challenge_endpoint = "http://127.0.0.1:8081/challenge";
@@ -67,7 +67,6 @@ async fn aa_proc(i: i64) {
         "uuid": String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),
     });
 
-    let client = reqwest::Client::new();
     let attest_endpoint = "http://127.0.0.1:8081/evidence";
     let res = client
         .get(attest_endpoint)
@@ -88,8 +87,33 @@ async fn aa_proc(i: i64) {
             return;
         }
     };
-
-    // verify evidence
+    // verify evidence with no challenge
+    #[cfg(not(feature = "no_as"))]
+    {
+        let request_body = json!({
+            "challenge": "",
+            "evidence": evidence,
+        });
+    
+        let res = client
+            .post(attest_endpoint)
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await
+            .unwrap();
+    
+        match res.status() {
+            reqwest::StatusCode::OK => {
+                let respone = res.text().await.unwrap();
+                println!("verify evidence with no challenge success, AA Response: {:?}", respone);
+            }
+            status => {
+                println!("verify evidence with no challenge Failed, AA Response: {:?}", status);
+            }
+        }
+    }
+    // verify evidence with challenge
     let request_body = json!({
         "challenge": challenge,
         "evidence": evidence,
@@ -112,6 +136,7 @@ async fn aa_proc(i: i64) {
             println!("verify evidence Failed, AA Response: {:?}", status);
         }
     }
+
     #[cfg(not(feature = "no_as"))]
     {
         // get token

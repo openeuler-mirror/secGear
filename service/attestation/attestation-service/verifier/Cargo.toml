@@ -24,3 +24,4 @@ attestation-types.workspace = true
 default = [ "itrustee-verifier","virtcca-verifier" ]
 itrustee-verifier = []
 virtcca-verifier = []
+no_as = []

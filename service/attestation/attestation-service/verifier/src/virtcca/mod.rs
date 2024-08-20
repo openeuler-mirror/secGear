@@ -30,7 +30,10 @@ pub mod ima;
 
 const VIRTCCA_ROOT_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei Equipment Root CA.pem";
 const VIRTCCA_SUB_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei IT Product CA.pem";
-const VIRTCCA_REF_VALUE_FILE: &str = "/etc/attestation/attestation-service/verifier/virtcca/ref_value.json";
+
+// attestation agent local reference 
+#[cfg(feature = "no_as")]
+const VIRTCCA_REF_VALUE_FILE: &str = "/etc/attestation/attestation-agent/local_verifier/virtcca/ref_value.json";
 
 #[derive(Debug, Default)]
 pub struct VirtCCAVerifier {}
@@ -176,11 +179,12 @@ impl Evidence {
         // verify COSE_Sign1 signature end
 
         // verfiy cvm token with reference value
+        #[cfg(feature = "no_as")]
         self.compare_with_ref()?;
 
         Ok(())
     }
-
+    #[cfg(feature = "no_as")]
     fn compare_with_ref(&mut self) -> Result<()> {
         let ref_file = std::fs::read(VIRTCCA_REF_VALUE_FILE)?;
         let js_ref = serde_json::from_slice(&ref_file)?;
