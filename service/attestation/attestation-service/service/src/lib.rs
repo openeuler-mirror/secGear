@@ -116,7 +116,9 @@ impl AttestationService {
         let policy_dir = String::from("/etc/attestation/attestation-service/policy");
         let engine = OPA::new(&policy_dir).await.unwrap();
         let data = String::new();
-        let result = engine.evaluate(&refs_of_claims.unwrap(), &data, &policy_ids).await;
+        let result = engine.evaluate(&String::from(claims_evidence["tee"]
+            .as_str().ok_or(anyhow!("tee type unknown"))?),
+    &refs_of_claims.unwrap(), &data, &policy_ids).await;
         let mut report = serde_json::json!({});
         let mut ref_exist_null: bool = false;
         match result {
@@ -143,7 +145,7 @@ impl AttestationService {
         
         // issue attestation result token
         let evl_report = EvlReport {
-            tee: claims_evidence["tee"].to_string(),
+            tee: String::from(claims_evidence["tee"].as_str().ok_or(anyhow!("tee type unknown"))?),
             result: EvlResult {
                 eval_result: passed & !ref_exist_null,
                 policy: policy_ids,

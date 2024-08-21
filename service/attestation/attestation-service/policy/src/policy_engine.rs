@@ -23,6 +23,7 @@ pub enum PolicyEngineError {
     EngineLoadPolicyError(String),
     EngineLoadDataError(String),
     EngineEvalError(String),
+    TeeTypeUnknown(String),
 }
 impl Display for PolicyEngineError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -44,6 +45,7 @@ impl Display for PolicyEngineError {
                 write!(f, "engine read data error: {}", msg)
             }
             PolicyEngineError::EngineEvalError(msg) => write!(f, "engine evaluate error: {}", msg),
+            PolicyEngineError::TeeTypeUnknown(msg) => write!(f, "tee type error: {}", msg),
         }
     }
 }
@@ -51,6 +53,7 @@ impl Display for PolicyEngineError {
 pub trait PolicyEngine {
     fn evaluate(
         &self,
+        tee: &String,
         refs: &String,
         data_for_policy: &String,
         policy_id: &Vec<String>,

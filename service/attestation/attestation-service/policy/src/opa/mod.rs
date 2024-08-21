@@ -19,20 +19,31 @@ use crate::policy_engine;
 #[derive(Debug, Clone, PartialEq)]
 pub struct OPA {
     policy_dir: PathBuf,
-    default_policy: String,
+    default_policy_vcca: String,
+    default_policy_itrustee: String,
 }
+
+const DEFAULT_VCCA_REGO: &str = "default_vcca.rego";
+const DEFAULT_ITRUSTEE_REGO: &str = "default_itrustee.rego";
 
 impl PolicyEngine for OPA {
     /// refs comes from report, by using query reference API
     async fn evaluate(
         &self,
+        tee: &String,
         refs: &String,
         data_for_policy: &String,
         policy_id: &Vec<String>,
     ) -> Result<HashMap<String, String>, PolicyEngineError> {
         let mut policy_id_use = policy_id.clone();
         if policy_id_use.is_empty() {
-            policy_id_use.push(String::from("default.rego"));
+            if tee == "vcca" {
+                policy_id_use.push(String::from(DEFAULT_VCCA_REGO));
+            } else if tee == "itrustee" {
+                policy_id_use.push(String::from(DEFAULT_ITRUSTEE_REGO));
+            } else {
+                return Err(PolicyEngineError::TeeTypeUnknown(format!("tee type unknown: {tee}")));
+            }
         }
         let mut result: HashMap<String, String> = HashMap::new();
         for id in policy_id_use {
@@ -139,6 +150,22 @@ impl PolicyEngine for OPA {
 }
 
 impl OPA {
+    fn init_default_rego(file: &PathBuf) -> Result<(), PolicyEngineError>{
+        
+        if !file.exists() {
+            // default policy not exist，creat it, use template file
+            let init_default_policy = std::fs::read_to_string(file.clone()
+                .into_os_string()
+                .to_str()
+                .ok_or(PolicyEngineError::InvalidPolicy("policy invalid".to_string()))?)
+                .map_err(|_|{PolicyEngineError::InvalidPolicy("policy invalid".to_string())})?;
+            let _ =
+                std::fs::write(file, init_default_policy).map_err(|_| {
+                    PolicyEngineError::WritePolicyError("write default policy failed".to_string())
+                });
+        }
+        return Ok(());
+    }
     pub async fn new(policy_dir: &String) -> Result<Self, PolicyEngineError> {
         let policy_path = PathBuf::from(policy_dir);
         if !policy_path.as_path().exists() {
@@ -147,20 +174,22 @@ impl OPA {
             })?;
         }
 
-        let mut default_policy_path = policy_path.clone();
-        default_policy_path.push("default.rego");
-        if !default_policy_path.clone().as_path().exists() {
-            // default policy not exist，creat it, use template file
-            let init_default_policy = std::include_str!("default.rego").to_string();
-            let _ =
-                std::fs::write(default_policy_path.clone(), init_default_policy).map_err(|_| {
-                    PolicyEngineError::WritePolicyError("write default policy failed".to_string())
-                });
-        }
+        let mut vcca = policy_path.clone();
+        vcca.push(DEFAULT_VCCA_REGO);
+        let _ = Self::init_default_rego(&vcca);
+
+        let mut itrustee = policy_path.clone();
+        itrustee.push(DEFAULT_ITRUSTEE_REGO);
+        let _ = Self::init_default_rego(&itrustee);
 
         Ok(OPA {
             policy_dir: policy_path,
-            default_policy: String::from(default_policy_path.into_os_string().to_str().unwrap()),
+            default_policy_vcca: String::from(vcca.into_os_string()
+                .to_str()
+                .ok_or(PolicyEngineError::InvalidPolicyId("virtcca default policy invalid".to_string()))?),
+            default_policy_itrustee: String::from(itrustee.into_os_string()
+                .to_str()
+                .ok_or(PolicyEngineError::InvalidPolicyId("itrustee default policy invalid".to_string()))?),
         })
     }
 }
