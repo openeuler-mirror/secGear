@@ -38,4 +38,4 @@ clap.workspace = true
 
 attester = { path = "../attester" }
 token_verifier = { path = "../token" }
-verifier = { workspace = true, optional = true }
+verifier = { workspace = true, features = ["no_as"], optional = true }

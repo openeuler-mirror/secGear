@@ -58,16 +58,16 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     }
     let js_evidence: serde_json::Value = serde_json::from_slice(evidence)?;
     let payload = json!({
-        "nonce": js_evidence["payload"]["nonce"].clone(),
-        "hash_alg": js_evidence["payload"]["hash_alg"].clone(),
-        "key": js_evidence["payload"]["key"].clone(),
-        "ta_img": js_evidence["payload"]["ta_img"].clone(),
-        "ta_mem": js_evidence["payload"]["ta_mem"].clone(),
-        "uuid": js_evidence["payload"]["uuid"].clone(),
-        "version": js_evidence["payload"]["version"].clone(),
+        "itrustee.nonce": js_evidence["payload"]["nonce"].clone(),
+        "itrustee.hash_alg": js_evidence["payload"]["hash_alg"].clone(),
+        "itrustee.key": js_evidence["payload"]["key"].clone(),
+        "itrustee.ta_img": js_evidence["payload"]["ta_img"].clone(),
+        "itrustee.ta_mem": js_evidence["payload"]["ta_mem"].clone(),
+        "itrustee.uuid": js_evidence["payload"]["uuid"].clone(),
+        "itrustee.version": js_evidence["payload"]["version"].clone(),
     });
     let claim = json!({
-        "tee": "kunpeng",
+        "tee": "itrustee",
         "payload" : payload,
     });
     Ok(claim as TeeClaim)

@@ -30,7 +30,10 @@ pub mod ima;
 
 const VIRTCCA_ROOT_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei Equipment Root CA.pem";
 const VIRTCCA_SUB_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei IT Product CA.pem";
-const VIRTCCA_REF_VALUE_FILE: &str = "/etc/attestation/attestation-service/verifier/virtcca/ref_value.json";
+
+// attestation agent local reference 
+#[cfg(feature = "no_as")]
+const VIRTCCA_REF_VALUE_FILE: &str = "/etc/attestation/attestation-agent/local_verifier/virtcca/ref_value.json";
 
 #[derive(Debug, Default)]
 pub struct VirtCCAVerifier {}
@@ -99,23 +102,17 @@ impl Evidence {
     }
     fn parse_claim_from_evidence(&self) -> Result<TeeClaim> {
         let payload = json!({
-            "cvm": {
-                "challenge": hex::encode(self.cvm_token.challenge.clone()),
-                "rpv": hex::encode(self.cvm_token.rpv.clone()),
-                "rim": hex::encode(self.cvm_token.rim.clone()),
-                "rem": [
-                    hex::encode(self.cvm_token.rem[0].clone()),
-                    hex::encode(self.cvm_token.rem[1].clone()),
-                    hex::encode(self.cvm_token.rem[2].clone()),
-                    hex::encode(self.cvm_token.rem[3].clone())
-                ],
-            },
-            "platform" : {
-                // todo
-            }
+            "vcca.cvm.challenge": hex::encode(self.cvm_token.challenge.clone()),
+            "vcca.cvm.rpv": hex::encode(self.cvm_token.rpv.clone()),
+            "vcca.cvm.rim": hex::encode(self.cvm_token.rim.clone()),
+            "vcca.cvm.rem.0": hex::encode(self.cvm_token.rem[0].clone()),
+            "vcca.cvm.rem.1": hex::encode(self.cvm_token.rem[1].clone()),
+            "vcca.cvm.rem.2": hex::encode(self.cvm_token.rem[2].clone()),
+            "vcca.cvm.rem.3": hex::encode(self.cvm_token.rem[3].clone()),
+            "vcca.platform": "",
         });
         let claim = json!({
-            "tee": "virtcca",
+            "tee": "vcca",
             "payload" : payload,
         });
         Ok(claim as TeeClaim)
@@ -182,11 +179,12 @@ impl Evidence {
         // verify COSE_Sign1 signature end
 
         // verfiy cvm token with reference value
+        #[cfg(feature = "no_as")]
         self.compare_with_ref()?;
 
         Ok(())
     }
-
+    #[cfg(feature = "no_as")]
     fn compare_with_ref(&mut self) -> Result<()> {
         let ref_file = std::fs::read(VIRTCCA_REF_VALUE_FILE)?;
         let js_ref = serde_json::from_slice(&ref_file)?;
