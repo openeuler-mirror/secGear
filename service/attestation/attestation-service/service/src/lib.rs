@@ -107,7 +107,7 @@ impl AttestationService {
         }
         // get reference by keys in claims_evidence
         let mut ops_refs = ReferenceOps::default();
-        let refs_of_claims = ops_refs.query(&claims_evidence.to_string());
+        let refs_of_claims = ops_refs.query(&claims_evidence["payload"].to_string());
         // apply policy to verify claims_evidence with reference value
         let policy_ids = match policy_ids {
             Some(polciy_id) => polciy_id.clone(),

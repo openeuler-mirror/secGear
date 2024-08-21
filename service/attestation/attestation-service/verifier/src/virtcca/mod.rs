@@ -99,23 +99,17 @@ impl Evidence {
     }
     fn parse_claim_from_evidence(&self) -> Result<TeeClaim> {
         let payload = json!({
-            "cvm": {
-                "challenge": hex::encode(self.cvm_token.challenge.clone()),
-                "rpv": hex::encode(self.cvm_token.rpv.clone()),
-                "rim": hex::encode(self.cvm_token.rim.clone()),
-                "rem": [
-                    hex::encode(self.cvm_token.rem[0].clone()),
-                    hex::encode(self.cvm_token.rem[1].clone()),
-                    hex::encode(self.cvm_token.rem[2].clone()),
-                    hex::encode(self.cvm_token.rem[3].clone())
-                ],
-            },
-            "platform" : {
-                // todo
-            }
+            "vcca.cvm.challenge": hex::encode(self.cvm_token.challenge.clone()),
+            "vcca.cvm.rpv": hex::encode(self.cvm_token.rpv.clone()),
+            "vcca.cvm.rim": hex::encode(self.cvm_token.rim.clone()),
+            "vcca.cvm.rem.0": hex::encode(self.cvm_token.rem[0].clone()),
+            "vcca.cvm.rem.1": hex::encode(self.cvm_token.rem[1].clone()),
+            "vcca.cvm.rem.2": hex::encode(self.cvm_token.rem[2].clone()),
+            "vcca.cvm.rem.3": hex::encode(self.cvm_token.rem[3].clone()),
+            "vcca.platform": "",
         });
         let claim = json!({
-            "tee": "virtcca",
+            "tee": "vcca",
             "payload" : payload,
         });
         Ok(claim as TeeClaim)
