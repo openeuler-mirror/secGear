@@ -19,10 +19,12 @@ use crate::policy_engine;
 #[derive(Debug, Clone, PartialEq)]
 pub struct OPA {
     policy_dir: PathBuf,
+    default_policy_dir: PathBuf,
     default_policy_vcca: String,
     default_policy_itrustee: String,
 }
 
+const DEFAULT_POLICY_DIR: &str = "/etc/attestation/attestation-service/policy/";
 const DEFAULT_VCCA_REGO: &str = "default_vcca.rego";
 const DEFAULT_ITRUSTEE_REGO: &str = "default_itrustee.rego";
 
@@ -35,47 +37,44 @@ impl PolicyEngine for OPA {
         data_for_policy: &String,
         policy_id: &Vec<String>,
     ) -> Result<HashMap<String, String>, PolicyEngineError> {
-        let mut policy_id_use = policy_id.clone();
-        if policy_id_use.is_empty() {
+        let mut policy_id_used = policy_id.clone();
+        let policy_path: PathBuf;
+        if policy_id_used.is_empty() {
             if tee == "vcca" {
-                policy_id_use.push(String::from(DEFAULT_VCCA_REGO));
+                policy_id_used.push(String::from(DEFAULT_VCCA_REGO));
             } else if tee == "itrustee" {
-                policy_id_use.push(String::from(DEFAULT_ITRUSTEE_REGO));
+                policy_id_used.push(String::from(DEFAULT_ITRUSTEE_REGO));
             } else {
                 return Err(PolicyEngineError::TeeTypeUnknown(format!("tee type unknown: {tee}")));
             }
+            policy_path = self.default_policy_dir.clone();
+        } else {
+            policy_path = self.policy_dir.clone();
         }
+
         let mut result: HashMap<String, String> = HashMap::new();
-        for id in policy_id_use {
-            let policy_path: String = format!(
-                "{}/{}",
-                self.policy_dir
-                    .to_str()
-                    .ok_or(PolicyEngineError::InvalidPolicyDir(
-                        "policy directory error".to_string()
-                    ))?,
-                id
-            );
-            let engine_policy = tokio::fs::read_to_string(policy_path).await.map_err(|_| {
-                PolicyEngineError::ReadPolicyError("read policy failed".to_string())
+        for id in policy_id_used {
+            let mut path = policy_path.clone();
+            path.push(id.clone());
+            let engine_policy = tokio::fs::read_to_string(path.clone()).await.map_err(|err| {
+                PolicyEngineError::ReadPolicyError(format!("read policy failed: {}", err))
             })?;
-
             let mut engine = regorus::Engine::new();
-            engine.add_policy(id.clone(), engine_policy).map_err(|_| {
-                PolicyEngineError::EngineLoadPolicyError("policy load failed".to_string())
+            engine.add_policy(id.clone(), engine_policy).map_err(|err| {
+                PolicyEngineError::EngineLoadPolicyError(format!("policy load failed: {}", err))
             })?;
 
-            let input = Value::from_json_str(refs).map_err(|_| {
-                PolicyEngineError::InvalidReport("report to Value failed".to_string())
+            let input = Value::from_json_str(refs).map_err(|err| {
+                PolicyEngineError::InvalidReport(format!("report to Value failed: {}", err))
             })?;
             engine.set_input(input);
 
             if !data_for_policy.is_empty() {
-                let data = Value::from_json_str(data_for_policy).map_err(|_| {
-                    PolicyEngineError::EngineLoadDataError("data to Value failed".to_string())
+                let data = Value::from_json_str(data_for_policy).map_err(|err| {
+                    PolicyEngineError::EngineLoadDataError(format!("data to Value failed: {}", err))
                 })?;
-                engine.add_data(data).map_err(|_| {
-                    PolicyEngineError::EngineLoadDataError("engine add data failed".to_string())
+                engine.add_data(data).map_err(|err| {
+                    PolicyEngineError::EngineLoadDataError(format!("engine add data failed: {}", err))
                 })?;
             }
 
@@ -95,31 +94,31 @@ impl PolicyEngine for OPA {
     ) -> Result<(), PolicyEngineError> {
         let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(policy)
-            .map_err(|_| PolicyEngineError::InvalidPolicy("policy decode failed".to_string()))?;
+            .map_err(|err| PolicyEngineError::InvalidPolicy(format!("policy decode failed: {}", err)))?;
 
         let mut policy_file: PathBuf = self.policy_dir.clone();
         policy_file.push(format!("{}", policy_id));
         tokio::fs::write(policy_file.as_path(), &raw)
             .await
-            .map_err(|_| PolicyEngineError::WritePolicyError("write policy failed".to_string()))?;
+            .map_err(|err| PolicyEngineError::WritePolicyError(format!("write policy failed: {}", err)))?;
         Ok(())
     }
 
     async fn get_all_policy(&self) -> Result<HashMap<String, String>, PolicyEngineError> {
         let mut items = tokio::fs::read_dir(&self.policy_dir.as_path())
             .await
-            .map_err(|_| PolicyEngineError::ReadPolicyError("read policy failed".to_string()))?;
+            .map_err(|err| PolicyEngineError::ReadPolicyError(format!("read policy failed: {}", err)))?;
         let mut policies = HashMap::new();
         while let Some(item) = items
             .next_entry()
             .await
-            .map_err(|_| PolicyEngineError::ReadPolicyError("read policy failed".to_string()))?
+            .map_err(|err| PolicyEngineError::ReadPolicyError(format!("read policy failed: {}", err)))?
         {
             let path = item.path();
             if path.extension().and_then(std::ffi::OsStr::to_str) == Some("rego") {
                 let content: String =
-                    tokio::fs::read_to_string(path.clone()).await.map_err(|_| {
-                        PolicyEngineError::ReadPolicyError("read policy failed".to_string())
+                    tokio::fs::read_to_string(path.clone()).await.map_err(|err| {
+                        PolicyEngineError::ReadPolicyError(format!("read policy failed: {}", err))
                     })?;
                 let name = path
                     .file_stem()
@@ -143,53 +142,26 @@ impl PolicyEngine for OPA {
         policy_file.push(format!("{}", policy_id));
         let policy = tokio::fs::read(policy_file.as_path())
             .await
-            .map_err(|_| PolicyEngineError::ReadPolicyError("read policy failed".to_string()))?;
+            .map_err(|err| PolicyEngineError::ReadPolicyError(format!("read policy failed: {}", err)))?;
         let policy_base64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(policy);
         Ok(policy_base64)
     }
 }
 
 impl OPA {
-    fn init_default_rego(file: &PathBuf) -> Result<(), PolicyEngineError>{
-        
-        if !file.exists() {
-            // default policy not exist，creat it, use template file
-            let init_default_policy = std::fs::read_to_string(file.clone()
-                .into_os_string()
-                .to_str()
-                .ok_or(PolicyEngineError::InvalidPolicy("policy invalid".to_string()))?)
-                .map_err(|_|{PolicyEngineError::InvalidPolicy("policy invalid".to_string())})?;
-            let _ =
-                std::fs::write(file, init_default_policy).map_err(|_| {
-                    PolicyEngineError::WritePolicyError("write default policy failed".to_string())
-                });
-        }
-        return Ok(());
-    }
     pub async fn new(policy_dir: &String) -> Result<Self, PolicyEngineError> {
         let policy_path = PathBuf::from(policy_dir);
         if !policy_path.as_path().exists() {
-            std::fs::create_dir_all(&policy_dir).map_err(|_| {
-                PolicyEngineError::CreatePolicyDirError("policy dir create failed".to_string())
+            std::fs::create_dir_all(&policy_dir).map_err(|err| {
+                PolicyEngineError::CreatePolicyDirError(format!("policy dir create failed: {}", err))
             })?;
         }
 
-        let mut vcca = policy_path.clone();
-        vcca.push(DEFAULT_VCCA_REGO);
-        let _ = Self::init_default_rego(&vcca);
-
-        let mut itrustee = policy_path.clone();
-        itrustee.push(DEFAULT_ITRUSTEE_REGO);
-        let _ = Self::init_default_rego(&itrustee);
-
         Ok(OPA {
             policy_dir: policy_path,
-            default_policy_vcca: String::from(vcca.into_os_string()
-                .to_str()
-                .ok_or(PolicyEngineError::InvalidPolicyId("virtcca default policy invalid".to_string()))?),
-            default_policy_itrustee: String::from(itrustee.into_os_string()
-                .to_str()
-                .ok_or(PolicyEngineError::InvalidPolicyId("itrustee default policy invalid".to_string()))?),
+            default_policy_dir: PathBuf::from(DEFAULT_POLICY_DIR),
+            default_policy_vcca: String::from(DEFAULT_VCCA_REGO),
+            default_policy_itrustee: String::from(DEFAULT_ITRUSTEE_REGO),
         })
     }
 }
