@@ -16,6 +16,7 @@ use super::*;
 use log;
 use serde_json::json;
 use std::path::Path;
+use std::ops::Add;
 
 mod itrustee;
 
@@ -47,8 +48,9 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         log::error!("itrustee verify report {} not exists", ITRUSTEE_REF_VALUE_FILE);
         bail!("itrustee verify report {} not exists", ITRUSTEE_REF_VALUE_FILE);
     }
-    let mut ref_file = String::from(ITRUSTEE_REF_VALUE_FILE);
-    let basevalue = ref_file.as_mut_ptr() as *mut ::std::os::raw::c_char;
+    let ref_file = String::from(ITRUSTEE_REF_VALUE_FILE);
+    let mut file = ref_file.add("\0");
+    let basevalue = file.as_mut_ptr() as *mut ::std::os::raw::c_char;
     unsafe {
         let ret = itrustee::tee_verify_report(&mut data_buf, &mut nonce, policy, basevalue);
         if ret != 0 {
