@@ -105,7 +105,7 @@ output["Other"] := "other" if {
         );
         let data = String::new();
         let policy_id: Vec<String> = vec![];
-        let result = engine.evaluate(&refs_from_report, &data, &policy_id).await;
+        let result = engine.evaluate(&String::from("vcca"), &refs_from_report, &data, &policy_id).await;
         println!("{:?}", result);
         assert!(result.is_ok());
         match result {
@@ -165,7 +165,7 @@ output["Other"] := "other" if {
         );
         let data = String::new();
         let policy_id: Vec<String> = vec!["test.rego".to_string()];
-        let result = engine.evaluate(&refs_from_report, &data, &policy_id).await;
+        let result = engine.evaluate(&String::from("vcca"), &refs_from_report, &data, &policy_id).await;
         assert!(result.is_ok());
         match result {
             Ok(ret) => {
