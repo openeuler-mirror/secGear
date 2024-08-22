@@ -6,6 +6,10 @@ edition = "2021"
 [[bin]]
 name = "aa-test"
 
+[[bin]]
+name = "generate-headers"
+required-features = ["headers"]
+
 [lib]
 name = "attestation_agent"
 crate-type = ["lib", "cdylib"]
@@ -18,6 +22,7 @@ all-attester = ["attester/itrustee-attester", "attester/virtcca-attester"]
 itrustee-verifier = ["verifier/itrustee-verifier"]
 virtcca-verifier = ["verifier/virtcca-verifier"]
 all-verifier = ["verifier/itrustee-verifier", "verifier/virtcca-verifier"]
+headers = ["safer-ffi/headers"]
 
 [dependencies]
 anyhow.workspace = true
@@ -29,6 +34,7 @@ async-trait.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 log.workspace = true
 env_logger.workspace = true
+safer-ffi.workspace = true
 futures.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 base64-url.workspace = true

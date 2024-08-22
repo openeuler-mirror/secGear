@@ -31,7 +31,7 @@ pub struct TokenSignConfig {
 impl Default for TokenSignConfig {
     fn default() -> Self {
         TokenSignConfig {
-            iss: "openEulerAS".to_string(),
+            iss: "oeas".to_string(),
             nbf: 0,
             valid_duration: 300,
             alg: SignAlg::PS256,

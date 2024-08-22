@@ -9,7 +9,7 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use attestation_agent::AttestationAgent;
+use attestation_agent::{AttestationAgent, DEFAULT_AACONFIG_FILE};
 mod restapi;
 use restapi::{get_challenge, get_evidence, verify_evidence, get_token, verify_token};
 
@@ -20,7 +20,6 @@ use std::{net::{SocketAddr, IpAddr, Ipv4Addr}, sync::Arc};
 use tokio::sync::RwLock;
 use clap::{Parser, command, arg};
 
-const DEFAULT_AACONFIG_FILE: &str = "/etc/attestation/attestation-agent/attestation-agent.conf";
 const DEFAULT_SOCKETADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8081);
 
 #[derive(Parser, Debug)]

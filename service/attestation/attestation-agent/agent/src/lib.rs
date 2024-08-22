@@ -40,6 +40,12 @@ pub use attester::EvidenceRequest;
 
 pub type AsTokenClaim = TokenRawData;
 
+pub const DEFAULT_AACONFIG_FILE: &str = "/etc/attestation/attestation-agent/attestation-agent.conf";
+pub struct TokenRequest {
+    pub ev_req: EvidenceRequest,
+    pub policy_id: Option<Vec<String>>,
+}
+
 #[async_trait]
 pub trait AttestationAgentAPIs {
     async fn get_challenge(&self) -> Result<String>;
@@ -57,7 +63,7 @@ pub trait AttestationAgentAPIs {
     ) -> Result<TeeClaim>;
 
     //#[cfg(not(feature = "no_as"))]
-    async fn get_token(&self, user_data: EvidenceRequest) -> Result<String>;
+    async fn get_token(&self, user_data: TokenRequest) -> Result<String>;
 
     async fn verify_token(&self, token: String) -> Result<AsTokenClaim>;
 }
@@ -105,7 +111,7 @@ impl AttestationAgentAPIs for AttestationAgent {
         }
     }
     
-    async fn get_token(&self, user_data: EvidenceRequest) -> Result<String> {
+    async fn get_token(&self, user_data: TokenRequest) -> Result<String> {
         #[cfg(feature = "no_as")]
         {
             return Ok("no as in not supprot get token".to_string());
@@ -113,8 +119,8 @@ impl AttestationAgentAPIs for AttestationAgent {
         // todo token 有效期内，不再重新获取报告
         #[cfg(not(feature = "no_as"))]
         {
-            let evidence = self.get_evidence(user_data.clone()).await?;
-            let challenge = &user_data.challenge;
+            let evidence = self.get_evidence(user_data.ev_req.clone()).await?;
+            let challenge = &user_data.ev_req.challenge;
             let policy_id = user_data.policy_id;
             // request as
             return self.verify_evidence_by_as(challenge, &evidence, policy_id).await;
@@ -271,6 +277,94 @@ impl AttestationAgent {
         Ok(challenge)
     }
 }
+
+
+// attestation agent c interface
+use safer_ffi::prelude::*;
+use futures::executor::block_on;
+use tokio::runtime::Runtime;
+
+#[ffi_export]
+pub fn get_report(c_challenge: Option<&repr_c::Vec<u8>>, c_ima: &repr_c::TaggedOption<bool>) -> repr_c::Vec<u8> {
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    log::debug!("input challenge: {:?}, ima: {:?}", c_challenge, c_ima);
+    let ima = match c_ima {
+        repr_c::TaggedOption::None => false,
+        repr_c::TaggedOption::Some(ima) => *ima,
+    };
+    let challenge = match c_challenge {
+        None => {log::error!("challenge is null"); return Vec::new().into();},
+        Some(cha) => cha.clone().to_vec(),
+    };
+
+    let input: EvidenceRequest = EvidenceRequest {
+        uuid: "f68fd704-6eb1-4d14-b218-722850eb3ef0".to_string(),
+        challenge: challenge,
+        ima: Some(ima),
+    };
+
+    let fut = async {
+        AttestationAgent::new(Some(DEFAULT_AACONFIG_FILE.to_string())).unwrap().get_evidence(input).await
+    };
+    let report: Vec<u8> = match block_on(fut) {
+        Ok(report) => report,
+        Err(e) => {
+            log::error!("get report failed {:?}", e);
+            Vec::new()
+        },
+    };
+
+    report.into()
+}
+
+#[ffi_export]
+pub fn verify_report(c_challenge: Option<&repr_c::Vec<u8>>, report: Option<&repr_c::Vec<u8>>) -> repr_c::String {
+    let challenge = match c_challenge {
+        None => {
+            log::error!("challenge is null");
+            return "".to_string().into();
+        },
+        Some(cha) => cha.clone().to_vec(),
+    };
+    let report = match report {
+        None => {
+            log::error!("report is null");
+            return "".to_string().into();
+        },
+        Some(report) => report.clone().to_vec(),
+    };
+    let rt = Runtime::new().unwrap();
+    let fut = async {AttestationAgent::new(Some(DEFAULT_AACONFIG_FILE.to_string())).unwrap().verify_evidence(
+            &challenge, &report, None).await};
+    let ret = rt.block_on(fut);
+    
+    let ret = match ret {
+        Ok(claim) => {
+            log::debug!("claim: {:?}", claim);
+            claim.to_string()
+        },
+        Err(e) =>{
+            log::error!("{e}");
+            "".to_string()
+        },
+    };
+    
+    return ret.into();
+}
+
+#[ffi_export]
+pub fn free_rust_vec(vec: repr_c::Vec<u8>) {
+    drop(vec);
+}
+
+// The following function is only necessary for the header generation.
+#[cfg(feature = "headers")]
+pub fn generate_headers() -> ::std::io::Result<()> {
+    ::safer_ffi::headers::builder()
+        .to_file("./c_header/rust_attestation_agent.h")?
+        .generate()
+}
+
 
 #[cfg(test)]
 mod tests {
