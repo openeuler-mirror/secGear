@@ -26,7 +26,7 @@ impl Default for TokenVerifyConfig {
     fn default() -> Self {
         TokenVerifyConfig {
             cert: "/etc/attestation/attestation-agent/as_cert.pem".to_string(),
-            iss: "openEulerAS".to_string(),
+            iss: "oeas".to_string(),
         }
     }
 }

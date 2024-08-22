@@ -9,7 +9,7 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use attestation_agent::{AttestationAgent, AttestationAgentAPIs};
+use attestation_agent::{AttestationAgent, AttestationAgentAPIs, TokenRequest};
 use attestation_agent::result::Result;
 
 use actix_web::{ post, get, web, HttpResponse};
@@ -56,7 +56,6 @@ pub async fn get_evidence(
         uuid: uuid,
         challenge: challenge,
         ima: ima,
-        policy_id: None,
     };
     let evidence = agent.read().await.get_evidence(input).await?;
 
@@ -106,12 +105,16 @@ pub async fn get_token(
     let uuid = request.uuid;
     let ima = request.ima;
     let policy_id =  request.policy_id;
-    let input = EvidenceRequest {
+    let ev = EvidenceRequest {
         uuid: uuid,
         challenge: challenge,
         ima: ima,
+    };
+    let input = TokenRequest {
+        ev_req: ev,
         policy_id: policy_id,
     };
+
     let token = agent.read().await.get_token(input).await?;
 
 

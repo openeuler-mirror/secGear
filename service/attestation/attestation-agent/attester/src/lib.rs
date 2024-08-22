@@ -30,7 +30,6 @@ pub struct EvidenceRequest {
     pub uuid: String,
     pub challenge: Vec<u8>,
     pub ima: Option<bool>,
-    pub policy_id: Option<Vec<String>>,
 }
 
 #[async_trait]
