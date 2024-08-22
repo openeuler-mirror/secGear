@@ -28,12 +28,18 @@ use serde_json::json;
 pub use attestation_types::VirtccaEvidence;
 pub mod ima;
 
+#[cfg(not(feature = "no_as"))]
 const VIRTCCA_ROOT_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei Equipment Root CA.pem";
+#[cfg(not(feature = "no_as"))]
 const VIRTCCA_SUB_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei IT Product CA.pem";
 
 // attestation agent local reference 
 #[cfg(feature = "no_as")]
 const VIRTCCA_REF_VALUE_FILE: &str = "/etc/attestation/attestation-agent/local_verifier/virtcca/ref_value.json";
+#[cfg(feature = "no_as")]
+const VIRTCCA_ROOT_CERT: &str = "/etc/attestation/attestation-agent/local_verifier/virtcca/Huawei Equipment Root CA.pem";
+#[cfg(feature = "no_as")]
+const VIRTCCA_SUB_CERT: &str = "/etc/attestation/attestation-agent/local_verifier/virtcca/Huawei IT Product CA.pem";
 
 #[derive(Debug, Default)]
 pub struct VirtCCAVerifier {}
