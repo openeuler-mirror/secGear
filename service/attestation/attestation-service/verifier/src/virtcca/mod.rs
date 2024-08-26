@@ -103,10 +103,18 @@ impl Evidence {
         // verify cvm token
         evidence.verify_cvm_token(user_data)?;
 
+        // verify ima
+        let ima_log = match virtcca_ev.ima_log {
+            Some(ima_log) => ima_log,
+            _ => {log::info!("no ima log"); vec![]},
+        };
+        let ima: serde_json::Value = ima::ImaVerify::default()
+            .ima_verify(&ima_log, evidence.cvm_token.rem[0].clone())?;
+
         // todo parsed TeeClaim
-        evidence.parse_claim_from_evidence()
+        evidence.parse_claim_from_evidence(ima)
     }
-    fn parse_claim_from_evidence(&self) -> Result<TeeClaim> {
+    fn parse_claim_from_evidence(&self, ima: serde_json::Value) -> Result<TeeClaim> {
         let payload = json!({
             "vcca.cvm.challenge": hex::encode(self.cvm_token.challenge.clone()),
             "vcca.cvm.rpv": hex::encode(self.cvm_token.rpv.clone()),
@@ -120,6 +128,7 @@ impl Evidence {
         let claim = json!({
             "tee": "vcca",
             "payload" : payload,
+            "ima": ima,
         });
         Ok(claim as TeeClaim)
     }
