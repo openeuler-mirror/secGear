@@ -264,7 +264,7 @@ impl Evidence {
 
         let ret = evidence.cvm_envelop.init_decoder(None);
         match ret {
-            Ok(_) => log::info!("decode COSE success"),
+            Ok(_) => log::debug!("decode COSE success"),
             Err(e) => {
                 log::error!("decode COSE failed, {:?}", e);
                 bail!("decode COSE failed");

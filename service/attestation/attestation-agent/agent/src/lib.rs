@@ -266,11 +266,11 @@ impl AttestationAgent {
         let challenge = match res.status() {
             reqwest::StatusCode::OK => {
                 let respone = res.json().await.unwrap();
-                log::info!("get challenge success, AS Response: {:?}", respone);
+                log::debug!("get challenge success, AS Response: {:?}", respone);
                 respone
             }
             status => {
-                log::info!("get challenge Failed, AS Response: {:?}", status);
+                log::error!("get challenge Failed, AS Response: {:?}", status);
                 bail!("get challenge Failed")
             }
         };

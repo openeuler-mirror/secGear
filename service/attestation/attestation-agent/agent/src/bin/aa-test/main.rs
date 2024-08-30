@@ -21,7 +21,7 @@ const TEST_THREAD_NUM: i64 = 1; // multi thread num
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
     let mut handles = Vec::with_capacity(TEST_THREAD_NUM as usize);
     for i in 0..TEST_THREAD_NUM {
         let t = tokio::spawn(async move {aa_proc(i).await;});
@@ -31,13 +31,14 @@ async fn main() {
     for handle in handles {
         let _ = tokio::join!(handle);
     }
-    println!("main stop");
+    log::info!("main stop");
 }
 
 async fn aa_proc(i: i64) {
-    println!("attestation_proc {} start", i);
+    log::info!("attestation_proc thread {} start", i);
 
     // get challenge
+    log::info!("thread {} case1 get challenge", i);
     let client = reqwest::Client::new();
     let challenge_endpoint = "http://127.0.0.1:8081/challenge";
     let res = client
@@ -52,11 +53,11 @@ async fn aa_proc(i: i64) {
     let challenge = match res.status() {
         reqwest::StatusCode::OK => {
             let respone = res.text().await.unwrap();
-            println!("get challenge success, AA Response: {:?}", respone);
+            log::info!("thread {} case1 get challenge success response: {:?}", i, respone);
             respone
         }
         status => {
-            println!("get challenge Failed, AA Response: {:?}", status);
+            log::error!("thread {} case1 get challenge failed response: {:?}", i, status);
             return;
         }
     };
@@ -66,7 +67,7 @@ async fn aa_proc(i: i64) {
         "challenge": challenge,
         "uuid": String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),
     });
-
+    log::info!("thread {} case2 get evidence, request body: {}", i, request_body);
     let attest_endpoint = "http://127.0.0.1:8081/evidence";
     let res = client
         .get(attest_endpoint)
@@ -79,11 +80,12 @@ async fn aa_proc(i: i64) {
     let evidence = match res.status() {
         reqwest::StatusCode::OK => {
             let respone = res.text().await.unwrap();
-            println!("get evidence success, AA Response: {:?}", respone);
+            log::info!("thread {} case2 get evidence success", i);
+            log::debug!("thread {} response: {:?}", i, respone);
             respone
         }
         status => {
-            println!("get evidence Failed, AA Response: {:?}", status);
+            log::error!("thread {} case2 get evidence failed response: {:?}", i, status);
             return;
         }
     };
@@ -94,7 +96,7 @@ async fn aa_proc(i: i64) {
             "challenge": "",
             "evidence": evidence,
         });
-    
+        log::info!("thread {} case3 verify evidence with no challenge", i);
         let res = client
             .post(attest_endpoint)
             .header("Content-Type", "application/json")
@@ -106,10 +108,10 @@ async fn aa_proc(i: i64) {
         match res.status() {
             reqwest::StatusCode::OK => {
                 let respone = res.text().await.unwrap();
-                println!("verify evidence with no challenge success, AA Response: {:?}", respone);
+                log::info!("thread {} case3 verify evidence with no challenge success response: {:?}", i, respone);
             }
             status => {
-                println!("verify evidence with no challenge Failed, AA Response: {:?}", status);
+                log::error!("thread {} case3 verify evidence with no challenge failed response: {:?}", i, status);
             }
         }
     }
@@ -118,7 +120,7 @@ async fn aa_proc(i: i64) {
         "challenge": challenge,
         "evidence": evidence,
     });
-
+    log::info!("thread {} case4 verify evidence with challenge", i);
     let res = client
         .post(attest_endpoint)
         .header("Content-Type", "application/json")
@@ -130,10 +132,10 @@ async fn aa_proc(i: i64) {
     match res.status() {
         reqwest::StatusCode::OK => {
             let respone = res.text().await.unwrap();
-            println!("verify evidence success, AA Response: {:?}", respone);
+            log::info!("thread {} case4 verify evidence success response: {:?}", i, respone);
         }
         status => {
-            println!("verify evidence Failed, AA Response: {:?}", status);
+            log::error!("thread {} case4 verify evidence failed response: {:?}", i, status);
         }
     }
 
@@ -145,6 +147,7 @@ async fn aa_proc(i: i64) {
             "challenge": challenge,
             "uuid": String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),
         });
+        log::info!("thread {} case5 get token, request body: {}", i, request_body);
 
         let res = client
             .get(token_endpoint)
@@ -157,11 +160,12 @@ async fn aa_proc(i: i64) {
         let token = match res.status() {
             reqwest::StatusCode::OK => {
                 let respone = res.text().await.unwrap();
-                println!("get token success, AA Response: {:?}", respone);
+                log::info!("thread {} case5 get token success", i);
+                log::debug!("thread {} response: {:?}", i, respone);
                 respone
             }
             status => {
-                println!("get token Failed, AA Response: {:?}", status);
+                log::error!("thread {} case5 get token failed response: {:?}", i, status);
                 return;
             }
         };
@@ -171,6 +175,7 @@ async fn aa_proc(i: i64) {
             "token": token,
         });
 
+        log::info!("thread {} case6 verify token", i);
         let res = client
             .post(token_endpoint)
             .header("Content-Type", "application/json")
@@ -182,14 +187,14 @@ async fn aa_proc(i: i64) {
         match res.status() {
             reqwest::StatusCode::OK => {
                 let respone = res.text().await.unwrap();
-                println!("verify token success, AA Response: {:?}", respone);
+                log::info!("thread {} case6 verify token success response: {:?}", i, respone);
             }
             status => {
-                println!("verify token Failed, AA Response: {:?}", status);
+                log::error!("thread {} case6 verify token failed response: {:?}", i, status);
             }
         }
     }
     
 
-    println!("attestation_proc {} end", i);
+    log::info!("attestation_proc thread {} end", i);
 }
