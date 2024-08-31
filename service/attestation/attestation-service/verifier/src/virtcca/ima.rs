@@ -12,46 +12,20 @@
 use anyhow::{Result, bail};
 use ima_measurements::{Event, EventData, Parser};
 use fallible_iterator::FallibleIterator;
-use std::fs;
-use std::process::Command;
-use serde_json::Value;
-use rand::Rng;
+use serde_json::{Value, Map, json};
 
-use attestation_types::{Evidence, VirtccaEvidence};
+const IMA_REFERENCE_FILE: &str = "/etc/attestation/attestation-service/verifier/virtcca/ima/digest_list_file";
 
-#[derive(Debug)]
-pub struct ImaVerify {
-    log_path: String,
-}
-
-impl Default for ImaVerify {
-    fn default() -> Self {
-        let mut rng = rand::thread_rng();
-        let n: u64 = rng.gen();
-        ImaVerify {
-            // log_path: format!("/tmp/attestation-service/ima-log-{}", n),  // todo fs::write depends attestation-service dir exist
-            log_path: format!("/tmp/ima-log-{}", n),
-        }
-    }
-}
+#[derive(Debug, Default)]
+pub struct ImaVerify {}
 
 impl ImaVerify {
-    // todo return detail verify result list with policy
-    pub fn ima_verify(&self, evidence: &[u8], claim: &Value, digest_list_file: String) -> Result<()> {
-        let aa_evidence: Evidence = serde_json::from_slice(evidence)?;
-        let evidence = aa_evidence.evidence.as_bytes();
-        let virtcca_ev: VirtccaEvidence = serde_json::from_slice(evidence)?;
-        let ima_log = match virtcca_ev.ima_log {
-            Some(ima_log) => ima_log,
-            _ => {log::info!("no ima log"); return Ok(())},
-        };
+    pub fn ima_verify(&self, ima_log: &[u8], ima_log_hash: Vec<u8>) -> Result<Value> {
+        if ima_log.to_vec().is_empty() {
+            return Ok(json!({}));
+        }
 
-        fs::write(&self.log_path, &ima_log).expect("write img log failed");
-        let f = fs::File::open(&self.log_path).expect("ima log file not found");
-
-        let claim_ima_log_hash = claim["payload"]["cvm"]["rem"][0].clone();
-        let mut parser = Parser::new(f);
-
+        let mut parser = Parser::new(ima_log);
         let mut events: Vec<Event> = Vec::new();
         while let Some(event) = parser.next()? {
             events.push(event);
@@ -60,32 +34,55 @@ impl ImaVerify {
         let pcr_values = parser.pcr_values();
         let pcr_10 = pcr_values.get(&10).expect("PCR 10 not measured");
         let string_pcr_sha256 = hex::encode(pcr_10.sha256);
+        let string_ima_log_hash = hex::encode(ima_log_hash);
  
-        if Value::String(string_pcr_sha256.clone()) != claim_ima_log_hash {
-            log::error!("ima log verify failed string_pcr_sha256 {}, string_claim_ima_log_hash {}", string_pcr_sha256, claim_ima_log_hash);
+        if string_pcr_sha256.clone() != string_ima_log_hash {
+            log::error!("ima log verify failed string_pcr_sha256 {}, string_ima_log_hash {}",
+                string_pcr_sha256, string_ima_log_hash);
             bail!("ima log hash verify failed");
         }
 
+        let ima_refs: Vec<_> = file_reader(IMA_REFERENCE_FILE)?
+            .into_iter()
+            .map(String::from)
+            .collect();
+
+        let mut ima_detail = Map::new();
         // parser each file digest in ima log, and compare with reference base value
         for event in events {
-            let file_digest = match event.data {
-                EventData::ImaNg{digest, name} => {drop(name); digest.digest},
+            let (name ,file_digest) = match event.data {
+                EventData::ImaNg{digest, name} => (name, digest.digest),
                 _ => bail!("Inalid event {:?}", event),
             };
             let hex_str_digest = hex::encode(file_digest);
-            //log::info!("hex_str_digest {}", hex_str_digest);
-            let output = Command::new("grep")
-            .arg("-E")
-            .arg("-i")
-            .arg(&hex_str_digest)
-            .arg(&digest_list_file)
-            .output()?;
-            if output.stdout.is_empty() {
+            if ima_refs.contains(&hex_str_digest) {
+                ima_detail.insert(name, Value::Bool(true));
+            } else {
                 log::error!("there is no refernce base value of file digest {:?}", hex_str_digest);
+                ima_detail.insert(name, Value::Bool(false));
             }
         }
+        let js_ima_detail: Value = ima_detail.into();
+        log::debug!("ima verify detail result: {:?}", js_ima_detail);
 
-        Ok(())
+        Ok(js_ima_detail)
     }
 }
 
+use std::io::BufRead;
+use std::io::BufReader;
+fn file_reader(file_path: &str) -> ::std::io::Result<Vec<String>> {
+    let file = std::fs::File::open(file_path)?;
+    let mut strings = Vec::<String>::new();
+    let mut reader = BufReader::new(file);
+    let mut buf = String::new();
+    let mut n: usize;
+    loop {
+        n = reader.read_line(&mut buf)?;
+        if n == 0 { break; }
+        buf.pop();
+        strings.push(buf.clone());
+        buf.clear();
+    }
+    Ok(strings)
+}

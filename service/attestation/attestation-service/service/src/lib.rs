@@ -100,11 +100,20 @@ impl AttestationService {
         let verifier = Verifier::default();
         let claims_evidence = verifier.verify_evidence(user_data, evidence).await?;
 
-        let mut passed = false;
-        let ima_result = verifier.verify_ima(evidence, &claims_evidence).await;
-        if ima_result.is_ok() {
-            passed = true;
+        let mut passed = true;
+        log::debug!("claims evidece ima: {:?}", claims_evidence["ima"].clone());
+        match claims_evidence["ima"].clone() {
+            serde_json::Value::Object(obj) => {
+                for (_k, v) in obj {
+                    if v == Value::Bool(false) {
+                        passed = false;
+                        break;
+                    }
+                }
+            }
+            _ => log::debug!("no ima result"),
         }
+
         // get reference by keys in claims_evidence
         let mut ops_refs = ReferenceOps::default();
         let refs_of_claims = ops_refs.query(&claims_evidence["payload"].to_string());
