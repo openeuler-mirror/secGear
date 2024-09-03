@@ -52,7 +52,4 @@ impl SessionMap {
     pub fn insert(&self, session: Session) {
         let _ = self.session_map.insert(session.id.clone(), session);
     }
-    pub fn delete(&self, session: Session) {
-       let _ = self.session_map.remove(&session.id);
-    }
 }

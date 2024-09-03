@@ -171,7 +171,6 @@ impl TryFrom<&Path> for AAConfig {
 #[derive(Debug)]
 pub struct AttestationAgent {
     config: AAConfig,
-    client: reqwest::Client,
 }
 
 #[allow(dead_code)]
@@ -187,14 +186,8 @@ impl AttestationAgent {
                 AAConfig::default()
             }
         };
-        let client = reqwest::ClientBuilder::new()
-        .cookie_store(true)
-        .user_agent("attestation-agent-client")
-        .build()
-        .map_err(|e| result::Error::AttestationAgentError(format!("build http client {e}")))?;
         Ok(AttestationAgent {
             config,
-            client,
         })
     }
 
@@ -211,7 +204,7 @@ impl AttestationAgent {
         });
 
         let attest_endpoint = format!("{}/attestation", self.config.svr_url);
-        let res = self.client
+        let res = reqwest::Client::new()
             .post(attest_endpoint)
             .header("Content-Type", "application/json")
             .json(&request_body)
@@ -256,7 +249,7 @@ impl AttestationAgent {
     }
     async fn get_challenge_from_as(&self) -> Result<String> {
         let challenge_endpoint = format!("{}/challenge", self.config.svr_url);
-        let res = self.client
+        let res = reqwest::Client::new()
             .get(challenge_endpoint)
             .header("Content-Type", "application/json")
             .header("content-length", 0)
@@ -265,7 +258,7 @@ impl AttestationAgent {
             .await?;
         let challenge = match res.status() {
             reqwest::StatusCode::OK => {
-                let respone = res.json().await.unwrap();
+                let respone = res.text().await?;
                 log::debug!("get challenge success, AS Response: {:?}", respone);
                 respone
             }
