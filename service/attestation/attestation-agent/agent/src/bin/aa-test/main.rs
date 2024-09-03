@@ -69,6 +69,7 @@ async fn aa_proc(i: i64) {
     });
     log::info!("thread {} case2 get evidence, request body: {}", i, request_body);
     let attest_endpoint = "http://127.0.0.1:8081/evidence";
+    let client = reqwest::Client::new();
     let res = client
         .get(attest_endpoint)
         .header("Content-Type", "application/json")
@@ -89,38 +90,14 @@ async fn aa_proc(i: i64) {
             return;
         }
     };
-    // verify evidence with no challenge
-    #[cfg(not(feature = "no_as"))]
-    {
-        let request_body = json!({
-            "challenge": "",
-            "evidence": evidence,
-        });
-        log::info!("thread {} case3 verify evidence with no challenge", i);
-        let res = client
-            .post(attest_endpoint)
-            .header("Content-Type", "application/json")
-            .json(&request_body)
-            .send()
-            .await
-            .unwrap();
-    
-        match res.status() {
-            reqwest::StatusCode::OK => {
-                let respone = res.text().await.unwrap();
-                log::info!("thread {} case3 verify evidence with no challenge success response: {:?}", i, respone);
-            }
-            status => {
-                log::error!("thread {} case3 verify evidence with no challenge failed response: {:?}", i, status);
-            }
-        }
-    }
+    // case3 verify evidence with no challenge
     // verify evidence with challenge
     let request_body = json!({
         "challenge": challenge,
         "evidence": evidence,
     });
     log::info!("thread {} case4 verify evidence with challenge", i);
+    let client = reqwest::Client::new();
     let res = client
         .post(attest_endpoint)
         .header("Content-Type", "application/json")
@@ -148,7 +125,7 @@ async fn aa_proc(i: i64) {
             "uuid": String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),
         });
         log::info!("thread {} case5 get token, request body: {}", i, request_body);
-
+        let client = reqwest::Client::new();
         let res = client
             .get(token_endpoint)
             .header("Content-Type", "application/json")
@@ -165,7 +142,7 @@ async fn aa_proc(i: i64) {
                 respone
             }
             status => {
-                log::error!("thread {} case5 get token failed response: {:?}", i, status);
+                log::error!("thread {} case5 get token failed status: {:?} response: {:?}", i, status, res.text().await.unwrap());
                 return;
             }
         };
@@ -176,6 +153,7 @@ async fn aa_proc(i: i64) {
         });
 
         log::info!("thread {} case6 verify token", i);
+        let client = reqwest::Client::new();
         let res = client
             .post(token_endpoint)
             .header("Content-Type", "application/json")
