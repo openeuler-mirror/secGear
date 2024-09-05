@@ -18,6 +18,7 @@ use serde_json::json;
 use reqwest;
 
 const TEST_THREAD_NUM: i64 = 1; // multi thread num
+const AA_ADDR: &str = "http://127.0.0.1:8081";
 
 #[tokio::main]
 async fn main() {
@@ -40,7 +41,7 @@ async fn aa_proc(i: i64) {
     // get challenge
     log::info!("thread {} case1 get challenge", i);
     let client = reqwest::Client::new();
-    let challenge_endpoint = "http://127.0.0.1:8081/challenge";
+    let challenge_endpoint = format!("{AA_ADDR}/challenge");
     let res = client
         .get(challenge_endpoint)
         .header("Content-Type", "application/json")
@@ -68,10 +69,10 @@ async fn aa_proc(i: i64) {
         "uuid": String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),
     });
     log::info!("thread {} case2 get evidence, request body: {}", i, request_body);
-    let attest_endpoint = "http://127.0.0.1:8081/evidence";
+    let attest_endpoint = format!("{AA_ADDR}/evidence");
     let client = reqwest::Client::new();
     let res = client
-        .get(attest_endpoint)
+        .get(attest_endpoint.clone())
         .header("Content-Type", "application/json")
         .json(&request_body)
         .send()
@@ -119,7 +120,7 @@ async fn aa_proc(i: i64) {
     #[cfg(not(feature = "no_as"))]
     {
         // get token
-        let token_endpoint = "http://127.0.0.1:8081/token";
+        let token_endpoint = format!("{AA_ADDR}/token");
         let request_body = json!({
             "challenge": challenge,
             "uuid": String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),
@@ -127,7 +128,7 @@ async fn aa_proc(i: i64) {
         log::info!("thread {} case5 get token, request body: {}", i, request_body);
         let client = reqwest::Client::new();
         let res = client
-            .get(token_endpoint)
+            .get(token_endpoint.clone())
             .header("Content-Type", "application/json")
             .json(&request_body)
             .send()
