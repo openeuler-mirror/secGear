@@ -11,14 +11,18 @@
  */
 
 // gcc example.c -o aa-test -L. -lattestation_agent -lcrypto
+#include "rust_attestation_agent.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <openssl/rand.h>
-#include "rust_attestation_agent.h"
+#include <pthread.h>
 
 #define CHALLENGE_LEN 32
-int main()
+#define TEST_THREAD_NUM 5
+
+void *thread_proc(void *arg)
 {
     // step1: generate random numers
     uint8_t nonce[CHALLENGE_LEN];
@@ -32,13 +36,8 @@ int main()
     // step2: define ima input param
     Tuple2_bool_bool_t ima = {  // define input ima = Some(false)
         ._0 = true,
-        ._1 = false,
+        ._1 = false,    // true: enable to get report with ima
     };
-    
-    // Tuple2_bool_bool_t ima = {   // define input ima = Some(true)
-    //     ._0 = true,
-    //     ._1 = true,
-    // };
 
     // step3: get report
     Vec_uint8_t report = get_report(&challenge, &ima);
@@ -58,5 +57,25 @@ int main()
     // step5: free rust resource
     free_rust_vec(report);
     free_rust_vec(claim);
+}
+int main()
+{
+    char *level = "debug";
+    Vec_uint8_t log_level = {
+        .ptr = (uint8_t *)level,
+        .len = strlen(level),
+        .cap = strlen(level),
+    };
+    init_env_logger(&log_level);
+
+    pthread_t tids[TEST_THREAD_NUM];
+    for (int i = 0; i < TEST_THREAD_NUM; i++) {
+        pthread_create(&tids[i], NULL, thread_proc, NULL);
+    }
+
+    for (int i = 0; i < TEST_THREAD_NUM; i++) {
+        pthread_join(tids[i], NULL);
+    }
+
     return 0;
 }

@@ -10,7 +10,7 @@
  * See the Mulan PSL v2 for more details.
  */
 use attestation_service::AttestationService;
-use attestation_service::result::{Result};
+use attestation_service::result::{Result, Error};
 
 use actix_web::{ post, get, web, HttpResponse, HttpRequest};
 use serde::{Deserialize, Serialize};
@@ -18,6 +18,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use log;
 use base64_url;
+use attestation_types::SESSION_TIMEOUT_MIN;
+use crate::session::{Session, SessionMap};
 
 const DEFAULT_POLICY_DIR: &str = "/etc/attestation/attestation-service/policy";
 #[derive(Deserialize, Serialize, Debug)]
@@ -25,12 +27,19 @@ pub struct ChallengeRequest {}
 
 #[get("/challenge")]
 pub async fn get_challenge(
+    map: web::Data<SessionMap>,
     service: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
     log::debug!("challenge request");
 
     let challenge = service.read().await.generate_challenge().await;
-    Ok(HttpResponse::Ok().body(challenge))
+    let session = Session::new(challenge, SESSION_TIMEOUT_MIN);
+    let response = HttpResponse::Ok()
+        .cookie(session.cookie())
+        .json(session.challenge.clone());
+    map.insert(session);
+
+    Ok(response)
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -42,12 +51,31 @@ pub struct AttestationRequest {
 
 #[post("/attestation")]
 pub async fn attestation(
+    http_req: HttpRequest,
+    map: web::Data<SessionMap>,
     request: web::Json<AttestationRequest>,
     service: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
     log::debug!("attestation request is coming");
     let request = request.0;
     let challenge = request.challenge;
+
+    if http_req.headers().contains_key("as-challenge") {
+        log::info!("sessions map len:{}", map.session_map.len());
+        let cookie = http_req.cookie("oeas-session-id").ok_or(Error::CookieMissing)?;
+        let session = map
+            .session_map
+            .get_async(cookie.value())
+            .await
+            .ok_or(Error::SessionNotFound)?;
+        if session.is_expired() {
+            return Err(Error::SessionExpired);
+        }
+        if challenge != session.challenge {
+            log::error!("request challenge:{} does not match session challenge:{}", challenge, session.challenge);
+            return Err(Error::ChallengeInvalid);
+        }
+    }
 
     let nonce = base64_url::decode(&challenge).expect("base64 decode nonce");
     let evidence = base64_url::decode(&request.evidence).expect("base64 decode evidence");

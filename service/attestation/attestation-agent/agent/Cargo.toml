@@ -41,6 +41,8 @@ base64-url.workspace = true
 thiserror.workspace = true
 actix-web.workspace = true
 clap.workspace = true
+scc.workspace = true
+attestation-types.workspace = true
 
 attester = { path = "../attester" }
 token_verifier = { path = "../token" }
