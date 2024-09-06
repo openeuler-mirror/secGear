@@ -24,6 +24,7 @@ jsonwebtoken = "9.3.0"
 thiserror = "1.0"
 actix-web = "4.5"
 clap = { version = "4.5.7", features = ["derive"] }
+scc = "2.1"
 
 verifier = {path = "../attestation-service/verifier", default-features = false}
 attestation-types = {path = "../attestation-types"}

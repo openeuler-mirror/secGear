@@ -38,11 +38,14 @@ pub enum Error {
     #[error("Request cookie is missing")]
     CookieMissing,
 
-    #[error("Request cookie is not found")]
-    CookieNotFound,
+    #[error("Request cookie session is not found")]
+    SessionNotFound,
 
     #[error("The session of request cookie is expired")]
     SessionExpired,
+
+    #[error("Request challenge is invalid")]
+    ChallengeInvalid,
 
     #[error(transparent)]
     Other(#[from] anyhow::Error),

@@ -58,6 +58,11 @@ get_report (
     Tuple2_bool_bool_t const * c_ima);
 
 /** <No documentation available> */
+void
+init_env_logger (
+    Vec_uint8_t const * c_level);
+
+/** <No documentation available> */
 Vec_uint8_t
 verify_report (
     Vec_uint8_t const * c_challenge,

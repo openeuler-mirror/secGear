@@ -15,6 +15,7 @@ use attestation_service::AttestationService;
 mod restapi;
 use restapi::{get_challenge, attestation, reference, get_policy, set_policy};
 mod session;
+use session::SessionMap;
 
 use anyhow::Result;
 use env_logger;
@@ -54,11 +55,24 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
     let server:AttestationService = AttestationService::new(Some(cli.config)).unwrap();
+    let session_map = web::Data::new(SessionMap::new());
+
+    let sessions_clone = session_map.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            sessions_clone
+                .session_map
+                .retain_async(|_, v| !v.is_expired())
+                .await;
+        }
+    });
 
     let service = web::Data::new(Arc::new(RwLock::new(server)));
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::clone(&service))
+            .app_data(web::Data::clone(&session_map))
             .service(get_challenge)
             .service(attestation)
             .service(reference)

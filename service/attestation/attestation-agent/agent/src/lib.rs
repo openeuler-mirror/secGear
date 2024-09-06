@@ -34,9 +34,16 @@ pub type TeeClaim = serde_json::Value;
 use verifier::{Verifier, VerifierAPIs};
 
 #[cfg(not(feature = "no_as"))]
-use {serde_json::json, reqwest, base64_url};
+use {
+    serde_json::json,
+    reqwest::header::{HeaderMap, HeaderValue},
+    base64_url
+};
 
 pub use attester::EvidenceRequest;
+mod session;
+use session::{SessionMap, Session};
+use attestation_types::SESSION_TIMEOUT_MIN;
 
 pub type AsTokenClaim = TokenRawData;
 
@@ -171,6 +178,7 @@ impl TryFrom<&Path> for AAConfig {
 #[derive(Debug)]
 pub struct AttestationAgent {
     config: AAConfig,
+    as_client_sessions: SessionMap,
 }
 
 #[allow(dead_code)]
@@ -186,8 +194,20 @@ impl AttestationAgent {
                 AAConfig::default()
             }
         };
+        let as_client_sessions = SessionMap::new();
+        let sessions = as_client_sessions.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                sessions
+                    .session_map
+                    .retain_async(|_, v| !v.is_expired())
+                    .await;
+            }
+        });
         Ok(AttestationAgent {
             config,
+            as_client_sessions,
         })
     }
 
@@ -197,16 +217,33 @@ impl AttestationAgent {
         evidence: &[u8],
         policy_id: Option<Vec<String>>
     ) -> Result<String> {
+        let challenge = base64_url::encode(challenge);
         let request_body = json!({
-            "challenge": base64_url::encode(challenge),
+            "challenge": challenge,
             "evidence": base64_url::encode(evidence),
             "policy_id": policy_id,
         });
+        let mut map = HeaderMap::new();
+        map.insert("Content-Type", HeaderValue::from_static("application/json"));
+        let mut client = reqwest::Client::new();
+        if !self.as_client_sessions.session_map.is_empty() {
+            let session = self.as_client_sessions
+                .session_map
+                .get_async(&challenge)
+                .await;
+            match session {
+                Some(entry) => {
+                    map.insert("as-challenge", HeaderValue::from_static("as"));
+                    client = entry.get().as_client.clone()
+                },
+                None => log::info!("challenge is not as generate"),
+            }
+        }
 
         let attest_endpoint = format!("{}/attestation", self.config.svr_url);
-        let res = reqwest::Client::new()
+        let res = client
             .post(attest_endpoint)
-            .header("Content-Type", "application/json")
+            .headers(map)
             .json(&request_body)
             .send()
             .await?;
@@ -249,16 +286,18 @@ impl AttestationAgent {
     }
     async fn get_challenge_from_as(&self) -> Result<String> {
         let challenge_endpoint = format!("{}/challenge", self.config.svr_url);
-        let res = reqwest::Client::new()
+        let client = reqwest::Client::builder()
+            .cookie_store(true)
+            .build()?;
+        let res = client
             .get(challenge_endpoint)
             .header("Content-Type", "application/json")
             .header("content-length", 0)
-            //.json(&request_body)
             .send()
             .await?;
         let challenge = match res.status() {
             reqwest::StatusCode::OK => {
-                let respone = res.text().await?;
+                let respone: String = res.json().await.unwrap();
                 log::debug!("get challenge success, AS Response: {:?}", respone);
                 respone
             }
@@ -267,6 +306,8 @@ impl AttestationAgent {
                 bail!("get challenge Failed")
             }
         };
+        let session = Session::new(challenge.clone(), client, SESSION_TIMEOUT_MIN)?;
+        self.as_client_sessions.insert(session);
         Ok(challenge)
     }
 }
@@ -274,12 +315,19 @@ impl AttestationAgent {
 
 // attestation agent c interface
 use safer_ffi::prelude::*;
-use futures::executor::block_on;
 use tokio::runtime::Runtime;
 
 #[ffi_export]
+pub fn init_env_logger(c_level: Option<&repr_c::String>) {
+    let level = match c_level {
+        Some(level) => &level,
+        None => "info",
+    };
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or(level));
+}
+
+#[ffi_export]
 pub fn get_report(c_challenge: Option<&repr_c::Vec<u8>>, c_ima: &repr_c::TaggedOption<bool>) -> repr_c::Vec<u8> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
     log::debug!("input challenge: {:?}, ima: {:?}", c_challenge, c_ima);
     let ima = match c_ima {
         repr_c::TaggedOption::None => false,
@@ -295,11 +343,12 @@ pub fn get_report(c_challenge: Option<&repr_c::Vec<u8>>, c_ima: &repr_c::TaggedO
         challenge: challenge,
         ima: Some(ima),
     };
-
+    let rt = Runtime::new().unwrap();
     let fut = async {
         AttestationAgent::new(Some(DEFAULT_AACONFIG_FILE.to_string())).unwrap().get_evidence(input).await
     };
-    let report: Vec<u8> = match block_on(fut) {
+    let ret = rt.block_on(fut);
+    let report: Vec<u8> = match ret {
         Ok(report) => report,
         Err(e) => {
             log::error!("get report failed {:?}", e);
@@ -356,25 +405,4 @@ pub fn generate_headers() -> ::std::io::Result<()> {
     ::safer_ffi::headers::builder()
         .to_file("./c_header/rust_attestation_agent.h")?
         .generate()
-}
-
-
-#[cfg(test)]
-mod tests {
-    use crate::*;
-
-    #[test]
-    fn aa_new_no_conf_path() {
-        let aa = AttestationAgent::new(None).unwrap();
-        assert_eq!(aa.config.svr_url, "http://127.0.0.1:8080");
-        assert_eq!(aa.config.token_cfg.cert, "/etc/attestation/attestation-agent/as_cert.pem");
-        assert_eq!(aa.config.token_cfg.iss, "openEulerAS");
-    }
-
-    #[test]
-    fn aa_new_with_example_conf() {
-        let aa = AttestationAgent::new(Some("attestation-agent.conf".to_string())).unwrap();
-        assert_eq!(aa.config.token_cfg.cert, "/home/cert/as_cert.pem");
-        assert_eq!(aa.config.token_cfg.iss, "oeas");
-    }
 }

@@ -12,6 +12,8 @@
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 
+pub const SESSION_TIMEOUT_MIN: i64 = 1;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VirtccaEvidence {
     pub evidence: Vec<u8>,
