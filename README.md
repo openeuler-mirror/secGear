@@ -228,6 +228,7 @@ typedef struct {
 	uint32_t parameter_num;
 	uint32_t workers_policy;
 	uint32_t rollback_to_common;
+	cpu_set_t num_cores;
 } cc_sl_config_t;
 ```
 各配置项规格如下表：
@@ -242,11 +243,25 @@ typedef struct {
 |       parameter_num       |   switchless函数支持的最大参数个数，该字段仅在ARM平台生效。<br>规格：<br>ARM：最大值：16；最小值：0|
 |       workers_policy       |   switchless代理线程运行模式，该字段仅在ARM平台生效。<br>规格：<br>ARM：<br>WORKERS_POLICY_BUSY：代理线程一直占用CPU资源，无论是否有任务需要处理，适用于对性能要求极高且系统软硬件资源丰富的场景；<br>WORKERS_POLICY_WAKEUP：代理线程仅在有任务时被唤醒，处理完任务后进入休眠，等待再次被新任务唤醒|
 |       rollback_to_common       |   异步switchless调用失败时是否回退到普通调用，该字段仅在ARM平台生效。<br>规格：<br>ARM：0：否，失败时仅返回相应错误码；其他：是，失败时回退到普通调用|
+|       num_cores            | 用于设置安全侧线程绑核 <br>规格：<br>最大值为当前环境CPU核数 |
 
 ### 4 switchless开发流程
 [参考 switchless README.md文件](./examples/switchless/README.md)
 
-### 5 常见问题
+### 5 switchless性能优化
+#### 5.1 CPU绑核
+switchless机制支持配置TA线程绑核，降低频繁调度切换开销，来优化REE和TEE业务线程性能。
+
+使用方式：cpu_set_t数组配置字段，支持TA线程配置绑核参数，将配置通过共享内存传入TA侧，并在switchless初始化TA线程池时，按照配置参数设置绑核。
+
+#### 5.2 通过openSession注册共享内存
+secGear新增支持通过openSession注册共享内存，并对新老版本注册共享内存做兼容。默认使用openSession方式，当TEEOS不支持时，回退使用ecall方式注册共享内存。
+
+注：申请共享内存成功时，如果出现如下打印，表示先尝试使用openSession注册共享内存失败，再尝试ecall注册方式成功，可忽略错误打印
+```
+  ERROR:[handle_open_session_register_shared_memory] Handle ecall with new session, failed to open session, ret:ffff0000, origin:3
+```
+### 6 常见问题
 - sgx环境下开启switchless特性创建enclave后，直接销毁enclave会产生core dump
 
     sgx开启switchless需有一下两步：
