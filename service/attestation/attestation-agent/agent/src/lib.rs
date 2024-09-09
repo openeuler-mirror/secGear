@@ -22,6 +22,7 @@ use async_trait::async_trait;
 use std::fs::File;
 use std::path::Path;
 use rand::RngCore;
+use thiserror;
 
 use attester::{Attester, AttesterAPIs};
 use token_verifier::{TokenVerifyConfig, TokenVerifier, TokenRawData};
@@ -29,6 +30,22 @@ use token_verifier::{TokenVerifyConfig, TokenVerifier, TokenRawData};
 pub mod result;
 use result::Error;
 pub type TeeClaim = serde_json::Value;
+
+#[derive(Debug, thiserror::Error)]
+pub enum AgentError {
+    #[error("challenge error: {0}")]
+    ChallengeError(String),
+    #[error("get evidence error: {0}")]
+    DecodeError(String),
+    #[error("get evidence error: {0}")]
+    GetEvidenceError(String),
+    #[error("verify evidence error: {0}")]
+    VerifyEvidenceError(String),
+    #[error("get token error: {0}")]
+    GetTokenError(String),
+    #[error("verify token error: {0}")]
+    VerifyTokenError(String),
+}
 
 #[cfg(feature = "no_as")]
 use verifier::{Verifier, VerifierAPIs};
@@ -136,11 +153,8 @@ impl AttestationAgentAPIs for AttestationAgent {
 
     async fn verify_token(&self, token: String) -> Result<AsTokenClaim> {
         let verifier = TokenVerifier::new(self.config.token_cfg.clone())?;
-        let result = verifier.verify(&token);
-        match result {
-            Ok(raw_token) => Ok(raw_token as AsTokenClaim),
-            Err(e) => bail!("verify token failed {:?}", e),
-        }
+        let result = verifier.verify(&token)?;
+        Ok(result)
     }
 }
 

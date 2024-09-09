@@ -134,7 +134,7 @@ impl AttestationService {
             Ok(eval) => {
                 for id in eval.keys() {
                     let val = Value::from_str(&eval[id].clone())?;
-                    let refs = match val.as_object().ok_or(Err(anyhow!(""))) {
+                    let refs = match val.as_object().ok_or(Err(anyhow!("json value to map fail"))) {
                         Err(err) => { return Err(err.unwrap()); }
                         Ok(ret) => { ret }
                     };
@@ -165,7 +165,7 @@ impl AttestationService {
         // demo get signer, todo default signer
         let signer = TokenSigner::new(self.config.token_cfg.clone())?;
 
-        signer.sign(&evl_report)
+        Ok(signer.sign(&evl_report)?)
     }
 
     pub async fn generate_challenge(&self) -> String {
@@ -174,7 +174,6 @@ impl AttestationService {
         base64_url::encode(&nonce)
     }
 
-    // todo pub fun set policy
     pub async fn set_policy(&self,
         id: &String,
         policy: &String,
@@ -185,7 +184,7 @@ impl AttestationService {
             .set_policy(id, policy)
             .await
     }
-    // todo pub fun get policy
+
     pub async fn get_policy(&self,
         policy_dir: &String,
     ) -> Result<String, PolicyEngineError> {
@@ -203,7 +202,7 @@ impl AttestationService {
             Err(err) => Err(err)
         }
     }
-    // todo pub fun import reference value
+
     pub async fn register_reference(&self,
         ref_set: &String
     ) -> Result<(), RefOpError> {
