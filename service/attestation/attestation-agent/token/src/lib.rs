@@ -9,11 +9,22 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use anyhow::{Result, bail};
 use std::path::Path;
 use serde::{Deserialize, Serialize};
 use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation };
 use attestation_types::Claims;
+
+#[derive(thiserror::Error, Debug)]
+pub enum VerifyError {
+    #[error("parse fail:{0:?}")]
+    CommError(#[from] jsonwebtoken::errors::Error),
+    #[error("unknown algorithm:{0}")]
+    UnknownAlg(String),
+    #[error("certificate not exist:{0}")]
+    CertNotExist(String),
+    #[error("serialize fail:{0}")]
+    SerializeFail(#[from] serde_json::error::Error),
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TokenVerifyConfig {
@@ -52,7 +63,7 @@ pub struct TokenRawData {
 }
 
 impl TokenVerifier {
-    pub fn new(config: TokenVerifyConfig) -> Result<Self> {
+    pub fn new(config: TokenVerifyConfig) -> Result<Self, VerifyError> {
         Ok(TokenVerifier { config })
     }
     fn support_rs(alg: &Algorithm) -> bool
@@ -72,43 +83,29 @@ impl TokenVerifier {
     pub fn verify(
         &self,
         token: &String
-    ) -> Result<TokenRawData> {
-        let header = match decode_header(&token) {
-            Ok(h) => h,
-            Err(e) => bail!("decode jwt header error {:?}", e),
-        };
+    ) -> Result<TokenRawData, VerifyError> {
+        let header = decode_header(&token)?;
         let alg: Algorithm = header.alg;
 
         if !Self::support_rs(&alg) && !Self::support_ps(&alg) {
-            bail!("unknown algrithm {:?}", alg);
+            return Err(VerifyError::UnknownAlg(format!("unknown algrithm {:?}", alg)));
         }
         if !Path::new(&self.config.cert).exists() {
-            bail!("token verfify failed, {:?} cert not exist", self.config.cert);
+            return Err(VerifyError::CertNotExist(format!("{:?} not exist", self.config.cert)));
         }
         let cert = std::fs::read(&self.config.cert).unwrap();
 
         /* 使用配置的公钥 */
-        let key_value: DecodingKey = match DecodingKey::from_rsa_pem(&cert)
-        {
-            Ok(key) => key,
-            Err(e) => bail!("get key from pem error {:?}", e),
-        };
+        let key_value: DecodingKey = DecodingKey::from_rsa_pem(&cert)?;
 
         let mut validation = Validation::new(alg);
         validation.set_issuer(&[self.config.iss.clone()]);
         validation.validate_exp = true;
 
-        let data = decode::<Claims>(&token, &key_value, &validation);
-        match data {
-            Ok(d) => {
-                let header = d.header.clone();
-                let claims = d.claims.clone();
-                Ok(TokenRawData {
-                    header: serde_json::to_string(&header).unwrap(),
-                    claim: serde_json::to_string(&claims).unwrap(),
-                })
-            }
-            Err(e) => bail!("verfiy jwt failed {:?}", e),
-        }
+        let data = decode::<Claims>(&token, &key_value, &validation)?;
+        Ok(TokenRawData {
+            header: serde_json::to_string(&data.header)?,
+            claim: serde_json::to_string(&data.claims)?,
+        })
     }
 }

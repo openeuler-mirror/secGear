@@ -22,6 +22,26 @@ pub enum Error {
         #[from]
         source: std::io::Error,
     },
+    #[error("attestation error: {source:?}")]
+    DecodeError {
+        #[from]
+        source: base64::DecodeError,
+    },
+    #[error("Policy Engine error: {source:?}")]
+    PolicyEngine {
+        #[from]
+        source: policy::policy_engine::PolicyEngineError,
+    },
+    #[error("Reference error: {source:?}")]
+    Reference {
+        #[from]
+        source: reference::reference::RefOpError,
+    },
+    #[error("Sign error: {source:?}")]
+    Sign {
+        #[from]
+        source: token_signer::SignError,
+    },
 
     #[error("Web error: {source:?}")]
     Web {

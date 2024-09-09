@@ -10,6 +10,7 @@
  * See the Mulan PSL v2 for more details.
  */
 use std::{collections::HashMap, fmt::Display};
+
 #[derive(Debug)]
 pub enum PolicyEngineError {
     InvalidPolicy(String),
@@ -49,6 +50,8 @@ impl Display for PolicyEngineError {
         }
     }
 }
+
+impl std::error::Error for PolicyEngineError {}
 
 pub trait PolicyEngine {
     fn evaluate(

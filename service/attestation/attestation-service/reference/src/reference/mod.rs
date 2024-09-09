@@ -15,6 +15,7 @@ use crate::store::{KvError, KvStore};
 use openssl::sha::sha256;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use thiserror::{self, Error};
 
 pub struct ReferenceOps {
     store: Box<dyn KvStore>,
@@ -40,16 +41,12 @@ pub struct Ref {
     pub value: Value,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq)]
 pub enum RefOpError {
+    #[error("reference operation error {0}")]
     Err(String),
-}
-impl From<KvError> for RefOpError {
-    fn from(value: KvError) -> Self {
-        match value {
-            KvError::Err(v) => RefOpError::Err(v),
-        }
-    }
+    #[error("reference store error: {0:?}")]
+    StoreErr(#[from] KvError)
 }
 
 impl ReferenceOps {
@@ -68,36 +65,20 @@ impl ReferenceOps {
     fn register_reference(&mut self, reference: &Ref) -> Result<(), RefOpError> {
         // generate reference key
         let key = Self::generate_reference_key(reference);
-        match self.store.write(
+        self.store.write(
             &key,
             serde_json::to_string(&reference)
                 .unwrap()
                 .as_bytes()
                 .as_ref(),
-        ) {
-            Ok(_) => {
-                return Ok(());
-            }
-            Err(err) => match err {
-                KvError::Err(err) => {
-                    return Err(RefOpError::Err(err));
-                }
-            },
-        }
+        )?;
+        Ok(())
     }
 
     fn unregister_reference(&mut self, reference: &Ref) -> Result<(), RefOpError> {
         let key = Self::generate_reference_key(reference);
-        match self.store.delete(&key) {
-            Ok(_) => {
-                return Ok(());
-            }
-            Err(err) => match err {
-                KvError::Err(err) => {
-                    return Err(RefOpError::Err(err));
-                }
-            },
-        }
+        self.store.delete(&key)?;
+        Ok(())
     }
 
     fn query_reference(&mut self, reference: &Ref) -> Option<Vec<u8>> {

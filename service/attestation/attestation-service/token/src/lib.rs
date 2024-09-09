@@ -9,7 +9,7 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use anyhow::{Result, bail};
+use anyhow::{Result};
 use jsonwebtoken::{encode, get_current_timestamp,
     Algorithm, EncodingKey, Header,
 };
@@ -17,7 +17,21 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use attestation_types::{EvlResult, Claims};
+use thiserror;
 
+#[derive(thiserror::Error,  Debug)]
+pub enum SignError {
+    #[error("get unix time fail:{0:?}")]
+    ToUnixTimeFail(#[from] std::num::TryFromIntError),
+    #[error("unsupport algorith:{0}")]
+    UnsupportAlg(String),
+    #[error("key not exist:{0}")]
+    KeyNotExist(String),
+    #[error("key content read fail:{0}")]
+    ReadKeyFail(String),
+    #[error("sign fail:{0:?}")]
+    SignFail(#[from] jsonwebtoken::errors::Error)
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenSignConfig {
@@ -79,36 +93,35 @@ impl TokenSigner {
         }
         return false;
     }
-    pub fn sign(&self, report: &EvlReport) -> Result<String> {
+    pub fn sign(&self, report: &EvlReport) -> Result<String, SignError> {
         let alg: Algorithm = self.config.alg;
         let mut header = Header::new(alg);
         header.typ = Some("JWT".to_string());
         let unix_time = get_current_timestamp();
         let claims: Claims = Claims {
             iss: self.config.iss.clone(),
-            iat: usize::try_from(unix_time).expect("unix time to usize error"),
-            nbf: usize::try_from(unix_time).expect("unix time to usize error"),
-            exp: usize::try_from(unix_time).expect("unix time to usize error")
-                + self.config.valid_duration,
+            iat: usize::try_from(unix_time)?,
+            nbf: usize::try_from(unix_time)?,
+            exp: usize::try_from(unix_time)? + self.config.valid_duration,
             evaluation_reports: report.result.clone(),
             tee: report.tee.clone(),
             tcb_status: report.tcb_status.clone(),
         };
         if !Self::support_rs(&alg) && !Self::support_ps(&alg) {
-            bail!("unknown algrithm {:?}", alg);
+            return Err(SignError::UnsupportAlg(format!("unknown algrithm {:?}", alg)));
         }
         if !Path::new(&self.config.key).exists() {
-            bail!("token verfify failed, {:?} cert not exist", self.config.key);
+            return Err(SignError::UnsupportAlg(format!("token verfify failed, {:?} cert not exist", self.config.key)));
         }
         let key = std::fs::read(&self.config.key).unwrap();
         let key_value: EncodingKey = match EncodingKey::from_rsa_pem(&key) {
             Ok(val) => val,
-            _ => bail!("get key from input error"),
+            _ => {return Err(SignError::ReadKeyFail(format!("get key from input error")));}
         };
         
         let token = match encode(&header, &claims, &key_value) {
             Ok(val) => val,
-            Err(e) => bail!("sign jwt token error {:?}", e),
+            Err(e) => {return Err(SignError::SignFail(e));}
         };
         Ok(token)
     }

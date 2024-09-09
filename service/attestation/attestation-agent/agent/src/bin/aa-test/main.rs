@@ -170,6 +170,7 @@ async fn aa_proc(i: i64) {
             }
             status => {
                 log::error!("thread {} case6 verify token failed response: {:?}", i, status);
+                log::error!("thread case6 verify token failed response:{}",  res.text().await.unwrap());
             }
         }
     }

@@ -9,9 +9,18 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+#[derive(Debug, PartialEq)]
 pub enum KvError {
     Err(String),
 }
+impl std::fmt::Display for KvError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            KvError::Err(msg) => write!(f, "kv store error:{}", msg)
+        }
+    }
+}
+impl std::error::Error for KvError {}
 pub trait KvStore {
     fn write(&mut self, key: &str, value: &[u8]) -> Result<(), KvError>;
     fn read(&mut self, key: &str) -> Option<Vec<u8>>;

@@ -11,6 +11,8 @@
  */
 use actix_web::{body::BoxBody, HttpResponse, ResponseError};
 
+use crate::AgentError;
+
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// libdevice error
@@ -28,6 +30,12 @@ pub enum Error {
     Web {
         #[from]
         source: actix_web::error::Error,
+    },
+
+    #[error("Agent error: {source:?}")]
+    Agent {
+        #[from]
+        source: AgentError,
     },
 
     #[error("Deserialize error: {source:?}")]

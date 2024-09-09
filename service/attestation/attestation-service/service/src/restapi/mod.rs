@@ -77,8 +77,8 @@ pub async fn attestation(
         }
     }
 
-    let nonce = base64_url::decode(&challenge).expect("base64 decode nonce");
-    let evidence = base64_url::decode(&request.evidence).expect("base64 decode evidence");
+    let nonce = base64_url::decode(&challenge)?;
+    let evidence = base64_url::decode(&request.evidence)?;
     let ids = request.policy_id;
     let token = service.read().await.evaluate(&nonce, &evidence, &ids).await?;
 
@@ -97,10 +97,8 @@ pub async fn reference(
 ) -> Result<HttpResponse> {
     let request = request.0;
     log::debug!("reference request: {:?}", request);
-    match service.read().await.register_reference(&request.refs).await {
-        Ok(_) => Ok(HttpResponse::Ok().body("set reference success")),
-        Err(_err) => Ok(HttpResponse::Ok().body("set reference fail")),
-    }
+    service.read().await.register_reference(&request.refs).await?;
+    Ok(HttpResponse::Ok().body("set reference success"))
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -120,13 +118,8 @@ pub async fn set_policy(
     let policy_id = request.id.clone();
     let policy = request.policy.clone();
     let dir:String = String::from(DEFAULT_POLICY_DIR);
-    match service.read().await.set_policy(&policy_id, &policy, &dir).await {
-        Ok(_) => Ok(HttpResponse::Ok().body("set policy success")),
-        Err(err) => {
-            log::debug!("set policy error: {:?}", err);
-            Ok(HttpResponse::Ok().body("set policy fail"))
-        }
-    }
+    service.read().await.set_policy(&policy_id, &policy, &dir).await?;
+    Ok(HttpResponse::Ok().body("set policy success"))
 }
 
 #[get("/policy")]
@@ -136,8 +129,6 @@ pub async fn get_policy(
 ) -> Result<HttpResponse> {
     log::debug!("get policy request: {:?}", request);
     let dir:String = String::from(DEFAULT_POLICY_DIR);
-    match service.read().await.get_policy(&dir).await {
-        Ok(ret) => Ok(HttpResponse::Ok().body(ret)),
-        Err(_err) => Ok(HttpResponse::Ok().body("get policy fail")),
-    }
+    let ret = service.read().await.get_policy(&dir).await?;
+    Ok(HttpResponse::Ok().body(ret))
 }
