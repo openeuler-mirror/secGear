@@ -185,7 +185,7 @@ impl AttestationService {
             .await
     }
 
-    pub async fn get_policy(&self,
+    pub async fn get_all_policy(&self,
         policy_dir: &String,
     ) -> Result<String, PolicyEngineError> {
         let engine = OPA::new(policy_dir).await;
@@ -201,6 +201,14 @@ impl AttestationService {
             }
             Err(err) => Err(err)
         }
+    }
+
+    pub async fn get_policy(&self,
+        policy_dir: &String,
+        id: &String 
+    ) -> Result<String, PolicyEngineError> {
+        let engine = OPA::new(policy_dir).await?;
+        Ok(engine.get_policy(id).await?)
     }
 
     pub async fn register_reference(&self,

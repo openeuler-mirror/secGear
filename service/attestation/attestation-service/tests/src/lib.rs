@@ -121,10 +121,16 @@ mod tests {
 
     #[test]
     fn api_get_policy() {
+        let request_body = json!({
+            "policy_id":"test_policy.rego"
+           }
+        );
         let client: Client = Client::new();
         let endpoint = "http://127.0.0.1:8080/policy";
         let res = client
             .get(endpoint)
+            .header("Content-Type", "application/json")
+            .body(request_body.to_string())
             .send()
             .unwrap();
         assert_eq!(res.status(), reqwest::StatusCode::OK);
