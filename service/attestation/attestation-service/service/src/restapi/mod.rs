@@ -122,13 +122,20 @@ pub async fn set_policy(
     Ok(HttpResponse::Ok().body("set policy success"))
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+pub struct PolicyGetRequest {
+    policy_id: String,
+}
+
 #[get("/policy")]
 pub async fn get_policy(
-    request: HttpRequest,
+    request: web::Json<PolicyGetRequest>,
     service: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
+    let request = request.0;
     log::debug!("get policy request: {:?}", request);
+    let id = request.policy_id.clone();
     let dir:String = String::from(DEFAULT_POLICY_DIR);
-    let ret = service.read().await.get_policy(&dir).await?;
+    let ret = service.read().await.get_policy(&dir, &id.to_string()).await?;
     Ok(HttpResponse::Ok().body(ret))
 }
