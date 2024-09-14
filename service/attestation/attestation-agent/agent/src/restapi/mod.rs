@@ -78,7 +78,7 @@ pub async fn verify_evidence(
 ) -> Result<HttpResponse> {
     let request = request.0;
     log::debug!("verify evidence request: {:?}", request);
-    let challenge = base64_url::decode(&"request.challenge".to_string())
+    let challenge = base64_url::decode(&request.challenge)
         .map_err(|err|AgentError::DecodeError(err.to_string()))?;
     let evidence = request.evidence;
     let policy_id =  request.policy_id;
