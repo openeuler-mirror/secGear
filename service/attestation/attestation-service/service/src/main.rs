@@ -20,6 +20,7 @@ use session::SessionMap;
 use anyhow::Result;
 use env_logger;
 use actix_web::{web, App, HttpServer};
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use std::{net::{SocketAddr, IpAddr, Ipv4Addr}, sync::Arc};
 use tokio::sync::RwLock;
 use clap::{Parser, command, arg};
@@ -47,6 +48,13 @@ struct Cli {
     //    }
     #[arg(short, long, default_value_t = DEFAULT_ASCONFIG_FILE.to_string())]
     config: String,
+
+    #[arg(short = 'p', long = "protocol", default_value_t = String::from("http"))]
+    protocol: String,
+    #[arg(short = 't', long = "https_cert", default_value_t = String::from(""))]
+    https_cert: String,
+    #[arg(short = 'k', long = "https_key", default_value_t = String::from(""))]
+    https_key: String,
 }
 
 #[actix_web::main]
@@ -69,7 +77,7 @@ async fn main() -> Result<()> {
     });
 
     let service = web::Data::new(Arc::new(RwLock::new(server)));
-    HttpServer::new(move || {
+    let http_server = HttpServer::new(move || {
         App::new()
             .app_data(web::Data::clone(&service))
             .app_data(web::Data::clone(&session_map))
@@ -78,10 +86,25 @@ async fn main() -> Result<()> {
             .service(reference)
             .service(set_policy)
             .service(get_policy)
-    })
-    .bind((cli.socketaddr.ip().to_string(), cli.socketaddr.port()))?
-    .run()
-    .await?;
+    });
+    if cli.protocol == "https"{
+        if  cli.https_cert.is_empty() || cli.https_key.is_empty() {
+            log::error!("cert or key is empty");
+            return Ok(());
+        }
+        let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
+        builder.set_private_key_file(cli.https_key, SslFiletype::PEM)?;
+        builder.set_certificate_chain_file(cli.https_cert)?;
+        http_server.bind_openssl((cli.socketaddr.ip().to_string(), cli.socketaddr.port()), builder)?
+        .run()
+        .await?;
+    } else if cli.protocol == "http" {
+        http_server.bind((cli.socketaddr.ip().to_string(), cli.socketaddr.port()))?
+        .run()
+        .await?;
+    } else {
+        log::error!("unknown protocol {}", cli.protocol);
+    }
 
     Ok(())
 }
