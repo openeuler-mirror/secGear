@@ -27,6 +27,7 @@ uuid.workspace = true
 rand.workspace = true
 scc.workspace = true
 attestation-types.workspace = true
+openssl.workspace = true
 
 [dev-dependencies]
 futures.workspace = true
