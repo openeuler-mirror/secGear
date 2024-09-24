@@ -87,7 +87,7 @@ switchless函数需添加'transition_using_threads'标识。
     ret = cc_sl_get_async_result(context, task_id, &retval);
     ...
 ```
-调用cc_enclave_create时，需传入switcheless特性对应参数“ENCLAVE_FEATURE_SWITCHLESS”，才能正常使用使用switchless特性。
+调用cc_enclave_create时，需传入switcheless特性对应参数“ENCLAVE_FEATURE_SWITCHLESS”，才能正常使用switchless特性。
 ### 3 调用codegen工具
 [参考 switchless host/CMakeLists.txt文件](./host/CMakeLists.txt)
 
