@@ -25,6 +25,7 @@ pub struct VirtccaEvidence {
 pub enum TeeType {
     Itrustee = 1,
     Virtcca,
+    Rustcca,
     Invalid,
 }
 

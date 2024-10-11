@@ -40,3 +40,5 @@ uuid = { version = "1.2.2", features = ["serde", "v4"] }
 scc = "2.1"
 
 attestation-types = {path = "../attestation-types"}
+ear = "0.1.1"
+ccatoken = "0.1.0"
