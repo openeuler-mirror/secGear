@@ -21,19 +21,19 @@ use anyhow::Result;
 use env_logger;
 use actix_web::{web, App, HttpServer};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
-use std::{net::{SocketAddr, IpAddr, Ipv4Addr}, sync::Arc};
+use std::{sync::Arc};
 use tokio::sync::RwLock;
 use clap::{Parser, command, arg};
 
 const DEFAULT_ASCONFIG_FILE: &str = "/etc/attestation/attestation-service/attestation-service.conf";
-const DEFAULT_SOCKETADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+const DEFAULT_SOCKETADDR: &str =  "localhost:8080";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Cli {
     /// Socket address to listen on
-    #[arg(short, long, default_value_t = DEFAULT_SOCKETADDR)]
-    socketaddr: SocketAddr,
+    #[arg(short, long, default_value_t = DEFAULT_SOCKETADDR.to_string())]
+    socketaddr: String,
 
     /// Attestation Service config file
     //    Load `ASConfig` from a configuration file like:
@@ -95,11 +95,11 @@ async fn main() -> Result<()> {
         let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
         builder.set_private_key_file(cli.https_key, SslFiletype::PEM)?;
         builder.set_certificate_chain_file(cli.https_cert)?;
-        http_server.bind_openssl((cli.socketaddr.ip().to_string(), cli.socketaddr.port()), builder)?
+        http_server.bind_openssl(cli.socketaddr, builder)?
         .run()
         .await?;
     } else if cli.protocol == "http" {
-        http_server.bind((cli.socketaddr.ip().to_string(), cli.socketaddr.port()))?
+        http_server.bind(cli.socketaddr)?
         .run()
         .await?;
     } else {

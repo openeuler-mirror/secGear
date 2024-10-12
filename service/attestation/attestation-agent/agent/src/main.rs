@@ -16,19 +16,21 @@ use restapi::{get_challenge, get_evidence, verify_evidence, get_token, verify_to
 use anyhow::Result;
 use env_logger;
 use actix_web::{web, App, HttpServer, HttpResponse};
-use std::{net::{SocketAddr, IpAddr, Ipv4Addr}, sync::Arc};
+use std::{sync::Arc};
 use tokio::sync::RwLock;
 use clap::{Parser, command, arg};
 
-const DEFAULT_SOCKETADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8081);
+const DEFAULT_SOCKETADDR: &str = "127.0.0.1:8081";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Cli {
     /// Socket address to listen on
-    #[arg(short, long, default_value_t = DEFAULT_SOCKETADDR)]
-    socketaddr: SocketAddr,
-
+    #[arg(short, long, default_value_t = DEFAULT_SOCKETADDR.to_string())]
+    socketaddr: String,
+    /// Socket address connect to
+    #[arg(short = 'u', long, default_value_t = String::from(""))]
+    serverurl: String,
     /// Load `AAConfig` from a configuration file like:
     ///    {
     ///        "svr_url": "http://127.0.0.1:8080",
@@ -39,6 +41,13 @@ struct Cli {
     ///    }
     #[arg(short, long, default_value_t = DEFAULT_AACONFIG_FILE.to_string())]
     config: String,
+
+    #[arg(short = 'p', long = "protocol", default_value_t = String::from("http"))]
+    protocol: String,
+    
+    /// root certificate to verify peer
+    #[arg(short = 't', long = "cert_root", default_value_t = String::from(""))]
+    cert_root: String
 }
 
 #[actix_web::main]
@@ -46,8 +55,14 @@ async fn main() -> Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let cli = Cli::parse();
-    let server = AttestationAgent::new(Some(cli.config)).unwrap();
-
+    let mut server = AttestationAgent::new(Some(cli.config)).unwrap();
+    server.access_as_protocol = cli.protocol;
+    if server.access_as_protocol == "https" {
+        server.cert_root = std::fs::read_to_string(cli.cert_root)?;
+    }
+    if cli.serverurl != "" {
+        server.config.svr_url = server.access_as_protocol.clone() + "://" + &cli.serverurl.clone();
+    }
     let service = web::Data::new(Arc::new(RwLock::new(server)));
     HttpServer::new(move || {
         App::new()
@@ -59,7 +74,7 @@ async fn main() -> Result<()> {
             .service(verify_token)
             .default_service(web::to(|| HttpResponse::NotFound()))
     })
-    .bind((cli.socketaddr.ip().to_string(), cli.socketaddr.port()))?
+    .bind(cli.socketaddr)?
     .run()
     .await?;
 

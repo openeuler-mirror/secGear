@@ -17,6 +17,7 @@
 
 use anyhow::{Result, bail, anyhow};
 use log;
+use reqwest::Client;
 use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
 use std::fs::File;
@@ -159,8 +160,8 @@ impl AttestationAgentAPIs for AttestationAgent {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct AAConfig {
-    svr_url: String,             // Attestation Service url
+pub struct AAConfig {
+    pub svr_url: String,             // Attestation Service url
     token_cfg: TokenVerifyConfig,
 }
 
@@ -191,8 +192,10 @@ impl TryFrom<&Path> for AAConfig {
 
 #[derive(Debug)]
 pub struct AttestationAgent {
-    config: AAConfig,
+    pub config: AAConfig,
     as_client_sessions: SessionMap,
+    pub cert_root: String,
+    pub access_as_protocol: String,
 }
 
 #[allow(dead_code)]
@@ -222,7 +225,30 @@ impl AttestationAgent {
         Ok(AttestationAgent {
             config,
             as_client_sessions,
+            access_as_protocol: String::from("http"),
+            cert_root: String::from("")
         })
+    }
+
+    fn create_client(protocol:String, cert:Option<String>, cookie_store:bool) -> Result<reqwest::Client> {
+        let client:Client;
+        if protocol == "https" {
+            if cert == None {
+                return Err(anyhow!("https need root certificate"));
+            }
+            let cert = reqwest::Certificate::from_pem(cert.unwrap().as_bytes())?;
+            client = reqwest::Client::builder()
+            .cookie_store(cookie_store)
+            .add_root_certificate(cert)
+            .build()?; 
+        } else if protocol == "http" {
+            client = reqwest::Client::builder()
+            .cookie_store(cookie_store)
+            .build()?;
+        } else {
+            return Err(anyhow!("unknown {}", protocol));
+        }
+        Ok(client)
     }
 
     #[cfg(not(feature = "no_as"))]
@@ -239,7 +265,10 @@ impl AttestationAgent {
         });
         let mut map = HeaderMap::new();
         map.insert("Content-Type", HeaderValue::from_static("application/json"));
-        let mut client = reqwest::Client::new();
+        let mut client = Self::create_client(self.access_as_protocol.clone(), 
+            Some(self.cert_root.clone()), 
+            true)?;
+
         if !self.as_client_sessions.session_map.is_empty() {
             let session = self.as_client_sessions
                 .session_map
@@ -298,11 +327,13 @@ impl AttestationAgent {
         rand::thread_rng().fill_bytes(&mut nonce);
         Ok(base64_url::encode(&nonce))
     }
+
     async fn get_challenge_from_as(&self) -> Result<String> {
         let challenge_endpoint = format!("{}/challenge", self.config.svr_url);
-        let client = reqwest::Client::builder()
-            .cookie_store(true)
-            .build()?;
+        let client = Self::create_client(self.access_as_protocol.clone(), 
+            Some(self.cert_root.clone()), 
+            true)?;
+         
         let res = client
             .get(challenge_endpoint)
             .header("Content-Type", "application/json")
