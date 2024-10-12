@@ -8,38 +8,34 @@ This project provides attestation service and attestation agent for common attes
 Note: The roles relying party, attester and verifier is defined in [RFC9334 RATS](https://datatracker.ietf.org/doc/html/rfc9334#name-architectural-overview).
 
 # Quick Start
-
-## Dependencies
+## Prepare
+### Install attester depends SDK
 - OS: openEuler 24.09
 - Repo
 ```
 vim /etc/yum.repos.d/openEuler.repo
 [everything]
 name=everything
-baseurl=http://121.36.84.172/dailybuild/EBS-openEuler-24.09/openeuler-2024-09-03-08-34-41/everything/aarch64/
+baseurl=https://repo.openeuler.org/openEuler-24.09/everything/aarch64/
 enabled=1
 gpgcheck=0
+
+yum install virtCCA_sdk-devel
 ```
 
-## Build 
+### Generate self-signed certificate and private key
+```
+openssl genrsa -out private.pem 2048
+openssl req -new -key private.pem -out server.csr
+openssl x509 -req -in server.csr -out as_cert.pem -signkey private.pem -days 3650
 
-### Build AA
-```
-cd secGear/service/attestation/attestation-agent
-cargo build --features virtcca-attester
-```
+mkdir -p /etc/attestation/attestation-service/token
+cp private.pem /etc/attestation/attestation-service/token
 
-### Build AS
-```
-cd secGear/service/attestation/attestation-service
-cargo build
+// as_cert.pem will be deployed into AA config directory, AA use it to verify token
 ```
 
-
-## Run AS, AA and aa-test Demo
-### AS
-#### Config AS
-- Generate as config file
+### Generate AS Config File
 ```
 mkdir -p /etc/attestation/attestation-service/
 vim /etc/attestation.bak/attestation-service/attestation-service.conf
@@ -53,30 +49,48 @@ vim /etc/attestation.bak/attestation-service/attestation-service.conf
         }
 }
 ```
-- Generate test private key and self-signed certificate
+
+### Generate AA Config File
 ```
-openssl genrsa -out private.pem 2048
-openssl req -new -key private.pem -out server.csr
-openssl x509 -req -in server.csr -out as_cert.pem -signkey private.pem -days 3650
-
-mkdir -p /etc/attestation/attestation-service/token
-cp private.pem /etc/attestation/attestation-service/token
-
-// as_cert.pem will be deployed into AA config directory
+mkdir -p /etc/attestation/attestation-agent/
+// svr_url: url to access attestation service
+// cert: token signature certificate
+// iss: token issuer name
+vim /etc/attestation/attestation-agent/attestation-agent.conf
+{
+    "svr_url": "http://127.0.0.1:8080",
+    "token_cfg": {
+        "cert": "/etc/attestation/attestation-agent/as_cert.pem",
+        "iss": "oeas"
+    }
+}
 ```
 
-- Download Huawei root cert chain to verify virtCCA evidence
+### Download Huawei root cert chain to verify virtCCA evidence
 
-    [Root Cert](https://download.huawei.com/dl/download.do?actionFlag=download&nid=PKI1000000002&partNo=3001&mid=SUP_PKI)
-
-    [Sub Cert](https://download.huawei.com/dl/download.do?actionFlag=download&nid=PKI1000000040&partNo=3001&mid=SUP_PKI)
+[Root Cert](https://download.huawei.com/dl/download.do?actionFlag=download&nid=PKI1000000002&partNo=3001&mid=SUP_PKI)<br>
+[Sub Cert](https://download.huawei.com/dl/download.do?actionFlag=download&nid=PKI1000000040&partNo=3001&mid=SUP_PKI)
 ```
 mkdir -p /etc/attestation/attestation-service/verifier/virtcca
-
-// upload root cert and sub cert to the above directory
+// copy Root Cert and Sub Cert to the above directory
 ```
 
-#### Run AS
+## Build
+
+### Build AA
+```
+cd secGear/service/attestation/attestation-agent
+cargo build --features virtcca-attester
+```
+
+### Build AS
+```
+cd secGear/service/attestation/attestation-service
+cargo build
+```
+
+## Run AS, AA and Demo（aa-test）Use HTTP
+### Run AS
 ```
 cd secGear/service/attestation/attestation-service
 ./target/debug/attestation-service
@@ -97,33 +111,65 @@ virtcca reference (such as rim:7d2e49c8d29f18b748e658e7243ecf26bc292e5fee93f72af
 curl -H "Content-Type:application/json" -X POST -d '{"refs":"{\"vcca.cvm.rim\":\"7d2e49c8d29f18b748e658e7243ecf26bc292e5fee93f72af11ad9da9810142a\"}"}'  http://127.0.0.1:8080/reference
 ```
 
-### AA
+### Run AA
 
-#### Install attester depends SDK
-```
-yum install virtCCA_sdk-devel
-```
-#### Config AA
-```
-mkdir -p /etc/attestation/attestation-agent/
-// svr_url为attestation service的ip和端口，需要根据实际部署网络修改配置
-// cert 为attestation service的公钥证书，本demo为在attestation service端手动生成的自签名公钥证书
-// iss 为attestation service签发token时的签发者名称
-vim /etc/attestation/attestation-agent/attestation-agent.conf
-{
-    "svr_url": "http://127.0.0.1:8080",
-    "token_cfg": {
-        "cert": "/etc/attestation/attestation-agent/as_cert.pem",
-        "iss": "oeas"
-    }
-}
-```
 #### Run AA
 ```
 cd secGear/service/attestation/attestation-agent
 ./target/debug/attestation-agent
 ```
 
+### Run AA demo
+```
+cd secGear/service/attestation/attestation-agent
+./target/debug/aa-test
+```
+
+## Run AS, AA and Demo（aa-test）Use HTTPS
+### Run AS
+- generate self-signed certificate
+```
+openssl genrsa -out key.pem 2048
+openssl req -subj "/C=CN/ST=ST/L=CITY/O=Company/CN=server.com" -new -key key.pem -out cert.csr
+openssl x509 -req -extfile /etc/pki/tls/openssl.cnf -extensions v3_req -in cert.csr -out cert.pem -signkey key.pem -days 365
+```
+
+- config hosts
+```
+vim /etc/hosts
+127.0.0.1 server.com
+```
+
+- start service
+```
+cd secGear/service/attestation/attestation-service
+./target/debug/attestation-service -p https -t cert.pem -k key.pem  2>&1 &
+// you can specified listen port
+./target/debug/attestation-service -p https -t cert.pem -k key.pem -s server.com:8080 2>&1 &
+```
+
+- Config default policy
+```
+cp secGear/service/attestation/attestation-service/policy/src/opa/default_vcca.rego /etc/attestation/attestation-service/policy
+```
+
+- Config virtcca reference
+
+virtcca reference (such as rim:7d2e49c8d29f18b748e658e7243ecf26bc292e5fee93f72af11ad9da9810142a ) is generated by [rim_ref tools](https://gitee.com/openeuler/virtCCA_sdk/tree/master/attestation/rim_ref)
+```
+curl -k -H "Content-Type:application/json" -X POST -d '{"refs":"{\"vcca.cvm.rim\":\"7d2e49c8d29f18b748e658e7243ecf26bc292e5fee93f72af11ad9da9810142a\"}"}' https://server.com:8080/reference
+```
+
+### Run AA
+
+```
+cd secGear/service/attestation/attestation-agent
+./target/debug/attestation-agent -p https -t cert.pem 2>&1 &
+
+// you can use -u specified destination which AA connect to , -s specified port which AA listen at
+./target/debug/attestation-agent -p https -t cert.pem -s server.com:8081 -u server.com:8080  2>&1 &
+
+```
 ### Run AA demo
 ```
 cd secGear/service/attestation/attestation-agent
