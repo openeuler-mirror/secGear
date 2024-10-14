@@ -114,6 +114,16 @@ impl Evidence {
         // todo parsed TeeClaim
         evidence.parse_claim_from_evidence(ima)
     }
+    pub fn parse_evidence(evidence: &[u8]) -> Result<TeeClaim> {
+        let virtcca_ev: VirtccaEvidence = serde_json::from_slice(evidence)?;
+        let evidence = virtcca_ev.evidence;
+        let evidence = Evidence::decode(evidence)?;
+
+        let ima = json!("");
+        // parsed TeeClaim
+        let claim = evidence.parse_claim_from_evidence(ima).unwrap();
+        Ok(claim["payload"].clone() as TeeClaim)
+    }
     fn parse_claim_from_evidence(&self, ima: serde_json::Value) -> Result<TeeClaim> {
         let payload = json!({
             "vcca.cvm.challenge": hex::encode(self.cvm_token.challenge.clone()),

@@ -64,6 +64,11 @@ init_env_logger (
 
 /** <No documentation available> */
 Vec_uint8_t
+parse_report (
+    Vec_uint8_t const * report);
+
+/** <No documentation available> */
+Vec_uint8_t
 verify_report (
     Vec_uint8_t const * c_challenge,
     Vec_uint8_t const * report);
