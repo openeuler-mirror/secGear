@@ -20,7 +20,7 @@
 #include <pthread.h>
 
 #define CHALLENGE_LEN 32
-#define TEST_THREAD_NUM 5
+#define TEST_THREAD_NUM 1
 
 void *thread_proc(void *arg)
 {
@@ -45,6 +45,15 @@ void *thread_proc(void *arg)
     if (report.len != 0) {
         report.ptr[report.len] = '\0'; // rust return string has no '\0'
         printf("get report success, report:%s\n", report.ptr);
+
+        // parse report
+        Vec_uint8_t claim_no_verify = parse_report(&report);
+        if (claim_no_verify.len != 0) {
+            claim_no_verify.ptr[claim_no_verify.len] = '\0';
+            printf("parse report success: %s\n", claim_no_verify.ptr);
+        }
+        free_rust_vec(claim_no_verify);
+
         // step4: verify report
         claim = verify_report(&challenge, &report);
     }
@@ -60,7 +69,7 @@ void *thread_proc(void *arg)
 }
 int main()
 {
-    char *level = "debug";
+    char *level = "info";
     Vec_uint8_t log_level = {
         .ptr = (uint8_t *)level,
         .len = strlen(level),

@@ -404,6 +404,37 @@ pub fn get_report(c_challenge: Option<&repr_c::Vec<u8>>, c_ima: &repr_c::TaggedO
     report.into()
 }
 
+#[cfg(feature = "no_as")]
+use verifier::virtcca_parse_evidence;
+
+#[cfg(feature = "no_as")]
+#[ffi_export]
+pub fn parse_report(report: Option<&repr_c::Vec<u8>>) -> repr_c::String {
+    let report = match report {
+        None => {
+            log::error!("report is null");
+            return "".to_string().into();
+        },
+        Some(report) => report.clone().to_vec(),
+    };
+    let rt = Runtime::new().unwrap();
+    let fut = async {virtcca_parse_evidence(&report)};
+    let ret = rt.block_on(fut);
+    
+    let ret = match ret {
+        Ok(claim) => {
+            log::debug!("claim: {:?}", claim);
+            claim.to_string()
+        },
+        Err(e) =>{
+            log::error!("{e}");
+            "".to_string()
+        },
+    };
+    
+    return ret.into();
+}
+
 #[ffi_export]
 pub fn verify_report(c_challenge: Option<&repr_c::Vec<u8>>, report: Option<&repr_c::Vec<u8>>) -> repr_c::String {
     let challenge = match c_challenge {
