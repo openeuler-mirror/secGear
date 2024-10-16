@@ -47,12 +47,12 @@ void *thread_proc(void *arg)
         printf("get report success, report:%s\n", report.ptr);
 
         // parse report
-        Vec_uint8_t claim_no_verify = parse_report(&report);
-        if (claim_no_verify.len != 0) {
-            claim_no_verify.ptr[claim_no_verify.len] = '\0';
-            printf("parse report success: %s\n", claim_no_verify.ptr);
-        }
-        free_rust_vec(claim_no_verify);
+        // Vec_uint8_t claim_no_verify = parse_report(&report);
+        // if (claim_no_verify.len != 0) {
+        //     claim_no_verify.ptr[claim_no_verify.len] = '\0';
+        //     printf("parse report success: %s\n", claim_no_verify.ptr);
+        // }
+        // free_rust_vec(claim_no_verify);
 
         // step4: verify report
         claim = verify_report(&challenge, &report);
