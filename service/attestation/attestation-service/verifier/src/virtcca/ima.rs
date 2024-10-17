@@ -14,7 +14,12 @@ use ima_measurements::{Event, EventData, Parser};
 use fallible_iterator::FallibleIterator;
 use serde_json::{Value, Map, json};
 
+#[cfg(not(feature = "no_as"))]
 const IMA_REFERENCE_FILE: &str = "/etc/attestation/attestation-service/verifier/virtcca/ima/digest_list_file";
+
+// attestation agent local ima reference 
+#[cfg(feature = "no_as")]
+const IMA_REFERENCE_FILE: &str = "/etc/attestation/attestation-agent/local_verifier/virtcca/ima/digest_list_file";
 
 #[derive(Debug, Default)]
 pub struct ImaVerify {}
@@ -72,7 +77,8 @@ impl ImaVerify {
 use std::io::BufRead;
 use std::io::BufReader;
 fn file_reader(file_path: &str) -> ::std::io::Result<Vec<String>> {
-    let file = std::fs::File::open(file_path)?;
+    let file = std::fs::File::open(file_path)
+        .expect("open ima reference file failed");
     let mut strings = Vec::<String>::new();
     let mut reader = BufReader::new(file);
     let mut buf = String::new();
