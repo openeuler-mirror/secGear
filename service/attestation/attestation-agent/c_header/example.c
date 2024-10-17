@@ -60,7 +60,7 @@ void *thread_proc(void *arg)
 
     if (claim.len != 0) {
         claim.ptr[claim.len] = '\0';  // rust return string has no '\0'
-        printf("verify report success, return claim:%s\n", claim.ptr);
+        printf("verify report, return claim:%s\n", claim.ptr);
     }
 
     // step5: free rust resource

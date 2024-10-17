@@ -152,6 +152,9 @@ impl AttestationService {
             }
         }
         
+        // add ima detail result to report
+        report.as_object_mut().unwrap().insert("ima".to_string(), claims_evidence["ima"].clone());
+
         // issue attestation result token
         let evl_report = EvlReport {
             tee: String::from(claims_evidence["tee"].as_str().ok_or(anyhow!("tee type unknown"))?),
