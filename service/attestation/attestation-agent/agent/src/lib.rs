@@ -309,11 +309,7 @@ impl AttestationAgent {
         match ret {
             Ok(token) => {
                 let token_claim: serde_json::Value = serde_json::from_slice(token.claim.as_bytes())?;
-                let tee_claim = json!({
-                    "tee": token_claim["tee"].clone(),
-                    "payload" : token_claim["tcb_status"].clone(),
-                });
-                Ok(tee_claim as TeeClaim)
+                Ok(token_claim as TeeClaim)
             },
             Err(e) => {
                 log::error!("token to teeclaim failed:{:?}", e);
