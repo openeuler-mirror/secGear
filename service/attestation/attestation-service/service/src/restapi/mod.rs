@@ -23,16 +23,29 @@ use crate::session::{Session, SessionMap};
 
 const DEFAULT_POLICY_DIR: &str = "/etc/attestation/attestation-service/policy";
 #[derive(Deserialize, Serialize, Debug)]
-pub struct ChallengeRequest {}
+pub struct ChallengeRequest {
+    pub user_data: Vec<u8>,
+}
 
 #[get("/challenge")]
 pub async fn get_challenge(
+    request: Option<web::Json<ChallengeRequest>>,
     map: web::Data<SessionMap>,
     service: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
     log::debug!("challenge request");
-
-    let challenge = service.read().await.generate_challenge().await;
+    let user_data: Option<Vec<u8>>;
+    if request.is_some() {
+        user_data = Some(request.unwrap().0.user_data);
+        if user_data.clone().unwrap().len() > 32 {
+            return Err(Error::ParameterInvalid(String::from("user data length should not exceed 32")));
+        }
+        log::debug!("user data is {:?}", user_data.clone().unwrap());
+    } else {
+        log::debug!("user data is None");
+        user_data = Option::None;
+    }
+    let challenge = service.read().await.generate_challenge(user_data).await;
     let session = Session::new(challenge, SESSION_TIMEOUT_MIN);
     let response = HttpResponse::Ok()
         .cookie(session.cookie())

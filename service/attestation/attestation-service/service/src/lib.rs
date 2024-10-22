@@ -171,9 +171,12 @@ impl AttestationService {
         Ok(signer.sign(&evl_report)?)
     }
 
-    pub async fn generate_challenge(&self) -> String {
-        let mut nonce: [u8; 32] = [0; 32];
+    pub async fn generate_challenge(&self, user_data: Option<Vec<u8>>) -> String {
+        let mut nonce: Vec<u8> = vec![0; 32];
         rand::thread_rng().fill_bytes(&mut nonce);
+        if user_data != None {
+            nonce.append(&mut user_data.unwrap());
+        }
         base64_url::encode(&nonce)
     }
 

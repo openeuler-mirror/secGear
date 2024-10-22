@@ -67,6 +67,9 @@ pub enum Error {
     #[error("Request challenge is invalid")]
     ChallengeInvalid,
 
+    #[error("Request Prameter is invalid")]
+    ParameterInvalid(String),
+
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
