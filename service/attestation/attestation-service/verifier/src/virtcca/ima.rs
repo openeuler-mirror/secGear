@@ -59,6 +59,9 @@ impl ImaVerify {
                 EventData::ImaNg{digest, name} => (name, digest.digest),
                 _ => bail!("Inalid event {:?}", event),
             };
+            if name == "boot_aggregate".to_string() {
+                continue;
+            }
             let hex_str_digest = hex::encode(file_digest);
             if ima_refs.contains(&hex_str_digest) {
                 ima_detail.insert(name, Value::Bool(true));
