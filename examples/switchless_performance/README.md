@@ -39,7 +39,7 @@ switchless函数需添加'transition_using_threads'标识。
 - 调用cc_malloc_shared_memory创建共享内存
 - 调用cc_register_shared_memory注册共享内存
 - 调用ecall函数
-- 调用cc_unregister_shared_memory去注册共享内存
+- 调用cc_unregister_shared_memory去注销共享内存
 - 调用cc_free_shared_memory释放共享内存
 - 调用cc_enclave_destroy销毁enclave
 

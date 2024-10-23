@@ -13,7 +13,7 @@ baseurl=https://repo.openeuler.org/openEuler-24.09/everything/aarch64/
 enabled=1
 gpgcheck=0
 
-//run service in current host like this, initialize environment automaticly
+//run service in current host like this, initialize environment automatically
 ./as_startup.sh
 
 //or in docker and specified ip:port

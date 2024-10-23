@@ -57,7 +57,7 @@ impl ImaVerify {
         for event in events {
             let (name ,file_digest) = match event.data {
                 EventData::ImaNg{digest, name} => (name, digest.digest),
-                _ => bail!("Inalid event {:?}", event),
+                _ => bail!("Invalid event {:?}", event),
             };
             if name == "boot_aggregate".to_string() {
                 continue;

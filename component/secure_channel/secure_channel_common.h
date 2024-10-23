@@ -29,7 +29,7 @@ typedef struct sec_chl_ecdh_ctx {
     size_t  signature_len;      // RSA_size(svr_rsa_key);
     int     ec_nid;             // Elliptic Curve nid
     EC_KEY  *ecdh_key;          // generate from ec_nid; include ecdh pubkey and privatekey
-    size_t  ecdh_pubkey_len;    // calucate from ecdh_key
+    size_t  ecdh_pubkey_len;    // calculate from ecdh_key
     size_t  shared_key_len;
     uint8_t *shared_key;        // ecdh output shared secret
     uint8_t session_key[SECURE_KEY_LEN];  // derived from shared key, used to encrypt/decrypt user data
