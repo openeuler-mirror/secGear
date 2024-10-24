@@ -71,7 +71,7 @@ typedef enum {
 cc_enclave_result_t cc_sec_chl_client_init(cc_sec_chl_algo_t algo, cc_sec_chl_ctx_t *ctx);
 
 /**
-* secure channel uninit function, destory secure channel resource
+* secure channel uninit function, destroy secure channel resource
 *
 * @param[in] ctx, The pointer of secure channel context
 *

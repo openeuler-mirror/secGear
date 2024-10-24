@@ -278,7 +278,7 @@ cc_enclave_result_t cc_enclave_destroy(cc_enclave_t *context)
     if (context->list_ops_node->ops_desc->ops->cc_destroy_enclave != NULL) {
         res = context->list_ops_node->ops_desc->ops->cc_destroy_enclave(context);
         if (res != CC_SUCCESS) {
-            print_warning("destory enclave error\n");
+            print_warning("destroy enclave error\n");
         }
     }
 
