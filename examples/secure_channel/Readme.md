@@ -29,7 +29,7 @@
 ### Intel SGX
 
 ```
-// intall build require
+// install build require
 sudo yum install -y cmake ocaml-dune linux-sgx-driver sgxsdk libsgx-launch libsgx-urts intel-sgx-ssl secGear-devel
 
 // clone secGear repository
@@ -58,7 +58,7 @@ mkdir debug && cd debug && cmake .. && make && sudo make install
 #### 编译运行secGear样例
 
 ```
-// intall build require depends openEuler 23.03 repo
+// install build require depends openEuler 23.03 repo
 sudo yum install -y cmake ocaml-dune itrustee_sdk-devel secGear-devel
 
 // clone secGear repository

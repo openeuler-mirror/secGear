@@ -35,7 +35,7 @@ typedef struct {
     cc_conn_kit_t conn_kit;
 } cc_sec_chl_conn_ctx_t;
 /**
-* start seucre channel service
+* start secure channel service
 * @param[in] ctx, The pointer of secure channel context
 *
 * @retval, On success, return 0.
@@ -44,7 +44,7 @@ typedef struct {
 cc_enclave_result_t cc_sec_chl_svr_init(cc_sec_chl_svr_ctx_t *ctx);
 
 /**
-* secure channel service uninit function, destory secure channel server resource
+* secure channel service uninit function, destroy secure channel server resource
 *
 * @param[in] ctx, The pointer of secure channel context
 *

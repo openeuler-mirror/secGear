@@ -25,7 +25,7 @@ extern "C" {
 * [NOTICE] before calling cc_local_attest, the attestation service
 * need to be initialized by cc_prepare_ra_env, otherwise get report error
 *
-* @param[in] taid, the unique ID stirng of target TA
+* @param[in] taid, the unique ID string of target TA
 *
 * @param[in] img_hash, the static image measure of target TA
 *
