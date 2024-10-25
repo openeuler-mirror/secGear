@@ -17,11 +17,14 @@ ima-measurements.workspace = true
 rand.workspace = true
 fallible-iterator.workspace = true
 attestation-types.workspace = true
+ccatoken.workspace = true
+ear.workspace = true
 
 [dev-dependencies]
 
 [features]
-default = [ "itrustee-verifier","virtcca-verifier" ]
+default = [ "itrustee-verifier","virtcca-verifier"]
 itrustee-verifier = []
 virtcca-verifier = []
+rustcca-verifier = []
 no_as = []

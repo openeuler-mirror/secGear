@@ -26,6 +26,9 @@ pub mod itrustee;
 #[cfg(feature = "virtcca-verifier")]
 pub mod virtcca;
 
+#[cfg(feature = "rustcca-verifier")]
+pub mod rustcca;
+
 pub type TeeClaim = serde_json::Value;
 
 #[derive(Debug, Default)]
@@ -54,6 +57,8 @@ impl VerifierAPIs for Verifier {
             TeeType::Itrustee => itrustee::ItrusteeVerifier::default().evaluate(user_data, evidence).await,
             #[cfg(feature = "virtcca-verifier")]
             TeeType::Virtcca => virtcca::VirtCCAVerifier::default().evaluate(user_data, evidence).await,
+            #[cfg(feature = "rustcca-verifier")]
+            TeeType::Rustcca => rustcca::RustCCAVerifier::default().evaluate(user_data, evidence).await,
             _ => bail!("unsupported tee type:{:?}", tee_type),
         }
     }
