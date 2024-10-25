@@ -28,7 +28,7 @@
 #define SEC_CHL_RECV_BUF_MAX_LEN REPORT_OUT_LEN
 struct cc_sec_chl_handle {
     sec_chl_ecdh_ctx_t *ecdh_ctx;   // key exchange context
-    pthread_mutex_t lock;           // proctect recv_buf and recv_buf_len
+    pthread_mutex_t lock;           // protect recv_buf and recv_buf_len
     uint8_t recv_buf[SEC_CHL_RECV_BUF_MAX_LEN];  // secure channel init msg max len
     size_t  recv_buf_len;                        // secure channel init msg real len
     cc_sec_chl_algo_t algo;
