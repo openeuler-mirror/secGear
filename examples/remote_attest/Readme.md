@@ -73,7 +73,7 @@ cd attestation/tee/tverlib/verifier
 make
 cp libteeverifier.so /usr/lib64/
 
-// intall Huawei IT Product CA.pem
+// install Huawei IT Product CA.pem
 // windows浏览器下载https://download.huawei.com/dl/download.do?actionFlag=download&nid=PKI1000000040&partNo=3001&mid=SUP_PKI
 // 上传到环境 secGear/examples/remote_attest/build/目录下
 // 实际应用开发中，证书需要上传到执行verify二进制时的目录，比如存在/usr/bin/verify_test，如果要在/home目录下执行verify_test，证书需要上传到/home目录。
@@ -83,7 +83,7 @@ cp libteeverifier.so /usr/lib64/
 ### 编译运行secGear样例
 
 ```
-// intall build require depends openEuler 22.03 LTS SP2 repo
+// install build require depends openEuler 22.03 LTS SP2 repo
 sudo yum install -y cmake ocaml-dune itrustee_sdk-devel secGear-devel
 
 // clone secGear repository
