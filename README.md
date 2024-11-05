@@ -19,7 +19,7 @@ HelloWorld运行样例
 
 #### Build and Run
 ```
-// intall build require
+// install build require
 sudo yum install -y cmake ocaml-dune linux-sgx-driver sgxsdk libsgx-launch libsgx-urts intel-sgx-ssl-devel
 
 // clone secGear repository
@@ -42,7 +42,7 @@ mkdir debug && cd debug && cmake .. && make && sudo make install
 
 #### Build and Run
 ```
-// intall build require
+// install build require
 sudo yum install -y cmake ocaml-dune itrustee_sdk-devel openssl-devel
 
 // clone secGear repository

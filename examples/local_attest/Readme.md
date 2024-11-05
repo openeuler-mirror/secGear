@@ -60,7 +60,7 @@ cp e08f7eca-e875-440e-9ab0-5f381136c600.sec /var/itrustee/ta/
 ### 编译运行secGear样例
 
 ```
-// intall build require depends openEuler 22.03 LTS SP2 repo
+// install build require depends openEuler 22.03 LTS SP2 repo
 sudo yum install -y cmake ocaml-dune itrustee_sdk-devel secGear-devel
 
 // clone secGear repository
