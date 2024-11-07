@@ -67,7 +67,7 @@ int main(int argc, char **argv)
     svr_addr.sin_port = htons(12306); // test server port 12306
 
     if (connect(sockfd, (struct sockaddr *)&svr_addr, sizeof(svr_addr)) != 0) {
-        printf("connet to server failed\n");
+        printf("connect to server failed\n");
         close(sockfd);
         return -1;
     }
