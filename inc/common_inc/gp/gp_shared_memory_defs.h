@@ -46,6 +46,7 @@ typedef struct {
     bool is_registered; // the shared memory can be used only after being registered
     void *enclave; // refer to cc_enclave_t
     pthread_t register_tid;
+    void *reg_session;  // register shared memory by open session
     list_node_t node;
 } gp_shared_memory_t;
 

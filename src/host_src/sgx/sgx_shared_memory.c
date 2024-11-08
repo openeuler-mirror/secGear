@@ -15,10 +15,11 @@
 #include <stdlib.h>
 #include "secgear_defs.h"
 
-void *sgx_malloc_shared_memory(cc_enclave_t *enclave, size_t size, bool is_control_buf)
+void *sgx_malloc_shared_memory(cc_enclave_t *enclave, size_t size, bool is_control_buf, int try_cnt)
 {
     CC_IGNORE(enclave);
     CC_IGNORE(is_control_buf);
+    CC_IGNORE(try_cnt);
 
     return malloc(size);
 }

@@ -156,6 +156,41 @@ cc_enclave_result_t ecall_register_shared_memory(uint8_t *in_buf,
     return CC_SUCCESS;
 }
 
+cc_enclave_result_t register_shared_memory_by_session(uint8_t *in_buf, uint8_t *registered_buf, void **sessionContext)
+{
+    /* Parse input parameters from in_buf */
+    size_t in_buf_offset = size_to_aligned_size(sizeof(gp_register_shared_memory_size_t));
+    gp_register_shared_memory_size_t *args_size = (gp_register_shared_memory_size_t *)in_buf;
+
+    uint8_t *host_buf_p = NULL;
+    uint8_t *host_buf_len_p = NULL;
+    uint8_t *is_control_buf_p = NULL;
+    SET_PARAM_IN_1(host_buf_p, size_t, host_buf, args_size->shared_buf_size);
+    SET_PARAM_IN_1(host_buf_len_p, size_t, host_buf_len, args_size->shared_buf_len_size);
+    SET_PARAM_IN_1(is_control_buf_p, bool, is_control_buf, args_size->is_control_buf_size);
+
+    cc_enclave_result_t ret = CC_FAIL;
+
+    shared_memory_block_t *shared_mem = create_shared_memory_block((void *)host_buf, host_buf_len, registered_buf);
+    if (shared_mem == NULL) {
+        return CC_ERROR_OUT_OF_MEMORY;
+    }
+
+    if (is_control_buf) {
+        ret = tswitchless_init((void *)shared_mem->enclave_addr, &shared_mem->pool, &shared_mem->tid_arr);
+        if (ret != CC_SUCCESS) {
+            destroy_shared_memory_block(shared_mem);
+            return CC_ERROR_TSWITCHLESS_INIT_FAILED;
+        }
+    }
+
+    add_shared_memory_block_to_list(shared_mem);
+    __atomic_store_n(&(((gp_shared_memory_t *)registered_buf)->is_registered), true, __ATOMIC_RELEASE);
+    *sessionContext = (void *)shared_mem->enclave_addr;
+
+    return CC_SUCCESS;
+}
+
 size_t addr_host_to_enclave(size_t host_addr)
 {
     list_node_t *cur = NULL;
@@ -233,4 +268,31 @@ cc_enclave_result_t ecall_unregister_shared_memory(uint8_t *in_buf,
     *output_bytes_written = out_buf_offset;
 
     return CC_SUCCESS;
+}
+
+void open_session_unregister_shared_memory(void *sessionContext)
+{
+    list_node_t *cur = NULL;
+    shared_memory_block_t *mem_block = NULL;
+
+    CC_RWLOCK_LOCK_WR(&g_shared_memory_list_lock);
+
+    list_for_each(cur, &g_shared_memory_list) {
+        mem_block = list_entry(cur, shared_memory_block_t, node);
+        tlogi("[secGear] unregister shared_mem:%p, cur_mem:%p", sessionContext, mem_block->enclave_addr);
+        if (sessionContext == (void *)mem_block->enclave_addr) {
+            __atomic_store_n(&((GP_SHARED_MEMORY_ENTRY(mem_block->enclave_addr))->is_registered),
+                                false, __ATOMIC_RELEASE);
+
+            list_remove(&mem_block->node);
+            if ((GP_SHARED_MEMORY_ENTRY(mem_block->enclave_addr))->is_control_buf) {
+                tswitchless_fini(mem_block->pool, mem_block->tid_arr);
+            }
+            destroy_shared_memory_block(mem_block);
+            break;
+        }
+    }
+    CC_RWLOCK_UNLOCK(&g_shared_memory_list_lock);
+
+    return;
 }

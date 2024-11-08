@@ -55,7 +55,7 @@ if(ASAN_ENABLE)
 	set(ASAN_OPTIONS "${ASAN_OPTION} -fsanitize=address -fsanitize-recover=address")
 endif(ASAN_ENABLE)
 
-set(CMAKE_C_FLAGS "-fstack-protector-all -W -Wall -Werror -Wextra -Werror=array-bounds -D_FORTIFY_SOURCE=2 -O2 -ftrapv")
+set(CMAKE_C_FLAGS "-fstack-protector-all -W -Wall -Werror -Wextra -Werror=array-bounds -D_FORTIFY_SOURCE=2 -O2 -ftrapv -Wno-deprecated-declarations")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COVERAGE_OPTION} ${ASAN_OPTIONS}")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -s")
 
