@@ -27,7 +27,7 @@
  *     is_control_buf: whether it is a control area buffer
  * Return: A pointer to the allocated memory. On error, return NULL.
  */
-void *sgx_malloc_shared_memory(cc_enclave_t *context, size_t size, bool is_control_buf);
+void *sgx_malloc_shared_memory(cc_enclave_t *context, size_t size, bool is_control_buf, int try_cnt);
 
 /*
  * Summary: Frees the memory space pointed to by ptr, which must have been returned by sgx_malloc_shared_memory.

@@ -74,7 +74,7 @@ struct cc_enclave_ops {
     cc_enclave_result_t (*cc_sl_async_ecall_get_result)(cc_enclave_t *enclave, int task_id, void *retval);
 
     /* shared memory */
-    void *(*cc_malloc_shared_memory)(cc_enclave_t *enclave, size_t size, bool is_control_buf);
+    void *(*cc_malloc_shared_memory)(cc_enclave_t *enclave, size_t size, bool is_control_buf, int try_cnt);
     cc_enclave_result_t (*cc_free_shared_memory)(cc_enclave_t *enclave, void *ptr);
     cc_enclave_result_t (*cc_register_shared_memory)(cc_enclave_t *enclave, void *ptr);
     cc_enclave_result_t (*cc_unregister_shared_memory)(cc_enclave_t *enclave, void *ptr);

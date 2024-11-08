@@ -377,27 +377,34 @@ cc_enclave_result_t init_uswitchless(cc_enclave_t *enclave, const enclave_featur
     uswitchless_adjust_config(&cfg);
 
     size_t pool_buf_len = sl_get_pool_buf_len_by_config(&cfg);
-    void *pool_buf = gp_malloc_shared_memory(enclave, pool_buf_len, true);
-    if (pool_buf == NULL) {
-        return CC_ERROR_OUT_OF_MEMORY;
-    }
-    (void)memset(pool_buf, 0, pool_buf_len);
+    cc_enclave_result_t ret;
+    sl_task_pool_t *pool;
+    for (int i = 0; i < 2; i++) {
+        void *pool_buf = gp_malloc_shared_memory(enclave, pool_buf_len, true, i);
+        if (pool_buf == NULL) {
+            return CC_ERROR_OUT_OF_MEMORY;
+        }
+        (void)memset(pool_buf, 0, pool_buf_len);
 
-    // Fill config
-    (void)memcpy(pool_buf, &cfg, sizeof(cc_sl_config_t));
+        // Fill config
+        (void)memcpy(pool_buf, &cfg, sizeof(cc_sl_config_t));
 
-    // Layout task pool
-    sl_task_pool_t *pool = uswitchless_create_task_pool(pool_buf, &cfg);
-    if (pool == NULL) {
-        (void)gp_free_shared_memory(enclave, pool_buf);
-        return CC_ERROR_OUT_OF_MEMORY;
-    }
+        // Layout task pool
+        pool = uswitchless_create_task_pool(pool_buf, &cfg);
+        if (pool == NULL) {
+            (void)gp_free_shared_memory(enclave, pool_buf);
+            return CC_ERROR_OUT_OF_MEMORY;
+        }
 
-    // Registering a task pool
-    cc_enclave_result_t ret = gp_register_shared_memory(enclave, pool_buf);
-    if (ret != CC_SUCCESS) {
+        // Registering a task pool
+            ret = gp_register_shared_memory(enclave, pool_buf);
+        if (ret == CC_SUCCESS) {
+            break;
+        }
         free(pool);
         (void)gp_free_shared_memory(enclave, pool_buf);
+    }
+    if (ret != CC_SUCCESS) {
         return ret;
     }
 
@@ -698,6 +705,63 @@ cc_enclave_result_t handle_ecall_function_register_shared_memory(cc_enclave_t *e
 
     return CC_SUCCESS;
 }
+/* TEEC_OpenSession 用户只能用param[0]和param[1], 2,3被底层默认占用了 */
+static cc_enclave_result_t init_open_session_register_memory_oper(TEEC_Operation *operation,
+                                                                  cc_enclave_call_function_args_t *args)
+{
+    const int input_pos = 0;
+    const int shared_pos = 1;
+    memset(operation, 0x00, sizeof(TEEC_Operation));
+    operation->started = 1;
+    uint32_t paramtypes[] = { TEEC_NONE, TEEC_NONE, TEEC_NONE, TEEC_NONE };
+    /* Fill input buffer */
+    if (args->input_buffer_size) {
+        operation->params[input_pos].tmpref.buffer = (void *)args->input_buffer;
+        operation->params[input_pos].tmpref.size = (uint32_t)args->input_buffer_size;
+        paramtypes[input_pos] = TEEC_MEMREF_TEMP_INPUT;
+    }
+
+    /* Fill shared buffer */
+    gp_shared_memory_t *shared_mem = GP_SHARED_MEMORY_ENTRY(GET_HOST_BUF_FROM_INPUT_PARAMS(args->input_buffer));
+    TEEC_SharedMemory *teec_shared_mem = (TEEC_SharedMemory *)(&shared_mem->shared_mem);
+    operation->params[shared_pos].memref.parent = teec_shared_mem;
+    operation->params[shared_pos].memref.size = teec_shared_mem->size;
+    paramtypes[shared_pos] = TEEC_MEMREF_REGISTER_INOUT;
+
+    operation->paramTypes = TEEC_PARAM_TYPES(paramtypes[input_pos], paramtypes[shared_pos], TEEC_NONE, TEEC_NONE);
+
+    return CC_SUCCESS;
+}
+
+cc_enclave_result_t handle_open_session_register_shared_memory(cc_enclave_t *enclave,
+                                                               cc_enclave_call_function_args_t *args, void *session)
+{
+    if (args->function_id == fid_register_shared_memory) {
+        gp_context_t *gp = (gp_context_t *)(enclave->private_data);
+        uint32_t origin;
+        TEEC_Operation oper;
+        memset(&oper, 0, sizeof(oper));
+        oper.started = 1;
+        oper.paramTypes = TEEC_PARAM_TYPES(TEEC_NONE, TEEC_NONE, TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_INPUT);
+        cc_enclave_result_t cc_res = init_open_session_register_memory_oper(&oper, args);
+        if (cc_res != CC_SUCCESS) {
+            print_error_term("Handle ecall with new session, failed to init operation, ret:%x\n", cc_res);
+            return CC_FAIL;
+        }
+        TEEC_Result result = TEEC_OpenSession(&gp->ctx, session, &gp->uuid, TEEC_LOGIN_IDENTIFY,
+            NULL, &oper, &origin);
+        if (result != TEEC_SUCCESS) {
+            print_error_term("Handle ecall with new session, failed to open session, ret:%x, origin:%x\n",
+                result, origin);
+            cc_res = conversion_res_status(result, enclave->type);
+            return cc_res;
+        }
+    } else {  // shared_mem->reg_session close by unregister shared memory
+        TEEC_CloseSession(session);
+    }
+
+    return CC_SUCCESS;
+}
 
 static cc_enclave_result_t handle_ecall_function(cc_enclave_t *enclave, cc_enclave_call_function_args_t *args)
 {
@@ -706,7 +770,21 @@ static cc_enclave_result_t handle_ecall_function(cc_enclave_t *enclave, cc_encla
     TEEC_Operation operation;
     uint32_t origin;
     gp_context_t *gp = (gp_context_t*)enclave->private_data;
-
+    if (args->function_id == fid_register_shared_memory || args->function_id == fid_unregister_shared_memory) {
+        gp_shared_memory_t *shared_mem = NULL;
+        if (args->function_id == fid_register_shared_memory) {
+            shared_mem = GP_SHARED_MEMORY_ENTRY(GET_HOST_BUF_FROM_INPUT_PARAMS(args->input_buffer));
+        } else {
+            void *ptr = NULL;
+            (void)memcpy(&ptr, (char *)(args->input_buffer) +
+                         size_to_aligned_size(sizeof(gp_unregister_shared_memory_size_t)), sizeof(void *));
+            shared_mem = GP_SHARED_MEMORY_ENTRY(ptr);
+        }
+        TEEC_SharedMemory *teec_shared_mem = (TEEC_SharedMemory *)(&shared_mem->shared_mem);
+        if (teec_shared_mem->flags == TEEC_MEM_REGISTER_INOUT) {
+            return handle_open_session_register_shared_memory(enclave, args, shared_mem->reg_session);
+        }
+    }
     if (args->function_id == fid_register_shared_memory) {
         return handle_ecall_function_register_shared_memory(enclave, args);
     }

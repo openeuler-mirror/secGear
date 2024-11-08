@@ -40,20 +40,26 @@ void *cc_malloc_shared_memory(cc_enclave_t *enclave, size_t size)
         return NULL;
     }
 
-    void *ptr = FUNC_CREATE_SHARED_MEM(enclave)(enclave, size, false);
-    if (ptr == NULL) {
-        CC_RWLOCK_UNLOCK(&enclave->rwlock);
-        return NULL;
-    }
+    cc_enclave_result_t ret;
+    void *ptr;
+    for (int i = 0; i < 2; i++) {
+        ptr = FUNC_CREATE_SHARED_MEM(enclave)(enclave, size, false, i);
+        if (ptr == NULL) {
+            CC_RWLOCK_UNLOCK(&enclave->rwlock);
+            return NULL;
+        }
 
-    cc_enclave_result_t ret = FUNC_REGISTER_SHARED_MEM(enclave)(enclave, ptr);
-    if (ret != CC_SUCCESS) {
+        ret = FUNC_REGISTER_SHARED_MEM(enclave)(enclave, ptr);
+        if (ret == CC_SUCCESS) {
+            break;
+        }
         CC_IGNORE(FUNC_FREE_SHARED_MEM(enclave)(enclave, ptr));
-        CC_RWLOCK_UNLOCK(&enclave->rwlock);
-        return NULL;
     }
 
     CC_RWLOCK_UNLOCK(&enclave->rwlock);
+    if (ret != CC_SUCCESS) {
+        return NULL;
+    }
 
     return ptr;
 }

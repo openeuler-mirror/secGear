@@ -16,6 +16,8 @@
 #include "tee_mem_mgmt_api.h"
 #include "gp.h"
 #include "caller.h"
+#include "tee_log.h"
+#include "itrustee/itrustee_shared_memory.h"
 
 #define PARAMNUM 4
 #define POS_IN 0

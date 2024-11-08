@@ -47,21 +47,33 @@ static void gp_add_shared_mem_to_list(gp_shared_memory_t *shared_mem)
     CC_RWLOCK_UNLOCK(&g_shared_mem_list_lock);
 }
 
-void *gp_malloc_shared_memory(cc_enclave_t *context, size_t size, bool is_control_buf)
+void *gp_malloc_shared_memory(cc_enclave_t *context, size_t size, bool is_control_buf, int try_cnt)
 {
     gp_context_t *gp_context = (gp_context_t *)context->private_data;
     gp_shared_memory_t gp_shared_mem = {
         .is_control_buf = is_control_buf,
         .is_registered = false,
         .enclave = (void *) context,
-        .register_tid = 0
+        .register_tid = 0,
+        .reg_session = NULL
     };
+    gp_shared_mem.reg_session = malloc(sizeof(TEEC_Session));
+    if (gp_shared_mem.reg_session == NULL) {
+        return NULL;
+    }
     TEEC_SharedMemory *teec_shared_mem = (TEEC_SharedMemory *)(&gp_shared_mem.shared_mem);
     teec_shared_mem->size = size + sizeof(gp_shared_memory_t);
-    teec_shared_mem->flags = TEEC_MEM_SHARED_INOUT;
+    teec_shared_mem->flags = try_cnt == 0 ? TEEC_MEM_REGISTER_INOUT : TEEC_MEM_SHARED_INOUT;
 
     TEEC_Result result = TEEC_AllocateSharedMemory(&gp_context->ctx, teec_shared_mem);
+    if (result == TEEC_ERROR_BAD_PARAMETERS) {
+        print_warning("not support register type, try shared type again.\n");
+        teec_shared_mem->flags = TEEC_MEM_SHARED_INOUT;
+        result = TEEC_AllocateSharedMemory(&gp_context->ctx, teec_shared_mem);
+    }
+
     if (result != TEEC_SUCCESS) {
+        free(gp_shared_mem.reg_session);
         return NULL;
     }
 
@@ -106,6 +118,10 @@ cc_enclave_result_t gp_free_shared_memory(cc_enclave_t *enclave, void *ptr)
     }
 
     gp_remove_shared_mem_from_list(GP_SHARED_MEMORY_ENTRY(ptr));
+    if (GP_SHARED_MEMORY_ENTRY(ptr)->reg_session != NULL) {
+        free(GP_SHARED_MEMORY_ENTRY(ptr)->reg_session);
+        GP_SHARED_MEMORY_ENTRY(ptr)->reg_session = NULL;
+    }
 
     TEEC_SharedMemory sharedMem = *TEEC_SHARED_MEMORY_ENTRY(ptr);
     TEEC_ReleaseSharedMemory(&sharedMem);
