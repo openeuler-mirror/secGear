@@ -159,7 +159,7 @@ int SDF_InitDevice(const char *dev_path, const uint8_t *root_password, unsigned 
     size_t sealed_keys_len = 0;
     retval = get_store_file_length(&sealed_keys_len);
     if (retval != Err_SEALED_DATA_FILE_NOT_EXIST) {
-        fprintf(stderr, "storage file %s alread used by another device\n", storage_path.c_str());
+        fprintf(stderr, "storage file %s already used by another device\n", storage_path.c_str());
         return Err_PATH_ALREAD_USED;
     }
 

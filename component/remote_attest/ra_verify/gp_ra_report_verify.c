@@ -44,7 +44,7 @@ static cc_enclave_result_t gp_verify_report(cc_ra_buf_t *report, cc_ra_buf_t *no
         case TVS_VERIFIED_HASH_FAILED:
             return CC_ERROR_RA_REPORT_VERIFY_HASH;
         default:
-            printf("verify report failed, unknown errorcode:%d!\n", ret);
+            printf("verify report failed, unknown error code:%d!\n", ret);
     }
     return ret;
 }
