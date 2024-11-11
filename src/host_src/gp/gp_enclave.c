@@ -172,7 +172,7 @@ static cc_ocall_func_t get_ocall_func(const cc_ocall_func_t *ocall_table, int nu
 {
     cc_ocall_func_t func;
     if (id >= num || id < 0) {
-        print_error_term("Failed to get ocall funtion id\n");
+        print_error_term("Failed to get ocall function id\n");
         return NULL;
     }
     func = ocall_table[id];

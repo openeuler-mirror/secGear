@@ -19,7 +19,7 @@
  * param buffer [IN] point to buffer address
  * param size   [IN] buffer size to be checked
  *
- * retval ture target buffer is within enclave
+ * retval true target buffer is within enclave
  * retval false target buffer is outside of enclave 
  */
 bool itrustee_memory_in_enclave(const void *buffer, uint32_t size)

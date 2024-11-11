@@ -210,7 +210,7 @@ let set_ecall_func (tf : trusted_func) =
         "";
         "    /* Call host function */";
         "    " ^ concat "    \n" (Commonfunc.set_call_user_func tfd);
-        "    /* Sucess */";
+        "    /* Success */";
         "    result = CC_SUCCESS;";
         "    *output_bytes_written = out_buf_offset;";
         "done:";

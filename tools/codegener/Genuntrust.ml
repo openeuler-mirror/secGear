@@ -425,7 +425,7 @@ let set_ocall_func (uf : untrusted_func) =
         "    " ^ concat "    \n" (Commonfunc.set_call_user_func ufd);
         if uf.uf_propagate_errno then "     memcpy(errno_ocall, &errno, (sizeof(int)));"
         else "    /* There is not enable propagation */";
-        "    /* Sucess */";
+        "    /* Success */";
         "    result = CC_SUCCESS;";
         "    return result;";
         "}";
