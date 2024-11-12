@@ -24,7 +24,7 @@
 
 void *thread_proc(void *arg)
 {
-    // step1: generate random numers
+    // step1: generate random numbers
     uint8_t nonce[CHALLENGE_LEN];
     RAND_priv_bytes(nonce, CHALLENGE_LEN);
     Vec_uint8_t challenge = {

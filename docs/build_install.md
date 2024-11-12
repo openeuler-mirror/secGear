@@ -14,7 +14,7 @@ cd secGear
 source /opt/intel/sgxsdk/environment && source environment
 mkdir debug && cd debug && cmake ..&& make && sudo make install
 ```
-3. Run Helloword
+3. Run Helloworld
 
 ```
 ./examples/helloworld/host/secgear_helloworld
@@ -36,7 +36,7 @@ cd secGear
 source environment
 mkdir debug && cd debug && cmake -DENCLAVE=GP ..&& make && sudo make install
 ```
-3. Run Helloword
+3. Run Helloworld
 ```
 /vendor/bin/secgear_helloworld
 ```

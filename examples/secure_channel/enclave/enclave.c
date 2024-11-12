@@ -40,7 +40,7 @@ int sec_chl_get_client_data_handle_result(size_t session_id, uint8_t* data, size
     size_t encrypt_len = 1024;
     int ret = cc_sec_chl_enclave_encrypt(session_id, enclave_secret, strlen(enclave_secret), encrypt, &encrypt_len);
     if (ret != 0) {
-        PrintInfo(PRINT_ERROR, "sec_chl_get_client_data_handle_result encrypte data failed\n");
+        PrintInfo(PRINT_ERROR, "sec_chl_get_client_data_handle_result encrypted data failed\n");
         return ret;
     }
     memcpy(data, encrypt, encrypt_len);

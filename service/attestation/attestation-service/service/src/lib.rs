@@ -119,7 +119,7 @@ impl AttestationService {
         let refs_of_claims = ops_refs.query(&claims_evidence["payload"].to_string());
         // apply policy to verify claims_evidence with reference value
         let policy_ids = match policy_ids {
-            Some(polciy_id) => polciy_id.clone(),
+            Some(policy_id) => policy_id.clone(),
             None => vec![],
         };
         let policy_dir = String::from("/etc/attestation/attestation-service/policy");
