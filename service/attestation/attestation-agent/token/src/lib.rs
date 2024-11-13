@@ -88,7 +88,7 @@ impl TokenVerifier {
         let alg: Algorithm = header.alg;
 
         if !Self::support_rs(&alg) && !Self::support_ps(&alg) {
-            return Err(VerifyError::UnknownAlg(format!("unknown algrithm {:?}", alg)));
+            return Err(VerifyError::UnknownAlg(format!("unknown algorithm {:?}", alg)));
         }
         if !Path::new(&self.config.cert).exists() {
             return Err(VerifyError::CertNotExist(format!("{:?} not exist", self.config.cert)));

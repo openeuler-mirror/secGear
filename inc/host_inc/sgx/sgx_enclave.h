@@ -18,7 +18,7 @@
 
 /* This header file is placed in inc/sgx to allow users to 
  * invoke features supported by specific enclave, such as 
- * plc swichless, which are only meaningful for sgx. 
+ * plc switchless, which are only meaningful for sgx. 
  */
 
 
