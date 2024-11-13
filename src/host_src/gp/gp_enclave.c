@@ -24,27 +24,11 @@
 #include "secgear_defs.h"
 #include "enclave_log.h"
 #include "secgear_uswitchless.h"
-#include "register_agent.h"
 #include "gp_uswitchless.h"
 #include "gp_shared_memory_defs.h"
 #include "gp_shared_memory.h"
 
-#define OCALL_AGENT_REGISTER_SUCCESS 0
-#define OCALL_AGENT_REGISTER_FAIL    1
-#define SECGEAR_OCALL 0
-#define MAX_LEN 4096
-
-static pthread_cond_t g_cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t g_mtx_flag = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t g_mtx_cond = PTHREAD_MUTEX_INITIALIZER;
-static unsigned int g_agent_flag = OCALL_AGENT_REGISTER_FAIL;
-
-struct _agent_register {
-    uint32_t agent_id;
-    int dev_fd;
-    void *c_buffer;
-} g_agent_info = {0,0,NULL};
-
 
 #define UUID_LEN 36
 
@@ -166,164 +150,6 @@ cc_enclave_result_t conversion_res_status(uint32_t enclave_res, enclave_type_ver
         }
     }
     return CC_ERROR_UNEXPECTED;
-}
-
-static cc_ocall_func_t get_ocall_func(const cc_ocall_func_t *ocall_table, int num, int id)
-{
-    cc_ocall_func_t func;
-    if (id >= num || id < 0) {
-        print_error_term("Failed to get ocall function id\n");
-        return NULL;
-    }
-    func = ocall_table[id];
-    if (func == NULL) {
-        print_error_term("Failed to get ocall function\n");
-    }
-    return func;
-}
-
-static bool malloc_and_copy(uint8_t ** const input, uint8_t ** const output, const void *ocall_buffer)
-{
-    cc_enclave_ocall_function_args_t *ocall_args = (cc_enclave_ocall_function_args_t *)ocall_buffer;
-    size_t input_size = ocall_args->input_buffer_size;
-    size_t output_size = ocall_args->output_buffer_size;
-    uint8_t *pos = (uint8_t*)ocall_buffer + sizeof(cc_enclave_ocall_function_args_t);
-    if (input_size > 0) {
-        *input = (uint8_t*)malloc(input_size);
-        if (!*input) {
-            goto done;
-        }
-        memcpy(*input, pos, input_size);
-    }
-    pos += input_size;
-    if (output_size > 0) {
-        *output = (uint8_t*)malloc(output_size);
-        if (!*output) {
-            goto done;
-        }
-        memcpy(*output, pos, output_size);
-    }
-    return true;
-done:
-    if(*input) {
-        free(*input);
-    }
-    if(*output) {
-        free(*output);
-    }
-    *input = NULL;
-    *output = NULL;
-    return false;
-}
-
-static bool handle_ocall(uint32_t agent_id, int dev_fd, void *buffer, cc_ocall_func_t *ocalls, uint64_t num)
-{
-    bool ret = false;
-    cc_enclave_result_t res_cc;
-    TEEC_Result res_tee;
-
-    res_tee = TEEC_EXT_WaitEvent(agent_id, dev_fd);
-    if (res_tee != TEEC_SUCCESS) {
-        print_error_term("Failed to wait event from TA!\n");
-        return false;
-    }
-
-    cc_enclave_ocall_function_args_t args = *(cc_enclave_ocall_function_args_t *)buffer;
-    cc_ocall_func_t func = get_ocall_func(ocalls, num, args.function_id);
-    if (!func) {
-        return false;
-    }
-    uint8_t *tmp_input_buffer = NULL;
-    size_t   tmp_input_buffer_size = args.input_buffer_size;
-    uint8_t *tmp_output_buffer = NULL;
-    size_t   tmp_output_buffer_size = args.output_buffer_size;
-    bool malloc_ok;
-    malloc_ok = malloc_and_copy(&tmp_input_buffer, &tmp_output_buffer, buffer);
-    if (!malloc_ok) {
-        goto done;
-    }
-    res_cc = func(tmp_input_buffer, tmp_input_buffer_size, tmp_output_buffer, tmp_output_buffer_size);
-    SECGEAR_CHECK_RES_NO_LOG(res_cc);
-
-    if (tmp_output_buffer_size != 0) {
-        if (MAX_LEN - sizeof(args) - tmp_input_buffer_size >= tmp_output_buffer_size) {
-            memcpy((uint8_t *) buffer + sizeof(args) + tmp_input_buffer_size, tmp_output_buffer,
-                   tmp_output_buffer_size);
-        } else {
-            print_error_goto("The output buffer is too large\n");
-        }
-    }
-
-    res_tee = TEEC_EXT_SendEventResponse(agent_id, dev_fd);
-    if (res_tee != TEEC_SUCCESS) {
-        print_error_term("Failed to send response to TA\n");
-        goto done;
-    }
-    ret = true;
-done:
-    if (tmp_input_buffer != NULL) {
-        free(tmp_input_buffer);
-        tmp_input_buffer = NULL;
-    }
-    if (tmp_output_buffer != NULL) {
-        free(tmp_output_buffer);
-        tmp_output_buffer = NULL;
-    }
-    
-    return ret;
-}
-
-void *agent_thread(void *param) 
-{
-    int dev_fd = 0;
-    int32_t ires;
-    void *buffer = NULL;
-
-    TEEC_Result ret;
-    uint32_t agent_id = (uint32_t)((thread_param_t *)param)->agent_id;
-    uint64_t num = ((thread_param_t *)param)->num;
-    cc_ocall_func_t *ocalls  = (((thread_param_t *)param)->ocalls);
-    ret = TEEC_EXT_RegisterAgent(agent_id, &dev_fd, &buffer);
-    if (ret != TEEC_SUCCESS) {
-        print_error_term("Failed to register agent %d\n", agent_id);
-        goto done;
-    }
-
-    g_agent_info.agent_id = agent_id;
-    g_agent_info.dev_fd = dev_fd;
-    g_agent_info.c_buffer = buffer;
-
-    ires = pthread_mutex_lock(&g_mtx_cond);
-    SECGEAR_CHECK_MUTEX_RES(ires);
-
-    g_agent_flag = OCALL_AGENT_REGISTER_SUCCESS;
-    pthread_cond_broadcast(&g_cond);
-
-    ires = pthread_mutex_unlock(&g_mtx_cond);
-    SECGEAR_CHECK_MUTEX_RES(ires);
-
-    bool ocall_success = true;
-    while (ocall_success) {
-        ocall_success = handle_ocall(agent_id, dev_fd, buffer, ocalls, num);
-    }
-
-    /* to do: ocall handle failure may secure exit */
-    ret = TEEC_EXT_UnregisterAgent(agent_id, dev_fd, &buffer);
-    if (ret != TEEC_SUCCESS) {
-        print_error_term("Failed to unregister agent\n");
-    }
-    g_list_ops.pthread_flag = false;
-
-    return NULL;
-done:
-    /* to do: need ocall agent support
-     * acquire lock and set g_agent_flag to false
-     */
-    pthread_mutex_lock(&g_mtx_cond);
-    g_agent_flag = OCALL_AGENT_REGISTER_FAIL;
-    pthread_cond_broadcast(&g_cond);
-    pthread_mutex_unlock(&g_mtx_cond);
-    return NULL;
 }
 
 static cc_enclave_result_t malloc_and_init_context(gp_context_t **gp_context,
@@ -526,7 +352,6 @@ cleanup:
 cc_enclave_result_t _gp_destroy(cc_enclave_t *context)
 {
     int res;
-    TEEC_Result ret;
     cc_enclave_result_t cc_ret;
 
     if (!context || !context->private_data) {
@@ -551,15 +376,6 @@ cc_enclave_result_t _gp_destroy(cc_enclave_t *context)
     /* unregister agent */
     res = pthread_mutex_lock(&g_mtx_flag);
     SECGEAR_CHECK_MUTEX_RES(res);
-    if(g_list_ops.pthread_flag == true && g_list_ops.enclaveState.enclave_count == 1) {
-        g_list_ops.pthread_flag = false;
-        g_agent_flag = OCALL_AGENT_REGISTER_FAIL;
-        ret = TEEC_EXT_UnregisterAgent(g_agent_info.agent_id, g_agent_info.dev_fd, &g_agent_info.c_buffer);
-        if (ret != TEEC_SUCCESS) {
-            pthread_mutex_unlock(&g_mtx_flag);
-            print_error_goto("Failed to unregister agent\n");
-        }
-    }
     res = pthread_mutex_unlock(&g_mtx_flag);
     SECGEAR_CHECK_MUTEX_RES(res);
 
@@ -805,28 +621,6 @@ done:
     return cc_res;
 }
 
-static void create_thread(thread_param_t *param)
-{
-    int ret;
-    pthread_t threads;
-    pthread_attr_t attr;
-    sigset_t set;
-    sigemptyset(&set);
-    sigfillset(&set);
-    ret = pthread_sigmask(SIG_BLOCK, &set, NULL);
-    if (ret) {
-        print_error_term("pthread_sigmask Failed\n");
-    }
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    ret = pthread_create(&threads, &attr, &agent_thread, param);
-    if (ret) {
-        print_error_term("Failed to create thread\n");
-    }
-    pthread_attr_destroy(&attr);
-    g_list_ops.pthread_flag = true;
-}
-
 /* trustzone ecall , sgx call sgx_ecall */
 cc_enclave_result_t cc_enclave_call_function(
     cc_enclave_t *enclave,
@@ -840,8 +634,9 @@ cc_enclave_result_t cc_enclave_call_function(
 {
     cc_enclave_result_t result = CC_FAIL;
     cc_enclave_call_function_args_t args;
-    thread_param_t param;
     int ires;
+    (void)ms;
+    (void)ocall_table;
 
     /* enclave will not be invalid */
     if (!enclave) {
@@ -852,32 +647,6 @@ cc_enclave_result_t cc_enclave_call_function(
     /* for ocall thread */
     ires = pthread_mutex_lock(&g_mtx_flag);
     SECGEAR_CHECK_MUTEX_RES(ires);
-    if (g_list_ops.pthread_flag || SECGEAR_OCALL) {
-        param.agent_id = *(uint32_t *)ms;
-        param.num = ((ocall_enclave_table_t *)ocall_table)->num;
-        param.ocalls = ((ocall_enclave_table_t *)ocall_table)->ocalls;
-        create_thread(&param);
-        /* wait only when the registered agent thread is created successfully */
-        if (!g_list_ops.pthread_flag) {
-            pthread_mutex_unlock(&g_mtx_flag);
-            goto done;
-        }
-        ires = pthread_mutex_lock(&g_mtx_cond);
-        GP_CHECK_MUTEX_RES_UNLOCK(ires);
-        pthread_cond_wait(&g_cond, &g_mtx_cond);
-        /* the registration thread registration failed,
-        *  need to try to register the next time ecall or exit directly
-        *  to do : currently do not call*/
-        if (g_agent_flag != OCALL_AGENT_REGISTER_SUCCESS) {
-            g_list_ops.pthread_flag = false;
-            result = CC_ERROR_OCALL_NOT_ALLOWED;
-            pthread_mutex_unlock(&g_mtx_cond);
-            pthread_mutex_unlock(&g_mtx_flag);
-            print_error_goto("the registration thread registration ocall failed\n");
-        }
-        ires = pthread_mutex_unlock(&g_mtx_cond);
-        GP_CHECK_MUTEX_RES_UNLOCK(ires);
-    }
     ires = pthread_mutex_unlock(&g_mtx_flag);
     SECGEAR_CHECK_MUTEX_RES(ires);
 
