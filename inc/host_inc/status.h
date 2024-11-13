@@ -58,7 +58,7 @@ typedef enum _enclave_result_t
     CC_ERROR_AE_INVALID_EPIDBLOB,    /* Indicates epid blob verification error */
     CC_ERROR_SERVICE_INVALID_PRIVILEGE,  /* Enclave not authorized to run */
     CC_ERROR_EPID_MEMBER_REVOKED,        /* The EPID group membership is revoked */
-    CC_ERROR_UPDATE_NEEDED,          /* SDK need to be update*/
+    CC_ERROR_UPDATE_NEEDED,          /* SDK needs to be updated */
     CC_ERROR_MC_NOT_FOUND,           /* The Monotonic Counter doesn't exist or has been invalided */
     CC_ERROR_MC_NO_ACCESS_RIGHT,     /* Caller doesn't have the access right to specified VMC */
     CC_ERROR_MC_USED_UP,             /* Monotonic counters are used out */

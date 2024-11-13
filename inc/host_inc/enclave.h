@@ -73,8 +73,8 @@ typedef struct _enclave {
 } cc_enclave_t;
 
 /*The compilation options are hidden by default, 
- * and these two function interfaces are exported t
- * hrough this attribute
+ * and these two function interfaces are exported
+ * through this attribute
  * */
 CC_API_SPEC cc_enclave_result_t cc_enclave_create(
                 const char *path, 
