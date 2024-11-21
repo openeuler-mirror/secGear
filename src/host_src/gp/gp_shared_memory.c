@@ -219,7 +219,7 @@ cc_enclave_result_t unregister_shared_memory(cc_enclave_t *enclave, gp_shared_me
         return CC_ERROR_SHARED_MEMORY_NOT_REGISTERED;
     }
 
-    /* Fill argments size */
+    /* Fill arguments size */
     gp_unregister_shared_memory_size_t args_size = {
         .retval_size = size_to_aligned_size(sizeof(int)),
         .shared_buf_size = size_to_aligned_size(sizeof(void *))

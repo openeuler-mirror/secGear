@@ -22,7 +22,7 @@
  * param seal_data_len	[IN] plain text length to be sealed
  *
  * retval UINT32_MAX	means function fails
- * retvel others	means function success
+ * retval others	means function success
  */
 uint32_t cc_enclave_get_sealed_data_size(const uint32_t add_len, const uint32_t seal_data_len)
 {
@@ -42,7 +42,7 @@ uint32_t cc_enclave_get_sealed_data_size(const uint32_t add_len, const uint32_t 
  * param sealed_data    [IN] the sealed data
  *
  * retval UINT32_MAX    means function fails
- * retvel others        means function success
+ * retval others        means function success
  */
 uint32_t cc_enclave_get_encrypted_text_size(const cc_enclave_sealed_data_t *sealed_data)
 {
@@ -59,7 +59,7 @@ uint32_t cc_enclave_get_encrypted_text_size(const cc_enclave_sealed_data_t *seal
  * param sealed_data    [IN] the sealed data
  *
  * retval UINT32_MAX    means function fails
- * retvel others        means function success
+ * retval others        means function success
  */
 uint32_t cc_enclave_get_add_text_size(const cc_enclave_sealed_data_t *sealed_data)
 {
