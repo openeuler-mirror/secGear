@@ -461,7 +461,7 @@ static cc_enclave_result_t handle_msg(cc_sec_chl_conn_ctx_t *ctx, sec_chl_msg_t 
     free(rsp_msg);
     if (result < 0) {
         (void)del_enclave_sec_chl(ctx->svr_ctx->enclave_ctx, msg->session_id);
-        print_error_term("cc_sec_chl_svr_callback send respone msg failed\n");
+        print_error_term("cc_sec_chl_svr_callback send response, msg failed\n");
         return CC_ERROR_SEC_CHL_SEND_MSG;
     }
     return ret;

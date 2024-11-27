@@ -74,6 +74,6 @@ impl AttesterAPIs for Attester {
             let evidence = serde_json::to_vec(&aa_evidence)?;
             return Ok(evidence);
         }
-        bail!("unkown tee platform");
+        bail!("unknown tee platform");
     }
 }

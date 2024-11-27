@@ -139,7 +139,7 @@ impl AttestationAgentAPIs for AttestationAgent {
     async fn get_token(&self, user_data: TokenRequest) -> Result<String> {
         #[cfg(feature = "no_as")]
         {
-            return Ok("no as in not supprot get token".to_string());
+            return Ok("no as in not support get token".to_string());
         }
         // todo token 有效期内，不再重新获取报告
         #[cfg(not(feature = "no_as"))]

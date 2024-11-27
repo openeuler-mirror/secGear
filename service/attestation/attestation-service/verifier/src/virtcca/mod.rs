@@ -325,7 +325,7 @@ impl CvmToken {
                         CVM_HASH_ALG_LABEL => cvm_token.set_hash_alg(v)?,
                         CVM_PUB_KEY_LABEL => cvm_token.set_pub_key(v)?,
                         CVM_PUB_KEY_HASH_ALG_LABEL => cvm_token.set_pub_key_hash_alg(v)?,
-                        err => bail!("cvm payload unkown label {}", err),
+                        err => bail!("cvm payload unknown label {}", err),
                     }
                 } else {
                     bail!("cvm payload expecting integer key");
