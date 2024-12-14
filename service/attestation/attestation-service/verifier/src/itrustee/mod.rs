@@ -26,7 +26,7 @@ const ITRUSTEE_REF_VALUE_FILE: &str = "/etc/attestation/attestation-service/veri
 pub struct ItrusteeVerifier {}
 
 impl ItrusteeVerifier {
-    pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
+    pub fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         return evalute_wrapper(user_data, evidence);
     }
 }

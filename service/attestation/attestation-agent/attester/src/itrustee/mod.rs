@@ -29,7 +29,7 @@ mod itrustee;
 pub struct ItrusteeAttester {}
 
 impl ItrusteeAttester {
-    pub async fn tee_get_evidence(&self, user_data: EvidenceRequest) -> Result<String> {
+    pub fn tee_get_evidence(&self, user_data: EvidenceRequest) -> Result<String> {
         let ret = itrustee_provision();
         if ret.is_err() {
             log::error!("itrustee attester provision failed");

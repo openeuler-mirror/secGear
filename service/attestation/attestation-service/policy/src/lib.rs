@@ -73,13 +73,10 @@ output["Other"] := "other" if {
         let _ =
             tokio::fs::remove_file("/etc/attestation/attestation-service/policy/test.rego").await;
 
-        let ret = engine
-            .unwrap()
-            .set_policy(
-                &policy_id,
-                &base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(policy),
-            )
-            .await;
+        let ret = engine.unwrap().set_policy(
+            &policy_id,
+            &base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(policy),
+        );
         assert!(ret.is_ok());
     }
 
@@ -87,7 +84,7 @@ output["Other"] := "other" if {
     async fn test_get_all_policy() {
         let policy_dir = String::from("/etc/attestation/attestation-service/policy");
         let engine = OPA::new(&policy_dir).await;
-        let ret = engine.unwrap().get_all_policy().await;
+        let ret = engine.unwrap().get_all_policy();
         println!("{:?}", ret);
         assert!(ret.is_ok());
     }
@@ -105,7 +102,7 @@ output["Other"] := "other" if {
         );
         let data = String::new();
         let policy_id: Vec<String> = vec![];
-        let result = engine.evaluate(&String::from("vcca"), &refs_from_report, &data, &policy_id).await;
+        let result = engine.evaluate(&String::from("vcca"), &refs_from_report, &data, &policy_id);
         println!("{:?}", result);
         assert!(result.is_ok());
         match result {
@@ -147,12 +144,10 @@ output["Other"] := "other" if {
         let _ =
             tokio::fs::remove_file("/etc/attestation/attestation-service/policy/test.rego").await;
 
-        let ret = engine
-            .set_policy(
-                &policy_id,
-                &base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(policy),
-            )
-            .await;
+        let ret = engine.set_policy(
+            &policy_id,
+            &base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(policy),
+        );
         assert!(ret.is_ok());
 
         // 使用自定义的策略进行报告评估
@@ -165,7 +160,7 @@ output["Other"] := "other" if {
         );
         let data = String::new();
         let policy_id: Vec<String> = vec!["test.rego".to_string()];
-        let result = engine.evaluate(&String::from("vcca"), &refs_from_report, &data, &policy_id).await;
+        let result = engine.evaluate(&String::from("vcca"), &refs_from_report, &data, &policy_id);
         assert!(result.is_ok());
         match result {
             Ok(ret) => {
