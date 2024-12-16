@@ -11,15 +11,15 @@
  */
 
 //! itrustee tee plugin
-//! 
+//!
 //! Call the hardware sdk or driver to get the specific evidence
 
 use anyhow::*;
-use serde_json;
-use std::path::Path;
-use serde::{Serialize, Deserialize};
 use base64_url;
 use log;
+use serde::{Deserialize, Serialize};
+use serde_json;
+use std::path::Path;
 
 use crate::EvidenceRequest;
 

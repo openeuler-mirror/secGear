@@ -13,33 +13,38 @@
 //! virtcca verifier plugin
 use super::TeeClaim;
 
-use anyhow::{Result, bail, anyhow};
-use cose::keys::CoseKey;
-use cose::message::CoseMessage;
+use anyhow::{anyhow, bail, Result};
 use ciborium;
 use ciborium::Value;
-use openssl::rsa;
-use openssl::pkey::Public;
-use openssl::x509;
-use openssl::pkey::PKey;
+use cose::keys::CoseKey;
+use cose::message::CoseMessage;
 use log;
+use openssl::pkey::PKey;
+use openssl::pkey::Public;
+use openssl::rsa;
+use openssl::x509;
 use serde_json::json;
 
 pub use attestation_types::VirtccaEvidence;
 pub mod ima;
 
 #[cfg(not(feature = "no_as"))]
-const VIRTCCA_ROOT_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei Equipment Root CA.pem";
+const VIRTCCA_ROOT_CERT: &str =
+    "/etc/attestation/attestation-service/verifier/virtcca/Huawei Equipment Root CA.pem";
 #[cfg(not(feature = "no_as"))]
-const VIRTCCA_SUB_CERT: &str = "/etc/attestation/attestation-service/verifier/virtcca/Huawei IT Product CA.pem";
+const VIRTCCA_SUB_CERT: &str =
+    "/etc/attestation/attestation-service/verifier/virtcca/Huawei IT Product CA.pem";
 
-// attestation agent local reference 
+// attestation agent local reference
 #[cfg(feature = "no_as")]
-const VIRTCCA_REF_VALUE_FILE: &str = "/etc/attestation/attestation-agent/local_verifier/virtcca/ref_value.json";
+const VIRTCCA_REF_VALUE_FILE: &str =
+    "/etc/attestation/attestation-agent/local_verifier/virtcca/ref_value.json";
 #[cfg(feature = "no_as")]
-const VIRTCCA_ROOT_CERT: &str = "/etc/attestation/attestation-agent/local_verifier/virtcca/Huawei Equipment Root CA.pem";
+const VIRTCCA_ROOT_CERT: &str =
+    "/etc/attestation/attestation-agent/local_verifier/virtcca/Huawei Equipment Root CA.pem";
 #[cfg(feature = "no_as")]
-const VIRTCCA_SUB_CERT: &str = "/etc/attestation/attestation-agent/local_verifier/virtcca/Huawei IT Product CA.pem";
+const VIRTCCA_SUB_CERT: &str =
+    "/etc/attestation/attestation-agent/local_verifier/virtcca/Huawei IT Product CA.pem";
 
 #[derive(Debug, Default)]
 pub struct VirtCCAVerifier {}
@@ -68,13 +73,13 @@ const CVM_PUB_KEY_SIZE: usize = 550;
 
 #[derive(Debug)]
 pub struct CvmToken {
-    pub challenge: [u8; CVM_CHALLENGE_SIZE],        //    10 => bytes .size 64
-    pub rpv: [u8; CVM_RPV_SIZE],                    // 44235 => bytes .size 64
-    pub rim: Vec<u8>,                               // 44238 => bytes .size {32,48,64}
-    pub rem: [Vec<u8>; CVM_REM_ARR_SIZE],           // 44239 => [ 4*4 bytes .size {32,48,64} ]
-    pub hash_alg: String,                           // 44236 => text
-    pub pub_key: [u8; CVM_PUB_KEY_SIZE],            // 44237 => bytes .size 550
-    pub pub_key_hash_alg: String,                   // 44240 => text
+    pub challenge: [u8; CVM_CHALLENGE_SIZE], //    10 => bytes .size 64
+    pub rpv: [u8; CVM_RPV_SIZE],             // 44235 => bytes .size 64
+    pub rim: Vec<u8>,                        // 44238 => bytes .size {32,48,64}
+    pub rem: [Vec<u8>; CVM_REM_ARR_SIZE],    // 44239 => [ 4*4 bytes .size {32,48,64} ]
+    pub hash_alg: String,                    // 44236 => text
+    pub pub_key: [u8; CVM_PUB_KEY_SIZE],     // 44237 => bytes .size 550
+    pub pub_key_hash_alg: String,            // 44240 => text
 }
 
 pub struct Evidence {
@@ -106,10 +111,13 @@ impl Evidence {
         // verify ima
         let ima_log = match virtcca_ev.ima_log {
             Some(ima_log) => ima_log,
-            _ => {log::info!("no ima log"); vec![]},
+            _ => {
+                log::info!("no ima log");
+                vec![]
+            }
         };
-        let ima: serde_json::Value = ima::ImaVerify::default()
-            .ima_verify(&ima_log, evidence.cvm_token.rem[0].clone())?;
+        let ima: serde_json::Value =
+            ima::ImaVerify::default().ima_verify(&ima_log, evidence.cvm_token.rem[0].clone())?;
 
         // todo parsed TeeClaim
         evidence.parse_claim_from_evidence(ima)
@@ -183,10 +191,16 @@ impl Evidence {
         let len = challenge.len();
         let token_challenge = &self.cvm_token.challenge[0..len];
         if challenge != token_challenge {
-            log::error!("verify cvm token challenge error, cvm_token challenge {:?}, input challenge {:?}", 
-                token_challenge, challenge);
-            bail!("verify cvm token challenge error, cvm_token challenge {:?}, input challenge {:?}", 
-                token_challenge, challenge);
+            log::error!(
+                "verify cvm token challenge error, cvm_token challenge {:?}, input challenge {:?}",
+                token_challenge,
+                challenge
+            );
+            bail!(
+                "verify cvm token challenge error, cvm_token challenge {:?}, input challenge {:?}",
+                token_challenge,
+                challenge
+            );
         }
 
         // todo verify cvm pubkey by platform.challenge, virtCCA report has no platform token now
@@ -199,8 +213,12 @@ impl Evidence {
             Some(alg) => cose_key.alg(alg),
             None => bail!("cose sign verify alg is none"),
         }
-        self.cvm_envelop.key(&cose_key).map_err(|err| anyhow!("set cose_key to COSE_Sign1 envelop failed: {err:?}"))?;
-        self.cvm_envelop.decode(None, None).map_err(|err| anyhow!("verify COSE_Sign1 signature failed:{err:?}"))?;
+        self.cvm_envelop
+            .key(&cose_key)
+            .map_err(|err| anyhow!("set cose_key to COSE_Sign1 envelop failed: {err:?}"))?;
+        self.cvm_envelop
+            .decode(None, None)
+            .map_err(|err| anyhow!("verify COSE_Sign1 signature failed:{err:?}"))?;
         // verify COSE_Sign1 signature end
 
         // verfiy cvm token with reference value
@@ -248,11 +266,22 @@ impl Evidence {
 
         // decode CBOR evidence to ciborium Value
         let val: Value = ciborium::de::from_reader(raw_evidence.as_slice())?;
-        log::debug!("[debug] decode CBOR virtcca token to ciborium Value:{:?}", val);
+        log::debug!(
+            "[debug] decode CBOR virtcca token to ciborium Value:{:?}",
+            val
+        );
         if let Value::Tag(t, m) = val {
             if t != CBOR_TAG {
-                log::error!("input evidence error, expecting tag {}, got {}", CBOR_TAG, t);
-                bail!("input evidence error, expecting tag {}, got {}", CBOR_TAG, t);
+                log::error!(
+                    "input evidence error, expecting tag {}, got {}",
+                    CBOR_TAG,
+                    t
+                );
+                bail!(
+                    "input evidence error, expecting tag {}, got {}",
+                    CBOR_TAG,
+                    t
+                );
             }
             if let Value::Map(contents) = *m {
                 for (k, v) in contents.iter() {
@@ -278,7 +307,7 @@ impl Evidence {
             Err(e) => {
                 log::error!("decode COSE failed, {:?}", e);
                 bail!("decode COSE failed");
-            },
+            }
         }
 
         // decode cvm CBOR payload
@@ -344,7 +373,11 @@ impl CvmToken {
         }
         let tmp = tmp.unwrap().clone();
         if tmp.len() != CVM_CHALLENGE_SIZE {
-            bail!("cvm token challenge expecting {} bytes, got {}", CVM_CHALLENGE_SIZE,tmp.len());
+            bail!(
+                "cvm token challenge expecting {} bytes, got {}",
+                CVM_CHALLENGE_SIZE,
+                tmp.len()
+            );
         }
         self.challenge[..].clone_from_slice(&tmp);
         Ok(())
@@ -356,7 +389,11 @@ impl CvmToken {
         }
         let tmp = tmp.unwrap().clone();
         if tmp.len() != CVM_RPV_SIZE {
-            bail!("cvm token rpv expecting {} bytes, got {}", CVM_RPV_SIZE, tmp.len());
+            bail!(
+                "cvm token rpv expecting {} bytes, got {}",
+                CVM_RPV_SIZE,
+                tmp.len()
+            );
         }
         self.rpv[..].clone_from_slice(&tmp);
         Ok(())
@@ -368,7 +405,11 @@ impl CvmToken {
         }
         let tmp = tmp.unwrap().clone();
         if !matches!(tmp.len(), 32 | 48 | 64) {
-            bail!("cvm token {} expecting 32, 48 or 64 bytes, got {}", who, tmp.len());
+            bail!(
+                "cvm token {} expecting 32, 48 or 64 bytes, got {}",
+                who,
+                tmp.len()
+            );
         }
         Ok(tmp)
     }
@@ -383,7 +424,11 @@ impl CvmToken {
         }
         let tmp = tmp.unwrap().clone();
         if tmp.len() != 4 {
-            bail!("cvm token rem expecting size {}, got {}", CVM_REM_ARR_SIZE, tmp.len());
+            bail!(
+                "cvm token rem expecting size {}, got {}",
+                CVM_REM_ARR_SIZE,
+                tmp.len()
+            );
         }
 
         for (i, val) in tmp.iter().enumerate() {
@@ -409,7 +454,11 @@ impl CvmToken {
         }
         let tmp = tmp.unwrap().clone();
         if tmp.len() != CVM_PUB_KEY_SIZE {
-            bail!("cvm token pub key len expecting {}, got {}", CVM_PUB_KEY_SIZE, tmp.len());
+            bail!(
+                "cvm token pub key len expecting {}, got {}",
+                CVM_PUB_KEY_SIZE,
+                tmp.len()
+            );
         }
         self.pub_key[..].clone_from_slice(&tmp);
         Ok(())

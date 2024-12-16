@@ -15,19 +15,18 @@
 
 //! rust-cca verifier plugin
 use super::TeeClaim;
+use anyhow::{bail, Result};
 use ear::claim::*;
 use serde_json::json;
-use anyhow::{Result, bail};
 extern crate ccatoken;
-use ccatoken::token;
 use ccatoken::store::{
-    PlatformRefValue, RealmRefValue, Cpak, MemoRefValueStore, MemoTrustAnchorStore, RefValues,
+    Cpak, MemoRefValueStore, MemoTrustAnchorStore, PlatformRefValue, RealmRefValue, RefValues,
     SwComponent,
 };
+use ccatoken::token;
 
 use serde_json::value::RawValue;
 use std::error::Error;
-
 
 const TEST_CPAK: &str = include_str!("../../test_data/cpak.json");
 
@@ -40,71 +39,76 @@ impl RustCCAVerifier {
     }
 }
 
-
 //参数是challenge 和report
 // 1. execute golden to get tas, rvs
-// 2. execute verify   
+// 2. execute verify
 fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
-
-    	let mut in_evidence =
+    let mut in_evidence =
         token::Evidence::decode(&evidence.to_vec()).unwrap_or_else(|_| panic!("decode evidence"));
-        
-    	let cpak = map_str_to_cpak(&in_evidence.platform_claims, &TEST_CPAK).unwrap_or_else(|_| panic!("map cpak"));
-    	let _ = in_evidence.verify_with_cpak(cpak).unwrap_or_else(|_| panic!("verify cpak"));
-    
-    	let (platform_tvec, realm_tvec) = in_evidence.get_trust_vectors();
-    	if platform_tvec.instance_identity != TRUSTWORTHY_INSTANCE {
-            bail!("platform is not trustworthy");
-    	}
-    	if realm_tvec.instance_identity != TRUSTWORTHY_INSTANCE {
-            bail!("realm is not trustworthy");
-    	}
-    
-    	let rv = map_evidence_to_refval(&in_evidence).unwrap_or_else(|_| panic!("map refval"));
-    	let ta = map_evidence_to_trustanchor(&in_evidence.platform_claims, &TEST_CPAK).unwrap_or_else(|_| panic!("map trustanchor"));
-    
-    
-    	let mut rvs: MemoRefValueStore = Default::default();
-    	rvs.load_json(&rv).unwrap_or_else(|_| panic!("load rvs"));
-    	let mut tas: MemoTrustAnchorStore = Default::default();
-    	tas.load_json(&ta).unwrap_or_else(|_| panic!("load tas"));
-    	let _ = in_evidence.verify(&tas);
-        
-        //verify challenge
-        let _ = verify_realm_challenge(user_data, &in_evidence.realm_claims);
-        
-        let payload = json!({
-            "platform trust vector":  serde_json::to_string_pretty(&platform_tvec).unwrap(),
-            "realm trust vector" : serde_json::to_string_pretty(&realm_tvec).unwrap(),
-            "realm" : {
-            	"challenge" : hex::encode(in_evidence.realm_claims.challenge.clone()),
-            	"perso" : hex::encode(in_evidence.realm_claims.perso.clone()),
-            	"hash_alg" : hex::encode(in_evidence.realm_claims.hash_alg.clone()),
-            	"rak" : hex::encode(in_evidence.realm_claims.rak.clone())
-            }
-        });
-        
-        let claim = json!({
-            "tee_type": "ccatoken",
-            "payload" : payload,
-        });
-    	Ok(claim as TeeClaim)
+
+    let cpak = map_str_to_cpak(&in_evidence.platform_claims, &TEST_CPAK)
+        .unwrap_or_else(|_| panic!("map cpak"));
+    let _ = in_evidence
+        .verify_with_cpak(cpak)
+        .unwrap_or_else(|_| panic!("verify cpak"));
+
+    let (platform_tvec, realm_tvec) = in_evidence.get_trust_vectors();
+    if platform_tvec.instance_identity != TRUSTWORTHY_INSTANCE {
+        bail!("platform is not trustworthy");
+    }
+    if realm_tvec.instance_identity != TRUSTWORTHY_INSTANCE {
+        bail!("realm is not trustworthy");
+    }
+
+    let rv = map_evidence_to_refval(&in_evidence).unwrap_or_else(|_| panic!("map refval"));
+    let ta = map_evidence_to_trustanchor(&in_evidence.platform_claims, &TEST_CPAK)
+        .unwrap_or_else(|_| panic!("map trustanchor"));
+
+    let mut rvs: MemoRefValueStore = Default::default();
+    rvs.load_json(&rv).unwrap_or_else(|_| panic!("load rvs"));
+    let mut tas: MemoTrustAnchorStore = Default::default();
+    tas.load_json(&ta).unwrap_or_else(|_| panic!("load tas"));
+    let _ = in_evidence.verify(&tas);
+
+    //verify challenge
+    let _ = verify_realm_challenge(user_data, &in_evidence.realm_claims);
+
+    let payload = json!({
+        "platform trust vector":  serde_json::to_string_pretty(&platform_tvec).unwrap(),
+        "realm trust vector" : serde_json::to_string_pretty(&realm_tvec).unwrap(),
+        "realm" : {
+            "challenge" : hex::encode(in_evidence.realm_claims.challenge.clone()),
+            "perso" : hex::encode(in_evidence.realm_claims.perso.clone()),
+            "hash_alg" : hex::encode(in_evidence.realm_claims.hash_alg.clone()),
+            "rak" : hex::encode(in_evidence.realm_claims.rak.clone())
+        }
+    });
+
+    let claim = json!({
+        "tee_type": "ccatoken",
+        "payload" : payload,
+    });
+    Ok(claim as TeeClaim)
 }
 
+fn verify_realm_challenge(challenge: &[u8], realm_token: &token::Realm) -> Result<()> {
+    let len = challenge.len();
+    let token_challenge = &realm_token.challenge[0..len];
 
+    if challenge != token_challenge {
+        log::error!(
+            "verify cvm token challenge error, cvm_token challenge {:?}, input challenge {:?}",
+            token_challenge,
+            challenge
+        );
+        bail!(
+            "verify cvm token challenge error, cvm_token challenge {:?}, input challenge {:?}",
+            token_challenge,
+            challenge
+        );
+    }
 
-fn verify_realm_challenge(challenge: &[u8], realm_token: &token::Realm) -> Result<()>{
-	let len = challenge.len();
-        let token_challenge = &realm_token.challenge[0..len];
-        
-        if challenge != token_challenge {
-            log::error!("verify cvm token challenge error, cvm_token challenge {:?}, input challenge {:?}", 
-                token_challenge, challenge);
-            bail!("verify cvm token challenge error, cvm_token challenge {:?}, input challenge {:?}", 
-                token_challenge, challenge);
-        }
-        
-        Ok(())
+    Ok(())
 }
 fn map_str_to_cpak(p: &token::Platform, cpak_str: &str) -> Result<Cpak, Box<dyn Error>> {
     let raw_pkey = RawValue::from_string(cpak_str.to_string())?;
@@ -190,25 +194,19 @@ mod tests {
     use super::*;
     use ear::claim::TRUSTWORTHY_INSTANCE;
 
-
     const TEST_CCA_TOKEN: &[u8; 1222] = include_bytes!("../../test_data/cca-token-01.cbor");
     //const TEST_CCA_TOKEN: &[u8; 1125] = include_bytes!("../../test_data/cca-token-02.cbor");
     const TEST_CPAK: &str = include_str!("../../test_data/cpak.json");
 
-
     #[test]
-    fn cca_test() -> Result<(), Box<dyn Error>>{
+    fn cca_test() -> Result<(), Box<dyn Error>> {
+        let mut evidence =
+            token::Evidence::decode(&TEST_CCA_TOKEN.to_vec()).expect("decoding TEST_CCA_TOKEN");
 
-
-    	let mut evidence =
-        token::Evidence::decode(&TEST_CCA_TOKEN.to_vec()).expect("decoding TEST_CCA_TOKEN");
- 	
- 	let j = TEST_CPAK;
-    	let cpak = map_str_to_cpak(&evidence.platform_claims, &j)?;
+        let j = TEST_CPAK;
+        let cpak = map_str_to_cpak(&evidence.platform_claims, &j)?;
         let _ = evidence.verify_with_cpak(cpak)?;
 
-        
-        
         let (platform_tvec, realm_tvec) = evidence.get_trust_vectors();
         if platform_tvec.instance_identity != TRUSTWORTHY_INSTANCE {
             return Err("platform is not trustworthy".into());
@@ -216,36 +214,33 @@ mod tests {
         if realm_tvec.instance_identity != TRUSTWORTHY_INSTANCE {
             return Err("realm is not trustworthy".into());
         }
-	
+
         let rv = map_evidence_to_refval(&evidence)?;
         let ta = map_evidence_to_trustanchor(&evidence.platform_claims, &j)?;
 
-	let mut rvs: MemoRefValueStore = Default::default();
-	rvs.load_json(&rv)?;
-	let mut tas: MemoTrustAnchorStore = Default::default();
-	tas.load_json(&ta)?;
+        let mut rvs: MemoRefValueStore = Default::default();
+        rvs.load_json(&rv)?;
+        let mut tas: MemoTrustAnchorStore = Default::default();
+        tas.load_json(&ta)?;
         let _ = evidence.verify(&tas);
-        
-        
+
         let (platform_tvec, realm_tvec) = evidence.get_trust_vectors();
         let payload = json!({
             "platform trust vector":  serde_json::to_string_pretty(&platform_tvec).unwrap(),
             "realm trust vector" : serde_json::to_string_pretty(&realm_tvec).unwrap(),
             "realm" : {
-            	"challenge" : hex::encode(evidence.realm_claims.challenge.clone()),
-            	"perso" : hex::encode(evidence.realm_claims.perso.clone()),
-            	"hash_alg" : hex::encode(evidence.realm_claims.hash_alg.clone()),
-            	"rak" : hex::encode(evidence.realm_claims.rak.clone())
+                "challenge" : hex::encode(evidence.realm_claims.challenge.clone()),
+                "perso" : hex::encode(evidence.realm_claims.perso.clone()),
+                "hash_alg" : hex::encode(evidence.realm_claims.hash_alg.clone()),
+                "rak" : hex::encode(evidence.realm_claims.rak.clone())
             }
         });
-        
+
         let claim = json!({
             "tee_type": "ccatoken",
             "payload" : payload,
         });
         println!("verify success {:?}", claim);
-        Ok(())  
+        Ok(())
     }
-    
 }
-

@@ -9,8 +9,8 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use thiserror::Error;
 use actix_web::{body::BoxBody, HttpResponse, ResponseError};
+use thiserror::Error;
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, Error)]

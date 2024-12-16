@@ -9,9 +9,9 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use actix_web::cookie::{time::{Duration, OffsetDateTime}};
-use scc::HashMap;
+use actix_web::cookie::time::{Duration, OffsetDateTime};
 use anyhow::Result;
+use scc::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct Session {
@@ -23,7 +23,6 @@ pub struct Session {
 
 impl Session {
     pub fn new(challenge: String, as_client: reqwest::Client, timeout_m: i64) -> Result<Self> {
-
         let timeout = OffsetDateTime::now_utc() + Duration::minutes(timeout_m);
         // let token = None;
         Ok(Session {

@@ -11,14 +11,14 @@
  */
 use attestation_agent::{AttestationAgent, DEFAULT_AACONFIG_FILE};
 mod restapi;
-use restapi::{get_challenge, get_evidence, verify_evidence, get_token, verify_token};
+use restapi::{get_challenge, get_evidence, get_token, verify_evidence, verify_token};
 
+use actix_web::{web, App, HttpResponse, HttpServer};
 use anyhow::Result;
+use clap::{arg, command, Parser};
 use env_logger;
-use actix_web::{web, App, HttpServer, HttpResponse};
-use std::{sync::Arc};
+use std::sync::Arc;
 use tokio::sync::RwLock;
-use clap::{Parser, command, arg};
 
 const DEFAULT_SOCKETADDR: &str = "127.0.0.1:8081";
 
@@ -44,10 +44,10 @@ struct Cli {
 
     #[arg(short = 'p', long = "protocol", default_value_t = String::from("http"))]
     protocol: String,
-    
+
     /// root certificate to verify peer
     #[arg(short = 't', long = "cert_root", default_value_t = String::from(""))]
-    cert_root: String
+    cert_root: String,
 }
 
 #[actix_web::main]

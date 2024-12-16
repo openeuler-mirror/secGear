@@ -9,7 +9,10 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use actix_web::cookie::{time::{Duration, OffsetDateTime}, Cookie};
+use actix_web::cookie::{
+    time::{Duration, OffsetDateTime},
+    Cookie,
+};
 use scc::HashMap;
 use uuid::Uuid;
 
@@ -34,8 +37,8 @@ impl Session {
     }
     pub fn cookie(&self) -> Cookie {
         Cookie::build("oeas-session-id", self.id.clone())
-        .expires(self.timeout.clone())
-        .finish()
+            .expires(self.timeout.clone())
+            .finish()
     }
 }
 

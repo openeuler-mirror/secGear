@@ -10,23 +10,22 @@
  * See the Mulan PSL v2 for more details.
  */
 /// RESTful Attestation Service
-
 use attestation_service::AttestationService;
 mod restapi;
-use restapi::{get_challenge, attestation, reference, get_policy, set_policy};
+use restapi::{attestation, get_challenge, get_policy, reference, set_policy};
 mod session;
 use session::SessionMap;
 
-use anyhow::Result;
-use env_logger;
 use actix_web::{web, App, HttpServer};
+use anyhow::Result;
+use clap::{arg, command, Parser};
+use env_logger;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
-use std::{sync::Arc};
+use std::sync::Arc;
 use tokio::sync::RwLock;
-use clap::{Parser, command, arg};
 
 const DEFAULT_ASCONFIG_FILE: &str = "/etc/attestation/attestation-service/attestation-service.conf";
-const DEFAULT_SOCKETADDR: &str =  "localhost:8080";
+const DEFAULT_SOCKETADDR: &str = "localhost:8080";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -62,7 +61,7 @@ async fn main() -> Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let cli = Cli::parse();
-    let server:AttestationService = AttestationService::new(Some(cli.config)).unwrap();
+    let server: AttestationService = AttestationService::new(Some(cli.config)).unwrap();
     let session_map = web::Data::new(SessionMap::new());
 
     let sessions_clone = session_map.clone();
@@ -87,21 +86,20 @@ async fn main() -> Result<()> {
             .service(set_policy)
             .service(get_policy)
     });
-    if cli.protocol == "https"{
-        if  cli.https_cert.is_empty() || cli.https_key.is_empty() {
+    if cli.protocol == "https" {
+        if cli.https_cert.is_empty() || cli.https_key.is_empty() {
             log::error!("cert or key is empty");
             return Ok(());
         }
         let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
         builder.set_private_key_file(cli.https_key, SslFiletype::PEM)?;
         builder.set_certificate_chain_file(cli.https_cert)?;
-        http_server.bind_openssl(cli.socketaddr, builder)?
-        .run()
-        .await?;
+        http_server
+            .bind_openssl(cli.socketaddr, builder)?
+            .run()
+            .await?;
     } else if cli.protocol == "http" {
-        http_server.bind(cli.socketaddr)?
-        .run()
-        .await?;
+        http_server.bind(cli.socketaddr)?.run().await?;
     } else {
         log::error!("unknown protocol {}", cli.protocol);
     }

@@ -9,21 +9,21 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
+use base64_url;
+use rand::RngCore;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::fs::File;
 use std::path::Path;
 use std::str::FromStr;
-use serde::{Serialize, Deserialize};
-use serde_json::Value;
-use rand::RngCore;
-use base64_url;
 
-use verifier::{Verifier, VerifierAPIs};
-use token_signer::{EvlReport, TokenSigner, TokenSignConfig};
-use reference::reference::{ReferenceOps, RefOpError};
+use attestation_types::EvlResult;
 use policy::opa::OPA;
 use policy::policy_engine::{PolicyEngine, PolicyEngineError};
-use attestation_types::EvlResult;
+use reference::reference::{RefOpError, ReferenceOps};
+use token_signer::{EvlReport, TokenSignConfig, TokenSigner};
+use verifier::{Verifier, VerifierAPIs};
 
 pub mod result;
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -88,14 +88,14 @@ impl AttestationService {
                 ASConfig::default()
             }
         };
-        Ok(AttestationService {config})
+        Ok(AttestationService { config })
     }
     /// evaluate tee evidence with reference and policy, and issue attestation result token
     pub async fn evaluate(
         &self,
         user_data: &[u8],
         evidence: &[u8],
-        policy_ids: &Option<Vec<String>>
+        policy_ids: &Option<Vec<String>>,
     ) -> Result<String> {
         let verifier = Verifier::default();
         let claims_evidence = verifier.verify_evidence(user_data, evidence).await?;
@@ -125,39 +125,63 @@ impl AttestationService {
         let policy_dir = String::from("/etc/attestation/attestation-service/policy");
         let engine = OPA::new(&policy_dir).await.unwrap();
         let data = String::new();
-        let result = engine.evaluate(&String::from(claims_evidence["tee"]
-            .as_str().ok_or(anyhow!("tee type unknown"))?),
-    &refs_of_claims.unwrap(), &data, &policy_ids).await;
+        let result = engine
+            .evaluate(
+                &String::from(
+                    claims_evidence["tee"]
+                        .as_str()
+                        .ok_or(anyhow!("tee type unknown"))?,
+                ),
+                &refs_of_claims.unwrap(),
+                &data,
+                &policy_ids,
+            )
+            .await;
         let mut report = serde_json::json!({});
         let mut ref_exist_null: bool = false;
         match result {
             Ok(eval) => {
                 for id in eval.keys() {
                     let val = Value::from_str(&eval[id].clone())?;
-                    let refs = match val.as_object().ok_or(Err(anyhow!("json value to map fail"))) {
-                        Err(err) => { return Err(err.unwrap()); }
-                        Ok(ret) => { ret }
+                    let refs = match val
+                        .as_object()
+                        .ok_or(Err(anyhow!("json value to map fail")))
+                    {
+                        Err(err) => {
+                            return Err(err.unwrap());
+                        }
+                        Ok(ret) => ret,
                     };
                     for key in refs.keys() {
                         // reference value is null means not found
                         if refs[key].is_null() {
                             ref_exist_null = true;
-                        }  
+                        }
                     }
-                    report.as_object_mut().unwrap().insert(id.clone(), serde_json::Value::String(eval[id].clone()));
+                    report
+                        .as_object_mut()
+                        .unwrap()
+                        .insert(id.clone(), serde_json::Value::String(eval[id].clone()));
                 }
             }
             Err(err) => {
                 return Err(anyhow!("evaluate error: {err}"));
             }
         }
-        
+
         // add ima detail result to report
-        report.as_object_mut().unwrap().insert("ima".to_string(), claims_evidence["ima"].clone());
+        report
+            .as_object_mut()
+            .unwrap()
+            .insert("ima".to_string(), claims_evidence["ima"].clone());
 
         // issue attestation result token
         let evl_report = EvlReport {
-            tee: String::from(claims_evidence["tee"].as_str().ok_or(anyhow!("tee type unknown"))?),
+            tee: String::from(
+                claims_evidence["tee"]
+                    .as_str()
+                    .ok_or(anyhow!("tee type unknown"))?,
+            ),
             result: EvlResult {
                 eval_result: passed & !ref_exist_null,
                 policy: policy_ids,
@@ -180,46 +204,43 @@ impl AttestationService {
         base64_url::encode(&nonce)
     }
 
-    pub async fn set_policy(&self,
+    pub async fn set_policy(
+        &self,
         id: &String,
         policy: &String,
         policy_dir: &String,
     ) -> Result<(), PolicyEngineError> {
         let engine = OPA::new(policy_dir).await;
-        engine.unwrap()
-            .set_policy(id, policy)
-            .await
+        engine.unwrap().set_policy(id, policy).await
     }
 
-    pub async fn get_all_policy(&self,
-        policy_dir: &String,
-    ) -> Result<String, PolicyEngineError> {
+    pub async fn get_all_policy(&self, policy_dir: &String) -> Result<String, PolicyEngineError> {
         let engine = OPA::new(policy_dir).await;
         match engine.unwrap().get_all_policy().await {
             Ok(map) => {
                 let mut json_obj: serde_json::Value = serde_json::json!({});
                 for key in map.keys() {
-                    json_obj.as_object_mut()
-                    .unwrap()
-                    .insert(key.clone(), serde_json::json!(map[key]));
+                    json_obj
+                        .as_object_mut()
+                        .unwrap()
+                        .insert(key.clone(), serde_json::json!(map[key]));
                 }
                 Ok(json_obj.to_string())
             }
-            Err(err) => Err(err)
+            Err(err) => Err(err),
         }
     }
 
-    pub async fn get_policy(&self,
+    pub async fn get_policy(
+        &self,
         policy_dir: &String,
-        id: &String 
+        id: &String,
     ) -> Result<String, PolicyEngineError> {
         let engine = OPA::new(policy_dir).await?;
         Ok(engine.get_policy(id).await?)
     }
 
-    pub async fn register_reference(&self,
-        ref_set: &String
-    ) -> Result<(), RefOpError> {
+    pub async fn register_reference(&self, ref_set: &String) -> Result<(), RefOpError> {
         let mut ops_default = ReferenceOps::default();
         ops_default.register(ref_set)
     }

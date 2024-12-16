@@ -11,23 +11,23 @@
  */
 
 //! Attestation Agent
-//! 
+//!
 //! This crate provides some APIs to get and verify the TEE evidence.
 //! Current supports kunpeng itrustee and virtcca TEE types.
 
-use anyhow::{Result, bail, anyhow};
-use log;
-use reqwest::Client;
-use serde::{Serialize, Deserialize};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
+use log;
+use rand::RngCore;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs::File;
 use std::path::Path;
-use rand::RngCore;
 use thiserror;
 
 use attester::{Attester, AttesterAPIs};
-use token_verifier::{TokenVerifyConfig, TokenVerifier, TokenRawData};
+use token_verifier::{TokenRawData, TokenVerifier, TokenVerifyConfig};
 
 pub mod result;
 use result::Error;
@@ -54,15 +54,15 @@ use verifier::{Verifier, VerifierAPIs};
 
 #[cfg(not(feature = "no_as"))]
 use {
-    serde_json::json,
+    base64_url,
     reqwest::header::{HeaderMap, HeaderValue},
-    base64_url
+    serde_json::json,
 };
 
 pub use attester::EvidenceRequest;
 mod session;
-use session::{SessionMap, Session};
 use attestation_types::SESSION_TIMEOUT_MIN;
+use session::{Session, SessionMap};
 
 pub type AsTokenClaim = TokenRawData;
 
@@ -82,10 +82,11 @@ pub trait AttestationAgentAPIs {
 
     /// `verify_evidence`: verify the integrity of TEE evidence and evaluate the
     /// claims against the supplied reference values
-    async fn verify_evidence(&self,
+    async fn verify_evidence(
+        &self,
         challenge: &[u8],
         evidence: &[u8],
-        policy_id: Option<Vec<String>>
+        policy_id: Option<Vec<String>>,
     ) -> Result<TeeClaim>;
 
     //#[cfg(not(feature = "no_as"))]
@@ -107,36 +108,44 @@ impl AttestationAgentAPIs for AttestationAgent {
     async fn get_evidence(&self, user_data: EvidenceRequest) -> Result<Vec<u8>> {
         Attester::default().tee_get_evidence(user_data).await
     }
-    async fn verify_evidence(&self,
+    async fn verify_evidence(
+        &self,
         challenge: &[u8],
         evidence: &[u8],
-        _policy_id: Option<Vec<String>>
+        _policy_id: Option<Vec<String>>,
     ) -> Result<TeeClaim> {
         #[cfg(feature = "no_as")]
         {
-            let ret = Verifier::default().verify_evidence(challenge, evidence).await;
+            let ret = Verifier::default()
+                .verify_evidence(challenge, evidence)
+                .await;
             match ret {
                 Ok(tee_claim) => Ok(tee_claim),
                 Err(e) => {
-                    log::error!("attestation agent verify evidence with no as failed:{:?}", e);
+                    log::error!(
+                        "attestation agent verify evidence with no as failed:{:?}",
+                        e
+                    );
                     Err(e)
-                },
+                }
             }
         }
 
         #[cfg(not(feature = "no_as"))]
         {
-            let ret = self.verify_evidence_by_as(challenge, evidence, _policy_id).await;
+            let ret = self
+                .verify_evidence_by_as(challenge, evidence, _policy_id)
+                .await;
             match ret {
-                Ok(token) => { self.token_to_teeclaim(token).await },
+                Ok(token) => self.token_to_teeclaim(token).await,
                 Err(e) => {
                     log::error!("verify evidence with as failed:{:?}", e);
                     Err(e)
-                },
+                }
             }
         }
     }
-    
+
     async fn get_token(&self, user_data: TokenRequest) -> Result<String> {
         #[cfg(feature = "no_as")]
         {
@@ -149,7 +158,9 @@ impl AttestationAgentAPIs for AttestationAgent {
             let challenge = &user_data.ev_req.challenge;
             let policy_id = user_data.policy_id;
             // request as
-            return self.verify_evidence_by_as(challenge, &evidence, policy_id).await;
+            return self
+                .verify_evidence_by_as(challenge, &evidence, policy_id)
+                .await;
         }
     }
 
@@ -162,7 +173,7 @@ impl AttestationAgentAPIs for AttestationAgent {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AAConfig {
-    pub svr_url: String,             // Attestation Service url
+    pub svr_url: String, // Attestation Service url
     token_cfg: TokenVerifyConfig,
 }
 
@@ -227,25 +238,29 @@ impl AttestationAgent {
             config,
             as_client_sessions,
             access_as_protocol: String::from("http"),
-            cert_root: String::from("")
+            cert_root: String::from(""),
         })
     }
 
-    fn create_client(protocol:String, cert:Option<String>, cookie_store:bool) -> Result<reqwest::Client> {
-        let client:Client;
+    fn create_client(
+        protocol: String,
+        cert: Option<String>,
+        cookie_store: bool,
+    ) -> Result<reqwest::Client> {
+        let client: Client;
         if protocol == "https" {
             if cert == None {
                 return Err(anyhow!("https need root certificate"));
             }
             let cert = reqwest::Certificate::from_pem(cert.unwrap().as_bytes())?;
             client = reqwest::Client::builder()
-            .cookie_store(cookie_store)
-            .add_root_certificate(cert)
-            .build()?; 
+                .cookie_store(cookie_store)
+                .add_root_certificate(cert)
+                .build()?;
         } else if protocol == "http" {
             client = reqwest::Client::builder()
-            .cookie_store(cookie_store)
-            .build()?;
+                .cookie_store(cookie_store)
+                .build()?;
         } else {
             return Err(anyhow!("unknown {}", protocol));
         }
@@ -253,10 +268,11 @@ impl AttestationAgent {
     }
 
     #[cfg(not(feature = "no_as"))]
-    async fn verify_evidence_by_as(&self,
+    async fn verify_evidence_by_as(
+        &self,
         challenge: &[u8],
         evidence: &[u8],
-        policy_id: Option<Vec<String>>
+        policy_id: Option<Vec<String>>,
     ) -> Result<String> {
         let challenge = base64_url::encode(challenge);
         let request_body = json!({
@@ -266,12 +282,15 @@ impl AttestationAgent {
         });
         let mut map = HeaderMap::new();
         map.insert("Content-Type", HeaderValue::from_static("application/json"));
-        let mut client = Self::create_client(self.access_as_protocol.clone(), 
-            Some(self.cert_root.clone()), 
-            true)?;
+        let mut client = Self::create_client(
+            self.access_as_protocol.clone(),
+            Some(self.cert_root.clone()),
+            true,
+        )?;
 
         if !self.as_client_sessions.session_map.is_empty() {
-            let session = self.as_client_sessions
+            let session = self
+                .as_client_sessions
                 .session_map
                 .get_async(&challenge)
                 .await;
@@ -279,7 +298,7 @@ impl AttestationAgent {
                 Some(entry) => {
                     map.insert("as-challenge", HeaderValue::from_static("as"));
                     client = entry.get().as_client.clone()
-                },
+                }
                 None => log::info!("challenge is not as generate"),
             }
         }
@@ -299,7 +318,10 @@ impl AttestationAgent {
                 Ok(token)
             }
             _ => {
-                bail!("Remote Attestation Failed, AS Response: {:?}", res.text().await?);
+                bail!(
+                    "Remote Attestation Failed, AS Response: {:?}",
+                    res.text().await?
+                );
             }
         }
     }
@@ -309,13 +331,14 @@ impl AttestationAgent {
         let ret = self.verify_token(token).await;
         match ret {
             Ok(token) => {
-                let token_claim: serde_json::Value = serde_json::from_slice(token.claim.as_bytes())?;
+                let token_claim: serde_json::Value =
+                    serde_json::from_slice(token.claim.as_bytes())?;
                 Ok(token_claim as TeeClaim)
-            },
+            }
             Err(e) => {
                 log::error!("token to teeclaim failed:{:?}", e);
                 Err(e)
-            },
+            }
         }
     }
 
@@ -330,11 +353,13 @@ impl AttestationAgent {
 
     async fn get_challenge_from_as(&self, user_data: Option<Vec<u8>>) -> Result<String> {
         let challenge_endpoint = format!("{}/challenge", self.config.svr_url);
-        let client = Self::create_client(self.access_as_protocol.clone(), 
-            Some(self.cert_root.clone()), 
-            true)?;
+        let client = Self::create_client(
+            self.access_as_protocol.clone(),
+            Some(self.cert_root.clone()),
+            true,
+        )?;
         let data: Value;
-        if user_data.is_some(){
+        if user_data.is_some() {
             data = json!({"user_data":user_data.unwrap()});
         } else {
             data = Value::Null;
@@ -363,7 +388,6 @@ impl AttestationAgent {
     }
 }
 
-
 // attestation agent c interface
 use safer_ffi::prelude::*;
 use tokio::runtime::Runtime;
@@ -378,14 +402,20 @@ pub fn init_env_logger(c_level: Option<&repr_c::String>) {
 }
 
 #[ffi_export]
-pub fn get_report(c_challenge: Option<&repr_c::Vec<u8>>, c_ima: &repr_c::TaggedOption<bool>) -> repr_c::Vec<u8> {
+pub fn get_report(
+    c_challenge: Option<&repr_c::Vec<u8>>,
+    c_ima: &repr_c::TaggedOption<bool>,
+) -> repr_c::Vec<u8> {
     log::debug!("input challenge: {:?}, ima: {:?}", c_challenge, c_ima);
     let ima = match c_ima {
         repr_c::TaggedOption::None => false,
         repr_c::TaggedOption::Some(ima) => *ima,
     };
     let challenge = match c_challenge {
-        None => {log::error!("challenge is null"); return Vec::new().into();},
+        None => {
+            log::error!("challenge is null");
+            return Vec::new().into();
+        }
         Some(cha) => cha.clone().to_vec(),
     };
 
@@ -396,7 +426,10 @@ pub fn get_report(c_challenge: Option<&repr_c::Vec<u8>>, c_ima: &repr_c::TaggedO
     };
     let rt = Runtime::new().unwrap();
     let fut = async {
-        AttestationAgent::new(Some(DEFAULT_AACONFIG_FILE.to_string())).unwrap().get_evidence(input).await
+        AttestationAgent::new(Some(DEFAULT_AACONFIG_FILE.to_string()))
+            .unwrap()
+            .get_evidence(input)
+            .await
     };
     let ret = rt.block_on(fut);
     let report: Vec<u8> = match ret {
@@ -404,7 +437,7 @@ pub fn get_report(c_challenge: Option<&repr_c::Vec<u8>>, c_ima: &repr_c::TaggedO
         Err(e) => {
             log::error!("get report failed {:?}", e);
             Vec::new()
-        },
+        }
     };
 
     report.into()
@@ -420,59 +453,66 @@ pub fn parse_report(report: Option<&repr_c::Vec<u8>>) -> repr_c::String {
         None => {
             log::error!("report is null");
             return "".to_string().into();
-        },
+        }
         Some(report) => report.clone().to_vec(),
     };
     let rt = Runtime::new().unwrap();
-    let fut = async {virtcca_parse_evidence(&report)};
+    let fut = async { virtcca_parse_evidence(&report) };
     let ret = rt.block_on(fut);
-    
+
     let ret = match ret {
         Ok(claim) => {
             log::debug!("claim: {:?}", claim);
             claim.to_string()
-        },
-        Err(e) =>{
+        }
+        Err(e) => {
             log::error!("{e}");
             "".to_string()
-        },
+        }
     };
-    
+
     return ret.into();
 }
 
 #[ffi_export]
-pub fn verify_report(c_challenge: Option<&repr_c::Vec<u8>>, report: Option<&repr_c::Vec<u8>>) -> repr_c::String {
+pub fn verify_report(
+    c_challenge: Option<&repr_c::Vec<u8>>,
+    report: Option<&repr_c::Vec<u8>>,
+) -> repr_c::String {
     let challenge = match c_challenge {
         None => {
             log::error!("challenge is null");
             return "".to_string().into();
-        },
+        }
         Some(cha) => cha.clone().to_vec(),
     };
     let report = match report {
         None => {
             log::error!("report is null");
             return "".to_string().into();
-        },
+        }
         Some(report) => report.clone().to_vec(),
     };
     let rt = Runtime::new().unwrap();
-    let fut = async {AttestationAgent::new(Some(DEFAULT_AACONFIG_FILE.to_string())).unwrap().verify_evidence(
-            &challenge, &report, None).await};
+    let fut = async {
+        AttestationAgent::new(Some(DEFAULT_AACONFIG_FILE.to_string()))
+            .unwrap()
+            .verify_evidence(&challenge, &report, None)
+            .await
+    };
     let ret = rt.block_on(fut);
-    
+
     let ret = match ret {
         Ok(claim) => {
             log::debug!("claim: {:?}", claim);
             claim.to_string()
-        },
-        Err(e) =>{
+        }
+        Err(e) => {
             log::error!("{e}");
             "".to_string()
-        },
+        }
     };
-    
+
     return ret.into();
 }
 

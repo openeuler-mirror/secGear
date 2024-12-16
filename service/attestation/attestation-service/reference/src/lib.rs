@@ -9,10 +9,10 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+mod extractor;
 pub mod local_fs;
 pub mod reference;
 pub mod store;
-mod extractor;
 
 #[cfg(test)]
 mod tests {
@@ -120,9 +120,17 @@ mod tests {
                     //key
                     let key = format!("ref{}", i);
                     //value
-                    let value:String = rng.clone().sample_iter(&Alphanumeric).take(128).map(char::from).collect();
+                    let value: String = rng
+                        .clone()
+                        .sample_iter(&Alphanumeric)
+                        .take(128)
+                        .map(char::from)
+                        .collect();
                     let mut reference = serde_json::json!({});
-                    reference.as_object_mut().unwrap().insert(key, Value::String(value));
+                    reference
+                        .as_object_mut()
+                        .unwrap()
+                        .insert(key, Value::String(value));
                     let _ = ops_default.register(&reference.to_string());
                     let ref_query = ops_default.query(&reference.to_string()).unwrap();
                     println!("ref {} query {}", reference.to_string(), ref_query);
@@ -133,9 +141,10 @@ mod tests {
         for hd in thread_all {
             match hd.join() {
                 Ok(_) => {}
-                Err(_) => {assert!(false)}
+                Err(_) => {
+                    assert!(false)
+                }
             }
         }
-
     }
 }

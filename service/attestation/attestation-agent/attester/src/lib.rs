@@ -11,13 +11,13 @@
  */
 
 //! attester
-//! 
+//!
 //! This crate provides unified APIs to get TEE evidence.
 
 use anyhow::*;
 use async_trait::async_trait;
+use attestation_types::{Evidence, TeeType};
 use log;
-use attestation_types::{TeeType, Evidence};
 
 #[cfg(feature = "itrustee-attester")]
 mod itrustee;
@@ -42,7 +42,6 @@ pub trait AttesterAPIs {
 #[derive(Default)]
 pub struct Attester {}
 
-
 const MAX_CHALLENGE_LEN: usize = 64;
 
 #[async_trait]
@@ -50,12 +49,22 @@ impl AttesterAPIs for Attester {
     async fn tee_get_evidence(&self, _user_data: EvidenceRequest) -> Result<Vec<u8>> {
         let len = _user_data.challenge.len();
         if len <= 0 || len > MAX_CHALLENGE_LEN {
-            log::error!("challenge len is error, expecting 0 < len <= {}, got {}", MAX_CHALLENGE_LEN, len);
-            bail!("challenge len is error, expecting 0 < len <= {}, got {}", MAX_CHALLENGE_LEN, len);
+            log::error!(
+                "challenge len is error, expecting 0 < len <= {}, got {}",
+                MAX_CHALLENGE_LEN,
+                len
+            );
+            bail!(
+                "challenge len is error, expecting 0 < len <= {}, got {}",
+                MAX_CHALLENGE_LEN,
+                len
+            );
         }
         #[cfg(feature = "itrustee-attester")]
         if itrustee::detect_platform() {
-            let evidence = itrustee::ItrusteeAttester::default().tee_get_evidence(_user_data).await?;
+            let evidence = itrustee::ItrusteeAttester::default()
+                .tee_get_evidence(_user_data)
+                .await?;
             let aa_evidence = Evidence {
                 tee: TeeType::Itrustee,
                 evidence: evidence,
@@ -66,7 +75,9 @@ impl AttesterAPIs for Attester {
         }
         #[cfg(feature = "virtcca-attester")]
         if virtcca::detect_platform() {
-            let evidence = virtcca::VirtccaAttester::default().tee_get_evidence(_user_data).await?;
+            let evidence = virtcca::VirtccaAttester::default()
+                .tee_get_evidence(_user_data)
+                .await?;
             let aa_evidence = Evidence {
                 tee: TeeType::Virtcca,
                 evidence: evidence,
