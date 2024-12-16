@@ -60,17 +60,8 @@ pub trait PolicyEngine {
         refs: &String,
         data_for_policy: &String,
         policy_id: &Vec<String>,
-    ) -> impl std::future::Future<Output = Result<HashMap<String, String>, PolicyEngineError>> + Send;
-    fn set_policy(
-        &self,
-        policy_id: &String,
-        policy: &String,
-    ) -> impl std::future::Future<Output = Result<(), PolicyEngineError>> + Send;
-    fn get_all_policy(
-        &self,
-    ) -> impl std::future::Future<Output = Result<HashMap<String, String>, PolicyEngineError>> + Send;
-    fn get_policy(
-        &self,
-        policy_id: &String,
-    ) -> impl std::future::Future<Output = Result<String, PolicyEngineError>> + Send;
+    ) -> Result<HashMap<String, String>, PolicyEngineError>;
+    fn set_policy(&self, policy_id: &String, policy: &String) -> Result<(), PolicyEngineError>;
+    fn get_all_policy(&self) -> Result<HashMap<String, String>, PolicyEngineError>;
+    fn get_policy(&self, policy_id: &String) -> Result<String, PolicyEngineError>;
 }

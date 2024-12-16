@@ -11,26 +11,25 @@
  */
 
 //! virtcca tee plugin
-//! 
+//!
 //! Call the hardware sdk or driver to get the specific evidence
 
-use anyhow::{Result, bail};
-use std::path::Path;
-use log;
+use anyhow::{bail, Result};
 use attestation_types::VirtccaEvidence;
+use log;
+use std::path::Path;
 
-use crate::EvidenceRequest;
+use self::virtcca::{get_attestation_token, get_dev_cert, tsi_new_ctx};
 use crate::virtcca::virtcca::tsi_free_ctx;
-use self::virtcca::{tsi_new_ctx, get_attestation_token, get_dev_cert};
+use crate::EvidenceRequest;
 
 mod virtcca;
 
 #[derive(Debug, Default)]
 pub struct VirtccaAttester {}
 
-
 impl VirtccaAttester {
-    pub async fn tee_get_evidence(&self, user_data: EvidenceRequest) -> Result<String> {
+    pub fn tee_get_evidence(&self, user_data: EvidenceRequest) -> Result<String> {
         let evidence = virtcca_get_token(user_data)?;
         let evidence = serde_json::to_string(&evidence)?;
         Ok(evidence)
@@ -40,7 +39,6 @@ impl VirtccaAttester {
 pub fn detect_platform() -> bool {
     Path::new("/dev/tsi").exists()
 }
-
 
 fn virtcca_get_token(user_data: EvidenceRequest) -> Result<VirtccaEvidence> {
     unsafe {
@@ -78,7 +76,9 @@ fn virtcca_get_token(user_data: EvidenceRequest) -> Result<VirtccaEvidence> {
             None => false,
         };
         let ima_log = match with_ima {
-            true => Some(std::fs::read("/sys/kernel/security/ima/binary_runtime_measurements").unwrap()),
+            true => {
+                Some(std::fs::read("/sys/kernel/security/ima/binary_runtime_measurements").unwrap())
+            }
             false => None,
         };
 

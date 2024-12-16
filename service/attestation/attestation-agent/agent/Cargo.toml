@@ -43,7 +43,8 @@ actix-web.workspace = true
 clap.workspace = true
 scc.workspace = true
 attestation-types.workspace = true
+verifier.workspace = true
 
 attester = { path = "../attester" }
 token_verifier = { path = "../token" }
-verifier = { workspace = true, features = ["no_as"], optional = true }
+# verifier = { workspace = true, features = ["no_as"], optional = true }

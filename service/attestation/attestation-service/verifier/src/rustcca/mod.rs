@@ -35,7 +35,7 @@ const TEST_CPAK: &str = include_str!("../../test_data/cpak.json");
 pub struct RustCCAVerifier {}
 
 impl RustCCAVerifier {
-    pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
+    pub fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         return evalute_wrapper(user_data, evidence);
     }
 }
