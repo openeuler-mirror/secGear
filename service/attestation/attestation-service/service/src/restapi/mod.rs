@@ -1,23 +1,30 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
- * secGear is licensed under the Mulan PSL v2.
- * You can use this software according to the terms and conditions of the Mulan PSL v2.
- * You may obtain a copy of Mulan PSL v2 at:
- *     http://license.coscl.org.cn/MulanPSL2
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
- * PURPOSE.
- * See the Mulan PSL v2 for more details.
- */
+* Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+* secGear is licensed under the Mulan PSL v2.
+* You can use this software according to the terms and conditions of the Mulan PSL v2.
+* You may obtain a copy of Mulan PSL v2 at:
+*     http://license.coscl.org.cn/MulanPSL2
+* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
+* PURPOSE.
+* See the Mulan PSL v2 for more details.
+*/
+use anyhow::Context;
 use attestation_service::result::{Error, Result};
 use attestation_service::AttestationService;
+use resource::admin::ResourceAdminInterface;
+use resource::simple::SimpleResourceAdmin;
+use token_signer::verify;
 
 use crate::session::{Session, SessionMap};
+use actix_web::http::header::Header;
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
+use actix_web_httpauth::headers::authorization::{Authorization, Bearer};
 use attestation_types::SESSION_TIMEOUT_MIN;
 use base64_url;
 use log;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -173,4 +180,54 @@ pub async fn get_policy(
         .get_policy(&dir, &id.to_string())
         .await?;
     Ok(HttpResponse::Ok().body(ret))
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct ResourcePath {
+    repository: String,
+    r#type: String,
+    tag: String,
+}
+
+impl Display for ResourcePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}/{}", self.repository, self.r#type, self.tag)
+    }
+}
+
+#[get("/resource/{repository}/{type}/{tag}")]
+pub async fn get_resource(
+    req: HttpRequest,
+    agent: web::Data<Arc<RwLock<AttestationService>>>,
+) -> Result<HttpResponse> {
+    let bearer = Authorization::<Bearer>::parse(&req)
+        .context("failed to parse bearer token")?
+        .into_scheme();
+
+    let token: String = bearer.token().to_string();
+
+    let claim = verify(&token).context("illegal token")?;
+
+    let p = ResourcePath {
+        repository: req.match_info().get("repository").unwrap().to_owned(),
+        r#type: req.match_info().get("type").unwrap().to_owned(),
+        tag: req.match_info().get("tag").unwrap().to_owned(),
+    };
+
+    let resource_path = format!("{}", p);
+    let claim = serde_json::to_string(&claim)?;
+
+    log::debug!("Resource path: {}", resource_path);
+    log::debug!("Receive claim: {}", claim);
+
+    agent
+        .read()
+        .await
+        .resource_evaluate(&resource_path, &claim)
+        .await?;
+
+    let resource_admin = SimpleResourceAdmin::default();
+    let resource = resource_admin.get(&resource_path).await?;
+
+    Ok(HttpResponse::Ok().body(resource))
 }

@@ -15,6 +15,7 @@
 //! This crate provides some APIs to get and verify the TEE evidence.
 //! Current supports kunpeng itrustee and virtcca TEE types.
 
+use actix_web::web::Bytes;
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use log;
@@ -93,6 +94,8 @@ pub trait AttestationAgentAPIs {
     async fn get_token(&self, user_data: TokenRequest) -> Result<String>;
 
     async fn verify_token(&self, token: String) -> Result<AsTokenClaim>;
+
+    async fn get_resource(&self, uri: &str, token: &str) -> Result<String>;
 }
 
 #[async_trait]
@@ -168,6 +171,15 @@ impl AttestationAgentAPIs for AttestationAgent {
         let verifier = TokenVerifier::new(self.config.token_cfg.clone())?;
         let result = verifier.verify(&token)?;
         Ok(result)
+    }
+
+    async fn get_resource(&self, uri: &str, token: &str) -> Result<String> {
+        #[cfg(feature = "no_as")]
+        {
+            bail!("resource can only be gotten from attestation server!")
+        }
+        let rest = self.get_resource_from_as(uri, token).await?;
+        Ok(String::from_utf8(rest.to_vec())?)
     }
 }
 
@@ -385,6 +397,30 @@ impl AttestationAgent {
         let session = Session::new(challenge.clone(), client, SESSION_TIMEOUT_MIN)?;
         self.as_client_sessions.insert(session);
         Ok(challenge)
+    }
+
+    async fn get_resource_from_as(&self, uri: &str, token: &str) -> Result<Bytes> {
+        let client = Self::create_client(
+            self.access_as_protocol.clone(),
+            Some(self.cert_root.clone()),
+            true,
+        )?;
+
+        let response = client.get(uri).bearer_auth(token).send().await?;
+
+        let resource = match response.status() {
+            reqwest::StatusCode::OK => {
+                let respone = response.bytes().await.unwrap();
+                log::debug!("get resource success, AS Response: {:?}", respone);
+                respone
+            }
+            status => {
+                log::error!("get resource Failed, AS Response: {:?}", status);
+                bail!("get resource Failed")
+            }
+        };
+
+        Ok(resource)
     }
 }
 

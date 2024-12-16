@@ -84,6 +84,7 @@ impl VerifierAPIs for Verifier {
     }
 }
 
+#[cfg(feature = "no_as")]
 pub fn virtcca_parse_evidence(evidence: &[u8]) -> Result<TeeClaim> {
     let aa_evidence: Evidence = serde_json::from_slice(evidence)?;
     let evidence = aa_evidence.evidence.as_bytes();

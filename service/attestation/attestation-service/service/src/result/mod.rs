@@ -70,6 +70,12 @@ pub enum Error {
     #[error("Request Prameter is invalid")]
     ParameterInvalid(String),
 
+    #[error("Illegal token")]
+    TokenIllegal,
+
+    #[error("Resource Policy Error: {0}")]
+    ResourcePolicy(#[from] resource::error::ResourceError),
+
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

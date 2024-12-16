@@ -11,17 +11,20 @@
  */
 use anyhow::{anyhow, Result};
 use base64_url;
+use futures::lock::Mutex;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Arc;
 
 use attestation_types::EvlResult;
 use policy::opa::OPA;
 use policy::policy_engine::{PolicyEngine, PolicyEngineError};
 use reference::reference::{RefOpError, ReferenceOps};
+use resource::{opa::ResourceOPA, policy::ResourcePolicyEngine};
 use token_signer::{EvlReport, TokenSignConfig, TokenSigner};
 use verifier::{Verifier, VerifierAPIs};
 
@@ -29,12 +32,14 @@ pub mod result;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ASConfig {
     pub token_cfg: TokenSignConfig,
+    pub resource_policy: Option<PathBuf>,
 }
 
 impl Default for ASConfig {
     fn default() -> Self {
         Self {
             token_cfg: TokenSignConfig::default(),
+            resource_policy: None,
         }
     }
 }
@@ -62,6 +67,7 @@ pub struct AttestationService {
     pub config: ASConfig,
     // verify policy sub service
     //policy: ,
+    pub resource_policy: Arc<Mutex<dyn ResourcePolicyEngine>>,
     // reference value provider sub service
     //rvps: ,
     // tee verifier sub service
@@ -72,6 +78,7 @@ impl Default for AttestationService {
     fn default() -> Self {
         Self {
             config: ASConfig::default(),
+            resource_policy: Arc::new(Mutex::new(ResourceOPA::default())),
         }
     }
 }
@@ -88,7 +95,15 @@ impl AttestationService {
                 ASConfig::default()
             }
         };
-        Ok(AttestationService { config })
+        let resource_policy = if let Some(path) = config.resource_policy.clone() {
+            ResourceOPA::new(path)?
+        } else {
+            ResourceOPA::default()
+        };
+        Ok(AttestationService {
+            config,
+            resource_policy: Arc::new(Mutex::new(resource_policy)),
+        })
     }
     /// evaluate tee evidence with reference and policy, and issue attestation result token
     pub async fn evaluate(
@@ -243,5 +258,21 @@ impl AttestationService {
     pub async fn register_reference(&self, ref_set: &String) -> Result<(), RefOpError> {
         let mut ops_default = ReferenceOps::default();
         ops_default.register(ref_set)
+    }
+
+    pub async fn resource_evaluate(&self, resource: &str, claim: &str) -> Result<bool> {
+        Ok(self
+            .resource_policy
+            .lock()
+            .await
+            .evaluate(resource, claim)
+            .await?)
+    }
+
+    pub async fn resource_set_policy(&self, policy: &str) -> Result<()> {
+        Ok(self.resource_policy.lock().await.set_policy(policy).await?)
+    }
+    pub async fn resource_get_policy(&self, policy: &str) -> Result<String> {
+        Ok(self.resource_policy.lock().await.get_policy(policy).await?)
     }
 }

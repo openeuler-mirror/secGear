@@ -1,6 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["service", "verifier", "token", "reference", "policy", "tests"]
+members = [
+    "service",
+    "verifier",
+    "token",
+    "reference",
+    "policy",
+    "tests",
+    "resource",
+]
 
 [workspace.dependencies]
 anyhow = "1.0.80"
@@ -17,7 +25,8 @@ rand = "0.8.5"
 ima-measurements = "0.2.0"
 fallible-iterator = "0.2.0"
 
-actix-web = { version = "4.5", features = ["openssl"] }
+actix-web = { version = "4.5.0", features = ["openssl"] }
+actix-web-httpauth = "0.8.2"
 env_logger = "0.9"
 tokio = { version = "1", features = ["full"] }
 strum = { version = "0.25", features = ["derive"] }
@@ -31,6 +40,7 @@ sled = "0.34.7"
 lazy_static = "1.5.0"
 uuid = { version = "1.2.2", features = ["serde", "v4"] }
 scc = "2.1"
+async_trait = "0.1.83"
 
 attestation-types = { path = "../attestation-types" }
 ear = "0.1.1"

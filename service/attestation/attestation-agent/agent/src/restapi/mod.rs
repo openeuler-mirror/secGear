@@ -180,3 +180,61 @@ pub async fn verify_token(
 
     Ok(HttpResponse::Ok().body(string_claim))
 }
+
+#[derive(Deserialize, Serialize, Debug)]
+struct Location {
+    repository: String,
+    r#type: String,
+    tag: String,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct GetResourceRequest {
+    uuid: String,
+    ima: Option<bool>,
+    policy_id: Option<Vec<String>>,
+}
+
+#[get("/resource/{repository}/{type}/{tag}")]
+pub async fn get_resource(
+    location: web::Path<Location>,
+    request: web::Json<GetResourceRequest>,
+    agent: web::Data<Arc<RwLock<AttestationAgent>>>,
+) -> Result<HttpResponse> {
+    let agent = agent.read().await;
+
+    let challenge = agent
+        .get_challenge(None)
+        .await
+        .map_err(|err| AgentError::ChallengeError(err.to_string()))?;
+
+    let ev_req = EvidenceRequest {
+        uuid: request.uuid.clone(),
+        challenge: challenge.clone().into_bytes(),
+        ima: request.ima,
+    };
+
+    let token_req = TokenRequest {
+        ev_req,
+        policy_id: request.policy_id.clone(),
+    };
+
+    #[cfg(feature = "no_as")]
+    {
+        bail!("Resource can only be got from attestation server.");
+    }
+
+    let token = agent.get_token(token_req).await?;
+
+    let uri = format!(
+        "{}/resource/{}/{}/{}",
+        agent.config.svr_url, location.repository, location.r#type, location.tag
+    );
+
+    let resource = agent
+        .get_resource(&uri, &token)
+        .await
+        .map_err(|err| AgentError::GetTokenError(err.to_string()))?;
+
+    Ok(HttpResponse::Ok().body(resource))
+}

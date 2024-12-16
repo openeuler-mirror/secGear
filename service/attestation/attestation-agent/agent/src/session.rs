@@ -18,7 +18,7 @@ pub struct Session {
     pub challenge: String,
     pub as_client: reqwest::Client,
     timeout: OffsetDateTime,
-    // pub token: Option<String>,
+    pub token: Option<String>,
 }
 
 impl Session {
@@ -29,7 +29,7 @@ impl Session {
             challenge,
             as_client,
             timeout,
-            // token,
+            token: None,
         })
     }
     pub fn is_expired(&self) -> bool {

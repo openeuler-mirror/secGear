@@ -11,7 +11,9 @@
  */
 use attestation_agent::{AttestationAgent, DEFAULT_AACONFIG_FILE};
 mod restapi;
-use restapi::{get_challenge, get_evidence, get_token, verify_evidence, verify_token};
+use restapi::{
+    get_challenge, get_evidence, get_resource, get_token, verify_evidence, verify_token,
+};
 
 use actix_web::{web, App, HttpResponse, HttpServer};
 use anyhow::Result;
@@ -72,6 +74,7 @@ async fn main() -> Result<()> {
             .service(verify_evidence)
             .service(get_token)
             .service(verify_token)
+            .service(get_resource)
             .default_service(web::to(|| HttpResponse::NotFound()))
     })
     .bind(cli.socketaddr)?

@@ -12,7 +12,7 @@
 /// RESTful Attestation Service
 use attestation_service::AttestationService;
 mod restapi;
-use restapi::{attestation, get_challenge, get_policy, reference, set_policy};
+use restapi::{attestation, get_challenge, get_policy, get_resource, reference, set_policy};
 mod session;
 use session::SessionMap;
 
@@ -85,6 +85,7 @@ async fn main() -> Result<()> {
             .service(reference)
             .service(set_policy)
             .service(get_policy)
+            .service(get_resource)
     });
     if cli.protocol == "https" {
         if cli.https_cert.is_empty() || cli.https_key.is_empty() {

@@ -11,7 +11,10 @@
  */
 use anyhow::Result;
 use attestation_types::{Claims, EvlResult};
-use jsonwebtoken::{encode, get_current_timestamp, Algorithm, EncodingKey, Header};
+use jsonwebtoken::{
+    decode, decode_header, encode, get_current_timestamp, Algorithm, DecodingKey, EncodingKey,
+    Header, Validation,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::Path;
@@ -130,4 +133,18 @@ impl TokenSigner {
         };
         Ok(token)
     }
+}
+
+pub fn verify(token: &String) -> Result<Claims> {
+    let header = decode_header(&token)?;
+    let alg: Algorithm = header.alg;
+
+    // todo: check support of verification algorithm
+
+    let cert = std::fs::read("/etc/attestation/attestation-service/token/as_cert.pem").unwrap();
+    let key_value = DecodingKey::from_rsa_pem(&cert)?;
+    let validation = Validation::new(alg);
+
+    let data = decode::<Claims>(&token, &key_value, &validation)?;
+    Ok(data.claims)
 }

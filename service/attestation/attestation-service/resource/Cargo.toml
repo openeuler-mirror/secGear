@@ -1,5 +1,5 @@
 [package]
-name = "policy"
+name = "resource"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,3 +11,6 @@ base64.workspace = true
 tokio.workspace = true
 futures.workspace = true
 async-trait.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+log.workspace = true
