@@ -11,8 +11,7 @@ usage()
     echo "  -h, --help                      Print this help, then exit"
     echo
     echo "Compile Options:"
-    echo "  -m, --cmake <option>            use cmake genenate Makefile, eg: -m(default), -mcoverage, --cmake, --cmake=coverage"
-    echo "  -m, --cmake <option>            use cmake genenate Makefile, eg: -m(default), -mcoverage, -masan, --cmake, --cmake=coverage"
+    echo "  -m, --cmake <option>            use cmake generate Makefile, eg: -m(default), -mcoverage, -masan, --cmake, --cmake=coverage"
     echo "  -c, --compile                   Enable compile"
     echo "  -e, --empty                     Enable compile empty(make clean)"
     echo
