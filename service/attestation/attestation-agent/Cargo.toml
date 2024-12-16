@@ -1,10 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-    "agent",
-    "attester",
-    "token"
-]
+members = ["agent", "attester", "token"]
 
 [workspace.dependencies]
 anyhow = "1.0"
@@ -14,10 +10,10 @@ serde_json = "1.0"
 rand = "0.8.5"
 base64-url = "3.0.0"
 async-trait = "0.1.78"
-tokio = {version = "1.0", features = ["rt"]}
+tokio = { version = "1.0", features = ["rt"] }
 log = "0.4.14"
 env_logger = "0.9"
-safer-ffi = {version = "0.1.8", features = ["alloc"]}
+safer-ffi = { version = "0.1.8", features = ["alloc"] }
 futures = "0.3.30"
 reqwest = { version = "0.12", features = ["cookies", "json"] }
 jsonwebtoken = "9.3.0"
@@ -26,5 +22,5 @@ actix-web = "4.5"
 clap = { version = "4.5.7", features = ["derive"] }
 scc = "2.1"
 
-verifier = {path = "../attestation-service/verifier", default-features = false}
-attestation-types = {path = "../attestation-types"}
+verifier = { path = "../attestation-service/verifier", default-features = false }
+attestation-types = { path = "../attestation-types" }
