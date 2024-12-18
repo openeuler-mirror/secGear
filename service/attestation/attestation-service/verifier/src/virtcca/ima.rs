@@ -9,7 +9,7 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use anyhow::{Result, bail};
+use anyhow::{anyhow, Result, bail};
 use ima_measurements::{Event, EventData, Parser};
 use fallible_iterator::FallibleIterator;
 use serde_json::{Value, Map, json};
@@ -47,7 +47,8 @@ impl ImaVerify {
             bail!("ima log hash verify failed");
         }
 
-        let ima_refs: Vec<_> = file_reader(IMA_REFERENCE_FILE)?
+        let ima_refs: Vec<_> = file_reader(IMA_REFERENCE_FILE)
+            .map_err(|_err| anyhow!("{} is not found", IMA_REFERENCE_FILE))?
             .into_iter()
             .map(String::from)
             .collect();
@@ -80,8 +81,7 @@ impl ImaVerify {
 use std::io::BufRead;
 use std::io::BufReader;
 fn file_reader(file_path: &str) -> ::std::io::Result<Vec<String>> {
-    let file = std::fs::File::open(file_path)
-        .expect("open ima reference file failed");
+    let file = std::fs::File::open(file_path)?;
     let mut strings = Vec::<String>::new();
     let mut reader = BufReader::new(file);
     let mut buf = String::new();

@@ -161,9 +161,11 @@ impl Evidence {
     // todo verify cert chain, now only verify signature
     fn verify_dev_cert_chain(dev_cert: &[u8]) -> Result<()> {
         let dev_cert = x509::X509::from_der(dev_cert)?;
-        let sub_cert_file = std::fs::read(VIRTCCA_SUB_CERT)?;
+        let sub_cert_file = std::fs::read(VIRTCCA_SUB_CERT)
+            .map_err(|_err| anyhow!("{} is not found", VIRTCCA_SUB_CERT))?;
         let sub_cert = x509::X509::from_pem(&sub_cert_file)?;
-        let root_cert_file = std::fs::read(VIRTCCA_ROOT_CERT)?;
+        let root_cert_file = std::fs::read(VIRTCCA_ROOT_CERT)
+            .map_err(|_err| anyhow!("{} is not found", VIRTCCA_ROOT_CERT))?;
         let root_cert = x509::X509::from_pem(&root_cert_file)?;
 
         // verify dev_cert by sub_cert
@@ -229,7 +231,8 @@ impl Evidence {
     }
     #[cfg(feature = "no_as")]
     fn compare_with_ref(&mut self) -> Result<()> {
-        let ref_file = std::fs::read(VIRTCCA_REF_VALUE_FILE)?;
+        let ref_file = std::fs::read(VIRTCCA_REF_VALUE_FILE)
+            .map_err(|_err| anyhow!("{} is not found", VIRTCCA_REF_VALUE_FILE))?;
         let js_ref = serde_json::from_slice(&ref_file)?;
         match js_ref {
             serde_json::Value::Object(obj) => {
