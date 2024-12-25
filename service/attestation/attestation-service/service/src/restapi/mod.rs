@@ -13,7 +13,6 @@ use anyhow::Context;
 use attestation_service::result::{Error, Result};
 use attestation_service::AttestationService;
 use resource::admin::ResourceAdminInterface;
-use resource::simple::SimpleResourceAdmin;
 use token_signer::verify;
 
 use crate::session::{Session, SessionMap};
@@ -220,14 +219,18 @@ pub async fn get_resource(
     log::debug!("Resource path: {}", resource_path);
     log::debug!("Receive claim: {}", claim);
 
-    agent
+    if agent
         .read()
         .await
         .resource_evaluate(&resource_path, &claim)
-        .await?;
+        .await?
+    {
+        log::debug!("Resource evaluate success.");
+        let content = agent.read().await.get_resource(&resource_path).await?;
 
-    let resource_admin = SimpleResourceAdmin::default();
-    let resource = resource_admin.get(&resource_path).await?;
-
-    Ok(HttpResponse::Ok().body(resource))
+        Ok(HttpResponse::Ok().body(content))
+    } else {
+        log::debug!("Resource evaluate fail.");
+        Ok(HttpResponse::BadRequest().body("resource evaluation failed"))
+    }
 }

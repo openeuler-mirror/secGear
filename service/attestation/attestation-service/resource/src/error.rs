@@ -22,8 +22,14 @@ pub enum ResourceError {
     PolicyMissing,
     #[error("Failed to load policy: {0}")]
     LoadPolicy(#[from] anyhow::Error),
-    #[error("Failed to get resource: {0}")]
-    GetResource(#[from] std::io::Error),
+    #[error("Resource error: {0}")]
+    ResourceError(#[from] std::io::Error),
+    #[error("Illegal resource path: {0}")]
+    IllegalResource(String),
+    #[error("Invalid resource content: {0}")]
+    ResourceFromUtf8(#[from] std::string::FromUtf8Error),
+    #[error("Serde deserialize failure: {0}")]
+    SerdeError(#[from] serde_json::Error),
     #[error("IO error: {0}")]
     IoError(#[from] core::convert::Infallible),
 }

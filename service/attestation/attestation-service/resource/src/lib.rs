@@ -12,6 +12,6 @@
 
 pub mod admin;
 pub mod error;
-pub mod opa;
 pub mod policy;
-pub mod simple;
+pub mod resource;
+pub mod storage;

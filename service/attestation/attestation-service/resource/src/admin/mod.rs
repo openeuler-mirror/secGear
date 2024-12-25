@@ -10,19 +10,22 @@
  * See the Mulan PSL v2 for more details.
  */
 
-use crate::error::ResourceError;
-use crate::error::Result;
+pub mod simple;
+
+use crate::{error::Result, resource::Resource};
 use async_trait::async_trait;
 
 #[async_trait]
-pub trait ResourcePolicyEngine: Send + Sync {
-    async fn evaluate(&self, _resource: &str, _claim: &str) -> Result<bool> {
-        Err(ResourceError::NotImplemented)
-    }
-    async fn set_policy(&self, _policy: &str) -> Result<()> {
-        Err(ResourceError::NotImplemented)
-    }
-    async fn get_policy(&self, _policy: &str) -> Result<String> {
-        Err(ResourceError::NotImplemented)
-    }
+pub trait ResourceAdminInterface: Send + Sync {
+    /// Get resource from the storage
+    async fn get_resource(&self, location: &str) -> Result<Resource>;
+    /// Write the content inside the resource in the storage.
+    async fn set_resource(
+        &self,
+        _location: &str,
+        _content: String,
+        policy: Vec<String>,
+    ) -> Result<()>;
+    /// Evaluate resource according the claims
+    async fn evaluate_resource(&self, location: &str, claim: &str) -> Result<bool>;
 }
