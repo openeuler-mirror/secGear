@@ -23,6 +23,7 @@ use attestation_types::SESSION_TIMEOUT_MIN;
 use base64_url;
 use log;
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::fmt::Display;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -204,11 +205,35 @@ pub async fn get_resource(
     req: HttpRequest,
     agent: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
-    let bearer = Authorization::<Bearer>::parse(&req)
-        .context("failed to parse bearer token")?
-        .into_scheme();
+    let sessions = agent.read().await.get_sessions();
 
-    let token: String = bearer.token().to_string();
+    // If the corresponding session of the token exists, get the token inside the session.
+    // Otherwise, get the token from the http header.
+    let token = match {
+        if let Some(cookie) = req.cookie("oeas-session-id") {
+            sessions
+                .session_map
+                .get_async(cookie.value())
+                .await
+                .map(|session| session.get_token())
+                .flatten()
+                .map(|t| {
+                    log::debug!("Get token from session {}", cookie.value());
+                    t
+                })
+        } else {
+            None
+        }
+    } {
+        Some(token) => token,
+        None => {
+            let bearer = Authorization::<Bearer>::parse(&req)
+                .context("failed to parse bearer token")?
+                .into_scheme();
+            log::debug!("Get token from headers");
+            bearer.token().to_string()
+        }
+    };
 
     let claim = verify(&token).context("illegal token")?;
 
