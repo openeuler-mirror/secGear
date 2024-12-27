@@ -9,9 +9,9 @@
 * PURPOSE.
 * See the Mulan PSL v2 for more details.
 */
+use crate::result::{Error, Result};
+use crate::AttestationService;
 use anyhow::Context;
-use attestation_service::result::{Error, Result};
-use attestation_service::AttestationService;
 use resource::admin::ResourceAdminInterface;
 use token_signer::verify;
 
@@ -36,27 +36,32 @@ pub struct ChallengeRequest {
 #[get("/challenge")]
 pub async fn get_challenge(
     request: Option<web::Json<ChallengeRequest>>,
-    map: web::Data<SessionMap>,
     service: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
     log::debug!("challenge request");
     let user_data: Option<Vec<u8>>;
+
     if request.is_some() {
         user_data = Some(request.unwrap().0.user_data);
         if user_data.clone().unwrap().len() > 32 {
-            return Err(Error::ParameterInvalid(String::from("user data length should not exceed 32")));
+            return Err(Error::ParameterInvalid(String::from(
+                "user data length should not exceed 32",
+            )));
         }
         log::debug!("user data is {:?}", user_data.clone().unwrap());
     } else {
         log::debug!("user data is None");
         user_data = Option::None;
     }
+
+    let map = service.read().await.get_sessions();
     let challenge = service.read().await.generate_challenge(user_data).await;
-    let session = Session::new(challenge, SESSION_TIMEOUT_MIN);
+    let new_session = Session::new(challenge, SESSION_TIMEOUT_MIN);
+
     let response = HttpResponse::Ok()
-        .cookie(session.cookie())
-        .json(session.challenge.clone());
-    map.insert(session);
+        .cookie(new_session.cookie())
+        .json(new_session.challenge.clone());
+    map.insert(new_session);
 
     Ok(response)
 }
@@ -71,11 +76,11 @@ pub struct AttestationRequest {
 #[post("/attestation")]
 pub async fn attestation(
     http_req: HttpRequest,
-    map: web::Data<SessionMap>,
     request: web::Json<AttestationRequest>,
     service: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
     log::debug!("attestation request is coming");
+    let map = service.read().await.get_sessions();
     let request = request.0;
     let challenge = request.challenge;
 

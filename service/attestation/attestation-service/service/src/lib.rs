@@ -9,27 +9,31 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+
+pub mod restapi;
+pub mod result;
+pub mod session;
+
+use actix_web::web::{self, Data};
 use anyhow::{anyhow, Context, Result};
+use attestation_types::EvlResult;
 use base64_url;
 use futures::lock::Mutex;
+use policy::opa::OPA;
+use policy::policy_engine::{PolicyEngine, PolicyEngineError};
 use rand::RngCore;
+use reference::reference::{RefOpError, ReferenceOps};
 use resource::admin::simple::SimpleResourceAdmin;
 use resource::admin::ResourceAdminInterface;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use session::SessionMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
-
-use attestation_types::EvlResult;
-use policy::opa::OPA;
-use policy::policy_engine::{PolicyEngine, PolicyEngineError};
-use reference::reference::{RefOpError, ReferenceOps};
 use token_signer::{EvlReport, TokenSignConfig, TokenSigner};
 use verifier::{Verifier, VerifierAPIs};
-
-pub mod result;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ASConfig {
     pub token_cfg: TokenSignConfig,
@@ -72,6 +76,8 @@ pub struct AttestationService {
     //rvps: ,
     // tee verifier sub service
     //verifier: ,
+    // Sessions Map
+    pub(crate) sessions: Data<SessionMap>,
 }
 
 impl Default for AttestationService {
@@ -79,6 +85,7 @@ impl Default for AttestationService {
         Self {
             config: ASConfig::default(),
             resource_admin: Arc::new(Mutex::new(SimpleResourceAdmin::default())),
+            sessions: web::Data::new(SessionMap::new()),
         }
     }
 }
@@ -98,6 +105,7 @@ impl AttestationService {
         Ok(AttestationService {
             config,
             resource_admin: Arc::new(Mutex::new(SimpleResourceAdmin::default())),
+            sessions: web::Data::new(SessionMap::new()),
         })
     }
     /// evaluate tee evidence with reference and policy, and issue attestation result token
@@ -274,5 +282,9 @@ impl AttestationService {
             .context("fail to get resource")?;
 
         Ok(serde_json::to_string(&resource.get_content())?)
+    }
+
+    pub fn get_sessions(&self) -> Data<SessionMap> {
+        self.sessions.clone()
     }
 }

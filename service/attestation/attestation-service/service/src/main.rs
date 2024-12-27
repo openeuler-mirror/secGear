@@ -9,15 +9,12 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-/// RESTful Attestation Service
-use attestation_service::AttestationService;
-mod restapi;
-use restapi::{attestation, get_challenge, get_policy, get_resource, reference, set_policy};
-mod session;
-use session::SessionMap;
-
 use actix_web::{web, App, HttpServer};
 use anyhow::Result;
+use attestation_service::restapi::{
+    attestation, get_challenge, get_policy, get_resource, reference, set_policy,
+};
+use attestation_service::AttestationService;
 use clap::{arg, command, Parser};
 use env_logger;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
@@ -62,13 +59,11 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
     let server: AttestationService = AttestationService::new(Some(cli.config)).unwrap();
-    let session_map = web::Data::new(SessionMap::new());
-
-    let sessions_clone = session_map.clone();
+    let sessions = server.get_sessions();
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
-            sessions_clone
+            sessions
                 .session_map
                 .retain_async(|_, v| !v.is_expired())
                 .await;
@@ -79,7 +74,6 @@ async fn main() -> Result<()> {
     let http_server = HttpServer::new(move || {
         App::new()
             .app_data(web::Data::clone(&service))
-            .app_data(web::Data::clone(&session_map))
             .service(get_challenge)
             .service(attestation)
             .service(reference)
