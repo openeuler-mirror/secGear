@@ -15,23 +15,23 @@
 //! This crate provides some APIs to get and verify the TEE evidence.
 //! Current supports kunpeng itrustee and virtcca TEE types.
 
+pub mod restapi;
+pub mod result;
+
 use actix_web::web::Bytes;
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
+use attester::{Attester, AttesterAPIs};
 use log;
 use rand::RngCore;
 use reqwest::Client;
+use result::Error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs::File;
 use std::path::Path;
 use thiserror;
-
-use attester::{Attester, AttesterAPIs};
 use token_verifier::{TokenRawData, TokenVerifier, TokenVerifyConfig};
-
-pub mod result;
-use result::Error;
 pub type TeeClaim = serde_json::Value;
 
 #[derive(Debug, thiserror::Error)]
@@ -95,7 +95,7 @@ pub trait AttestationAgentAPIs {
 
     async fn verify_token(&self, token: String) -> Result<AsTokenClaim>;
 
-    async fn get_resource(&self, uri: &str, token: &str) -> Result<String>;
+    async fn get_resource(&self, challenge: &str, uri: &str, token: &str) -> Result<String>;
 }
 
 #[async_trait]
@@ -173,19 +173,54 @@ impl AttestationAgentAPIs for AttestationAgent {
         Ok(result)
     }
 
-    async fn get_resource(&self, uri: &str, token: &str) -> Result<String> {
+    async fn get_resource(&self, challenge: &str, uri: &str, token: &str) -> Result<String> {
         #[cfg(feature = "no_as")]
         {
             bail!("resource can only be gotten from attestation server!")
         }
-        let rest = self.get_resource_from_as(uri, token).await?;
+        let rest = self.get_resource_from_as(challenge, uri, token).await?;
         Ok(String::from_utf8(rest.to_vec())?)
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum HttpProtocal {
+    Http { protocal: String },
+    // If https is uesd, the root certificate must be provided.
+    Https { protocal: String, cert_root: String },
+}
+
+impl Default for HttpProtocal {
+    fn default() -> Self {
+        Self::Http {
+            protocal: "http".to_string(),
+        }
+    }
+}
+
+impl HttpProtocal {
+    pub fn get_protocal(&self) -> String {
+        match self {
+            Self::Http { protocal } => protocal,
+            Self::Https { protocal, .. } => protocal,
+        }
+        .clone()
+    }
+
+    pub fn get_cert_root(&self) -> Option<String> {
+        match self {
+            Self::Https { cert_root, .. } => Some(cert_root.clone()),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AAConfig {
-    pub svr_url: String, // Attestation Service url
+    // Attestation Service url
+    pub svr_url: String,
+    // Http protocal, such as http or https
+    pub protocal: HttpProtocal,
     token_cfg: TokenVerifyConfig,
 }
 
@@ -194,6 +229,7 @@ impl Default for AAConfig {
         Self {
             svr_url: String::from("http://127.0.0.1:8080"),
             token_cfg: TokenVerifyConfig::default(),
+            protocal: HttpProtocal::default(),
         }
     }
 }
@@ -218,23 +254,11 @@ impl TryFrom<&Path> for AAConfig {
 pub struct AttestationAgent {
     pub config: AAConfig,
     as_client_sessions: SessionMap,
-    pub cert_root: String,
-    pub access_as_protocol: String,
 }
 
 #[allow(dead_code)]
 impl AttestationAgent {
-    pub fn new(conf_path: Option<String>) -> Result<Self, Error> {
-        let config = match conf_path {
-            Some(conf_path) => {
-                log::info!("Attestation Agent config file:{conf_path}");
-                AAConfig::try_from(Path::new(&conf_path))?
-            }
-            None => {
-                log::warn!("No Attestation Agent config file specified. Using a default config");
-                AAConfig::default()
-            }
-        };
+    pub fn new(config: AAConfig) -> Result<Self, Error> {
         let as_client_sessions = SessionMap::new();
         let sessions = as_client_sessions.clone();
         tokio::spawn(async move {
@@ -249,33 +273,26 @@ impl AttestationAgent {
         Ok(AttestationAgent {
             config,
             as_client_sessions,
-            access_as_protocol: String::from("http"),
-            cert_root: String::from(""),
         })
     }
 
-    fn create_client(
-        protocol: String,
-        cert: Option<String>,
-        cookie_store: bool,
-    ) -> Result<reqwest::Client> {
-        let client: Client;
-        if protocol == "https" {
-            if cert == None {
-                return Err(anyhow!("https need root certificate"));
+    fn create_client(&self, protocal: HttpProtocal, cookie_store: bool) -> Result<reqwest::Client> {
+        let client: Client = match protocal {
+            HttpProtocal::Http { protocal: _ } => reqwest::Client::builder()
+                .cookie_store(cookie_store)
+                .build()?,
+            HttpProtocal::Https {
+                protocal: _,
+                cert_root,
+            } => {
+                let cert = reqwest::Certificate::from_pem(cert_root.as_bytes())?;
+                reqwest::Client::builder()
+                    .cookie_store(cookie_store)
+                    .add_root_certificate(cert)
+                    .build()?
             }
-            let cert = reqwest::Certificate::from_pem(cert.unwrap().as_bytes())?;
-            client = reqwest::Client::builder()
-                .cookie_store(cookie_store)
-                .add_root_certificate(cert)
-                .build()?;
-        } else if protocol == "http" {
-            client = reqwest::Client::builder()
-                .cookie_store(cookie_store)
-                .build()?;
-        } else {
-            return Err(anyhow!("unknown {}", protocol));
-        }
+        };
+
         Ok(client)
     }
 
@@ -286,7 +303,25 @@ impl AttestationAgent {
         evidence: &[u8],
         policy_id: Option<Vec<String>>,
     ) -> Result<String> {
-        let challenge = base64_url::encode(challenge);
+        let challenge = String::from_utf8_lossy(challenge).to_string();
+        let mut session = match self
+            .as_client_sessions
+            .session_map
+            .get_async(&challenge)
+            .await
+        {
+            Some(entry) => entry,
+            None => {
+                // Challenge should be posted to service previously.
+                bail!("challenge '{}' does not exist in sessions", challenge);
+            }
+        };
+
+        // If the session is already attested, directly use the token.
+        if let Some(t) = session.get().token.as_ref() {
+            return Ok(t.clone());
+        }
+
         let request_body = json!({
             "challenge": challenge,
             "evidence": base64_url::encode(evidence),
@@ -294,27 +329,8 @@ impl AttestationAgent {
         });
         let mut map = HeaderMap::new();
         map.insert("Content-Type", HeaderValue::from_static("application/json"));
-        let mut client = Self::create_client(
-            self.access_as_protocol.clone(),
-            Some(self.cert_root.clone()),
-            true,
-        )?;
-
-        if !self.as_client_sessions.session_map.is_empty() {
-            let session = self
-                .as_client_sessions
-                .session_map
-                .get_async(&challenge)
-                .await;
-            match session {
-                Some(entry) => {
-                    map.insert("as-challenge", HeaderValue::from_static("as"));
-                    client = entry.get().as_client.clone()
-                }
-                None => log::info!("challenge is not as generate"),
-            }
-        }
-
+        map.insert("as-challenge", HeaderValue::from_static("as"));
+        let client = session.get().as_client.clone();
         let attest_endpoint = format!("{}/attestation", self.config.svr_url);
         let res = client
             .post(attest_endpoint)
@@ -326,6 +342,7 @@ impl AttestationAgent {
         match res.status() {
             reqwest::StatusCode::OK => {
                 let token = res.text().await?;
+                session.get_mut().token = Some(token.clone());
                 log::debug!("Remote Attestation success, AS Response: {:?}", token);
                 Ok(token)
             }
@@ -365,11 +382,7 @@ impl AttestationAgent {
 
     async fn get_challenge_from_as(&self, user_data: Option<Vec<u8>>) -> Result<String> {
         let challenge_endpoint = format!("{}/challenge", self.config.svr_url);
-        let client = Self::create_client(
-            self.access_as_protocol.clone(),
-            Some(self.cert_root.clone()),
-            true,
-        )?;
+        let client = self.create_client(self.config.protocal.clone(), true)?;
         let data: Value;
         if user_data.is_some() {
             data = json!({"user_data":user_data.unwrap()});
@@ -399,15 +412,25 @@ impl AttestationAgent {
         Ok(challenge)
     }
 
-    async fn get_resource_from_as(&self, uri: &str, token: &str) -> Result<Bytes> {
-        let client = Self::create_client(
-            self.access_as_protocol.clone(),
-            Some(self.cert_root.clone()),
-            true,
-        )?;
+    async fn get_resource_from_as(&self, challenge: &str, uri: &str, token: &str) -> Result<Bytes> {
+        // Use the client in the attested session to
+        let session = match self
+            .as_client_sessions
+            .session_map
+            .get_async(challenge)
+            .await
+        {
+            Some(s) => s,
+            None => bail!("getting resource failed because the session is missing"),
+        };
 
-        let response = client.get(uri).bearer_auth(token).send().await?;
-
+        let response = session
+            .get()
+            .as_client
+            .get(uri)
+            .bearer_auth(token)
+            .send()
+            .await?;
         let resource = match response.status() {
             reqwest::StatusCode::OK => {
                 let respone = response.bytes().await.unwrap();
@@ -461,8 +484,9 @@ pub fn get_report(
         ima: Some(ima),
     };
     let rt = Runtime::new().unwrap();
+    let config = AAConfig::try_from(Path::new(DEFAULT_AACONFIG_FILE)).unwrap();
     let fut = async {
-        AttestationAgent::new(Some(DEFAULT_AACONFIG_FILE.to_string()))
+        AttestationAgent::new(config)
             .unwrap()
             .get_evidence(input)
             .await
@@ -530,8 +554,9 @@ pub fn verify_report(
         Some(report) => report.clone().to_vec(),
     };
     let rt = Runtime::new().unwrap();
+    let config = AAConfig::try_from(Path::new(DEFAULT_AACONFIG_FILE)).unwrap();
     let fut = async {
-        AttestationAgent::new(Some(DEFAULT_AACONFIG_FILE.to_string()))
+        AttestationAgent::new(config)
             .unwrap()
             .verify_evidence(&challenge, &report, None)
             .await

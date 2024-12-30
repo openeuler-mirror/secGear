@@ -47,6 +47,9 @@ pub enum Error {
     #[error("Attestation Agent error:{0}")]
     AttestationAgentError(String),
 
+    #[error("Client is missing, challenge is invalid.")]
+    ClientMissing,
+
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

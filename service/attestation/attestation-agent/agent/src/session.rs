@@ -18,13 +18,13 @@ pub struct Session {
     pub challenge: String,
     pub as_client: reqwest::Client,
     timeout: OffsetDateTime,
+    /// If token is not none, this session is already attested by attestation server. Then directly use the token.
     pub token: Option<String>,
 }
 
 impl Session {
     pub fn new(challenge: String, as_client: reqwest::Client, timeout_m: i64) -> Result<Self> {
         let timeout = OffsetDateTime::now_utc() + Duration::minutes(timeout_m);
-        // let token = None;
         Ok(Session {
             challenge,
             as_client,

@@ -9,8 +9,8 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use attestation_agent::result::Result;
-use attestation_agent::{AgentError, AttestationAgent, AttestationAgentAPIs, TokenRequest};
+use crate::result::Result;
+use crate::{AgentError, AttestationAgent, AttestationAgentAPIs, TokenRequest};
 
 use actix_web::{get, post, web, HttpResponse};
 use attester::EvidenceRequest;
@@ -34,7 +34,7 @@ pub async fn get_challenge(
     if request.is_some() {
         user_data = Some(request.unwrap().0.user_data);
         if user_data.clone().unwrap().len() > 32 {
-            return Err(attestation_agent::result::Error::Agent {
+            return Err(crate::result::Error::Agent {
                 source: AgentError::ChallengeError(String::from(
                     "user data length should not exceed 32",
                 )),
@@ -191,6 +191,7 @@ struct Location {
 #[derive(Deserialize, Serialize, Debug)]
 struct GetResourceRequest {
     uuid: String,
+    challenge: Option<String>,
     ima: Option<bool>,
     policy_id: Option<Vec<String>>,
 }
@@ -203,11 +204,16 @@ pub async fn get_resource(
 ) -> Result<HttpResponse> {
     let agent = agent.read().await;
 
-    let challenge = agent
-        .get_challenge(None)
-        .await
-        .map_err(|err| AgentError::ChallengeError(err.to_string()))?;
+    // If user provides the challenge number, use the challenge to find session.
+    let challenge = match request.challenge.as_ref() {
+        Some(c) => c.clone(),
+        None => agent
+            .get_challenge(None)
+            .await
+            .map_err(|err| AgentError::ChallengeError(err.to_string()))?,
+    };
 
+    // base64 encoded challenge
     let ev_req = EvidenceRequest {
         uuid: request.uuid.clone(),
         challenge: challenge.clone().into_bytes(),
@@ -232,7 +238,7 @@ pub async fn get_resource(
     );
 
     let resource = agent
-        .get_resource(&uri, &token)
+        .get_resource(&challenge, &uri, &token)
         .await
         .map_err(|err| AgentError::GetTokenError(err.to_string()))?;
 

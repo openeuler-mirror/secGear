@@ -10,22 +10,19 @@
 * See the Mulan PSL v2 for more details.
 */
 use crate::result::{Error, Result};
+use crate::session::Session;
 use crate::AttestationService;
-use anyhow::Context;
-use resource::admin::ResourceAdminInterface;
-use token_signer::verify;
-
-use crate::session::{Session, SessionMap};
 use actix_web::http::header::Header;
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use actix_web_httpauth::headers::authorization::{Authorization, Bearer};
+use anyhow::Context;
 use attestation_types::SESSION_TIMEOUT_MIN;
 use base64_url;
 use log;
 use serde::{Deserialize, Serialize};
-use std::any::Any;
 use std::fmt::Display;
 use std::sync::Arc;
+use token_signer::verify;
 use tokio::sync::RwLock;
 
 const DEFAULT_POLICY_DIR: &str = "/etc/attestation/attestation-service/policy";
@@ -86,29 +83,32 @@ pub async fn attestation(
     let challenge = request.challenge;
 
     if http_req.headers().contains_key("as-challenge") {
-        log::info!("sessions map len:{}", map.session_map.len());
-        let cookie = http_req
-            .cookie("oeas-session-id")
-            .ok_or(Error::CookieMissing)?;
-        let session = map
-            .session_map
-            .get_async(cookie.value())
-            .await
-            .ok_or(Error::SessionNotFound)?;
-        if session.is_expired() {
-            return Err(Error::SessionExpired);
-        }
-        if challenge != session.challenge {
-            log::error!(
-                "request challenge:{} does not match session challenge:{}",
-                challenge,
-                session.challenge
-            );
-            return Err(Error::ChallengeInvalid);
-        }
+        log::warn!("attestation request lacks 'as-challenge' header field.");
     }
 
-    let nonce = base64_url::decode(&challenge)?;
+    log::info!("sessions map len:{}", map.session_map.len());
+    let cookie = http_req
+        .cookie("oeas-session-id")
+        .ok_or(Error::CookieMissing)?;
+    let session = map
+        .session_map
+        .get_async(cookie.value())
+        .await
+        .ok_or(Error::SessionNotFound)?;
+    if session.is_expired() {
+        return Err(Error::SessionExpired);
+    }
+    if challenge != session.challenge {
+        log::error!(
+            "request challenge:{} does not match session challenge:{}",
+            challenge,
+            session.challenge
+        );
+        return Err(Error::ChallengeInvalid);
+    }
+
+    // The challenge in evidence is base64 encoded.
+    let nonce = challenge.as_bytes();
     let evidence = base64_url::decode(&request.evidence)?;
     let ids = request.policy_id;
     let token = service
