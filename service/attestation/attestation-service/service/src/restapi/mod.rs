@@ -9,7 +9,7 @@
 * PURPOSE.
 * See the Mulan PSL v2 for more details.
 */
-use crate::result::{Error, Result};
+use crate::result::{self, AsError, Result};
 use crate::session::Session;
 use crate::AttestationService;
 use actix_web::http::header::Header;
@@ -89,14 +89,14 @@ pub async fn attestation(
     log::info!("sessions map len:{}", map.session_map.len());
     let cookie = http_req
         .cookie("oeas-session-id")
-        .ok_or(Error::CookieMissing)?;
+        .ok_or(AsError::CookieMissing)?;
     let session = map
         .session_map
         .get_async(cookie.value())
         .await
-        .ok_or(Error::SessionNotFound)?;
+        .ok_or(AsError::SessionNotFound)?;
     if session.is_expired() {
-        return Err(Error::SessionExpired);
+        return Err(AsError::SessionExpired);
     }
     if challenge != session.challenge {
         log::error!(
@@ -104,7 +104,7 @@ pub async fn attestation(
             challenge,
             session.challenge
         );
-        return Err(Error::ChallengeInvalid);
+        return Err(AsError::ChallengeInvalid);
     }
 
     // The challenge in evidence is base64 encoded.
@@ -249,18 +249,28 @@ pub async fn get_resource(
     log::debug!("Resource path: {}", resource_path);
     log::debug!("Receive claim: {}", claim);
 
-    if agent
+    match agent
         .read()
         .await
         .resource_evaluate(&resource_path, &claim)
-        .await?
+        .await
     {
-        log::debug!("Resource evaluate success.");
-        let content = agent.read().await.get_resource(&resource_path).await?;
+        Ok(r) => {
+            if r {
+                log::debug!("Resource evaluate success.");
+                let content = agent.read().await.get_resource(&resource_path).await?;
 
-        Ok(HttpResponse::Ok().body(content))
-    } else {
-        log::debug!("Resource evaluate fail.");
-        Ok(HttpResponse::BadRequest().body("resource evaluation failed"))
+                Ok(HttpResponse::Ok().body(content))
+            } else {
+                log::debug!("Resource evaluate fail.");
+                Ok(HttpResponse::BadRequest().body("resource evaluation failed"))
+            }
+        }
+        Err(e) => {
+            log::debug!("{}", e);
+            Err(result::AsError::ResourcePolicy(
+                resource::error::ResourceError::LoadPolicy(e),
+            ))
+        }
     }
 }

@@ -11,12 +11,12 @@
  */
 use actix_web::{body::BoxBody, HttpResponse, ResponseError};
 use thiserror::Error;
-pub type Result<T, E = Error> = std::result::Result<T, E>;
+pub type Result<T, E = AsError> = std::result::Result<T, E>;
 
 #[derive(Debug, Error)]
 //#[non_exhaustive]
 //#[allow(missing_docs)]
-pub enum Error {
+pub enum AsError {
     #[error("IO error: {source:?}")]
     Io {
         #[from]
@@ -80,7 +80,7 @@ pub enum Error {
     Other(#[from] anyhow::Error),
 }
 
-impl ResponseError for Error {
+impl ResponseError for AsError {
     fn error_response(&self) -> HttpResponse {
         HttpResponse::InternalServerError().body(BoxBody::new(format!("{self:#?}")))
     }
