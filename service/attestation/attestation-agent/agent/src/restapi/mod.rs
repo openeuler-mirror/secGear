@@ -69,13 +69,12 @@ pub async fn get_evidence(
 ) -> Result<HttpResponse> {
     let request = request.0;
     log::debug!("get evidence request: {:?}", request);
-    let challenge = base64_url::decode(&request.challenge)
-        .map_err(|err| AgentError::DecodeError(err.to_string()))?;
+    let challenge = request.challenge;
     let uuid = request.uuid;
     let ima = request.ima;
     let input = EvidenceRequest {
         uuid: uuid,
-        challenge: challenge,
+        challenge: challenge.into_bytes(),
         ima: ima,
     };
     let evidence = agent
@@ -101,15 +100,14 @@ pub async fn verify_evidence(
 ) -> Result<HttpResponse> {
     let request = request.0;
     log::debug!("verify evidence request: {:?}", request);
-    let challenge = base64_url::decode(&request.challenge)
-        .map_err(|err| AgentError::DecodeError(err.to_string()))?;
+    let challenge = request.challenge;
     let evidence = request.evidence;
     let policy_id = request.policy_id;
 
     let claim = agent
         .read()
         .await
-        .verify_evidence(&challenge, evidence.as_bytes(), policy_id)
+        .verify_evidence(&challenge.into_bytes(), evidence.as_bytes(), policy_id)
         .await
         .map_err(|err| AgentError::VerifyEvidenceError(err.to_string()))?;
     let string_claim = serde_json::to_string(&claim)?;
@@ -132,14 +130,13 @@ pub async fn get_token(
 ) -> Result<HttpResponse> {
     let request = request.0;
     log::debug!("get token request: {:?}", request);
-    let challenge = base64_url::decode(&request.challenge)
-        .map_err(|err| AgentError::DecodeError(err.to_string()))?;
+    let challenge = request.challenge;
     let uuid = request.uuid;
     let ima = request.ima;
     let policy_id = request.policy_id;
     let ev = EvidenceRequest {
         uuid: uuid,
-        challenge: challenge,
+        challenge: challenge.into_bytes(),
         ima: ima,
     };
     let input = TokenRequest {
