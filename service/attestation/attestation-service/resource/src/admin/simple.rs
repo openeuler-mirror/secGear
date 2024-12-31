@@ -16,6 +16,7 @@ use crate::policy::opa::OpenPolicyAgent;
 use crate::policy::PolicyEngine;
 use crate::storage::simple::SimpleStorage;
 use crate::storage::StorageEngine;
+use anyhow::Context;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -47,12 +48,25 @@ impl ResourceAdminInterface for SimpleResourceAdmin {
     }
 
     async fn evaluate_resource(&self, location: &str, claims: &str) -> Result<bool> {
-        let resource = self.get_resource(location).await?;
-        self.policy_engine
+        let resource = self
+            .get_resource(location)
+            .await
+            .context("get resource failed")
+            .map_err(|e| {
+                log::debug!("{}", e);
+                e
+            })?;
+        Ok(self
+            .policy_engine
             .lock()
             .await
             .evaluate(location, claims, resource.get_policy())
             .await
+            .context("evaluate failed")
+            .map_err(|e| {
+                log::debug!("{}", e);
+                e
+            })?)
     }
     async fn set_resource(
         &self,

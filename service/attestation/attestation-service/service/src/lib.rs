@@ -264,12 +264,13 @@ impl AttestationService {
     }
 
     pub async fn resource_evaluate(&self, resource: &str, claim: &str) -> Result<bool> {
-        self.resource_admin
+        Ok(self
+            .resource_admin
             .lock()
             .await
             .evaluate_resource(resource, claim)
             .await
-            .context("fail to evaluate resource according to the claim")
+            .context("fail to evaluate resource according to the claim")?)
     }
 
     pub async fn get_resource(&self, location: &str) -> Result<String> {
