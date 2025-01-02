@@ -16,7 +16,7 @@ use crate::{
 };
 use anyhow::Context;
 use async_trait::async_trait;
-use std::{fs::read_to_string, path::PathBuf};
+use std::path::PathBuf;
 
 const DEFAULT_RESOURCE_POLICY_DIR: &str = "/run/attestation/attestation-service/resource/policy/";
 const DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY: &str = "default_virtcca.rego";
