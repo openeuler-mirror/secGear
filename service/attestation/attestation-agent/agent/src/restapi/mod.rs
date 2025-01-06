@@ -11,10 +11,10 @@
  */
 use crate::result::Result;
 use crate::{AgentError, AttestationAgent, AttestationAgentAPIs, TokenRequest};
-
 use actix_web::{get, post, web, HttpResponse};
 use attester::EvidenceRequest;
 use log;
+use resource::resource::ResourceLocation;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -191,11 +191,11 @@ struct GetResourceRequest {
     challenge: Option<String>,
     ima: Option<bool>,
     policy_id: Option<Vec<String>>,
+    resource: ResourceLocation,
 }
 
-#[get("/resource/{repository}/{type}/{tag}")]
+#[get("/resource/storage")]
 pub async fn get_resource(
-    location: web::Path<Location>,
     request: web::Json<GetResourceRequest>,
     agent: web::Data<Arc<RwLock<AttestationAgent>>>,
 ) -> Result<HttpResponse> {
@@ -229,13 +229,10 @@ pub async fn get_resource(
 
     let token = agent.get_token(token_req).await?;
 
-    let uri = format!(
-        "{}/resource/{}/{}/{}",
-        agent.config.svr_url, location.repository, location.r#type, location.tag
-    );
+    let restful = format!("{}/resource/storage", agent.config.svr_url,);
 
     let resource = agent
-        .get_resource(&challenge, &uri, &token)
+        .get_resource(&challenge, &restful, request.resource.clone(), &token)
         .await
         .map_err(|err| AgentError::GetTokenError(err.to_string()))?;
 

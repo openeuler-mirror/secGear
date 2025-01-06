@@ -19,12 +19,13 @@ pub mod restapi;
 pub mod result;
 
 use actix_web::web::Bytes;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use attester::{Attester, AttesterAPIs};
 use log;
 use rand::RngCore;
 use reqwest::Client;
+use resource::resource::ResourceLocation;
 use result::Error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -95,7 +96,13 @@ pub trait AttestationAgentAPIs {
 
     async fn verify_token(&self, token: String) -> Result<AsTokenClaim>;
 
-    async fn get_resource(&self, challenge: &str, uri: &str, token: &str) -> Result<String>;
+    async fn get_resource(
+        &self,
+        challenge: &str,
+        restful: &str,
+        resource: ResourceLocation,
+        token: &str,
+    ) -> Result<String>;
 }
 
 #[async_trait]
@@ -173,12 +180,20 @@ impl AttestationAgentAPIs for AttestationAgent {
         Ok(result)
     }
 
-    async fn get_resource(&self, challenge: &str, uri: &str, token: &str) -> Result<String> {
+    async fn get_resource(
+        &self,
+        challenge: &str,
+        restful: &str,
+        resource: ResourceLocation,
+        token: &str,
+    ) -> Result<String> {
         #[cfg(feature = "no_as")]
         {
             bail!("resource can only be gotten from attestation server!")
         }
-        let rest = self.get_resource_from_as(challenge, uri, token).await?;
+        let rest = self
+            .get_resource_from_as(challenge, restful, resource, token)
+            .await?;
         Ok(String::from_utf8(rest.to_vec())?)
     }
 }
@@ -412,7 +427,13 @@ impl AttestationAgent {
         Ok(challenge)
     }
 
-    async fn get_resource_from_as(&self, challenge: &str, uri: &str, token: &str) -> Result<Bytes> {
+    async fn get_resource_from_as(
+        &self,
+        challenge: &str,
+        restful: &str,
+        resource: ResourceLocation,
+        token: &str,
+    ) -> Result<Bytes> {
         // Use the client in the attested session to
         let session = match self
             .as_client_sessions
@@ -427,8 +448,9 @@ impl AttestationAgent {
         let response = session
             .get()
             .as_client
-            .get(uri)
+            .get(restful)
             .bearer_auth(token)
+            .body(serde_json::to_string(&resource).context("Resource serialization failed")?)
             .send()
             .await?;
         let resource = match response.status() {
