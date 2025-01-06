@@ -16,7 +16,6 @@
 
 use anyhow::*;
 use async_trait::async_trait;
-use attestation_types::{Evidence, TeeType};
 use log;
 
 #[cfg(feature = "itrustee-attester")]
@@ -65,8 +64,8 @@ impl AttesterAPIs for Attester {
             let evidence = itrustee::ItrusteeAttester::default()
                 .tee_get_evidence(_user_data)
                 .await?;
-            let aa_evidence = Evidence {
-                tee: TeeType::Itrustee,
+            let aa_evidence = attestation_types::Evidence {
+                tee: attestation_types::TeeType::Itrustee,
                 evidence: evidence,
             };
             let evidence = serde_json::to_vec(&aa_evidence)?;
@@ -78,8 +77,8 @@ impl AttesterAPIs for Attester {
             let evidence = virtcca::VirtccaAttester::default()
                 .tee_get_evidence(_user_data)
                 .await?;
-            let aa_evidence = Evidence {
-                tee: TeeType::Virtcca,
+            let aa_evidence = attestation_types::Evidence {
+                tee: attestation_types::TeeType::Virtcca,
                 evidence: evidence,
             };
             let evidence = serde_json::to_vec(&aa_evidence)?;

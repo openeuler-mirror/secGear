@@ -9,20 +9,16 @@
 * PURPOSE.
 * See the Mulan PSL v2 for more details.
 */
-use crate::result::{self, AsError, Result};
+pub mod resource;
+
+use crate::result::{AsError, Result};
 use crate::session::Session;
 use crate::AttestationService;
-use actix_web::http::header::Header;
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
-use actix_web_httpauth::headers::authorization::{Authorization, Bearer};
-use anyhow::Context;
 use attestation_types::SESSION_TIMEOUT_MIN;
-use base64_url;
 use log;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
 use std::sync::Arc;
-use token_signer::verify;
 use tokio::sync::RwLock;
 
 const DEFAULT_POLICY_DIR: &str = "/etc/attestation/attestation-service/policy";
@@ -117,7 +113,7 @@ pub async fn attestation(
         .evaluate(&nonce, &evidence, &ids)
         .await?;
 
-    Ok(HttpResponse::Ok().body(token))
+    Ok(HttpResponse::Ok().cookie(cookie).body(token))
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -185,92 +181,4 @@ pub async fn get_policy(
         .get_policy(&dir, &id.to_string())
         .await?;
     Ok(HttpResponse::Ok().body(ret))
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-struct ResourcePath {
-    repository: String,
-    r#type: String,
-    tag: String,
-}
-
-impl Display for ResourcePath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}/{}/{}", self.repository, self.r#type, self.tag)
-    }
-}
-
-#[get("/resource/{repository}/{type}/{tag}")]
-pub async fn get_resource(
-    req: HttpRequest,
-    agent: web::Data<Arc<RwLock<AttestationService>>>,
-) -> Result<HttpResponse> {
-    let sessions = agent.read().await.get_sessions();
-
-    // If the corresponding session of the token exists, get the token inside the session.
-    // Otherwise, get the token from the http header.
-    let token = match {
-        if let Some(cookie) = req.cookie("oeas-session-id") {
-            sessions
-                .session_map
-                .get_async(cookie.value())
-                .await
-                .map(|session| session.get_token())
-                .flatten()
-                .map(|t| {
-                    log::debug!("Get token from session {}", cookie.value());
-                    t
-                })
-        } else {
-            None
-        }
-    } {
-        Some(token) => token,
-        None => {
-            let bearer = Authorization::<Bearer>::parse(&req)
-                .context("failed to parse bearer token")?
-                .into_scheme();
-            log::debug!("Get token from headers");
-            bearer.token().to_string()
-        }
-    };
-
-    let claim = verify(&token).context("illegal token")?;
-
-    let p = ResourcePath {
-        repository: req.match_info().get("repository").unwrap().to_owned(),
-        r#type: req.match_info().get("type").unwrap().to_owned(),
-        tag: req.match_info().get("tag").unwrap().to_owned(),
-    };
-
-    let resource_path = format!("{}", p);
-    let claim = serde_json::to_string(&claim)?;
-
-    log::debug!("Resource path: {}", resource_path);
-    log::debug!("Receive claim: {}", claim);
-
-    match agent
-        .read()
-        .await
-        .resource_evaluate(&resource_path, &claim)
-        .await
-    {
-        Ok(r) => {
-            if r {
-                log::debug!("Resource evaluate success.");
-                let content = agent.read().await.get_resource(&resource_path).await?;
-
-                Ok(HttpResponse::Ok().body(content))
-            } else {
-                log::debug!("Resource evaluate fail.");
-                Ok(HttpResponse::BadRequest().body("resource evaluation failed"))
-            }
-        }
-        Err(e) => {
-            log::debug!("{}", e);
-            Err(result::AsError::ResourcePolicy(
-                resource::error::ResourceError::LoadPolicy(e),
-            ))
-        }
-    }
 }

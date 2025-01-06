@@ -10,9 +10,11 @@
  * See the Mulan PSL v2 for more details.
  */
 
+use super::PolicyLocation;
 use crate::{
     error::{ResourceError, Result},
     policy::PolicyEngine,
+    resource::ResourceLocation,
 };
 use anyhow::Context;
 use async_trait::async_trait;
@@ -37,7 +39,12 @@ impl OpenPolicyAgent {
 
 #[async_trait]
 impl PolicyEngine for OpenPolicyAgent {
-    async fn evaluate(&self, resource: &str, claim: &str, policy: Vec<String>) -> Result<bool> {
+    async fn evaluate(
+        &self,
+        resource: ResourceLocation,
+        claim: &str,
+        policy: Vec<PolicyLocation>,
+    ) -> Result<bool> {
         let mut engine = regorus::Engine::new();
 
         /* Apply default policy according to the tee type from the claims. */
@@ -57,8 +64,9 @@ impl PolicyEngine for OpenPolicyAgent {
             }
         }
         for file in policy.iter() {
+            let p: PathBuf = file.try_into()?;
             engine
-                .add_policy_from_file(file)
+                .add_policy_from_file(self.base.join(p))
                 .context("failed to add policy from file")?;
         }
         engine
@@ -70,9 +78,135 @@ impl PolicyEngine for OpenPolicyAgent {
 
         Ok(engine.eval_bool_query("data.policy.allow".to_string(), false)?)
     }
-    /// Read the policy content from the file.
-    async fn get_policy(&self, _path: &str, _policy: &str) -> Result<String> {
+
+    async fn get_policy(&self, path: PolicyLocation) -> Result<String> {
+        let p = self.base.join(format!("{}", path));
+        let raw = tokio::fs::read(p).await?;
+        Ok(String::from_utf8(raw)?)
+    }
+
+    async fn add_policy(&self, path: PolicyLocation, policy: &str) -> Result<()> {
+        let p = self.base.join(format!("{}", path));
+        tokio::fs::write(p, policy).await?;
+        Ok(())
+    }
+
+    async fn delete_policy(&self, path: PolicyLocation) -> Result<()> {
+        let p = self.base.join(format!("{}", path));
+        tokio::fs::remove_file(p).await?;
+        Ok(())
+    }
+
+    async fn get_all_policy(&self) -> Result<Vec<PolicyLocation>> {
+        let mut ret: Vec<PolicyLocation> = vec![];
+        let mut dir = tokio::fs::read_dir(&self.base).await?;
+        while let Some(d) = dir.next_entry().await? {
+            match d.file_type().await {
+                Ok(t) => {
+                    if !t.is_dir() {
+                        continue;
+                    }
+                }
+                Err(_) => {
+                    continue;
+                }
+            }
+
+            let vendor = match d.file_name().into_string() {
+                Ok(s) => s,
+                Err(s) => {
+                    log::warn!("Illegal policy vendor directory '{:?}'", s);
+                    continue;
+                }
+            };
+
+            let mut several = match self.get_all_policy_in_vendor(&vendor).await {
+                Ok(v) => v,
+                Err(e) => {
+                    log::warn!("Failed to get policy from vendor '{}': {}", vendor, e);
+                    continue;
+                }
+            };
+
+            ret.append(&mut several);
+        }
+
+        Ok(ret)
+    }
+
+    async fn get_all_policy_in_vendor(&self, vendor: &str) -> Result<Vec<PolicyLocation>> {
+        let vendor_dir = self.base.join(&vendor);
+        let mut dir = tokio::fs::read_dir(vendor_dir).await?;
+        let mut ret: Vec<PolicyLocation> = vec![];
+        while let Some(d) = dir.next_entry().await? {
+            if let Ok(t) = d.file_type().await {
+                if !t.is_file() {
+                    continue;
+                }
+            }
+
+            let rego = match d.file_name().into_string() {
+                Ok(s) => s,
+                Err(s) => {
+                    log::warn!("Illegal policy file name '{:?}'", s);
+                    continue;
+                }
+            };
+            if !rego.ends_with("rego") {
+                continue;
+            }
+
+            ret.push(PolicyLocation {
+                vendor: if vendor == "default" {
+                    None
+                } else {
+                    Some(vendor.to_string())
+                },
+                id: rego,
+            });
+        }
+
+        Ok(ret)
+    }
+
+    async fn clear_all_policy(&self) -> Result<()> {
+        let mut dir = tokio::fs::read_dir(&self.base).await?;
+        while let Some(d) = dir.next_entry().await? {
+            match d.file_type().await {
+                Ok(t) => {
+                    if !t.is_dir() {
+                        continue;
+                    }
+                }
+                Err(_) => {
+                    continue;
+                }
+            }
+
+            match d.file_name().into_string() {
+                Ok(s) => {
+                    if let Err(e) = self.clear_all_policy_in_vendor(&s).await {
+                        log::warn!("Failed to clear vendor '{}': {}", s, e);
+                    }
+                }
+                Err(e) => {
+                    log::warn!("Illegal vendor directory name '{:?}'", e);
+                    continue;
+                }
+            }
+        }
         Err(ResourceError::NotImplemented)
+    }
+
+    async fn clear_all_policy_in_vendor(&self, vendor: &str) -> Result<()> {
+        let vendor_dir = self.base.join(&vendor);
+        let md = tokio::fs::metadata(&vendor_dir)
+            .await
+            .context("invalid vendor")?;
+        if md.is_dir() {
+            tokio::fs::remove_dir_all(vendor_dir).await?;
+        }
+        Ok(())
     }
 }
 
@@ -80,13 +214,14 @@ impl PolicyEngine for OpenPolicyAgent {
 mod tests {
     use tokio::runtime;
 
+    use super::ResourceLocation;
     use super::{OpenPolicyAgent, PolicyEngine};
 
     #[test]
     fn test_evaluate() {
         let pwd = std::env::current_dir().expect("failed to get pwd");
         let opa = OpenPolicyAgent::new(pwd.join("src/policy/opa"));
-        let resource = "b/p/f";
+        let resource = ResourceLocation::new(None, "b/p/f".to_string());
         let claims = r#"
 {
     "iss": "oeas",

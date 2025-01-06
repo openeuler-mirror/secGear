@@ -9,7 +9,6 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, ResourceError>;
@@ -30,6 +29,8 @@ pub enum ResourceError {
     ResourceFromUtf8(#[from] std::string::FromUtf8Error),
     #[error("Serde deserialize failure: {0}")]
     SerdeError(#[from] serde_json::Error),
-    #[error("IO error: {0}")]
+    #[error("Illegal policy location path: {0}")]
+    IllegalPolicyLocation(String),
+    #[error("Convert error: {0}")]
     IoError(#[from] core::convert::Infallible),
 }

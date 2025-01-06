@@ -14,7 +14,9 @@ pub(crate) mod simple;
 
 use crate::error::ResourceError;
 use crate::error::Result;
+use crate::policy::PolicyLocation;
 use crate::resource::Resource;
+use crate::resource::ResourceLocation;
 use async_trait::async_trait;
 
 #[async_trait]
@@ -23,13 +25,13 @@ pub(crate) trait StorageEngine: StorageOp + PolicyOp {}
 #[async_trait]
 pub(crate) trait StorageOp: Send + Sync {
     /// Get the resource inside the storage and return a structure instance.
-    async fn get(&self, location: &str) -> Result<Resource>;
+    async fn get(&self, location: ResourceLocation) -> Result<Resource>;
     /// Create a new resource if it does not exist. If the resource already exists, it will be overrided.
-    async fn store(&self, location: &str, resource: Resource) -> Result<()>;
+    async fn store(&self, location: ResourceLocation, resource: Resource) -> Result<()>;
     /// Override the content field in the resource, while keep other fields the same.
-    async fn modify(&self, location: &str, content: String) -> Result<()>;
+    async fn modify(&self, location: ResourceLocation, content: String) -> Result<()>;
     /// Delete the resource inside the storage.
-    async fn delete(&self, location: &str) -> Result<()>;
+    async fn delete(&self, location: ResourceLocation) -> Result<()>;
     /// Flush the buffer into the storage
     async fn flush(&self) -> Result<()> {
         Err(ResourceError::NotImplemented)
@@ -39,13 +41,25 @@ pub(crate) trait StorageOp: Send + Sync {
 #[async_trait]
 pub(crate) trait PolicyOp: StorageOp + Send + Sync {
     /// Clear the original policy and set the new ones.
-    async fn set_policy(&self, location: &str, policy: Vec<String>) -> Result<()>;
+    async fn set_policies(
+        &self,
+        location: ResourceLocation,
+        policy: Vec<PolicyLocation>,
+    ) -> Result<()>;
     /// Get all policy from the resource.
-    async fn get_all_policy(&self, location: &str) -> Result<Vec<String>>;
+    async fn get_all_policies(&self, location: ResourceLocation) -> Result<Vec<PolicyLocation>>;
     /// Clear the original policy inside the resource.
-    async fn clear_policy(&self, location: &str) -> Result<()>;
+    async fn clea_policies(&self, location: ResourceLocation) -> Result<()>;
     /// Delete the specific policy from the resource.
-    async fn delte_policy(&self, location: &str, policy: String) -> Result<()>;
+    async fn unbind_policies(
+        &self,
+        location: ResourceLocation,
+        policy: Vec<PolicyLocation>,
+    ) -> Result<()>;
     /// Append new policy inside the resource.
-    async fn add_policy(&self, location: &str, policy: String) -> Result<()>;
+    async fn bind_policies(
+        &self,
+        location: ResourceLocation,
+        policies: Vec<PolicyLocation>,
+    ) -> Result<()>;
 }

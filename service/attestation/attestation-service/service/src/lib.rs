@@ -25,6 +25,7 @@ use rand::RngCore;
 use reference::reference::{RefOpError, ReferenceOps};
 use resource::admin::simple::SimpleResourceAdmin;
 use resource::admin::ResourceAdminInterface;
+use resource::resource::ResourceLocation;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use session::SessionMap;
@@ -263,7 +264,7 @@ impl AttestationService {
         ops_default.register(ref_set)
     }
 
-    pub async fn resource_evaluate(&self, resource: &str, claim: &str) -> Result<bool> {
+    pub async fn resource_evaluate(&self, resource: ResourceLocation, claim: &str) -> Result<bool> {
         Ok(self
             .resource_admin
             .lock()
@@ -273,7 +274,7 @@ impl AttestationService {
             .context("fail to evaluate resource according to the claim")?)
     }
 
-    pub async fn get_resource(&self, location: &str) -> Result<String> {
+    pub async fn get_resource(&self, location: ResourceLocation) -> Result<String> {
         let resource = self
             .resource_admin
             .lock()

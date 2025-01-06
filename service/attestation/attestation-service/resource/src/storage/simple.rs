@@ -12,6 +12,8 @@
 
 use crate::error::ResourceError;
 use crate::error::Result;
+use crate::policy::PolicyLocation;
+use crate::resource::ResourceLocation;
 use crate::storage::StorageOp;
 use anyhow::Context;
 use async_trait::async_trait;
@@ -57,21 +59,21 @@ impl StorageEngine for SimpleStorage {}
 
 #[async_trait]
 impl StorageOp for SimpleStorage {
-    async fn get(&self, location: &str) -> Result<Resource> {
-        let regularized = self.regular(location)?;
+    async fn get(&self, location: ResourceLocation) -> Result<Resource> {
+        let regularized = self.regular(&format!("{}", location))?;
         Resource::read_from_file(regularized).await
     }
 
-    async fn store(&self, location: &str, resource: Resource) -> Result<()> {
-        let regularized = self.regular(location)?;
+    async fn store(&self, location: ResourceLocation, resource: Resource) -> Result<()> {
+        let regularized = self.regular(&format!("{}", location))?;
         tokio::fs::write(regularized, serde_json::to_string(&resource)?)
             .await
             .context("failed to add resource")?;
         Ok(())
     }
 
-    async fn modify(&self, location: &str, content: String) -> Result<()> {
-        let regularized = self.regular(location)?;
+    async fn modify(&self, location: ResourceLocation, content: String) -> Result<()> {
+        let regularized = self.regular(&format!("{}", location))?;
         let mut resource = Resource::read_from_file(regularized.clone()).await?;
         resource.content = content;
         tokio::fs::write(regularized, resource.to_string()?)
@@ -80,8 +82,8 @@ impl StorageOp for SimpleStorage {
         Ok(())
     }
 
-    async fn delete(&self, location: &str) -> Result<()> {
-        let regularized = self.regular(location)?;
+    async fn delete(&self, location: ResourceLocation) -> Result<()> {
+        let regularized = self.regular(&format!("{}", location))?;
         tokio::fs::remove_file(regularized)
             .await
             .context("failed to delete resource")?;
@@ -91,30 +93,46 @@ impl StorageOp for SimpleStorage {
 
 #[async_trait]
 impl PolicyOp for SimpleStorage {
-    async fn set_policy(&self, location: &str, policy: Vec<String>) -> Result<()> {
-        let mut resource = self.get(location).await?;
-        resource.policy = policy;
-        self.store(&location, resource).await
+    async fn set_policies(
+        &self,
+        location: ResourceLocation,
+        policy: Vec<PolicyLocation>,
+    ) -> Result<()> {
+        let mut resource = self.get(location.clone()).await?;
+        resource.set_policy(policy);
+        self.store(location, resource).await
     }
-    async fn get_all_policy(&self, location: &str) -> Result<Vec<String>> {
+    async fn get_all_policies(&self, location: ResourceLocation) -> Result<Vec<PolicyLocation>> {
         let resource = self.get(location).await?;
-        Ok(resource.policy)
+        Ok(resource.get_policy())
     }
-    async fn clear_policy(&self, location: &str) -> Result<()> {
-        let mut resource = self.get(&location).await?;
+    async fn clea_policies(&self, location: ResourceLocation) -> Result<()> {
+        let mut resource = self.get(location.clone()).await?;
         resource.policy = vec![];
-        self.store(&location, resource).await
+        self.store(location, resource).await
     }
-    async fn delte_policy(&self, location: &str, policy: String) -> Result<()> {
-        let mut resource = self.get(&location).await?;
-        if let Ok(idx) = resource.policy.binary_search(&policy) {
-            resource.policy.remove(idx);
+    async fn unbind_policies(
+        &self,
+        location: ResourceLocation,
+        policy: Vec<PolicyLocation>,
+    ) -> Result<()> {
+        let mut resource = self.get(location.clone()).await?;
+        for p in policy.iter() {
+            if let Ok(idx) = resource.policy.binary_search(&format!("{}", p)) {
+                resource.policy.remove(idx);
+            }
         }
-        self.store(&location, resource).await
+        self.store(location, resource).await
     }
-    async fn add_policy(&self, location: &str, policy: String) -> Result<()> {
-        let mut resource = self.get(&location).await?;
-        resource.policy.push(policy);
-        self.store(&location, resource).await
+    async fn bind_policies(
+        &self,
+        location: ResourceLocation,
+        policy: Vec<PolicyLocation>,
+    ) -> Result<()> {
+        let mut resource = self.get(location.clone()).await?;
+        for p in policy.iter() {
+            resource.policy.push(format!("{}", p));
+        }
+        self.store(location.clone(), resource).await
     }
 }

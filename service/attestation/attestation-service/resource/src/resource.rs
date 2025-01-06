@@ -10,12 +10,53 @@
  * See the Mulan PSL v2 for more details.
  */
 
-use crate::error::Result;
+use crate::error::{ResourceError, Result};
+use crate::policy::PolicyLocation;
 use anyhow::Context;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{fmt::Display, path::PathBuf, str::FromStr};
 
+/// This struct indicates unique resource location under specific base directory.
+/// Base directory should be maintained by the resource management engine.
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct ResourceLocation {
+    pub vendor: Option<String>,
+    pub path: String,
+}
+
+impl std::convert::From<ResourceLocation> for String {
+    fn from(value: ResourceLocation) -> Self {
+        format!("{}", value)
+    }
+}
+
+impl std::convert::TryFrom<ResourceLocation> for PathBuf {
+    type Error = ResourceError;
+
+    fn try_from(value: ResourceLocation) -> std::result::Result<PathBuf, Self::Error> {
+        let path: String = value.into();
+        Ok(PathBuf::from_str(&path)?)
+    }
+}
+
+impl Display for ResourceLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}/{}",
+            self.vendor.clone().unwrap_or("default".to_string()),
+            self.path,
+        )
+    }
+}
+
+impl ResourceLocation {
+    pub fn new(vendor: Option<String>, path: String) -> Self {
+        Self { vendor, path }
+    }
+}
+
+/// Policy should be expressed like 'vendor/xxx.rego'
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Resource {
     pub(crate) content: String,
@@ -23,16 +64,37 @@ pub struct Resource {
 }
 
 impl Resource {
-    pub(crate) fn new(content: String, policy: Vec<String>) -> Self {
-        Self { content, policy }
+    pub(crate) fn new(content: String, policy: Vec<PolicyLocation>) -> Self {
+        let mut r = Self {
+            content,
+            policy: vec![],
+        };
+        r.set_policy(policy);
+        r
     }
 
     pub fn get_content(&self) -> String {
         self.content.clone()
     }
 
-    pub fn get_policy(&self) -> Vec<String> {
-        self.policy.clone()
+    /// The illegal policy will be ignored and throw warning message.
+    pub fn get_policy(&self) -> Vec<PolicyLocation> {
+        let mut ret: Vec<PolicyLocation> = vec![];
+        for s in self.policy.iter() {
+            let p = PolicyLocation::try_from(s.clone());
+            match p {
+                Ok(p) => ret.push(p),
+                Err(_) => {
+                    log::warn!("Illegal policy: {}", s);
+                }
+            }
+        }
+        ret
+    }
+
+    pub fn set_policy(&mut self, policy: Vec<PolicyLocation>) {
+        let policy = policy.iter().map(|p| format!("{}", p)).collect();
+        self.policy = policy;
     }
 
     pub(crate) async fn read_from_file(path: PathBuf) -> Result<Self> {

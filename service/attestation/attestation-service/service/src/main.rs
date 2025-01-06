@@ -12,7 +12,12 @@
 use actix_web::{web, App, HttpServer};
 use anyhow::Result;
 use attestation_service::restapi::{
-    attestation, get_challenge, get_policy, get_resource, reference, set_policy,
+    attestation, get_challenge, get_policy, reference,
+    resource::{
+        policy::{get_resource_policy, set_resource_policy},
+        storage::{get_resource, set_resource},
+    },
+    set_policy,
 };
 use attestation_service::AttestationService;
 use clap::{arg, command, Parser};
@@ -80,6 +85,9 @@ async fn main() -> Result<()> {
             .service(set_policy)
             .service(get_policy)
             .service(get_resource)
+            .service(set_resource)
+            .service(get_resource_policy)
+            .service(set_resource_policy)
     });
     if cli.protocol == "https" {
         if cli.https_cert.is_empty() || cli.https_key.is_empty() {
