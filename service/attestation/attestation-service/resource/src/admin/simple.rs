@@ -69,13 +69,14 @@ impl ResourceAdminInterface for SimpleResourceAdmin {
                 e
             })?)
     }
+
+    // If unmatched policy is found, aborting the adding procedure.
     async fn add_resource(
         &self,
         location: ResourceLocation,
         content: String,
         policy: Vec<String>,
     ) -> Result<()> {
-        // Filter illegal policy that has different vendor with the resource.
         let mut legal_policy: Vec<PolicyLocation> = vec![];
         for p in policy {
             let p = match PolicyLocation::try_from(p.clone()) {
@@ -85,25 +86,13 @@ impl ResourceAdminInterface for SimpleResourceAdmin {
                     continue;
                 }
             };
-
-            if let Some(policy_vendor) = p.vendor.as_ref() {
-                if policy_vendor.as_str() == "default" {
-                    legal_policy.push(p.clone());
-                } else {
-                    if let Some(resource_vendor) = location.vendor.as_ref() {
-                        if resource_vendor == policy_vendor {
-                            legal_policy.push(p.clone());
-                            continue;
-                        }
-                    }
-
-                    log::warn!(
-                        "Illegal policy {}, resource vendor is {}",
-                        p,
-                        location.vendor.clone().unwrap_or("default".to_string())
-                    );
-                }
+            if !location.check_policy_legal(&p) {
+                return Err(crate::error::ResourceError::UnmatchedPolicyResource(
+                    location.to_string(),
+                    p.to_string(),
+                ));
             }
+            legal_policy.push(p.clone());
         }
         let resource = Resource::new(content, legal_policy);
         self.storage_engine
@@ -117,11 +106,18 @@ impl ResourceAdminInterface for SimpleResourceAdmin {
         self.storage_engine.lock().await.delete(location).await
     }
 
+    // If unmatched policy is found, aborting the binding procedure.
     async fn bind_policy(&self, location: ResourceLocation, policy: Vec<String>) -> Result<()> {
         let mut legal_policy: Vec<PolicyLocation> = vec![];
         for p in policy.iter() {
-            if let Ok(legal) = p.parse::<PolicyLocation>() {
-                legal_policy.push(legal);
+            if let Ok(p) = p.parse::<PolicyLocation>() {
+                if !location.check_policy_legal(&p) {
+                    return Err(crate::error::ResourceError::UnmatchedPolicyResource(
+                        location.to_string(),
+                        p.to_string(),
+                    ));
+                }
+                legal_policy.push(p);
             }
         }
         self.storage_engine
@@ -131,11 +127,18 @@ impl ResourceAdminInterface for SimpleResourceAdmin {
             .await
     }
 
+    // If unmatched policy is found, aborting the unbinding procedure.
     async fn unbind_policy(&self, location: ResourceLocation, policy: Vec<String>) -> Result<()> {
         let mut legal_policy: Vec<PolicyLocation> = vec![];
         for p in policy.iter() {
-            if let Ok(legal) = p.parse::<PolicyLocation>() {
-                legal_policy.push(legal);
+            if let Ok(p) = p.parse::<PolicyLocation>() {
+                if !location.check_policy_legal(&p) {
+                    return Err(crate::error::ResourceError::UnmatchedPolicyResource(
+                        location.to_string(),
+                        p.to_string(),
+                    ));
+                }
+                legal_policy.push(p);
             }
         }
         self.storage_engine

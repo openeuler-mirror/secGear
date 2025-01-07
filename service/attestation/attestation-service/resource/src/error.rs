@@ -31,6 +31,8 @@ pub enum ResourceError {
     SerdeError(#[from] serde_json::Error),
     #[error("Illegal policy location path: {0}")]
     IllegalPolicyLocation(String),
+    #[error("Unmatched vendor between resource {0} and policy {1}")]
+    UnmatchedPolicyResource(String, String),
     #[error("Convert error: {0}")]
     IoError(#[from] core::convert::Infallible),
 }

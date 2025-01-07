@@ -97,23 +97,32 @@ pub async fn get_resource(
 #[derive(Debug, Serialize, Deserialize, Clone)]
 enum SetResourceOp {
     /// Add new resource.
+    /// The vendor of each policy should be 'default' or the same with the resource.
+    /// Otherwise error will be raised.
+    ///
+    /// If the resource already exists, the content will be overrided.
     Add {
         content: String,
         policy: Vec<String>,
     },
     /// Delete specific resource.
     Delete,
-    /// Modify the content of specific resource.
+    /// Modify the content of specific resource. Other fields of the resource will be kept.
     Modify { content: String },
     /// Bind policy to specific resource.
+    /// The vendor of any policy should be 'default' or the same with the resource.
+    /// Otherwise error will be raised.
     Bind { policy: Vec<String> },
     /// Unbind policy of specific resource.
+    /// The vendor of any policy should be 'default' or the same with the resource.
+    /// Otherwise error will be raised.
     Unbind { policy: Vec<String> },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SetResourceRequest {
     op: SetResourceOp,
+    /// The vendor of the resource should be the same with that granted in the token.
     resource: ResourceLocation,
 }
 

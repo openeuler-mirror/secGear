@@ -90,11 +90,15 @@ pub async fn get_resource_policy(
 #[derive(Debug, Serialize, Deserialize)]
 enum SetResourcePolicyOp {
     /// Add new policy file, if it already exists, override its content.
+    ///
+    /// The vendor of policy should be the same with that in the token granted to the user.
     Add {
         policy: PolicyLocation,
         content: String,
     },
     /// Delete particular policy file.
+    ///
+    /// The vendor of policy should be the same with that in the token granted to the user.
     Delete { policy: PolicyLocation },
     /// Clear all policy files.
     ClearAll,

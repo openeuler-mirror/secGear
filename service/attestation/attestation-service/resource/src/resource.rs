@@ -54,6 +54,28 @@ impl ResourceLocation {
     pub fn new(vendor: Option<String>, path: String) -> Self {
         Self { vendor, path }
     }
+
+    /// If the vendor if resource or vendor is None, it means using the 'default' vendor.
+    ///
+    /// If the vendor of policy is 'default', the check always succeed.
+    /// Otherwise the vendor of policy should be the same with resource.
+    ///
+    pub fn check_policy_legal(&self, policy: &PolicyLocation) -> bool {
+        let policy_vendor = if policy.vendor.is_none() {
+            return true;
+        } else {
+            policy.vendor.clone().unwrap()
+        };
+
+        if policy_vendor.as_str() == "default" {
+            return true;
+        }
+
+        match self.vendor.as_ref() {
+            None => false,
+            Some(v) => v == &policy_vendor,
+        }
+    }
 }
 
 /// Policy should be expressed like 'vendor/xxx.rego'
