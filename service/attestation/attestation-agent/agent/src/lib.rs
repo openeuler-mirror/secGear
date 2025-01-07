@@ -450,7 +450,7 @@ impl AttestationAgent {
             .as_client
             .get(restful)
             .bearer_auth(token)
-            .body(serde_json::to_string(&resource).context("Resource serialization failed")?)
+            .json(&resource)
             .send()
             .await?;
         let resource = match response.status() {
