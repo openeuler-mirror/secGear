@@ -66,6 +66,15 @@ impl StorageOp for SimpleStorage {
 
     async fn store(&self, location: ResourceLocation, resource: Resource) -> Result<()> {
         let regularized = self.regular(&format!("{}", location))?;
+        if let Some(parent) = regularized.parent() {
+            if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                log::warn!(
+                    "Failed to create vendor directory for resource '{}': {}",
+                    location,
+                    e
+                );
+            }
+        }
         tokio::fs::write(regularized, serde_json::to_string(&resource)?)
             .await
             .context("failed to add resource")?;
