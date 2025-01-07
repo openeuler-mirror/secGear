@@ -47,22 +47,25 @@ impl PolicyEngine for OpenPolicyAgent {
     ) -> Result<bool> {
         let mut engine = regorus::Engine::new();
 
-        /* Apply default policy according to the tee type from the claims. */
-        let claim_json: serde_json::Value = serde_json::from_str(claim)?;
-        if let Some(tee) = claim_json.get("tee") {
-            if let Some(tee_str) = tee.as_str() {
-                match tee_str {
-                    "vcca" => {
-                        engine
-                            .add_policy_from_file(
-                                self.base.join(DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY),
-                            )
-                            .context("failed to add policy from file")?;
+        if policy.is_empty() {
+            /* Apply default policy according to the tee type from the claims. */
+            let claim_json: serde_json::Value = serde_json::from_str(claim)?;
+            if let Some(tee) = claim_json.get("tee") {
+                if let Some(tee_str) = tee.as_str() {
+                    match tee_str {
+                        "vcca" => {
+                            engine
+                                .add_policy_from_file(
+                                    self.base.join(DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY),
+                                )
+                                .context("failed to add policy from file")?;
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
         }
+
         for file in policy.iter() {
             let p: PathBuf = file.try_into()?;
             engine
