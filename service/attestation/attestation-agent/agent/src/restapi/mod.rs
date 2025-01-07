@@ -179,13 +179,6 @@ pub async fn verify_token(
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-struct Location {
-    repository: String,
-    r#type: String,
-    tag: String,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
 struct GetResourceRequest {
     uuid: String,
     challenge: Option<String>,
