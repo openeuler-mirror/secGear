@@ -91,6 +91,15 @@ impl PolicyEngine for OpenPolicyAgent {
 
     async fn add_policy(&self, path: PolicyLocation, policy: &str) -> Result<()> {
         let p = self.base.join(format!("{}", path));
+        if let Some(parent) = p.parent() {
+            if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                log::warn!(
+                    "Failed to create vendor directory for policy '{}': {}",
+                    path,
+                    e
+                );
+            }
+        }
         tokio::fs::write(p, policy).await?;
         Ok(())
     }
