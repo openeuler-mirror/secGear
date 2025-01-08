@@ -23,19 +23,19 @@ use super::PolicyOp;
 use super::Resource;
 use super::StorageEngine;
 
-const STORAGE_BASE: &str = "/run/attestation/attestation-service/resource/storage/";
+pub(crate) const STORAGE_BASE: &str = "/run/attestation/attestation-service/resource/storage/";
 
 pub(crate) struct SimpleStorage {
-    base: String,
+    base: PathBuf,
 }
 
 impl SimpleStorage {
-    pub(crate) fn new(base: String) -> Self {
+    pub(crate) fn new(base: PathBuf) -> Self {
         Self { base }
     }
 
     pub(crate) fn default() -> Self {
-        Self::new(STORAGE_BASE.to_string())
+        Self::new(PathBuf::from(STORAGE_BASE))
     }
 
     /// Resource location can not contain dot characters to avoid visiting parent directory. All the resource is stored under the base directory.
@@ -126,6 +126,7 @@ impl PolicyOp for SimpleStorage {
         policy: Vec<PolicyLocation>,
     ) -> Result<()> {
         let mut resource = self.get(location.clone()).await?;
+        resource.policy.sort();
         for p in policy.iter() {
             if let Ok(idx) = resource.policy.binary_search(&format!("{}", p)) {
                 resource.policy.remove(idx);
@@ -143,5 +144,54 @@ impl PolicyOp for SimpleStorage {
             resource.policy.push(format!("{}", p));
         }
         self.store(location.clone(), resource).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{policy::PolicyLocation, resource::ResourceLocation};
+    use std::env;
+    use tokio::runtime::Runtime;
+
+    use super::{PolicyOp, StorageOp};
+
+    #[test]
+    fn test_unbind_policies() {
+        let cwd = env::current_dir().unwrap();
+        let tmp_vendor = "test_unbind_policies";
+        let tmp_resource = "test";
+        let vendor_path = cwd.join(tmp_vendor);
+        let resource_path = cwd.join(tmp_vendor).join(tmp_resource);
+        let storage = super::SimpleStorage::new(cwd);
+        std::fs::create_dir_all(&vendor_path).unwrap();
+        std::fs::File::create(&resource_path).unwrap();
+        let resource = r#"{
+        "content": "hello",
+        "policy": ["test_unbind_policies/c.rego", "test_unbind_policies/a.rego", "default/b.rego", "test_unbind_policies/b.rego"]
+}"#;
+        std::fs::write(&resource_path, resource).unwrap();
+
+        let location =
+            ResourceLocation::new(Some(tmp_vendor.to_string()), tmp_resource.to_string());
+        let unbind_policy = vec![
+            "default/b.rego".parse::<PolicyLocation>().unwrap(),
+            "test_unbind_policies/b.rego"
+                .parse::<PolicyLocation>()
+                .unwrap(),
+        ];
+
+        let runtime = Runtime::new().unwrap();
+        runtime
+            .block_on(storage.unbind_policies(location.clone(), unbind_policy))
+            .unwrap();
+        let r = runtime.block_on(storage.get(location)).unwrap();
+        let content = r.to_string().unwrap();
+        println!("{}", r.to_string().unwrap());
+        assert_eq!(
+            content,
+            r#"{"content":"hello","policy":["test_unbind_policies/a.rego","test_unbind_policies/c.rego"]}"#
+        );
+
+        std::fs::remove_dir_all(&vendor_path).unwrap();
     }
 }

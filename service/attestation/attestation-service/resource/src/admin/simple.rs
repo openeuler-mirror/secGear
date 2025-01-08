@@ -19,6 +19,7 @@ use crate::storage::simple::SimpleStorage;
 use crate::storage::StorageEngine;
 use anyhow::Context;
 use async_trait::async_trait;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -30,15 +31,18 @@ pub struct SimpleResourceAdmin {
 }
 
 impl SimpleResourceAdmin {
-    pub fn new() -> Self {
+    pub fn new(storage_base: PathBuf, policy_base: PathBuf) -> Self {
         SimpleResourceAdmin {
-            storage_engine: Arc::new(Mutex::new(SimpleStorage::default())),
-            policy_engine: Arc::new(Mutex::new(OpenPolicyAgent::default())),
+            storage_engine: Arc::new(Mutex::new(SimpleStorage::new(storage_base))),
+            policy_engine: Arc::new(Mutex::new(OpenPolicyAgent::new(policy_base))),
         }
     }
 
     pub fn default() -> Self {
-        Self::new()
+        SimpleResourceAdmin {
+            storage_engine: Arc::new(Mutex::new(SimpleStorage::default())),
+            policy_engine: Arc::new(Mutex::new(OpenPolicyAgent::default())),
+        }
     }
 }
 
@@ -131,15 +135,14 @@ impl ResourceAdminInterface for SimpleResourceAdmin {
     async fn unbind_policy(&self, location: ResourceLocation, policy: Vec<String>) -> Result<()> {
         let mut legal_policy: Vec<PolicyLocation> = vec![];
         for p in policy.iter() {
-            if let Ok(p) = p.parse::<PolicyLocation>() {
-                if !location.check_policy_legal(&p) {
-                    return Err(crate::error::ResourceError::UnmatchedPolicyResource(
-                        location.to_string(),
-                        p.to_string(),
-                    ));
-                }
-                legal_policy.push(p);
+            let p = p.parse::<PolicyLocation>()?;
+            if !location.check_policy_legal(&p) {
+                return Err(crate::error::ResourceError::UnmatchedPolicyResource(
+                    location.to_string(),
+                    p.to_string(),
+                ));
             }
+            legal_policy.push(p);
         }
         self.storage_engine
             .lock()
@@ -198,5 +201,52 @@ impl ResourcePolicyAdminInterface for SimpleResourceAdmin {
             .await
             .clear_all_policy_in_vendor(vendor)
             .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{admin::ResourceAdminInterface, resource::ResourceLocation};
+    use std::env;
+    use tokio::runtime::Runtime;
+
+    #[test]
+    fn test_admin_unbind_policy() {
+        let cwd = env::current_dir().unwrap();
+        let storage_base = cwd.join("storage");
+        let policy_base = cwd.join("policy");
+        let tmp_vendor = "test_admin_unbind_policy";
+        let tmp_resource = "test";
+        let vendor_path = storage_base.join(tmp_vendor);
+        let resource_path = storage_base.join(tmp_vendor).join(tmp_resource);
+        let admin = super::SimpleResourceAdmin::new(storage_base.clone(), policy_base.clone());
+        std::fs::create_dir_all(&vendor_path).unwrap();
+        std::fs::File::create(&resource_path).unwrap();
+        let resource = r#"{
+        "content": "hello",
+        "policy": ["test_admin_unbind_policy/c.rego", "test_admin_unbind_policy/a.rego", "default/b.rego", "test_admin_unbind_policy/b.rego"]
+}"#;
+        std::fs::write(&resource_path, resource).unwrap();
+
+        let location =
+            ResourceLocation::new(Some(tmp_vendor.to_string()), tmp_resource.to_string());
+        let unbind_policy = vec![
+            "default/b.rego".to_string(),
+            "test_admin_unbind_policy/b.rego".to_string(),
+        ];
+
+        let runtime = Runtime::new().unwrap();
+        runtime
+            .block_on(admin.unbind_policy(location.clone(), unbind_policy))
+            .unwrap();
+        let r = runtime.block_on(admin.get_resource(location)).unwrap();
+        let content = r.to_string().unwrap();
+        println!("{}", r.to_string().unwrap());
+        assert_eq!(
+            content,
+            r#"{"content":"hello","policy":["test_admin_unbind_policy/a.rego","test_admin_unbind_policy/c.rego"]}"#
+        );
+
+        std::fs::remove_dir_all(&storage_base).unwrap();
     }
 }
