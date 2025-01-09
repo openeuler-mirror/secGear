@@ -18,7 +18,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 #[derive(Debug, Serialize, Deserialize)]
-enum GetResourcePolicyOp {
+pub enum GetResourcePolicyOp {
     /// Get specific policy under a vendor.
     GetOne { policy: PolicyLocation },
     /// Get all policy under different vendors.
@@ -88,7 +88,7 @@ pub async fn get_resource_policy(
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-enum SetResourcePolicyOp {
+pub enum SetResourcePolicyOp {
     /// Add new policy file, if it already exists, override its content.
     ///
     /// The vendor of policy should be the same with that in the token granted to the user.

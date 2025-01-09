@@ -26,7 +26,7 @@ use token_signer::verify;
 use tokio::sync::RwLock;
 
 #[derive(Debug, Serialize, Deserialize)]
-enum GetResourceOp {
+pub enum GetResourceOp {
     /// User in TEE environment can get resource content.
     TeeGet { resource: ResourceLocation },
     /// Vendor can only get the list of resource files that are already published in AS.
@@ -138,7 +138,7 @@ async fn vendor_get_resource(
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-enum SetResourceOp {
+pub enum SetResourceOp {
     /// Add new resource.
     /// The vendor of each policy should be 'default' or the same with the resource.
     /// Otherwise error will be raised.
@@ -163,10 +163,10 @@ enum SetResourceOp {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct SetResourceRequest {
-    op: SetResourceOp,
+pub struct SetResourceRequest {
+    pub op: SetResourceOp,
     /// The vendor of the resource should be the same with that granted in the token.
-    resource: ResourceLocation,
+    pub resource: ResourceLocation,
 }
 
 #[post("/resource/storage")]
