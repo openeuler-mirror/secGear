@@ -23,6 +23,8 @@ use async_trait::async_trait;
 pub trait ResourceAdminInterface: ResourcePolicyAdminInterface + Send + Sync {
     /// Get resource from the storage
     async fn get_resource(&self, location: ResourceLocation) -> Result<Resource>;
+    /// Traverse and get resource list in particular vendor.
+    async fn list_resource(&self, vendor: &str) -> Result<Vec<ResourceLocation>>;
     /// Add new resource or override the existing one.
     async fn add_resource(
         &self,

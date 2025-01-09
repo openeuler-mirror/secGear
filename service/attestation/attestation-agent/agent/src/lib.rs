@@ -445,12 +445,15 @@ impl AttestationAgent {
             None => bail!("getting resource failed because the session is missing"),
         };
 
+        let resource_json = serde_json::to_string(&resource)?;
+        let payload = format!(r#"{{"TeeGet":{}}}"#, resource_json);
+
         let response = session
             .get()
             .as_client
             .get(restful)
             .bearer_auth(token)
-            .json(&resource)
+            .json(&payload)
             .send()
             .await?;
         let resource = match response.status() {

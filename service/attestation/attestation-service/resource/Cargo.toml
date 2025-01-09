@@ -11,6 +11,7 @@ base64.workspace = true
 tokio.workspace = true
 futures.workspace = true
 async-trait.workspace = true
+async-recursion.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 log.workspace = true

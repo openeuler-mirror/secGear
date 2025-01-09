@@ -286,6 +286,15 @@ impl AttestationService {
         Ok(serde_json::to_string(&resource.get_content())?)
     }
 
+    pub async fn list_resource(&self, vendor: &str) -> Result<Vec<ResourceLocation>> {
+        self.resource_admin
+            .lock()
+            .await
+            .list_resource(vendor)
+            .await
+            .context("faile to collect resource list in vendor")
+    }
+
     pub fn get_sessions(&self) -> Data<SessionMap> {
         self.sessions.clone()
     }

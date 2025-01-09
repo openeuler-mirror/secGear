@@ -26,6 +26,8 @@ pub(crate) trait StorageEngine: StorageOp + PolicyOp {}
 pub(crate) trait StorageOp: Send + Sync {
     /// Get the resource inside the storage and return a structure instance.
     async fn get(&self, location: ResourceLocation) -> Result<Resource>;
+    /// Traverse and collect resource list in particular vendor.
+    async fn list(&self, vendor: &str) -> Result<Vec<ResourceLocation>>;
     /// Create a new resource if it does not exist. If the resource already exists, it will be overrided.
     async fn store(&self, location: ResourceLocation, resource: Resource) -> Result<()>;
     /// Override the content field in the resource, while keep other fields the same.

@@ -15,6 +15,7 @@ use crate::error::Result;
 use crate::policy::PolicyLocation;
 use crate::resource::ResourceLocation;
 use crate::storage::StorageOp;
+use crate::utils::traverse_regular_file;
 use anyhow::Context;
 use async_trait::async_trait;
 use std::path::PathBuf;
@@ -62,6 +63,23 @@ impl StorageOp for SimpleStorage {
     async fn get(&self, location: ResourceLocation) -> Result<Resource> {
         let regularized = self.regular(&format!("{}", location))?;
         Resource::read_from_file(regularized).await
+    }
+
+    async fn list(&self, vendor: &str) -> Result<Vec<ResourceLocation>> {
+        let vendor_base = self.regular(vendor)?;
+        let resource_list = traverse_regular_file(&vendor_base).await?;
+        let mut ret: Vec<ResourceLocation> = vec![];
+        for p in resource_list.iter() {
+            let path = p.strip_prefix(&vendor_base)?;
+            let resource = ResourceLocation::new(
+                Some(vendor.to_string()),
+                path.to_str()
+                    .ok_or(ResourceError::IllegalResource(format!("{:?}", path)))?
+                    .to_string(),
+            );
+            ret.push(resource);
+        }
+        Ok(ret)
     }
 
     async fn store(&self, location: ResourceLocation, resource: Resource) -> Result<()> {

@@ -10,8 +10,10 @@
 * See the Mulan PSL v2 for more details.
 */
 use crate::result::{self, Result};
+use crate::session::SessionMap;
 use crate::AttestationService;
 use actix_web::http::header::Header;
+use actix_web::web::Data;
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use actix_web_httpauth::headers::authorization::{Authorization, Bearer};
 use anyhow::Context;
@@ -23,15 +25,40 @@ use std::sync::Arc;
 use token_signer::verify;
 use tokio::sync::RwLock;
 
+#[derive(Debug, Serialize, Deserialize)]
+enum GetResourceOp {
+    /// User in TEE environment can get resource content.
+    TeeGet { resource: ResourceLocation },
+    /// Vendor can only get the list of resource files that are already published in AS.
+    VendorGet { vendor: String },
+}
+
 /// When the consumer request for resource, he should provide the vendor name which owns the resource.
 #[get("/resource/storage")]
 pub async fn get_resource(
     req: HttpRequest,
-    body: web::Json<ResourceLocation>,
+    body: web::Json<GetResourceOp>,
     agent: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
     let sessions = agent.read().await.get_sessions();
+    let op = body.0;
 
+    match op {
+        GetResourceOp::TeeGet { resource } => {
+            tee_get_resource(req, sessions, agent, resource).await
+        }
+        GetResourceOp::VendorGet { vendor } => {
+            vendor_get_resource(req, sessions, agent, &vendor).await
+        }
+    }
+}
+
+async fn tee_get_resource(
+    req: HttpRequest,
+    sessions: Data<SessionMap>,
+    agent: web::Data<Arc<RwLock<AttestationService>>>,
+    resource: ResourceLocation,
+) -> Result<HttpResponse> {
     // If the corresponding session of the token exists, get the token inside the session.
     // Otherwise, get the token from the http header.
     let token = match {
@@ -61,8 +88,6 @@ pub async fn get_resource(
     };
 
     let claim: Claims = verify(&token).context("illegal token")?;
-
-    let resource = body.0.clone();
     let claim: String = serde_json::to_string(&claim)?;
 
     log::debug!("Resource path: {}", resource);
@@ -92,6 +117,24 @@ pub async fn get_resource(
             ))
         }
     }
+}
+
+async fn vendor_get_resource(
+    _req: HttpRequest,
+    _sessions: Data<SessionMap>,
+    agent: web::Data<Arc<RwLock<AttestationService>>>,
+    vendor: &str,
+) -> Result<HttpResponse> {
+    let resource_list: Vec<String> = agent
+        .read()
+        .await
+        .list_resource(vendor)
+        .await?
+        .iter()
+        .map(|v| v.to_string())
+        .collect();
+
+    Ok(HttpResponse::Ok().body(serde_json::to_string(&resource_list)?))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

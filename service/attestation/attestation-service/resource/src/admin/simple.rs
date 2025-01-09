@@ -52,6 +52,10 @@ impl ResourceAdminInterface for SimpleResourceAdmin {
         self.storage_engine.lock().await.get(location).await
     }
 
+    async fn list_resource(&self, vendor: &str) -> Result<Vec<ResourceLocation>> {
+        self.storage_engine.lock().await.list(vendor).await
+    }
+
     async fn evaluate_resource(&self, location: ResourceLocation, claims: &str) -> Result<bool> {
         let resource = self
             .get_resource(location.clone())

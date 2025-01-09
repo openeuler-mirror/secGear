@@ -9,6 +9,7 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+use std::path::StripPrefixError;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, ResourceError>;
@@ -35,4 +36,6 @@ pub enum ResourceError {
     UnmatchedPolicyResource(String, String),
     #[error("Convert error: {0}")]
     IoError(#[from] core::convert::Infallible),
+    #[error("Strip Prefix fail: {0}")]
+    StripPrefix(#[from] StripPrefixError),
 }
