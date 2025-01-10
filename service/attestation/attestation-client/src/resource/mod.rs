@@ -13,9 +13,11 @@
 //! Subcommand for getting or setting resource.
 //!
 
-use crate::client::{AsClient, Protocal};
+pub(crate) mod client;
+
+use self::client::ResourceClient;
+use crate::client::AsClient;
 use clap::{Args, Subcommand};
-use reqwest::ClientBuilder;
 
 #[derive(Debug, Args)]
 #[command(args_conflicts_with_subcommands = true)]
@@ -58,20 +60,14 @@ pub(crate) enum ResourceCommand {
 }
 
 impl ResourceArgs {
-    pub(crate) fn process(&self) {
-        self.command.dispatch();
+    pub(crate) fn process(&self, base_client: AsClient) {
+        self.command.dispatch(base_client);
     }
 }
 
 impl ResourceCommand {
-    fn dispatch(&self) {
-        let client = AsClient::new(
-            false,
-            Protocal::Http {
-                svr: "127.0.0.1:8080".to_string(),
-            },
-        )
-        .unwrap();
+    fn dispatch(&self, base_client: AsClient) {
+        let client = ResourceClient::new(base_client);
         let runtime = tokio::runtime::Runtime::new().unwrap();
 
         match self {

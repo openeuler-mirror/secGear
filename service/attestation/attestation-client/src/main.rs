@@ -16,9 +16,12 @@
 mod client;
 mod error;
 mod resource;
+mod resource_policy;
 
 use crate::resource::ResourceArgs;
+use crate::resource_policy::ResourcePolicyArgs;
 use clap::{Parser, Subcommand};
+use client::AsClient;
 
 /// A fictional versioning CLI
 #[derive(Debug, Parser)] // requires `derive` feature
@@ -32,14 +35,18 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Commands {
     Resource(ResourceArgs),
+    ResourcePolicy(ResourcePolicyArgs),
 }
 
 fn main() {
     let args = Cli::parse();
-
+    let client = AsClient::default();
     match args.command {
         Commands::Resource(args) => {
-            args.process();
+            args.process(client);
+        }
+        Commands::ResourcePolicy(args) => {
+            args.process(client);
         }
     }
 }

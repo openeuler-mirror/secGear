@@ -32,7 +32,7 @@ pub async fn get_resource(
     body: web::Json<GetResourceOp>,
     agent: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
-    log::info!("receive request");
+    log::info!("receive getting resource request");
 
     let sessions = agent.read().await.get_sessions();
     let op = body.0;
@@ -53,6 +53,8 @@ async fn tee_get_resource(
     agent: web::Data<Arc<RwLock<AttestationService>>>,
     resource: ResourceLocation,
 ) -> Result<HttpResponse> {
+    log::info!("receive tee getting resource request");
+
     // If the corresponding session of the token exists, get the token inside the session.
     // Otherwise, get the token from the http header.
     let token = match {
@@ -119,6 +121,8 @@ async fn vendor_get_resource(
     agent: web::Data<Arc<RwLock<AttestationService>>>,
     vendor: &str,
 ) -> Result<HttpResponse> {
+    log::info!("receive vendor getting resource request");
+
     let resource_list: Vec<String> = agent
         .read()
         .await
@@ -136,6 +140,8 @@ pub async fn set_resource(
     body: web::Json<SetResourceRequest>,
     agent: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
+    log::info!("receive vendor setting resource request");
+
     let agent = agent.read().await;
     let admin = agent.resource_admin.lock().await;
     let resource = body.0.resource.clone();
