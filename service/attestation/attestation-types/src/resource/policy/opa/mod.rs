@@ -100,7 +100,7 @@ impl PolicyEngine for OpenPolicyAgent {
                 );
             }
         }
-        tokio::fs::write(p, policy).await?;
+        tokio::fs::write(p, policy.as_bytes()).await?;
         Ok(())
     }
 
