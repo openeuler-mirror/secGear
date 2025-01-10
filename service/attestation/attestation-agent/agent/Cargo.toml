@@ -48,4 +48,3 @@ jsonwebtoken.workspace = true
 attester = { path = "../attester" }
 token_verifier = { path = "../token" }
 verifier = { workspace = true, features = ["no_as"], optional = true }
-resource = { path = "../../attestation-service/resource" }

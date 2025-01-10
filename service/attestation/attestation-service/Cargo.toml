@@ -1,14 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-    "service",
-    "verifier",
-    "token",
-    "reference",
-    "policy",
-    "tests",
-    "resource",
-]
+members = ["service", "verifier", "token", "reference", "policy", "tests"]
 
 [workspace.dependencies]
 anyhow = "1.0.80"

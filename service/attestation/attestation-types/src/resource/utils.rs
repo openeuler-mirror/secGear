@@ -10,7 +10,7 @@
  * See the Mulan PSL v2 for more details.
  */
 
-use crate::error::Result;
+use crate::resource::error::Result;
 use async_recursion::async_recursion;
 use std::path::PathBuf;
 

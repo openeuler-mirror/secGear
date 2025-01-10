@@ -10,13 +10,13 @@
  * See the Mulan PSL v2 for more details.
  */
 
-use crate::admin::ResourceAdminInterface;
-use crate::error::Result;
-use crate::policy::opa::OpenPolicyAgent;
-use crate::policy::{PolicyEngine, PolicyLocation};
+use crate::resource::admin::ResourceAdminInterface;
+use crate::resource::error::{ResourceError, Result};
+use crate::resource::policy::opa::OpenPolicyAgent;
+use crate::resource::policy::{PolicyEngine, PolicyLocation};
+use crate::resource::storage::simple::SimpleStorage;
+use crate::resource::storage::StorageEngine;
 use crate::resource::ResourceLocation;
-use crate::storage::simple::SimpleStorage;
-use crate::storage::StorageEngine;
 use anyhow::Context;
 use async_trait::async_trait;
 use std::path::PathBuf;
@@ -95,7 +95,7 @@ impl ResourceAdminInterface for SimpleResourceAdmin {
                 }
             };
             if !location.check_policy_legal(&p) {
-                return Err(crate::error::ResourceError::UnmatchedPolicyResource(
+                return Err(ResourceError::UnmatchedPolicyResource(
                     location.to_string(),
                     p.to_string(),
                 ));
@@ -120,7 +120,7 @@ impl ResourceAdminInterface for SimpleResourceAdmin {
         for p in policy.iter() {
             if let Ok(p) = p.parse::<PolicyLocation>() {
                 if !location.check_policy_legal(&p) {
-                    return Err(crate::error::ResourceError::UnmatchedPolicyResource(
+                    return Err(ResourceError::UnmatchedPolicyResource(
                         location.to_string(),
                         p.to_string(),
                     ));
@@ -141,7 +141,7 @@ impl ResourceAdminInterface for SimpleResourceAdmin {
         for p in policy.iter() {
             let p = p.parse::<PolicyLocation>()?;
             if !location.check_policy_legal(&p) {
-                return Err(crate::error::ResourceError::UnmatchedPolicyResource(
+                return Err(ResourceError::UnmatchedPolicyResource(
                     location.to_string(),
                     p.to_string(),
                 ));
@@ -210,7 +210,7 @@ impl ResourcePolicyAdminInterface for SimpleResourceAdmin {
 
 #[cfg(test)]
 mod tests {
-    use crate::{admin::ResourceAdminInterface, resource::ResourceLocation};
+    use crate::resource::{admin::ResourceAdminInterface, ResourceLocation};
     use std::env;
     use tokio::runtime::Runtime;
 

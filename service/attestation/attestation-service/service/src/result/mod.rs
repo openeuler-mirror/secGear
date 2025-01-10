@@ -74,7 +74,7 @@ pub enum AsError {
     TokenIllegal,
 
     #[error("Resource Policy Error: {0}")]
-    ResourcePolicy(#[from] resource::error::ResourceError),
+    ResourcePolicy(#[from] attestation_types::resource::error::ResourceError),
 
     #[error(transparent)]
     Other(#[from] anyhow::Error),

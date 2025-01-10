@@ -10,8 +10,15 @@
  * See the Mulan PSL v2 for more details.
  */
 
-use crate::error::{ResourceError, Result};
-use crate::policy::PolicyLocation;
+pub mod admin;
+pub mod error;
+pub mod policy;
+pub mod storage;
+
+pub(crate) mod utils;
+
+use crate::resource::error::{ResourceError, Result};
+use crate::resource::policy::PolicyLocation;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, path::PathBuf, str::FromStr};

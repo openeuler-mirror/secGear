@@ -12,11 +12,7 @@
 
 pub mod simple;
 
-use crate::{
-    error::Result,
-    policy::PolicyLocation,
-    resource::{Resource, ResourceLocation},
-};
+use crate::resource::{error::Result, policy::PolicyLocation, Resource, ResourceLocation};
 use async_trait::async_trait;
 
 #[async_trait]

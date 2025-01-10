@@ -17,21 +17,13 @@ use actix_web::web::Data;
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use actix_web_httpauth::headers::authorization::{Authorization, Bearer};
 use anyhow::Context;
+use attestation_types::resource::ResourceLocation;
+use attestation_types::service::{GetResourceOp, SetResourceOp, SetResourceRequest};
 use attestation_types::Claims;
 use log;
-use resource::resource::ResourceLocation;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use token_signer::verify;
 use tokio::sync::RwLock;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum GetResourceOp {
-    /// User in TEE environment can get resource content.
-    TeeGet { resource: ResourceLocation },
-    /// Vendor can only get the list of resource files that are already published in AS.
-    VendorGet { vendor: String },
-}
 
 /// When the consumer request for resource, he should provide the vendor name which owns the resource.
 #[get("/resource/storage")]
@@ -40,6 +32,8 @@ pub async fn get_resource(
     body: web::Json<GetResourceOp>,
     agent: web::Data<Arc<RwLock<AttestationService>>>,
 ) -> Result<HttpResponse> {
+    log::info!("receive request");
+
     let sessions = agent.read().await.get_sessions();
     let op = body.0;
 
@@ -113,7 +107,7 @@ async fn tee_get_resource(
         Err(e) => {
             log::debug!("{}", e);
             Err(result::AsError::ResourcePolicy(
-                resource::error::ResourceError::LoadPolicy(e),
+                attestation_types::resource::error::ResourceError::LoadPolicy(e),
             ))
         }
     }
@@ -135,38 +129,6 @@ async fn vendor_get_resource(
         .collect();
 
     Ok(HttpResponse::Ok().body(serde_json::to_string(&resource_list)?))
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum SetResourceOp {
-    /// Add new resource.
-    /// The vendor of each policy should be 'default' or the same with the resource.
-    /// Otherwise error will be raised.
-    ///
-    /// If the resource already exists, the content will be overrided.
-    Add {
-        content: String,
-        policy: Vec<String>,
-    },
-    /// Delete specific resource.
-    Delete,
-    /// Modify the content of specific resource. Other fields of the resource will be kept.
-    Modify { content: String },
-    /// Bind policy to specific resource.
-    /// The vendor of any policy should be 'default' or the same with the resource.
-    /// Otherwise error will be raised.
-    Bind { policy: Vec<String> },
-    /// Unbind policy of specific resource.
-    /// The vendor of any policy should be 'default' or the same with the resource.
-    /// Otherwise error will be raised.
-    Unbind { policy: Vec<String> },
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SetResourceRequest {
-    pub op: SetResourceOp,
-    /// The vendor of the resource should be the same with that granted in the token.
-    pub resource: ResourceLocation,
 }
 
 #[post("/resource/storage")]

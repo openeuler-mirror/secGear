@@ -21,7 +21,6 @@ verifier = { path = "../verifier" }
 token_signer = { path = "../token" }
 reference = { path = "../reference" }
 policy = { path = "../policy" }
-resource = { path = "../resource" }
 strum.workspace = true
 thiserror.workspace = true
 clap.workspace = true

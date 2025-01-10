@@ -12,9 +12,9 @@
 
 pub(crate) mod simple;
 
-use crate::error::ResourceError;
-use crate::error::Result;
-use crate::policy::PolicyLocation;
+use crate::resource::error::ResourceError;
+use crate::resource::error::Result;
+use crate::resource::policy::PolicyLocation;
 use crate::resource::Resource;
 use crate::resource::ResourceLocation;
 use async_trait::async_trait;

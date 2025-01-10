@@ -11,10 +11,10 @@
  */
 
 use super::PolicyLocation;
-use crate::{
+use crate::resource::{
     error::{ResourceError, Result},
     policy::PolicyEngine,
-    resource::ResourceLocation,
+    ResourceLocation,
 };
 use anyhow::Context;
 use async_trait::async_trait;

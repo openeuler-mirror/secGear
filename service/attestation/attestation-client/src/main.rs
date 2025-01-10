@@ -14,11 +14,11 @@
 //! into the sub-command of the command line tool.
 
 mod client;
-mod resource;
 mod error;
+mod resource;
 
+use crate::resource::ResourceArgs;
 use clap::{Parser, Subcommand};
-use resource::ResourceArgs;
 
 /// A fictional versioning CLI
 #[derive(Debug, Parser)] // requires `derive` feature

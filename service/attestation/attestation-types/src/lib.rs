@@ -9,6 +9,10 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+
+pub mod resource;
+pub mod service;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

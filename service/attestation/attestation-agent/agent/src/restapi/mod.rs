@@ -12,9 +12,9 @@
 use crate::result::Result;
 use crate::{AgentError, AttestationAgent, AttestationAgentAPIs, TokenRequest};
 use actix_web::{get, post, web, HttpResponse};
+use attestation_types::resource::ResourceLocation;
 use attester::EvidenceRequest;
 use log;
-use resource::resource::ResourceLocation;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;

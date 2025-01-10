@@ -12,22 +12,11 @@
 use crate::result::Result;
 use crate::AttestationService;
 use actix_web::{get, post, web, HttpResponse};
-use resource::policy::PolicyLocation;
+use attestation_types::resource::policy::PolicyLocation;
+use attestation_types::service::{GetResourcePolicyOp, SetResourcePolicyOp};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum GetResourcePolicyOp {
-    /// Get specific policy under a vendor.
-    GetOne { policy: PolicyLocation },
-    /// Get all policy under different vendors.
-    /// The returned value is a vector of policy identifer, such as '["vendor_A/example.rego", "vendor_B/example.rego"]'.
-    GetAll,
-    /// Get all policy under particular vendor.
-    /// The returned value is a vector of policy identifer, such as '["vendor_A/example_1.rego", "vendor_A/example_2.rego"]'.
-    GetAllInVendor { vendor: String },
-}
 
 #[get("/resource/policy")]
 pub async fn get_resource_policy(
@@ -85,25 +74,6 @@ pub async fn get_resource_policy(
             }
         }
     }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum SetResourcePolicyOp {
-    /// Add new policy file, if it already exists, override its content.
-    ///
-    /// The vendor of policy should be the same with that in the token granted to the user.
-    Add {
-        policy: PolicyLocation,
-        content: String,
-    },
-    /// Delete particular policy file.
-    ///
-    /// The vendor of policy should be the same with that in the token granted to the user.
-    Delete { policy: PolicyLocation },
-    /// Clear all policy files.
-    ClearAll,
-    /// Clear all policy files of particular vendor.
-    ClearAllInVendor { vendor: String },
 }
 
 #[post("/resource/policy")]

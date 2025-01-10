@@ -10,12 +10,12 @@
  * See the Mulan PSL v2 for more details.
  */
 
-use crate::error::ResourceError;
-use crate::error::Result;
-use crate::policy::PolicyLocation;
+use crate::resource::error::ResourceError;
+use crate::resource::error::Result;
+use crate::resource::policy::PolicyLocation;
+use crate::resource::storage::StorageOp;
+use crate::resource::utils::traverse_regular_file;
 use crate::resource::ResourceLocation;
-use crate::storage::StorageOp;
-use crate::utils::traverse_regular_file;
 use anyhow::Context;
 use async_trait::async_trait;
 use std::path::PathBuf;
@@ -167,7 +167,7 @@ impl PolicyOp for SimpleStorage {
 
 #[cfg(test)]
 mod tests {
-    use crate::{policy::PolicyLocation, resource::ResourceLocation};
+    use crate::resource::{policy::PolicyLocation, ResourceLocation};
     use std::env;
     use tokio::runtime::Runtime;
 

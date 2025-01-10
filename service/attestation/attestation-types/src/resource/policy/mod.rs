@@ -12,8 +12,8 @@
 
 pub(crate) mod opa;
 
-use crate::error::ResourceError;
-use crate::error::Result;
+use crate::resource::error::ResourceError;
+use crate::resource::error::Result;
 use crate::resource::ResourceLocation;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

@@ -63,7 +63,7 @@ async fn main() -> Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let cli = Cli::parse();
-    let server: AttestationService = AttestationService::new(Some(cli.config)).unwrap();
+    let server: AttestationService = AttestationService::new(None).unwrap();
     let sessions = server.get_sessions();
     tokio::spawn(async move {
         loop {
