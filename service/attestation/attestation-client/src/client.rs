@@ -64,14 +64,6 @@ impl AsClient {
         }
     }
 
-    /// Payload:
-    ///
-    /// {
-    ///     VendorGet {
-    ///         vendor: String,
-    ///     },
-    /// }
-    ///
     pub(crate) async fn vendor_get_resource(&self, vendor: &str) -> Result<Vec<String>> {
         let resource_ep = self.endpoint(Endpoint::ResourceStorage);
 
@@ -91,28 +83,19 @@ impl AsClient {
             Ok(res.json().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to get challenge".to_string(),
+                "failed to get resource".to_string(),
                 status,
             ))
         }
     }
 
-    /// Payload:
-    ///
-    /// {
-    ///     Add {
-    ///         content: String,
-    ///         policy: Vec<String>,
-    ///     },
-    /// }
-    ///
     pub(crate) async fn vendor_add_resource(
         &self,
         vendor: &str,
         path: &str,
         content: &str,
         policy: &Vec<String>,
-    ) -> Result<()> {
+    ) -> Result<String> {
         let resource_ep = self.endpoint(Endpoint::ResourceStorage);
         let op = SetResourceOp::Add {
             content: content.to_string(),
@@ -126,16 +109,136 @@ impl AsClient {
             .client
             .post(resource_ep)
             .header("Content-Type", "application/json")
-            .header("content-length", 0)
             .json(&payload)
             .send()
             .await?;
         let status = res.status();
         if status.is_success() {
-            Ok(res.json().await?)
+            Ok(res.text().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to get challenge".to_string(),
+                "failed to add resource".to_string(),
+                status,
+            ))
+        }
+    }
+
+    pub(crate) async fn vendor_delete_resource(&self, vendor: &str, path: &str) -> Result<String> {
+        let resource_ep = self.endpoint(Endpoint::ResourceStorage);
+        let op = SetResourceOp::Delete;
+        let payload = SetResourceRequest {
+            op,
+            resource: ResourceLocation::new(Some(vendor.to_string()), path.to_string()),
+        };
+        let res = self
+            .client
+            .post(resource_ep)
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await?;
+        let status = res.status();
+        if status.is_success() {
+            Ok(res.text().await?)
+        } else {
+            Err(ClientError::HttpError(
+                "failed to delete resource".to_string(),
+                status,
+            ))
+        }
+    }
+
+    pub(crate) async fn vendor_modify_resource(
+        &self,
+        vendor: &str,
+        path: &str,
+        content: &str,
+    ) -> Result<String> {
+        let resource_ep = self.endpoint(Endpoint::ResourceStorage);
+        let op = SetResourceOp::Modify {
+            content: content.to_string(),
+        };
+        let payload = SetResourceRequest {
+            op,
+            resource: ResourceLocation::new(Some(vendor.to_string()), path.to_string()),
+        };
+        let res = self
+            .client
+            .post(resource_ep)
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await?;
+        let status = res.status();
+        if status.is_success() {
+            Ok(res.text().await?)
+        } else {
+            Err(ClientError::HttpError(
+                "failed to modify resource".to_string(),
+                status,
+            ))
+        }
+    }
+
+    pub(crate) async fn vendor_bind_resource(
+        &self,
+        vendor: &str,
+        path: &str,
+        policy: &Vec<String>,
+    ) -> Result<String> {
+        let resource_ep = self.endpoint(Endpoint::ResourceStorage);
+        let op = SetResourceOp::Bind {
+            policy: policy.clone(),
+        };
+        let payload = SetResourceRequest {
+            op,
+            resource: ResourceLocation::new(Some(vendor.to_string()), path.to_string()),
+        };
+        let res = self
+            .client
+            .post(resource_ep)
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await?;
+        let status = res.status();
+        if status.is_success() {
+            Ok(res.text().await?)
+        } else {
+            Err(ClientError::HttpError(
+                "failed to bind policy".to_string(),
+                status,
+            ))
+        }
+    }
+
+    pub(crate) async fn vendor_unbind_resource(
+        &self,
+        vendor: &str,
+        path: &str,
+        policy: &Vec<String>,
+    ) -> Result<String> {
+        let resource_ep = self.endpoint(Endpoint::ResourceStorage);
+        let op = SetResourceOp::Unbind {
+            policy: policy.clone(),
+        };
+        let payload = SetResourceRequest {
+            op,
+            resource: ResourceLocation::new(Some(vendor.to_string()), path.to_string()),
+        };
+        let res = self
+            .client
+            .post(resource_ep)
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await?;
+        let status = res.status();
+        if status.is_success() {
+            Ok(res.text().await?)
+        } else {
+            Err(ClientError::HttpError(
+                "failed to unbind policy".to_string(),
                 status,
             ))
         }

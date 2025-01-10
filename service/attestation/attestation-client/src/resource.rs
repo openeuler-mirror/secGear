@@ -46,9 +46,9 @@ pub(crate) enum ResourceCommand {
         content: String,
     },
     BindPolicy {
-        policy: String,
+        vendor: String,
         path: String,
-        vendor: Option<String>,
+        policy: Vec<String>,
     },
     UnbindPolicy {
         vendor: String,
@@ -65,16 +65,17 @@ impl ResourceArgs {
 
 impl ResourceCommand {
     fn dispatch(&self) {
+        let client = AsClient::new(
+            false,
+            Protocal::Http {
+                svr: "127.0.0.1:8080".to_string(),
+            },
+        )
+        .unwrap();
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+
         match self {
             ResourceCommand::Get { vendor } => {
-                let client = AsClient::new(
-                    false,
-                    Protocal::Http {
-                        svr: "127.0.0.1:8080".to_string(),
-                    },
-                )
-                .unwrap();
-                let runtime = tokio::runtime::Runtime::new().unwrap();
                 let ret = runtime
                     .block_on(client.vendor_get_resource(vendor))
                     .unwrap();
@@ -86,31 +87,46 @@ impl ResourceCommand {
                 content,
                 policy,
             } => {
-                println!("add");
+                let ret = runtime
+                    .block_on(client.vendor_add_resource(vendor, path, content, policy))
+                    .unwrap();
+                println!("{:?}", ret);
             }
             ResourceCommand::Delete { vendor, path } => {
-                println!("delete");
+                let ret = runtime
+                    .block_on(client.vendor_delete_resource(vendor, path))
+                    .unwrap();
+                println!("{:?}", ret);
             }
             ResourceCommand::Modify {
                 vendor,
                 path,
                 content,
             } => {
-                println!("modify");
+                let ret = runtime
+                    .block_on(client.vendor_modify_resource(vendor, path, content))
+                    .unwrap();
+                println!("{:?}", ret);
             }
             ResourceCommand::BindPolicy {
                 vendor,
                 path,
                 policy,
             } => {
-                println!("bind");
+                let ret = runtime
+                    .block_on(client.vendor_bind_resource(vendor, path, policy))
+                    .unwrap();
+                println!("{:?}", ret);
             }
             ResourceCommand::UnbindPolicy {
                 vendor,
                 path,
                 policy,
             } => {
-                println!("unbind");
+                let ret = runtime
+                    .block_on(client.vendor_unbind_resource(vendor, path, policy))
+                    .unwrap();
+                println!("{:?}", ret);
             }
         }
     }
