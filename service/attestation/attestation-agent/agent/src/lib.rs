@@ -21,7 +21,7 @@ pub mod result;
 use actix_web::web::Bytes;
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
-use attestation_types::resource::ResourceLocation;
+use attestation_types::{resource::ResourceLocation, service::GetResourceOp};
 use attester::{Attester, AttesterAPIs};
 use log;
 use rand::RngCore;
@@ -445,8 +445,7 @@ impl AttestationAgent {
             None => bail!("getting resource failed because the session is missing"),
         };
 
-        let resource_json = serde_json::to_string(&resource)?;
-        let payload = format!(r#"{{"TeeGet":{}}}"#, resource_json);
+        let payload = GetResourceOp::TeeGet { resource };
 
         let response = session
             .get()

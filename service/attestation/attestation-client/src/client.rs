@@ -16,6 +16,10 @@ use std::path::Display;
 
 use crate::error::{ClientError, Result};
 use async_trait::async_trait;
+use attestation_types::{
+    resource::ResourceLocation,
+    service::{GetResourceOp, SetResourceOp, SetResourceRequest},
+};
 use reqwest::{header::Entry, Certificate, Client, ClientBuilder};
 
 pub(crate) enum Protocal {
@@ -70,12 +74,16 @@ impl AsClient {
     ///
     pub(crate) async fn vendor_get_resource(&self, vendor: &str) -> Result<Vec<String>> {
         let resource_ep = self.endpoint(Endpoint::ResourceStorage);
+
+        let payload = GetResourceOp::VendorGet {
+            vendor: vendor.to_string(),
+        };
+
         let res = self
             .client
             .get(resource_ep)
             .header("Content-Type", "application/json")
-            .header("content-length", 0)
-            .json(&format!(r#"{{"VendorGet":{{"vendor":{}}}}}"#, vendor))
+            .json(&payload)
             .send()
             .await?;
         let status = res.status();
@@ -106,12 +114,20 @@ impl AsClient {
         policy: &Vec<String>,
     ) -> Result<()> {
         let resource_ep = self.endpoint(Endpoint::ResourceStorage);
+        let op = SetResourceOp::Add {
+            content: content.to_string(),
+            policy: policy.clone(),
+        };
+        let payload = SetResourceRequest {
+            op,
+            resource: ResourceLocation::new(Some(vendor.to_string()), path.to_string()),
+        };
         let res = self
             .client
             .post(resource_ep)
             .header("Content-Type", "application/json")
             .header("content-length", 0)
-            .json(&format!(r#"{{"VendorGet":{}}}"#, vendor))
+            .json(&payload)
             .send()
             .await?;
         let status = res.status();
