@@ -38,4 +38,6 @@ pub enum ResourceError {
     IoError(#[from] core::convert::Infallible),
     #[error("Strip Prefix fail: {0}")]
     StripPrefix(#[from] StripPrefixError),
+    #[error("Illegal policy suffix: {0}")]
+    IllegalPolicySuffix(String),
 }

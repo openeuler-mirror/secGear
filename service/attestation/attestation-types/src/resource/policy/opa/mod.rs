@@ -11,8 +11,12 @@
  */
 
 use super::PolicyLocation;
-use crate::resource::{error::Result, policy::PolicyEngine, ResourceLocation, DEFAULT_VENDOR_BASE};
-use anyhow::Context;
+use crate::resource::{
+    error::{ResourceError, Result},
+    policy::PolicyEngine,
+    ResourceLocation, DEFAULT_VENDOR_BASE,
+};
+use anyhow::{bail, Context};
 use async_trait::async_trait;
 use std::path::PathBuf;
 
@@ -43,6 +47,7 @@ impl PolicyEngine for OpenPolicyAgent {
         policy: Vec<PolicyLocation>,
     ) -> Result<bool> {
         let mut engine = regorus::Engine::new();
+        let mut eval_targets: Vec<String> = vec![];
 
         if policy.is_empty() {
             /* Apply default policy according to the tee type from the claims. */
@@ -58,6 +63,10 @@ impl PolicyEngine for OpenPolicyAgent {
                                         .join(DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY),
                                 )
                                 .context("failed to add policy from file")?;
+                            eval_targets.push(format!(
+                                "data.{}.{}.allow",
+                                DEFAULT_VENDOR_BASE, DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY
+                            ))
                         }
                         _ => {}
                     }
@@ -66,19 +75,52 @@ impl PolicyEngine for OpenPolicyAgent {
         }
 
         for file in policy.iter() {
+            let sub_id = match file.id.strip_suffix(".rego") {
+                Some(v) => v,
+                None => {
+                    log::debug!("Invalid policy id '{}'", file);
+                    return Err(ResourceError::IllegalPolicySuffix(file.to_string()));
+                }
+            };
             let p: PathBuf = file.try_into()?;
-            engine
-                .add_policy_from_file(self.base.join(p))
-                .context("failed to add policy from file")?;
+            if let Err(e) = engine.add_policy_from_file(self.base.join(p)) {
+                log::debug!("Failed to add policy: {}", e);
+                return Err(e.into());
+            }
+            // .context("failed to add policy from file")?;
+            eval_targets.push(format!(
+                "data.{}.{}.allow",
+                file.vendor
+                    .clone()
+                    .unwrap_or(DEFAULT_VENDOR_BASE.to_string()),
+                sub_id
+            ))
         }
-        engine
-            .add_data_json(&format!("{{\"resource\":\"{}\"}}", resource))
-            .context("failed to add data json")?;
-        engine
-            .set_input_json(claim)
-            .context("failed to set input json")?;
+        log::debug!("Evaluate query targest: {:?}", eval_targets);
+        if let Err(e) = engine.add_data_json(&format!("{{\"resource\":\"{}\"}}", resource)) {
+            log::debug!("Failed to add resource data: {}", e);
+            return Err(e.into());
+        }
+        if let Err(e) = engine.set_input_json(claim) {
+            log::debug!("Failed to set input claim: {}", e);
+            return Err(e.into());
+        }
 
-        Ok(engine.eval_bool_query("data.policy.allow".to_string(), false)?)
+        let mut ret = true;
+
+        for eval in eval_targets {
+            let v = match engine.eval_bool_query(eval.clone(), false) {
+                Ok(v) => v,
+                Err(e) => {
+                    log::debug!("Failed to evaluate {}: {}", eval, e);
+                    return Err(e.into());
+                }
+            };
+            log::debug!("Evaluate {} = {}", eval, v);
+            ret = ret && v;
+        }
+
+        Ok(ret)
     }
 
     async fn get_policy(&self, path: PolicyLocation) -> Result<String> {
