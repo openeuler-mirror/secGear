@@ -23,6 +23,8 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, path::PathBuf, str::FromStr};
 
+pub(crate) const DEFAULT_VENDOR_BASE: &str = "oeas";
+
 /// This struct indicates unique resource location under specific base directory.
 /// Base directory should be maintained by the resource management engine.
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -51,7 +53,9 @@ impl Display for ResourceLocation {
         write!(
             f,
             "{}/{}",
-            self.vendor.clone().unwrap_or("default".to_string()),
+            self.vendor
+                .clone()
+                .unwrap_or(DEFAULT_VENDOR_BASE.to_string()),
             self.path,
         )
     }
@@ -74,7 +78,7 @@ impl ResourceLocation {
             policy.vendor.clone().unwrap()
         };
 
-        if policy_vendor.as_str() == "default" {
+        if policy_vendor.as_str() == DEFAULT_VENDOR_BASE {
             return true;
         }
 

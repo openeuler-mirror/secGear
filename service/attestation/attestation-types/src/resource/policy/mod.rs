@@ -15,6 +15,7 @@ pub(crate) mod opa;
 use crate::resource::error::ResourceError;
 use crate::resource::error::Result;
 use crate::resource::ResourceLocation;
+use crate::resource::DEFAULT_VENDOR_BASE;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -66,7 +67,9 @@ impl Display for PolicyLocation {
         write!(
             f,
             "{}/{}",
-            self.vendor.clone().unwrap_or("default".to_string()),
+            self.vendor
+                .clone()
+                .unwrap_or(DEFAULT_VENDOR_BASE.to_string()),
             self.id,
         )
     }
@@ -81,7 +84,7 @@ impl std::convert::TryFrom<String> for PolicyLocation {
         }
 
         let vendor = match parts[0] {
-            "default" => None,
+            DEFAULT_VENDOR_BASE => None,
             other => Some(other.to_string()),
         };
         let id = parts[1].to_string();

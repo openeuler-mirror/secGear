@@ -11,18 +11,14 @@
  */
 
 use super::PolicyLocation;
-use crate::resource::{
-    error::{ResourceError, Result},
-    policy::PolicyEngine,
-    ResourceLocation,
-};
+use crate::resource::{error::Result, policy::PolicyEngine, ResourceLocation, DEFAULT_VENDOR_BASE};
 use anyhow::Context;
 use async_trait::async_trait;
 use std::path::PathBuf;
 
 pub(crate) const DEFAULT_RESOURCE_POLICY_DIR: &str =
     "/run/attestation/attestation-service/resource/policy/";
-pub(crate) const DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY: &str = "default/default_virtcca.rego";
+pub(crate) const DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY: &str = "virtcca.rego";
 
 pub(crate) struct OpenPolicyAgent {
     base: PathBuf,
@@ -57,7 +53,9 @@ impl PolicyEngine for OpenPolicyAgent {
                         "vcca" => {
                             engine
                                 .add_policy_from_file(
-                                    self.base.join(DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY),
+                                    self.base
+                                        .join(DEFAULT_VENDOR_BASE)
+                                        .join(DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY),
                                 )
                                 .context("failed to add policy from file")?;
                         }
@@ -170,7 +168,7 @@ impl PolicyEngine for OpenPolicyAgent {
             }
 
             ret.push(PolicyLocation {
-                vendor: if vendor == "default" {
+                vendor: if vendor == DEFAULT_VENDOR_BASE {
                     None
                 } else {
                     Some(vendor.to_string())
