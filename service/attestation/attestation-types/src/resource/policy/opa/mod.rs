@@ -208,7 +208,7 @@ impl PolicyEngine for OpenPolicyAgent {
                 }
             }
         }
-        Err(ResourceError::NotImplemented)
+        Ok(())
     }
 
     async fn clear_all_policy_in_vendor(&self, vendor: &str) -> Result<()> {
