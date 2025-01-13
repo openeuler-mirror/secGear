@@ -17,7 +17,6 @@ pub(crate) mod client;
 
 use self::client::ResourcePolicyClient;
 use crate::client::AsClient;
-use attestation_types::resource::policy::PolicyLocation;
 use clap::{Args, Subcommand};
 
 #[derive(Debug, Args)]
@@ -47,8 +46,7 @@ pub(crate) enum ResourcePolicyCommand {
         vendor: String,
         id: String,
     },
-    ClearAll,
-    ClearAllInVendor {
+    ClearAll {
         vendor: String,
     },
 }
@@ -90,21 +88,11 @@ impl ResourcePolicyCommand {
                 println!("{}", ret);
             }
             ResourcePolicyCommand::Delete { vendor, id } => {
-                let ret = runtime
-                    .block_on(client.vendor_delete(vendor, id))
-                    .unwrap();
+                let ret = runtime.block_on(client.vendor_delete(vendor, id)).unwrap();
                 println!("{}", ret);
             }
-            ResourcePolicyCommand::ClearAll => {
-                let ret = runtime
-                    .block_on(client.vendor_clear_all())
-                    .unwrap();
-                println!("{}", ret);
-            }
-            ResourcePolicyCommand::ClearAllInVendor { vendor } => {
-                let ret = runtime
-                    .block_on(client.vendor_clear_all_in_vendor(vendor))
-                    .unwrap();
+            ResourcePolicyCommand::ClearAll { vendor } => {
+                let ret = runtime.block_on(client.vendor_clear_all(vendor)).unwrap();
                 println!("{}", ret);
             }
         }

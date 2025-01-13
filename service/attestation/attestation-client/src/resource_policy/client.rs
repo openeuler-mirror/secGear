@@ -156,28 +156,9 @@ impl ResourcePolicyClient {
             ))
         }
     }
-    pub(crate) async fn vendor_clear_all(&self) -> Result<String> {
-        let payload = SetResourcePolicyOp::ClearAll;
 
-        let res = self
-            .client()
-            .post(self.endpoint())
-            .header("Content-Type", "application/json")
-            .json(&payload)
-            .send()
-            .await?;
-        let status = res.status();
-        if status.is_success() {
-            Ok(res.text().await?)
-        } else {
-            Err(ClientError::HttpError(
-                "failed to clear all resource policy".to_string(),
-                status,
-            ))
-        }
-    }
-    pub(crate) async fn vendor_clear_all_in_vendor(&self, vendor: &str) -> Result<String> {
-        let payload = SetResourcePolicyOp::ClearAllInVendor {
+    pub(crate) async fn vendor_clear_all(&self, vendor: &str) -> Result<String> {
+        let payload = SetResourcePolicyOp::ClearAll {
             vendor: vendor.to_string(),
         };
 
