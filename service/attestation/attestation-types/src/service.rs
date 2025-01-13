@@ -78,8 +78,6 @@ pub enum SetResourcePolicyOp {
     ///
     /// The vendor of policy should be the same with that in the token granted to the user.
     Delete { policy: PolicyLocation },
-    /// Clear all policy files.
-    ClearAll,
     /// Clear all policy files of particular vendor.
-    ClearAllInVendor { vendor: String },
+    ClearAll { vendor: String },
 }

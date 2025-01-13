@@ -101,13 +101,7 @@ pub async fn set_resource_policy(
                 e
             })?;
         }
-        SetResourcePolicyOp::ClearAll => {
-            admin.clear_all_policies().await.map_err(|e| {
-                log::warn!("Failed to clear policies: {}", e);
-                e
-            })?;
-        }
-        SetResourcePolicyOp::ClearAllInVendor { vendor } => {
+        SetResourcePolicyOp::ClearAll { vendor } => {
             admin
                 .clear_all_policies_in_vendor(&vendor)
                 .await
