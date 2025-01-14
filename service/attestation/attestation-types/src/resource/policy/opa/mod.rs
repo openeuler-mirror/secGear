@@ -63,10 +63,22 @@ impl PolicyEngine for OpenPolicyAgent {
                                         .join(DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY),
                                 )
                                 .context("failed to add policy from file")?;
-                            eval_targets.push(format!(
-                                "data.{}.{}.allow",
-                                DEFAULT_VENDOR_BASE, DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY
-                            ))
+                            let vendor = DEFAULT_VENDOR_BASE;
+                            let id = match DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY
+                                .strip_suffix(".rego")
+                            {
+                                Some(v) => v,
+                                None => {
+                                    log::debug!(
+                                        "Invalid default policy id '{}'",
+                                        DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY
+                                    );
+                                    return Err(ResourceError::IllegalPolicySuffix(
+                                        DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY.to_string(),
+                                    ));
+                                }
+                            };
+                            eval_targets.push(format!("data.{}.{}.allow", vendor, id))
                         }
                         _ => {}
                     }
