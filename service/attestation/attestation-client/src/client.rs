@@ -12,15 +12,10 @@
 
 //! Common web request client
 
-use std::path::Display;
+use crate::error::Result;
+use reqwest::Client;
 
-use crate::error::{ClientError, Result};
-use async_trait::async_trait;
-use attestation_types::{
-    resource::ResourceLocation,
-    service::{GetResourceOp, SetResourceOp, SetResourceRequest},
-};
-use reqwest::{header::Entry, Certificate, Client, ClientBuilder};
+const DEFAULT_AS_ADDRESS: &str = "127.0.0.1:8080";
 
 pub(crate) enum Protocal {
     Http { svr: String },
@@ -42,13 +37,8 @@ impl AsClient {
     }
 
     pub(crate) fn default() -> Self {
-        AsClient::new(
-            false,
-            Protocal::Http {
-                svr: "127.0.0.1:8080".to_string(),
-            },
-        )
-        .unwrap()
+        let svr = std::env::var("AS_ADDRESS").unwrap_or(DEFAULT_AS_ADDRESS.to_string());
+        AsClient::new(false, Protocal::Http { svr }).unwrap()
     }
 
     pub(crate) fn base_url(&self) -> String {
