@@ -58,7 +58,7 @@ impl ResourcePolicyClient {
             Ok(res.text().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to get resource policy".to_string(),
+                format!("failed to get resource policy: {}", res.text().await?),
                 status,
             ))
         }
@@ -78,7 +78,7 @@ impl ResourcePolicyClient {
             Ok(res.json().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to get all resource policy".to_string(),
+                format!("failed to get all resource policy: {}", res.text().await?),
                 status,
             ))
         }
@@ -100,7 +100,11 @@ impl ResourcePolicyClient {
             Ok(res.json().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to get all resource policy in vendor".to_string(),
+                format!(
+                    "failed to get all resource policy in vendor {}: {}",
+                    vendor,
+                    res.text().await?
+                ),
                 status,
             ))
         }
@@ -126,7 +130,7 @@ impl ResourcePolicyClient {
             Ok(res.text().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to add resource policy".to_string(),
+                format!("failed to add resource policy: {}", res.text().await?),
                 status,
             ))
         }
@@ -151,7 +155,7 @@ impl ResourcePolicyClient {
             Ok(res.text().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to delete resource policy".to_string(),
+                format!("failed to delete resource policy: {}", res.text().await?),
                 status,
             ))
         }
@@ -174,7 +178,11 @@ impl ResourcePolicyClient {
             Ok(res.text().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to clear resource policy in vendor".to_string(),
+                format!(
+                    "failed to clear resource policy in vendor {}: {}",
+                    vendor,
+                    res.text().await?
+                ),
                 status,
             ))
         }

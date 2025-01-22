@@ -54,7 +54,7 @@ impl ResourceClient {
             Ok(res.json().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to get resource".to_string(),
+                format!("failed to get resource: {}", res.text().await?),
                 status,
             ))
         }
@@ -87,7 +87,7 @@ impl ResourceClient {
             Ok(res.text().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to add resource".to_string(),
+                format!("failed to add resource: {}", res.text().await?),
                 status,
             ))
         }
@@ -111,7 +111,7 @@ impl ResourceClient {
             Ok(res.text().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to delete resource".to_string(),
+                format!("failed to delete resource: {}", res.text().await?),
                 status,
             ))
         }
@@ -142,7 +142,7 @@ impl ResourceClient {
             Ok(res.text().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to modify resource".to_string(),
+                format!("failed to modify resource: {}", res.text().await?),
                 status,
             ))
         }
@@ -173,7 +173,7 @@ impl ResourceClient {
             Ok(res.text().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to bind policy".to_string(),
+                format!("failed to bind resource: {}", res.text().await?),
                 status,
             ))
         }
@@ -204,7 +204,7 @@ impl ResourceClient {
             Ok(res.text().await?)
         } else {
             Err(ClientError::HttpError(
-                "failed to unbind policy".to_string(),
+                format!("failed to unbind resource: {}", res.text().await?),
                 status,
             ))
         }
