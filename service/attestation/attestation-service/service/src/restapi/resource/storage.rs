@@ -108,7 +108,7 @@ async fn tee_get_resource(
         }
         Err(e) => {
             log::debug!("{}", e);
-            Err(result::AsError::ResourcePolicy(
+            Err(result::AsError::Resource(
                 attestation_types::resource::error::ResourceError::LoadPolicy(e),
             ))
         }
