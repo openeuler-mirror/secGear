@@ -21,7 +21,7 @@ pub trait ResourceAdminInterface: ResourcePolicyAdminInterface + Send + Sync {
     async fn get_resource(&self, location: ResourceLocation) -> Result<Resource>;
     /// Traverse and get resource list in particular vendor.
     async fn list_resource(&self, vendor: &str) -> Result<Vec<ResourceLocation>>;
-    /// Add new resource or override the existing one.
+    /// Add new resource. If the resource already exists, error will be thrown.
     async fn add_resource(
         &self,
         _location: ResourceLocation,

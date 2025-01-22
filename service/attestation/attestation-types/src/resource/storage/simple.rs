@@ -84,6 +84,11 @@ impl StorageOp for SimpleStorage {
 
     async fn store(&self, location: ResourceLocation, resource: Resource) -> Result<()> {
         let regularized = self.regular(&format!("{}", location))?;
+
+        if regularized.exists() {
+            return Err(ResourceError::ResourceExist(location.to_string()));
+        }
+
         if let Some(parent) = regularized.parent() {
             if let Err(e) = tokio::fs::create_dir_all(parent).await {
                 log::warn!(

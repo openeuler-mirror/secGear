@@ -28,7 +28,7 @@ pub(crate) trait StorageOp: Send + Sync {
     async fn get(&self, location: ResourceLocation) -> Result<Resource>;
     /// Traverse and collect resource list in particular vendor.
     async fn list(&self, vendor: &str) -> Result<Vec<ResourceLocation>>;
-    /// Create a new resource if it does not exist. If the resource already exists, it will be overrided.
+    /// Create a new resource if it does not exist. If the resource already exists, error will be thrown.
     async fn store(&self, location: ResourceLocation, resource: Resource) -> Result<()>;
     /// Override the content field in the resource, while keep other fields the same.
     async fn modify(&self, location: ResourceLocation, content: String) -> Result<()>;

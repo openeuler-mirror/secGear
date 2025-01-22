@@ -40,4 +40,6 @@ pub enum ResourceError {
     StripPrefix(#[from] StripPrefixError),
     #[error("Illegal policy suffix: {0}")]
     IllegalPolicySuffix(String),
+    #[error("Resource already exist: {0}")]
+    ResourceExist(String),
 }
