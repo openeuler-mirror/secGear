@@ -20,16 +20,28 @@ use tokio::sync::RwLock;
 use log;
 
 #[derive(Deserialize, Serialize, Debug)]
-struct GetChallengeRequest {}
+struct GetChallengeRequest {
+    pub user_data: Vec<u8>,
+}
 
 #[get("/challenge")]
 pub async fn get_challenge(
-    //_request: web::Json<GetChallengeRequest>,
+    request: Option<web::Json<GetChallengeRequest>>,
     agent: web::Data<Arc<RwLock<AttestationAgent>>>,
 ) -> Result<HttpResponse> {
-    //let request = request.0;
     log::debug!("get challenge request");
-    let challenge = agent.read().await.get_challenge().await
+    let user_data: Option<Vec<u8>>;
+    if request.is_some() {
+        user_data = Some(request.unwrap().0.user_data);
+        if user_data.clone().unwrap().len() > 32 {
+            return Err(attestation_agent::result::Error::Agent { source: AgentError::ChallengeError(String::from("user data length should not exceed 32")) });
+        }
+        log::debug!("user data is {:?}", user_data.clone().unwrap());
+    } else {
+        log::debug!("user data is None");
+        user_data = Option::None;
+    }
+    let challenge = agent.read().await.get_challenge(user_data).await
         .map_err(|err| AgentError::ChallengeError(err.to_string()))?;
 
     Ok(HttpResponse::Ok().body(challenge))

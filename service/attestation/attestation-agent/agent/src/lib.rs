@@ -20,6 +20,7 @@ use log;
 use reqwest::Client;
 use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
+use serde_json::Value;
 use std::fs::File;
 use std::path::Path;
 use rand::RngCore;
@@ -73,7 +74,7 @@ pub struct TokenRequest {
 
 #[async_trait]
 pub trait AttestationAgentAPIs {
-    async fn get_challenge(&self) -> Result<String>;
+    async fn get_challenge(&self, user_data: Option<Vec<u8>>) -> Result<String>;
 
     /// `get_evidence`: get hardware TEE signed evidence due to given user_data,
     /// such as input random challenge to prevent replay attacks
@@ -96,12 +97,12 @@ pub trait AttestationAgentAPIs {
 #[async_trait]
 impl AttestationAgentAPIs for AttestationAgent {
     // no_as generate by agent; has as generate by as
-    async fn get_challenge(&self) -> Result<String> {
+    async fn get_challenge(&self, user_data: Option<Vec<u8>>) -> Result<String> {
         #[cfg(feature = "no_as")]
-        return self.generate_challenge_local().await;
+        return self.generate_challenge_local(user_data).await;
 
         #[cfg(not(feature = "no_as"))]
-        return self.get_challenge_from_as().await;
+        return self.get_challenge_from_as(user_data).await;
     }
     async fn get_evidence(&self, user_data: EvidenceRequest) -> Result<Vec<u8>> {
         Attester::default().tee_get_evidence(user_data).await
@@ -318,24 +319,33 @@ impl AttestationAgent {
         }
     }
 
-    async fn generate_challenge_local(&self) -> Result<String> {
-        let mut nonce: [u8; 32] = [0; 32];
+    async fn generate_challenge_local(&self, user_data: Option<Vec<u8>>) -> Result<String> {
+        let mut nonce: Vec<u8> = vec![0; 32];
         rand::thread_rng().fill_bytes(&mut nonce);
+        if user_data != None {
+            nonce.append(&mut user_data.unwrap());
+        }
         Ok(base64_url::encode(&nonce))
     }
 
-    async fn get_challenge_from_as(&self) -> Result<String> {
+    async fn get_challenge_from_as(&self, user_data: Option<Vec<u8>>) -> Result<String> {
         let challenge_endpoint = format!("{}/challenge", self.config.svr_url);
         let client = Self::create_client(self.access_as_protocol.clone(), 
             Some(self.cert_root.clone()), 
             true)?;
-         
+        let data: Value;
+        if user_data.is_some(){
+            data = json!({"user_data":user_data.unwrap()});
+        } else {
+            data = Value::Null;
+        }
         let res = client
             .get(challenge_endpoint)
             .header("Content-Type", "application/json")
-            .header("content-length", 0)
+            .body(data.to_string())
             .send()
             .await?;
+
         let challenge = match res.status() {
             reqwest::StatusCode::OK => {
                 let respone: String = res.json().await.unwrap();
