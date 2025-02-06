@@ -38,7 +38,7 @@ pub async fn get_challenge(
     if request.is_some() {
         user_data = Some(request.unwrap().0.user_data);
         if user_data.clone().unwrap().len() > 32 {
-            return Err(Error::ParameterInvalid(String::from(
+            return Err(AsError::ParameterInvalid(String::from(
                 "user data length should not exceed 32",
             )));
         }
