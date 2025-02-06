@@ -10,12 +10,11 @@
  * See the Mulan PSL v2 for more details.
  */
 use lazy_static::lazy_static;
-use std::sync::Arc;
 use sled::Db;
 use std::ops::Deref;
+use std::sync::Arc;
 
 use crate::store::{KvError, KvStore};
-
 
 pub struct LocalFs {
     db: Arc<Db>,
@@ -24,7 +23,8 @@ pub struct LocalFs {
 impl Default for LocalFs {
     fn default() -> Self {
         lazy_static! {
-            static ref db_handle: Arc<Db> = Arc::new(sled::open("/etc/attestation/attestation-service/reference").unwrap());
+            static ref db_handle: Arc<Db> =
+                Arc::new(sled::open("/etc/attestation/attestation-service/reference").unwrap());
         }
         LocalFs {
             db: db_handle.clone(),

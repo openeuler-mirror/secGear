@@ -9,17 +9,18 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use anyhow::{Result};
-use jsonwebtoken::{encode, get_current_timestamp,
-    Algorithm, EncodingKey, Header,
+use anyhow::Result;
+use attestation_types::{Claims, EvlResult};
+use jsonwebtoken::{
+    decode, decode_header, encode, get_current_timestamp, Algorithm, DecodingKey, EncodingKey,
+    Header, Validation,
 };
-use std::path::Path;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use attestation_types::{EvlResult, Claims};
+use std::path::Path;
 use thiserror;
 
-#[derive(thiserror::Error,  Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum SignError {
     #[error("get unix time fail:{0:?}")]
     ToUnixTimeFail(#[from] std::num::TryFromIntError),
@@ -30,7 +31,7 @@ pub enum SignError {
     #[error("key content read fail:{0}")]
     ReadKeyFail(String),
     #[error("sign fail:{0:?}")]
-    SignFail(#[from] jsonwebtoken::errors::Error)
+    SignFail(#[from] jsonwebtoken::errors::Error),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,7 +54,6 @@ impl Default for TokenSignConfig {
         }
     }
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvlReport {
@@ -79,15 +79,13 @@ impl TokenSigner {
     pub fn new(config: TokenSignConfig) -> Result<Self> {
         Ok(TokenSigner { config })
     }
-    fn support_rs(alg: &Algorithm) -> bool
-    {
-        if *alg == Algorithm::RS256 || *alg == Algorithm::RS384 || *alg == Algorithm::RS512{
+    fn support_rs(alg: &Algorithm) -> bool {
+        if *alg == Algorithm::RS256 || *alg == Algorithm::RS384 || *alg == Algorithm::RS512 {
             return true;
         }
         return false;
     }
-    fn support_ps(alg: &Algorithm) -> bool
-    {
+    fn support_ps(alg: &Algorithm) -> bool {
         if *alg == Algorithm::PS256 || *alg == Algorithm::PS384 || *alg == Algorithm::PS512 {
             return true;
         }
@@ -108,21 +106,45 @@ impl TokenSigner {
             tcb_status: report.tcb_status.clone(),
         };
         if !Self::support_rs(&alg) && !Self::support_ps(&alg) {
-            return Err(SignError::UnsupportAlg(format!("unknown algrithm {:?}", alg)));
+            return Err(SignError::UnsupportAlg(format!(
+                "unknown algrithm {:?}",
+                alg
+            )));
         }
         if !Path::new(&self.config.key).exists() {
-            return Err(SignError::UnsupportAlg(format!("token verfify failed, {:?} cert not exist", self.config.key)));
+            return Err(SignError::UnsupportAlg(format!(
+                "token verfify failed, {:?} cert not exist",
+                self.config.key
+            )));
         }
         let key = std::fs::read(&self.config.key).unwrap();
         let key_value: EncodingKey = match EncodingKey::from_rsa_pem(&key) {
             Ok(val) => val,
-            _ => {return Err(SignError::ReadKeyFail(format!("get key from input error")));}
+            _ => {
+                return Err(SignError::ReadKeyFail(format!("get key from input error")));
+            }
         };
-        
+
         let token = match encode(&header, &claims, &key_value) {
             Ok(val) => val,
-            Err(e) => {return Err(SignError::SignFail(e));}
+            Err(e) => {
+                return Err(SignError::SignFail(e));
+            }
         };
         Ok(token)
     }
+}
+
+pub fn verify(token: &String) -> Result<Claims> {
+    let header = decode_header(&token)?;
+    let alg: Algorithm = header.alg;
+
+    // todo: check support of verification algorithm
+
+    let cert = std::fs::read("/etc/attestation/attestation-service/token/as_cert.pem").unwrap();
+    let key_value = DecodingKey::from_rsa_pem(&cert)?;
+    let validation = Validation::new(alg);
+
+    let data = decode::<Claims>(&token, &key_value, &validation)?;
+    Ok(data.claims)
 }

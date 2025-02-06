@@ -85,11 +85,7 @@ extern "C" {
 }
 extern "C" {
     #[allow(dead_code)]
-    pub fn get_version(
-        ctx: *mut tsi_ctx,
-        major: *mut wchar_t,
-        minor: *mut wchar_t,
-    ) -> wchar_t;
+    pub fn get_version(ctx: *mut tsi_ctx, major: *mut wchar_t, minor: *mut wchar_t) -> wchar_t;
 }
 extern "C" {
     pub fn get_attestation_token(

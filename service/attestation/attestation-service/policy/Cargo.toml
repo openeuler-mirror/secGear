@@ -10,3 +10,4 @@ regorus.workspace = true
 base64.workspace = true
 tokio.workspace = true
 futures.workspace = true
+async-trait.workspace = true

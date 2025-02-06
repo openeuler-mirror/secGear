@@ -9,22 +9,24 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use attestation_agent::{AttestationAgent, DEFAULT_AACONFIG_FILE};
-mod restapi;
-use restapi::{get_challenge, get_evidence, verify_evidence, get_token, verify_token};
-
-use anyhow::Result;
+use actix_web::{web, App, HttpResponse, HttpServer};
+use anyhow::{bail, Result};
+use attestation_agent::{
+    restapi::{
+        get_challenge, get_evidence, get_resource, get_token, verify_evidence, verify_token,
+    },
+    AAConfig, AttestationAgent, HttpProtocal, DEFAULT_AACONFIG_FILE,
+};
+use clap::{arg, command, Parser};
 use env_logger;
-use actix_web::{web, App, HttpServer, HttpResponse};
-use std::{sync::Arc};
+use std::{path::Path, sync::Arc};
 use tokio::sync::RwLock;
-use clap::{Parser, command, arg};
 
 const DEFAULT_SOCKETADDR: &str = "127.0.0.1:8081";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-struct Cli {
+pub struct Cli {
     /// Socket address to listen on
     #[arg(short, long, default_value_t = DEFAULT_SOCKETADDR.to_string())]
     socketaddr: String,
@@ -44,10 +46,10 @@ struct Cli {
 
     #[arg(short = 'p', long = "protocol", default_value_t = String::from("http"))]
     protocol: String,
-    
+
     /// root certificate to verify peer
     #[arg(short = 't', long = "cert_root", default_value_t = String::from(""))]
-    cert_root: String
+    cert_root: String,
 }
 
 #[actix_web::main]
@@ -55,14 +57,29 @@ async fn main() -> Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let cli = Cli::parse();
-    let mut server = AttestationAgent::new(Some(cli.config)).unwrap();
-    server.access_as_protocol = cli.protocol;
-    if server.access_as_protocol == "https" {
-        server.cert_root = std::fs::read_to_string(cli.cert_root)?;
+    // Load config content from file.
+    let mut config = AAConfig::try_from(Path::new(&cli.config))?;
+
+    // Override configurations if set by command line tool.
+    match cli.protocol.as_ref() {
+        "http" => {}
+        "https" => {
+            config.protocal = HttpProtocal::Https {
+                protocal: "https".to_string(),
+                cert_root: std::fs::read_to_string(cli.cert_root)?,
+            }
+        }
+        _ => {
+            bail!("Invalid http protocal!");
+        }
     }
+
+    // Override the listening url.
     if cli.serverurl != "" {
-        server.config.svr_url = server.access_as_protocol.clone() + "://" + &cli.serverurl.clone();
+        config.svr_url = config.protocal.get_protocal() + "://" + &cli.serverurl.clone();
     }
+
+    let server = AttestationAgent::new(config).unwrap();
     let service = web::Data::new(Arc::new(RwLock::new(server)));
     HttpServer::new(move || {
         App::new()
@@ -72,6 +89,7 @@ async fn main() -> Result<()> {
             .service(verify_evidence)
             .service(get_token)
             .service(verify_token)
+            .service(get_resource)
             .default_service(web::to(|| HttpResponse::NotFound()))
     })
     .bind(cli.socketaddr)?

@@ -46,7 +46,7 @@ pub enum RefOpError {
     #[error("reference operation error {0}")]
     Err(String),
     #[error("reference store error: {0:?}")]
-    StoreErr(#[from] KvError)
+    StoreErr(#[from] KvError),
 }
 
 impl ReferenceOps {

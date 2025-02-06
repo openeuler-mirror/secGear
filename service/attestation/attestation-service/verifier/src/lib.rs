@@ -11,12 +11,12 @@
  */
 
 //! Unified tee verifier
-//! 
+//!
 //! This crate provides unified APIs to verify TEE evidence.
 
 use anyhow::*;
-use serde_json;
 use async_trait::async_trait;
+use serde_json;
 
 use attestation_types::{Evidence, TeeType};
 
@@ -46,24 +46,45 @@ impl VerifierAPIs for Verifier {
     async fn verify_evidence(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         let len = user_data.len();
         if len <= 0 || len > MAX_CHALLENGE_LEN {
-            log::error!("challenge len is error, expecting 0 < len <= {}, got {}", MAX_CHALLENGE_LEN, len);
-            bail!("challenge len is error, expecting 0 < len <= {}, got {}", MAX_CHALLENGE_LEN, len);
+            log::error!(
+                "challenge len is error, expecting 0 < len <= {}, got {}",
+                MAX_CHALLENGE_LEN,
+                len
+            );
+            bail!(
+                "challenge len is error, expecting 0 < len <= {}, got {}",
+                MAX_CHALLENGE_LEN,
+                len
+            );
         }
         let aa_evidence: Evidence = serde_json::from_slice(evidence)?;
         let tee_type = aa_evidence.tee;
         let evidence = aa_evidence.evidence.as_bytes();
         match tee_type {
             #[cfg(feature = "itrustee-verifier")]
-            TeeType::Itrustee => itrustee::ItrusteeVerifier::default().evaluate(user_data, evidence).await,
+            TeeType::Itrustee => {
+                itrustee::ItrusteeVerifier::default()
+                    .evaluate(user_data, evidence)
+                    .await
+            }
             #[cfg(feature = "virtcca-verifier")]
-            TeeType::Virtcca => virtcca::VirtCCAVerifier::default().evaluate(user_data, evidence).await,
+            TeeType::Virtcca => {
+                virtcca::VirtCCAVerifier::default()
+                    .evaluate(user_data, evidence)
+                    .await
+            }
             #[cfg(feature = "rustcca-verifier")]
-            TeeType::Rustcca => rustcca::RustCCAVerifier::default().evaluate(user_data, evidence).await,
+            TeeType::Rustcca => {
+                rustcca::RustCCAVerifier::default()
+                    .evaluate(user_data, evidence)
+                    .await
+            }
             _ => bail!("unsupported tee type:{:?}", tee_type),
         }
     }
 }
 
+#[cfg(feature = "no_as")]
 pub fn virtcca_parse_evidence(evidence: &[u8]) -> Result<TeeClaim> {
     let aa_evidence: Evidence = serde_json::from_slice(evidence)?;
     let evidence = aa_evidence.evidence.as_bytes();

@@ -36,13 +36,14 @@ log.workspace = true
 env_logger.workspace = true
 safer-ffi.workspace = true
 futures.workspace = true
-reqwest = { workspace = true, features = ["json"] }
+reqwest = { workspace = true, features = ["json", "cookies"] }
 base64-url.workspace = true
 thiserror.workspace = true
 actix-web.workspace = true
 clap.workspace = true
 scc.workspace = true
 attestation-types.workspace = true
+jsonwebtoken.workspace = true
 
 attester = { path = "../attester" }
 token_verifier = { path = "../token" }

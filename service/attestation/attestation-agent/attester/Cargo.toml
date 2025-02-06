@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-itrustee-attester = [ "base64-url", "rand" ]
+itrustee-attester = ["base64-url", "rand"]
 virtcca-attester = []
 
 [dependencies]

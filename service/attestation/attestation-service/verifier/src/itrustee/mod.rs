@@ -15,12 +15,13 @@
 use super::*;
 use log;
 use serde_json::json;
-use std::path::Path;
 use std::ops::Add;
+use std::path::Path;
 
 mod itrustee;
 
-const ITRUSTEE_REF_VALUE_FILE: &str = "/etc/attestation/attestation-service/verifier/itrustee/basevalue.txt";
+const ITRUSTEE_REF_VALUE_FILE: &str =
+    "/etc/attestation/attestation-service/verifier/itrustee/basevalue.txt";
 
 #[derive(Debug, Default)]
 pub struct ItrusteeVerifier {}
@@ -43,10 +44,16 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         buf: in_data.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
     };
 
-    let policy: std::os::raw::c_int = 1;  // 1: verify ta_imag; 2: verfiy ta_mem; 3: verify ta_img and ta_mem hash;
+    let policy: std::os::raw::c_int = 1; // 1: verify ta_imag; 2: verfiy ta_mem; 3: verify ta_img and ta_mem hash;
     if !Path::new(ITRUSTEE_REF_VALUE_FILE).exists() {
-        log::error!("itrustee verify report {} not exists", ITRUSTEE_REF_VALUE_FILE);
-        bail!("itrustee verify report {} not exists", ITRUSTEE_REF_VALUE_FILE);
+        log::error!(
+            "itrustee verify report {} not exists",
+            ITRUSTEE_REF_VALUE_FILE
+        );
+        bail!(
+            "itrustee verify report {} not exists",
+            ITRUSTEE_REF_VALUE_FILE
+        );
     }
     let ref_file = String::from(ITRUSTEE_REF_VALUE_FILE);
     let mut file = ref_file.add("\0");

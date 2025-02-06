@@ -23,7 +23,7 @@ ear.workspace = true
 [dev-dependencies]
 
 [features]
-default = [ "itrustee-verifier","virtcca-verifier"]
+default = ["itrustee-verifier", "virtcca-verifier"]
 itrustee-verifier = []
 virtcca-verifier = []
 rustcca-verifier = []

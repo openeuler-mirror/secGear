@@ -9,17 +9,19 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use anyhow::{Result, bail};
-use ima_measurements::{Event, EventData, Parser};
+use anyhow::{bail, Result};
 use fallible_iterator::FallibleIterator;
-use serde_json::{Value, Map, json};
+use ima_measurements::{Event, EventData, Parser};
+use serde_json::{json, Map, Value};
 
 #[cfg(not(feature = "no_as"))]
-const IMA_REFERENCE_FILE: &str = "/etc/attestation/attestation-service/verifier/virtcca/ima/digest_list_file";
+const IMA_REFERENCE_FILE: &str =
+    "/etc/attestation/attestation-service/verifier/virtcca/ima/digest_list_file";
 
-// attestation agent local ima reference 
+// attestation agent local ima reference
 #[cfg(feature = "no_as")]
-const IMA_REFERENCE_FILE: &str = "/etc/attestation/attestation-agent/local_verifier/virtcca/ima/digest_list_file";
+const IMA_REFERENCE_FILE: &str =
+    "/etc/attestation/attestation-agent/local_verifier/virtcca/ima/digest_list_file";
 
 #[derive(Debug, Default)]
 pub struct ImaVerify {}
@@ -40,10 +42,13 @@ impl ImaVerify {
         let pcr_10 = pcr_values.get(&10).expect("PCR 10 not measured");
         let string_pcr_sha256 = hex::encode(pcr_10.sha256);
         let string_ima_log_hash = hex::encode(ima_log_hash);
- 
+
         if string_pcr_sha256.clone() != string_ima_log_hash {
-            log::error!("ima log verify failed string_pcr_sha256 {}, string_ima_log_hash {}",
-                string_pcr_sha256, string_ima_log_hash);
+            log::error!(
+                "ima log verify failed string_pcr_sha256 {}, string_ima_log_hash {}",
+                string_pcr_sha256,
+                string_ima_log_hash
+            );
             bail!("ima log hash verify failed");
         }
 
@@ -55,8 +60,8 @@ impl ImaVerify {
         let mut ima_detail = Map::new();
         // parser each file digest in ima log, and compare with reference base value
         for event in events {
-            let (name ,file_digest) = match event.data {
-                EventData::ImaNg{digest, name} => (name, digest.digest),
+            let (name, file_digest) = match event.data {
+                EventData::ImaNg { digest, name } => (name, digest.digest),
                 _ => bail!("Invalid event {:?}", event),
             };
             if name == "boot_aggregate".to_string() {
@@ -66,7 +71,10 @@ impl ImaVerify {
             if ima_refs.contains(&hex_str_digest) {
                 ima_detail.insert(name, Value::Bool(true));
             } else {
-                log::error!("there is no refernce base value of file digest {:?}", hex_str_digest);
+                log::error!(
+                    "there is no refernce base value of file digest {:?}",
+                    hex_str_digest
+                );
                 ima_detail.insert(name, Value::Bool(false));
             }
         }
@@ -80,15 +88,16 @@ impl ImaVerify {
 use std::io::BufRead;
 use std::io::BufReader;
 fn file_reader(file_path: &str) -> ::std::io::Result<Vec<String>> {
-    let file = std::fs::File::open(file_path)
-        .expect("open ima reference file failed");
+    let file = std::fs::File::open(file_path).expect("open ima reference file failed");
     let mut strings = Vec::<String>::new();
     let mut reader = BufReader::new(file);
     let mut buf = String::new();
     let mut n: usize;
     loop {
         n = reader.read_line(&mut buf)?;
-        if n == 0 { break; }
+        if n == 0 {
+            break;
+        }
         buf.pop();
         strings.push(buf.clone());
         buf.clear();

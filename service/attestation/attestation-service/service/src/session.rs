@@ -9,7 +9,10 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use actix_web::cookie::{time::{Duration, OffsetDateTime}, Cookie};
+use actix_web::cookie::{
+    time::{Duration, OffsetDateTime},
+    Cookie,
+};
 use scc::HashMap;
 use uuid::Uuid;
 
@@ -17,6 +20,13 @@ pub struct Session {
     pub id: String,
     pub challenge: String,
     timeout: OffsetDateTime,
+    status: SessionStatus,
+}
+
+enum SessionStatus {
+    Challenge,
+    // carry token
+    Attested(String),
 }
 
 impl Session {
@@ -27,6 +37,7 @@ impl Session {
             id,
             challenge,
             timeout,
+            status: SessionStatus::Challenge,
         }
     }
     pub fn is_expired(&self) -> bool {
@@ -34,8 +45,21 @@ impl Session {
     }
     pub fn cookie(&self) -> Cookie {
         Cookie::build("oeas-session-id", self.id.clone())
-        .expires(self.timeout.clone())
-        .finish()
+            .expires(self.timeout.clone())
+            .finish()
+    }
+
+    /// Update status of the session.
+    pub fn update(&mut self, token: String) {
+        self.status = SessionStatus::Attested(token);
+    }
+
+    /// Get token if the session status is attested.
+    pub fn get_token(&self) -> Option<String> {
+        match &self.status {
+            SessionStatus::Attested(t) => Some(t.clone()),
+            _ => None,
+        }
     }
 }
 

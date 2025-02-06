@@ -9,10 +9,10 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use std::path::Path;
-use serde::{Deserialize, Serialize};
-use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation };
 use attestation_types::Claims;
+use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 #[derive(thiserror::Error, Debug)]
 pub enum VerifyError {
@@ -28,9 +28,9 @@ pub enum VerifyError {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TokenVerifyConfig {
-    pub cert: String,       // Attestation Service cert to verify jwt token signature
-    pub iss: String,        // Attestation Service name
-    //pub root_cert: String,
+    pub cert: String, // Attestation Service cert to verify jwt token signature
+    pub iss: String,  // Attestation Service name
+                      //pub root_cert: String,
 }
 
 impl Default for TokenVerifyConfig {
@@ -41,13 +41,11 @@ impl Default for TokenVerifyConfig {
         }
     }
 }
-pub struct TokenVerifier
-{
+pub struct TokenVerifier {
     pub config: TokenVerifyConfig,
 }
 
-impl Default for TokenVerifier
-{
+impl Default for TokenVerifier {
     fn default() -> Self {
         TokenVerifier {
             config: TokenVerifyConfig::default(),
@@ -66,32 +64,33 @@ impl TokenVerifier {
     pub fn new(config: TokenVerifyConfig) -> Result<Self, VerifyError> {
         Ok(TokenVerifier { config })
     }
-    fn support_rs(alg: &Algorithm) -> bool
-    {
-        if *alg == Algorithm::RS256 || *alg == Algorithm::RS384 || *alg == Algorithm::RS512{
+    fn support_rs(alg: &Algorithm) -> bool {
+        if *alg == Algorithm::RS256 || *alg == Algorithm::RS384 || *alg == Algorithm::RS512 {
             return true;
         }
         return false;
     }
-    fn support_ps(alg: &Algorithm) -> bool
-    {
+    fn support_ps(alg: &Algorithm) -> bool {
         if *alg == Algorithm::PS256 || *alg == Algorithm::PS384 || *alg == Algorithm::PS512 {
             return true;
         }
         return false;
     }
-    pub fn verify(
-        &self,
-        token: &String
-    ) -> Result<TokenRawData, VerifyError> {
+    pub fn verify(&self, token: &String) -> Result<TokenRawData, VerifyError> {
         let header = decode_header(&token)?;
         let alg: Algorithm = header.alg;
 
         if !Self::support_rs(&alg) && !Self::support_ps(&alg) {
-            return Err(VerifyError::UnknownAlg(format!("unknown algorithm {:?}", alg)));
+            return Err(VerifyError::UnknownAlg(format!(
+                "unknown algorithm {:?}",
+                alg
+            )));
         }
         if !Path::new(&self.config.cert).exists() {
-            return Err(VerifyError::CertNotExist(format!("{:?} not exist", self.config.cert)));
+            return Err(VerifyError::CertNotExist(format!(
+                "{:?} not exist",
+                self.config.cert
+            )));
         }
         let cert = std::fs::read(&self.config.cert).unwrap();
 

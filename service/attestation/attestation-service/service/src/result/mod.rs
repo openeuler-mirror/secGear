@@ -9,14 +9,14 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use thiserror::Error;
 use actix_web::{body::BoxBody, HttpResponse, ResponseError};
-pub type Result<T, E = Error> = std::result::Result<T, E>;
+use thiserror::Error;
+pub type Result<T, E = AsError> = std::result::Result<T, E>;
 
 #[derive(Debug, Error)]
 //#[non_exhaustive]
 //#[allow(missing_docs)]
-pub enum Error {
+pub enum AsError {
     #[error("IO error: {source:?}")]
     Io {
         #[from]
@@ -70,11 +70,17 @@ pub enum Error {
     #[error("Request Prameter is invalid")]
     ParameterInvalid(String),
 
+    #[error("Illegal token")]
+    TokenIllegal,
+
+    #[error("Resource Error: {0}")]
+    Resource(#[from] attestation_types::resource::error::ResourceError),
+
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
-impl ResponseError for Error {
+impl ResponseError for AsError {
     fn error_response(&self) -> HttpResponse {
         HttpResponse::InternalServerError().body(BoxBody::new(format!("{self:#?}")))
     }

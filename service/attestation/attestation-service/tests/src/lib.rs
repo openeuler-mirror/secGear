@@ -161,12 +161,8 @@ mod tests {
     fn api_get_challenge() {
         let client: Client = Client::new();
         let endpoint = "http://127.0.0.1:8080/challenge";
-        let res = client
-            .get(endpoint)
-            .send()
-            .unwrap();
+        let res = client.get(endpoint).send().unwrap();
         assert_eq!(res.status(), reqwest::StatusCode::OK);
         println!("{:?}", res.text().unwrap());
     }
-
 }

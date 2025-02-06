@@ -9,7 +9,11 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use serde::{Serialize, Deserialize};
+
+pub mod resource;
+pub mod service;
+
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const SESSION_TIMEOUT_MIN: i64 = 1;
@@ -28,7 +32,6 @@ pub enum TeeType {
     Rustcca,
     Invalid,
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Evidence {
