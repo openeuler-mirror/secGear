@@ -28,11 +28,13 @@ use rand::RngCore;
 use reqwest::Client;
 use result::Error;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use serde_json::Value;
 use std::fs::File;
 use std::path::Path;
 use thiserror;
 use token_verifier::{TokenRawData, TokenVerifier, TokenVerifyConfig};
+
 pub type TeeClaim = serde_json::Value;
 
 #[derive(Debug, thiserror::Error)]
@@ -58,7 +60,6 @@ use verifier::{Verifier, VerifierAPIs};
 use {
     base64_url,
     reqwest::header::{HeaderMap, HeaderValue},
-    serde_json::json,
 };
 
 pub use attester::EvidenceRequest;

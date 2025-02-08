@@ -19,6 +19,11 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+#[cfg(feature = "no_as")]
+use crate::result::Error;
+#[cfg(feature = "no_as")]
+use anyhow::anyhow;
+
 #[derive(Deserialize, Serialize, Debug)]
 struct GetChallengeRequest {
     pub user_data: Vec<u8>,
@@ -217,7 +222,9 @@ pub async fn get_resource(
 
     #[cfg(feature = "no_as")]
     {
-        bail!("Resource can only be got from attestation server.");
+        return Err(Error::Other(anyhow!(
+            "Resource can only be got from attestation server."
+        )));
     }
 
     let token = agent.get_token(token_req).await?;
