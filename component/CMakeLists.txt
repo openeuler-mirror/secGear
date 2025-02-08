@@ -14,6 +14,7 @@ ADD_SUBDIRECTORY(secure_channel)
 
 ADD_SUBDIRECTORY(remote_attest)
 ADD_SUBDIRECTORY(local_attest)
+ADD_SUBDIRECTORY(ra_tls)
 
 
  
