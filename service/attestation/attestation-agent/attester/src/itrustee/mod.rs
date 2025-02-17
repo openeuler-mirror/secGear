@@ -59,10 +59,24 @@ struct ItrusteeInput {
     handler: String,
     payload: ReportInputPayload,
 }
-
+const MAX_CHALLENGE_LEN: usize = 64;
 fn itrustee_get_evidence(user_data: EvidenceRequest) -> Result<String> {
+    let challenge = base64_url::decode(&user_data.challenge)?;
+    let len = challenge.len();
+    if len <= 0 || len > MAX_CHALLENGE_LEN {
+        log::error!(
+            "challenge len is error, expecting 0 < len <= {}, got {}",
+            MAX_CHALLENGE_LEN,
+            len
+        );
+        bail!(
+            "challenge len is error, expecting 0 < len <= {}, got {}",
+            MAX_CHALLENGE_LEN,
+            len
+        );
+    }
     let payload = ReportInputPayload {
-        nonce: base64_url::encode(&user_data.challenge),
+        nonce: String::from_utf8(user_data.challenge)?,
         uuid: user_data.uuid,
         with_tcb: false,
         request_key: true,

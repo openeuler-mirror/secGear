@@ -5,7 +5,7 @@ edition = "2021"
 
 [features]
 itrustee-attester = ["base64-url", "rand"]
-virtcca-attester = []
+virtcca-attester = ["base64-url"]
 
 [dependencies]
 anyhow.workspace = true

@@ -40,11 +40,24 @@ pub fn detect_platform() -> bool {
     Path::new("/dev/tsi").exists()
 }
 
+const MAX_CHALLENGE_LEN: usize = 64;
 fn virtcca_get_token(user_data: EvidenceRequest) -> Result<VirtccaEvidence> {
+    let mut challenge = base64_url::decode(&user_data.challenge)?;
+    let len = challenge.len();
+    if len <= 0 || len > MAX_CHALLENGE_LEN {
+        log::error!(
+            "challenge len is error, expecting 0 < len <= {}, got {}",
+            MAX_CHALLENGE_LEN,
+            len
+        );
+        bail!(
+            "challenge len is error, expecting 0 < len <= {}, got {}",
+            MAX_CHALLENGE_LEN,
+            len
+        );
+    }
     unsafe {
         let ctx = tsi_new_ctx();
-
-        let mut challenge = user_data.challenge.to_vec();
         let p_challenge = challenge.as_mut_ptr() as *mut ::std::os::raw::c_uchar;
         let challenge_len = challenge.len() as usize;
         let mut token = Vec::new();

@@ -49,9 +49,24 @@ const VIRTCCA_SUB_CERT: &str =
 #[derive(Debug, Default)]
 pub struct VirtCCAVerifier {}
 
+const MAX_CHALLENGE_LEN: usize = 64;
 impl VirtCCAVerifier {
     pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
-        return Evidence::verify(user_data, evidence);
+        let challenge = base64_url::decode(user_data)?;
+        let len = challenge.len();
+        if len <= 0 || len > MAX_CHALLENGE_LEN {
+            log::error!(
+                "challenge len is error, expecting 0 < len <= {}, got {}",
+                MAX_CHALLENGE_LEN,
+                len
+            );
+            bail!(
+                "challenge len is error, expecting 0 < len <= {}, got {}",
+                MAX_CHALLENGE_LEN,
+                len
+            );
+        }
+        return Evidence::verify(&challenge.to_vec(), evidence);
     }
 }
 
