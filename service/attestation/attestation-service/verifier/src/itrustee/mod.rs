@@ -31,9 +31,23 @@ impl ItrusteeVerifier {
         return evalute_wrapper(user_data, evidence);
     }
 }
-
+const MAX_CHALLENGE_LEN: usize = 64;
 fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
-    let mut in_data = user_data.to_vec();
+    let challenge = base64_url::decode(user_data)?;
+    let len = challenge.len();
+    if len <= 0 || len > MAX_CHALLENGE_LEN {
+        log::error!(
+            "challenge len is error, expecting 0 < len <= {}, got {}",
+            MAX_CHALLENGE_LEN,
+            len
+        );
+        bail!(
+            "challenge len is error, expecting 0 < len <= {}, got {}",
+            MAX_CHALLENGE_LEN,
+            len
+        );
+    }
+    let mut in_data = challenge.to_vec();
     let mut in_evidence = evidence.to_vec();
     let mut data_buf: itrustee::buffer_data = itrustee::buffer_data {
         size: in_evidence.len() as ::std::os::raw::c_uint,

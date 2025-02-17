@@ -19,6 +19,7 @@ fallible-iterator.workspace = true
 attestation-types.workspace = true
 ccatoken.workspace = true
 ear.workspace = true
+base64-url.workspace = true
 
 [dev-dependencies]
 
