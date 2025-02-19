@@ -24,7 +24,7 @@ use super::PolicyOp;
 use super::Resource;
 use super::StorageEngine;
 
-pub(crate) const STORAGE_BASE: &str = "/run/attestation/attestation-service/resource/storage/";
+pub(crate) const STORAGE_BASE: &str = "/etc/attestation/attestation-service/resource/storage/";
 
 pub(crate) struct SimpleStorage {
     base: PathBuf,
