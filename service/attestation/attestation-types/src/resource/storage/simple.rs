@@ -82,10 +82,15 @@ impl StorageOp for SimpleStorage {
         Ok(ret)
     }
 
-    async fn store(&self, location: ResourceLocation, resource: Resource) -> Result<()> {
+    async fn store(
+        &self,
+        location: ResourceLocation,
+        resource: Resource,
+        force: bool,
+    ) -> Result<()> {
         let regularized = self.regular(&format!("{}", location))?;
 
-        if regularized.exists() {
+        if !force && regularized.exists() {
             return Err(ResourceError::ResourceExist(location.to_string()));
         }
 
@@ -132,16 +137,16 @@ impl PolicyOp for SimpleStorage {
     ) -> Result<()> {
         let mut resource = self.get(location.clone()).await?;
         resource.set_policy(policy);
-        self.store(location, resource).await
+        self.store(location, resource, true).await
     }
     async fn get_all_policies(&self, location: ResourceLocation) -> Result<Vec<PolicyLocation>> {
         let resource = self.get(location).await?;
         Ok(resource.get_policy())
     }
-    async fn clea_policies(&self, location: ResourceLocation) -> Result<()> {
+    async fn clear_policies(&self, location: ResourceLocation) -> Result<()> {
         let mut resource = self.get(location.clone()).await?;
         resource.policy = vec![];
-        self.store(location, resource).await
+        self.store(location, resource, true).await
     }
     async fn unbind_policies(
         &self,
@@ -155,7 +160,7 @@ impl PolicyOp for SimpleStorage {
                 resource.policy.remove(idx);
             }
         }
-        self.store(location, resource).await
+        self.store(location, resource, true).await
     }
     async fn bind_policies(
         &self,
@@ -166,7 +171,7 @@ impl PolicyOp for SimpleStorage {
         for p in policy.iter() {
             resource.policy.push(format!("{}", p));
         }
-        self.store(location.clone(), resource).await
+        self.store(location.clone(), resource, true).await
     }
 }
 

@@ -29,7 +29,12 @@ pub(crate) trait StorageOp: Send + Sync {
     /// Traverse and collect resource list in particular vendor.
     async fn list(&self, vendor: &str) -> Result<Vec<ResourceLocation>>;
     /// Create a new resource if it does not exist. If the resource already exists, error will be thrown.
-    async fn store(&self, location: ResourceLocation, resource: Resource) -> Result<()>;
+    async fn store(
+        &self,
+        location: ResourceLocation,
+        resource: Resource,
+        force: bool,
+    ) -> Result<()>;
     /// Override the content field in the resource, while keep other fields the same.
     async fn modify(&self, location: ResourceLocation, content: String) -> Result<()>;
     /// Delete the resource inside the storage.
@@ -51,7 +56,7 @@ pub(crate) trait PolicyOp: StorageOp + Send + Sync {
     /// Get all policy from the resource.
     async fn get_all_policies(&self, location: ResourceLocation) -> Result<Vec<PolicyLocation>>;
     /// Clear the original policy inside the resource.
-    async fn clea_policies(&self, location: ResourceLocation) -> Result<()>;
+    async fn clear_policies(&self, location: ResourceLocation) -> Result<()>;
     /// Delete the specific policy from the resource.
     async fn unbind_policies(
         &self,

@@ -106,7 +106,7 @@ impl ResourceAdminInterface for SimpleResourceAdmin {
         self.storage_engine
             .lock()
             .await
-            .store(location, resource)
+            .store(location, resource, false)
             .await
     }
 
