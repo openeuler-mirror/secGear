@@ -21,7 +21,7 @@ use async_trait::async_trait;
 use std::path::PathBuf;
 
 pub(crate) const DEFAULT_RESOURCE_POLICY_DIR: &str =
-    "/run/attestation/attestation-service/resource/policy/";
+    "/etc/attestation/attestation-service/resource/policy/";
 pub(crate) const DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY: &str = "virtcca.rego";
 
 pub(crate) struct OpenPolicyAgent {
