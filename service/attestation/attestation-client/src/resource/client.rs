@@ -13,12 +13,12 @@
 //! Implement web request for resource to attestation service
 
 use crate::client::AsClient;
-use crate::error::{ClientError, Result};
+use crate::error::Result;
 use attestation_types::{
     resource::ResourceLocation,
     service::{GetResourceOp, SetResourceOp, SetResourceRequest},
 };
-use reqwest::Client;
+use reqwest::{Client, Response};
 
 pub(crate) struct ResourceClient {
     client: AsClient,
@@ -37,27 +37,18 @@ impl ResourceClient {
         self.client.client()
     }
 
-    pub(crate) async fn vendor_get_resource(&self, vendor: &str) -> Result<Vec<String>> {
+    pub(crate) async fn vendor_get_resource(&self, vendor: &str) -> Result<Response> {
         let payload = GetResourceOp::VendorGet {
             vendor: vendor.to_string(),
         };
 
-        let res = self
+        Ok(self
             .client()
             .get(self.endpoint())
             .header("Content-Type", "application/json")
             .json(&payload)
             .send()
-            .await?;
-        let status = res.status();
-        if status.is_success() {
-            Ok(res.json().await?)
-        } else {
-            Err(ClientError::HttpError(
-                format!("failed to get resource: {}", res.text().await?),
-                status,
-            ))
-        }
+            .await?)
     }
 
     pub(crate) async fn vendor_add_resource(
@@ -66,7 +57,7 @@ impl ResourceClient {
         path: &str,
         content: &str,
         policy: &Vec<String>,
-    ) -> Result<String> {
+    ) -> Result<Response> {
         let op = SetResourceOp::Add {
             content: content.to_string(),
             policy: policy.clone(),
@@ -75,46 +66,32 @@ impl ResourceClient {
             op,
             resource: ResourceLocation::new(Some(vendor.to_string()), path.to_string()),
         };
-        let res = self
+        Ok(self
             .client()
             .post(self.endpoint())
             .header("Content-Type", "application/json")
             .json(&payload)
             .send()
-            .await?;
-        let status = res.status();
-        if status.is_success() {
-            Ok(res.text().await?)
-        } else {
-            Err(ClientError::HttpError(
-                format!("failed to add resource: {}", res.text().await?),
-                status,
-            ))
-        }
+            .await?)
     }
 
-    pub(crate) async fn vendor_delete_resource(&self, vendor: &str, path: &str) -> Result<String> {
+    pub(crate) async fn vendor_delete_resource(
+        &self,
+        vendor: &str,
+        path: &str,
+    ) -> Result<Response> {
         let op = SetResourceOp::Delete;
         let payload = SetResourceRequest {
             op,
             resource: ResourceLocation::new(Some(vendor.to_string()), path.to_string()),
         };
-        let res = self
+        Ok(self
             .client()
             .post(self.endpoint())
             .header("Content-Type", "application/json")
             .json(&payload)
             .send()
-            .await?;
-        let status = res.status();
-        if status.is_success() {
-            Ok(res.text().await?)
-        } else {
-            Err(ClientError::HttpError(
-                format!("failed to delete resource: {}", res.text().await?),
-                status,
-            ))
-        }
+            .await?)
     }
 
     pub(crate) async fn vendor_modify_resource(
@@ -122,7 +99,7 @@ impl ResourceClient {
         vendor: &str,
         path: &str,
         content: &str,
-    ) -> Result<String> {
+    ) -> Result<Response> {
         let op = SetResourceOp::Modify {
             content: content.to_string(),
         };
@@ -130,22 +107,13 @@ impl ResourceClient {
             op,
             resource: ResourceLocation::new(Some(vendor.to_string()), path.to_string()),
         };
-        let res = self
+        Ok(self
             .client()
             .post(self.endpoint())
             .header("Content-Type", "application/json")
             .json(&payload)
             .send()
-            .await?;
-        let status = res.status();
-        if status.is_success() {
-            Ok(res.text().await?)
-        } else {
-            Err(ClientError::HttpError(
-                format!("failed to modify resource: {}", res.text().await?),
-                status,
-            ))
-        }
+            .await?)
     }
 
     pub(crate) async fn vendor_bind_resource(
@@ -153,7 +121,7 @@ impl ResourceClient {
         vendor: &str,
         path: &str,
         policy: &Vec<String>,
-    ) -> Result<String> {
+    ) -> Result<Response> {
         let op = SetResourceOp::Bind {
             policy: policy.clone(),
         };
@@ -161,22 +129,13 @@ impl ResourceClient {
             op,
             resource: ResourceLocation::new(Some(vendor.to_string()), path.to_string()),
         };
-        let res = self
+        Ok(self
             .client()
             .post(self.endpoint())
             .header("Content-Type", "application/json")
             .json(&payload)
             .send()
-            .await?;
-        let status = res.status();
-        if status.is_success() {
-            Ok(res.text().await?)
-        } else {
-            Err(ClientError::HttpError(
-                format!("failed to bind resource: {}", res.text().await?),
-                status,
-            ))
-        }
+            .await?)
     }
 
     pub(crate) async fn vendor_unbind_resource(
@@ -184,7 +143,7 @@ impl ResourceClient {
         vendor: &str,
         path: &str,
         policy: &Vec<String>,
-    ) -> Result<String> {
+    ) -> Result<Response> {
         let op = SetResourceOp::Unbind {
             policy: policy.clone(),
         };
@@ -192,43 +151,12 @@ impl ResourceClient {
             op,
             resource: ResourceLocation::new(Some(vendor.to_string()), path.to_string()),
         };
-        let res = self
+        Ok(self
             .client()
             .post(self.endpoint())
             .header("Content-Type", "application/json")
             .json(&payload)
             .send()
-            .await?;
-        let status = res.status();
-        if status.is_success() {
-            Ok(res.text().await?)
-        } else {
-            Err(ClientError::HttpError(
-                format!("failed to unbind resource: {}", res.text().await?),
-                status,
-            ))
-        }
+            .await?)
     }
 }
-
-// async fn get_challenge() {
-// let challenge_endpoint = format!("{}/challenge", self.config.svr_url);
-// let client = self.create_client(self.config.protocal.clone(), true)?;
-// let res = client
-//     .get(challenge_endpoint)
-//     .header("Content-Type", "application/json")
-//     .header("content-length", 0)
-//     .send()
-//     .await?;
-// let challenge = match res.status() {
-//     reqwest::StatusCode::OK => {
-//         let respone: String = res.json().await.unwrap();
-//         log::debug!("get challenge success, AS Response: {:?}", respone);
-//         respone
-//     }
-//     status => {
-//         log::error!("get challenge Failed, AS Response: {:?}", status);
-//         bail!("get challenge Failed")
-//     }
-// };
-// }

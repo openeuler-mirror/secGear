@@ -30,7 +30,7 @@ pub(crate) struct AsClient {
 impl AsClient {
     pub(crate) fn new(cookie_store: bool, protocal: Protocal) -> Result<Self> {
         let client = match &protocal {
-            Protocal::Http { svr } => Client::builder().cookie_store(cookie_store).build()?,
+            Protocal::Http { svr: _ } => Client::builder().cookie_store(cookie_store).build()?,
         };
 
         Ok(Self { protocal, client })

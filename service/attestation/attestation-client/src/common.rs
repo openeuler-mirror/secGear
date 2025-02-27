@@ -9,13 +9,15 @@
 * PURPOSE.
 * See the Mulan PSL v2 for more details.
 */
-use thiserror::Error;
 
-pub type Result<T> = std::result::Result<T, ClientError>;
+use reqwest::Response;
 
-#[derive(Error, Debug)]
-#[non_exhaustive]
-pub enum ClientError {
-    #[error("reqwest error: {0}")]
-    ReqwestError(#[from] reqwest::Error),
+pub(crate) async fn response_display(resp: Response) {
+    if !resp.status().is_success() {
+        println!("{:?}", resp);
+    }
+    let txt = resp.text().await.unwrap();
+    if !txt.is_empty() {
+        println!("{}", txt);
+    }
 }

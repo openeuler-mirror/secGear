@@ -17,6 +17,7 @@ pub(crate) mod client;
 
 use self::client::ResourcePolicyClient;
 use crate::client::AsClient;
+use crate::common::response_display;
 use clap::{Args, Subcommand};
 
 #[derive(Debug, Args)]
@@ -53,47 +54,75 @@ pub(crate) enum ResourcePolicyCommand {
 
 impl ResourcePolicyArgs {
     pub(crate) fn process(&self, base_client: AsClient) {
-        self.command.dispatch(base_client);
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(self.command.dispatch(base_client));
     }
 }
 
 impl ResourcePolicyCommand {
-    fn dispatch(&self, base_client: AsClient) {
+    async fn dispatch(&self, base_client: AsClient) {
         let client = ResourcePolicyClient::new(base_client);
-        let runtime = tokio::runtime::Runtime::new().unwrap();
 
         match self {
             ResourcePolicyCommand::GetOne { vendor, id } => {
-                let ret = runtime.block_on(client.vendor_get_one(vendor, id)).unwrap();
-                println!("{}", ret);
+                match client.vendor_get_one(vendor, id).await {
+                    Ok(ret) => {
+                        response_display(ret).await;
+                    }
+                    Err(e) => {
+                        println!("{:?}", e);
+                    }
+                }
             }
-            ResourcePolicyCommand::GetAll => {
-                let ret = runtime.block_on(client.vendor_get_all()).unwrap();
-                println!("{}", serde_json::json!(ret).to_string());
-            }
+            ResourcePolicyCommand::GetAll => match client.vendor_get_all().await {
+                Ok(ret) => {
+                    response_display(ret).await;
+                }
+                Err(rsp) => {
+                    println!("{:?}", rsp);
+                }
+            },
             ResourcePolicyCommand::GetAllInVendor { vendor } => {
-                let ret = runtime
-                    .block_on(client.vendor_get_all_in_vendor(vendor))
-                    .unwrap();
-                println!("{}", serde_json::json!(ret).to_string());
+                match client.vendor_get_all_in_vendor(vendor).await {
+                    Ok(ret) => {
+                        response_display(ret).await;
+                    }
+                    Err(e) => {
+                        println!("{:?}", e);
+                    }
+                }
             }
             ResourcePolicyCommand::Add {
                 vendor,
                 id,
                 content,
-            } => {
-                let ret = runtime
-                    .block_on(client.vendor_add(vendor, id, content))
-                    .unwrap();
-                println!("{}", ret);
-            }
+            } => match client.vendor_add(vendor, id, content).await {
+                Ok(ret) => {
+                    response_display(ret).await;
+                }
+                Err(rsp) => {
+                    println!("{:?}", rsp);
+                }
+            },
             ResourcePolicyCommand::Delete { vendor, id } => {
-                let ret = runtime.block_on(client.vendor_delete(vendor, id)).unwrap();
-                println!("{}", ret);
+                match client.vendor_delete(vendor, id).await {
+                    Ok(ret) => {
+                        response_display(ret).await;
+                    }
+                    Err(e) => {
+                        println!("{:?}", e);
+                    }
+                }
             }
             ResourcePolicyCommand::ClearAll { vendor } => {
-                let ret = runtime.block_on(client.vendor_clear_all(vendor)).unwrap();
-                println!("{}", ret);
+                match client.vendor_clear_all(vendor).await {
+                    Ok(ret) => {
+                        response_display(ret).await;
+                    }
+                    Err(e) => {
+                        println!("{:?}", e);
+                    }
+                }
             }
         }
     }
