@@ -118,15 +118,14 @@ impl ResourceAdminInterface for SimpleResourceAdmin {
     async fn bind_policy(&self, location: ResourceLocation, policy: Vec<String>) -> Result<()> {
         let mut legal_policy: Vec<PolicyLocation> = vec![];
         for p in policy.iter() {
-            if let Ok(p) = p.parse::<PolicyLocation>() {
-                if !location.check_policy_legal(&p) {
-                    return Err(ResourceError::UnmatchedPolicyResource(
-                        location.to_string(),
-                        p.to_string(),
-                    ));
-                }
-                legal_policy.push(p);
+            let p = p.parse::<PolicyLocation>()?;
+            if !location.check_policy_legal(&p) {
+                return Err(ResourceError::UnmatchedPolicyResource(
+                    location.to_string(),
+                    p.to_string(),
+                ));
             }
+            legal_policy.push(p);
         }
         self.storage_engine
             .lock()
