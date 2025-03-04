@@ -136,7 +136,7 @@ impl Resource {
     pub(crate) async fn read_from_file(path: PathBuf) -> Result<Self> {
         let content = tokio::fs::read(path)
             .await
-            .context("failed to add resource")?;
+            .context("failed to read resource")?;
         Ok(serde_json::from_str(
             &String::from_utf8(content).context("from utf8 error")?,
         )?)

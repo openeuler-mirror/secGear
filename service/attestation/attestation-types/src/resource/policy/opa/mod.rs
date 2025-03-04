@@ -33,6 +33,27 @@ impl OpenPolicyAgent {
         OpenPolicyAgent { base }
     }
 
+    pub(crate) fn regular(&self, vendor: &str) -> Result<PathBuf> {
+        if !Self::check_vendor_legal(vendor) {
+            return Err(ResourceError::IllegalVendor(vendor.to_string()));
+        }
+
+        let v = if vendor.is_empty() {
+            DEFAULT_VENDOR_BASE
+        } else {
+            vendor
+        };
+
+        Ok(self.base.join(v))
+    }
+
+    pub(crate) fn check_vendor_legal(vendor: &str) -> bool {
+        if vendor.contains('.') {
+            return false;
+        }
+        true
+    }
+
     pub fn default() -> Self {
         Self::new(PathBuf::from(DEFAULT_RESOURCE_POLICY_DIR))
     }
@@ -136,13 +157,13 @@ impl PolicyEngine for OpenPolicyAgent {
     }
 
     async fn get_policy(&self, path: PolicyLocation) -> Result<String> {
-        let p = self.base.join(format!("{}", path));
+        let p = self.regular(&format!("{}", path))?;
         let raw = tokio::fs::read(p).await?;
         Ok(String::from_utf8(raw)?)
     }
 
     async fn add_policy(&self, path: PolicyLocation, policy: &str) -> Result<()> {
-        let p = self.base.join(format!("{}", path));
+        let p = self.regular(&format!("{}", path))?;
         if let Some(parent) = p.parent() {
             if let Err(e) = tokio::fs::create_dir_all(parent).await {
                 log::warn!(
@@ -157,7 +178,7 @@ impl PolicyEngine for OpenPolicyAgent {
     }
 
     async fn delete_policy(&self, path: PolicyLocation) -> Result<()> {
-        let p = self.base.join(format!("{}", path));
+        let p = self.regular(&format!("{}", path))?;
         tokio::fs::remove_file(p).await?;
         Ok(())
     }
@@ -200,7 +221,7 @@ impl PolicyEngine for OpenPolicyAgent {
     }
 
     async fn get_all_policy_in_vendor(&self, vendor: &str) -> Result<Vec<PolicyLocation>> {
-        let vendor_dir = self.base.join(&vendor);
+        let vendor_dir = self.regular(vendor)?;
         let mut dir = tokio::fs::read_dir(vendor_dir).await?;
         let mut ret: Vec<PolicyLocation> = vec![];
         while let Some(d) = dir.next_entry().await? {
@@ -264,10 +285,10 @@ impl PolicyEngine for OpenPolicyAgent {
     }
 
     async fn clear_all_policy_in_vendor(&self, vendor: &str) -> Result<()> {
-        let vendor_dir = self.base.join(&vendor);
+        let vendor_dir = self.regular(vendor)?;
         let md = tokio::fs::metadata(&vendor_dir)
             .await
-            .context("invalid vendor")?;
+            .context("fetching metadata failed")?;
         if md.is_dir() {
             tokio::fs::remove_dir_all(vendor_dir).await?;
         }
