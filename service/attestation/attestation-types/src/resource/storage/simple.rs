@@ -105,7 +105,7 @@ impl StorageOp for SimpleStorage {
         }
         tokio::fs::write(regularized, serde_json::to_string(&resource)?)
             .await
-            .context("failed to add resource")?;
+            .context("failed to store resource")?;
         Ok(())
     }
 

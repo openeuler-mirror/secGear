@@ -20,8 +20,8 @@ pub enum ResourceError {
     NotImplemented,
     #[error("Policy is missing.")]
     PolicyMissing,
-    #[error("Failed to load policy: {0}")]
-    LoadPolicy(#[from] anyhow::Error),
+    #[error("{0}")]
+    Other(#[from] anyhow::Error),
     #[error("Resource error: {0}")]
     ResourceError(#[from] std::io::Error),
     #[error("Illegal resource path: {0}")]
@@ -35,7 +35,7 @@ pub enum ResourceError {
     #[error("Unmatched vendor between resource {0} and policy {1}")]
     UnmatchedPolicyResource(String, String),
     #[error("Convert error: {0}")]
-    IoError(#[from] core::convert::Infallible),
+    ConvertError(#[from] core::convert::Infallible),
     #[error("Strip Prefix fail: {0}")]
     StripPrefix(#[from] StripPrefixError),
     #[error("Illegal policy suffix: {0}")]
