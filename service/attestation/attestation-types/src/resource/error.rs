@@ -26,6 +26,8 @@ pub enum ResourceError {
     ResourceError(#[from] std::io::Error),
     #[error("Illegal resource path: {0}")]
     IllegalResource(String),
+    #[error("Illegal vendor: {0}")]
+    IllegalVendor(String),
     #[error("Invalid resource content: {0}")]
     ResourceFromUtf8(#[from] std::string::FromUtf8Error),
     #[error("Serde deserialize failure: {0}")]
