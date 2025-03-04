@@ -17,6 +17,7 @@ mod client;
 mod error;
 mod resource;
 mod resource_policy;
+mod common;
 
 use crate::resource::ResourceArgs;
 use crate::resource_policy::ResourcePolicyArgs;

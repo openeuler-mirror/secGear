@@ -50,14 +50,17 @@ impl std::convert::TryFrom<ResourceLocation> for PathBuf {
 
 impl Display for ResourceLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}/{}",
-            self.vendor
-                .clone()
-                .unwrap_or(DEFAULT_VENDOR_BASE.to_string()),
-            self.path,
-        )
+        let vendor = self
+            .vendor
+            .clone()
+            .unwrap_or(DEFAULT_VENDOR_BASE.to_string());
+        let v = if vendor.is_empty() {
+            DEFAULT_VENDOR_BASE.to_string()
+        } else {
+            vendor
+        };
+
+        write!(f, "{}/{}", v, self.path,)
     }
 }
 

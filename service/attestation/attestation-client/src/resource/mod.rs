@@ -17,6 +17,7 @@ pub(crate) mod client;
 
 use self::client::ResourceClient;
 use crate::client::AsClient;
+use crate::common::response_display;
 use clap::{Args, Subcommand};
 
 #[derive(Debug, Args)]
@@ -61,69 +62,88 @@ pub(crate) enum ResourceCommand {
 
 impl ResourceArgs {
     pub(crate) fn process(&self, base_client: AsClient) {
-        self.command.dispatch(base_client);
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(self.command.dispatch(base_client));
     }
 }
 
 impl ResourceCommand {
-    fn dispatch(&self, base_client: AsClient) {
+    async fn dispatch(&self, base_client: AsClient) {
         let client = ResourceClient::new(base_client);
-        let runtime = tokio::runtime::Runtime::new().unwrap();
 
         match self {
-            ResourceCommand::Get { vendor } => {
-                let ret = runtime
-                    .block_on(client.vendor_get_resource(vendor))
-                    .unwrap();
-                println!("{:?}", ret);
-            }
+            ResourceCommand::Get { vendor } => match client.vendor_get_resource(vendor).await {
+                Ok(ret) => {
+                    response_display(ret).await;
+                }
+                Err(e) => {
+                    println!("{:?}", e);
+                }
+            },
             ResourceCommand::Add {
                 vendor,
                 path,
                 content,
                 policy,
             } => {
-                let ret = runtime
-                    .block_on(client.vendor_add_resource(vendor, path, content, policy))
-                    .unwrap();
-                println!("{:?}", ret);
+                match client
+                    .vendor_add_resource(vendor, path, content, policy)
+                    .await
+                {
+                    Ok(ret) => {
+                        response_display(ret).await;
+                    }
+                    Err(e) => {
+                        println!("{:?}", e);
+                    }
+                }
             }
             ResourceCommand::Delete { vendor, path } => {
-                let ret = runtime
-                    .block_on(client.vendor_delete_resource(vendor, path))
-                    .unwrap();
-                println!("{:?}", ret);
+                match client.vendor_delete_resource(vendor, path).await {
+                    Ok(ret) => {
+                        response_display(ret).await;
+                    }
+                    Err(e) => {
+                        println!("{:?}", e);
+                    }
+                }
             }
             ResourceCommand::Modify {
                 vendor,
                 path,
                 content,
-            } => {
-                let ret = runtime
-                    .block_on(client.vendor_modify_resource(vendor, path, content))
-                    .unwrap();
-                println!("{:?}", ret);
-            }
+            } => match client.vendor_modify_resource(vendor, path, content).await {
+                Ok(ret) => {
+                    response_display(ret).await;
+                }
+                Err(rsp) => {
+                    println!("{:?}", rsp);
+                }
+            },
             ResourceCommand::BindPolicy {
                 vendor,
                 path,
                 policy,
-            } => {
-                let ret = runtime
-                    .block_on(client.vendor_bind_resource(vendor, path, policy))
-                    .unwrap();
-                println!("{:?}", ret);
-            }
+            } => match client.vendor_bind_resource(vendor, path, policy).await {
+                Ok(ret) => {
+                    response_display(ret).await;
+                }
+                Err(rsp) => {
+                    println!("{:?}", rsp);
+                }
+            },
             ResourceCommand::UnbindPolicy {
                 vendor,
                 path,
                 policy,
-            } => {
-                let ret = runtime
-                    .block_on(client.vendor_unbind_resource(vendor, path, policy))
-                    .unwrap();
-                println!("{:?}", ret);
-            }
+            } => match client.vendor_unbind_resource(vendor, path, policy).await {
+                Ok(ret) => {
+                    response_display(ret).await;
+                }
+                Err(rsp) => {
+                    println!("{:?}", rsp);
+                }
+            },
         }
     }
 }
