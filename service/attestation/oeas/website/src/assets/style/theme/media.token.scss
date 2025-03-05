@@ -1,0 +1,105 @@
+@media (min-width: 1201px) and (max-width: 1440px) {
+  :root,
+  [data-o-theme='light'],
+  [data-o-theme='dark'] {
+    /**
+    * @name 中尺寸
+    * @type size
+    * @group control_size
+    * @description 尺寸
+    */
+    --o-control_size-m: 28px;
+    /**
+    * @name 大尺寸
+    * @type size
+    * @group control_size
+    * @description 尺寸
+    */
+    --o-control_size-l: 36px;
+  }
+}
+
+@media (max-width: 1200px) {
+  :root,
+  [data-o-theme='light'],
+  [data-o-theme='dark'] {
+    /**
+    * @name 中尺寸
+    * @type size
+    * @group control_size
+    * @description 尺寸
+    */
+    --o-control_size-m: 28px;
+  }
+}
+
+:root {
+  --o-gap-t2c: 40px;
+  --o-gap-section: 72px;
+
+  @include respond-to('laptop') {
+    --o-gap-t2c: 24px;
+    --o-gap-section: 56px;
+  }
+
+  @include respond-to('pad_h') {
+    --o-gap-t2c: 16px;
+    --o-gap-section: 40px;
+  }
+
+  @include respond-to('pad_v') {
+    --o-gap-t2c: 12px;
+    --o-gap-section: 32px;
+  }
+
+  @include respond-to('phone') {
+    --o-gap-t2c: 12px;
+    --o-gap-section: 32px;
+  }
+}
+
+:root {
+  @include respond-to('laptop') {
+    --o-icon_size-xs: 16px;
+    --o-icon_size-s: 20px;
+    --o-icon_size-m: 24px;
+    --o-icon_size-l: 32px;
+    --o-icon_size-xl: 40px;
+    --o-icon_size-2xl: 48px;
+    --o-icon_size-3xl: 48px;
+    --o-icon_size-4xl: 56px;
+  }
+
+  @include respond-to('pad_h') {
+    --o-icon_size-xs: 16px;
+    --o-icon_size-s: 20px;
+    --o-icon_size-m: 24px;
+    --o-icon_size-l: 24px;
+    --o-icon_size-xl: 32px;
+    --o-icon_size-2xl: 40px;
+    --o-icon_size-3xl: 40px;
+    --o-icon_size-4xl: 48px;
+  }
+
+  @include respond-to('pad_v') {
+    --o-icon_size-xs: 16px;
+    --o-icon_size-s: 20px;
+    --o-icon_size-m: 24px;
+    --o-icon_size-l: 24px;
+    --o-icon_size-xl: 32px;
+    --o-icon_size-2xl: 32px;
+    --o-icon_size-3xl: 40px;
+    --o-icon_size-4xl: 40px;
+  }
+
+  @include respond-to('phone') {
+    --o-icon_size-xs: 16px;
+    --o-icon_size-s: 24px;
+    --o-icon_size-m: 24px;
+    --o-icon_size-l: 24px;
+    --o-icon_size-xl: 32px;
+    --o-icon_size-2xl: 32px;
+    --o-icon_size-3xl: 40px;
+    --o-icon_size-4xl: 40px;
+  }
+}

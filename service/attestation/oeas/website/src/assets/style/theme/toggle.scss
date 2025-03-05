@@ -1,0 +1,8 @@
+.o-toggle {
+  --toggle-radius: var(--o-radius_control-xs);
+  border: 1px solid transparent;
+}
+
+.o-toggle-checked {
+  border: 1px solid var(--toggle-bd-color-checked);
+}

@@ -1,0 +1,287 @@
+@use './screen.scss' as *;
+
+// 一级数据展示
+@mixin display1 {
+  font-size: 56px;
+  line-height: 80px;
+
+  @include respond-to('laptop') {
+    font-size: 48px;
+    line-height: 64px;
+  }
+
+  @include respond-to('pad_h') {
+    font-size: 40px;
+    line-height: 56px;
+  }
+
+  @include respond-to('pad_v') {
+    font-size: 40px;
+    line-height: 56px;
+  }
+
+  @include respond-to('phone') {
+    font-size: 22px;
+    line-height: 30px;
+  }
+}
+
+// 二级数据展示
+@mixin display2 {
+  font-size: 48px;
+  line-height: 64px;
+
+  @include respond-to('laptop') {
+    font-size: 40px;
+    line-height: 56px;
+  }
+
+  @include respond-to('pad_h') {
+    font-size: 32px;
+    line-height: 44px;
+  }
+
+  @include respond-to('pad_v') {
+    font-size: 32px;
+    line-height: 44px;
+  }
+
+  @include respond-to('phone') {
+    font-size: 20px;
+    line-height: 28px;
+  }
+}
+
+// 三级数据展示
+@mixin display3 {
+  font-size: 40px;
+  line-height: 56px;
+
+  @include respond-to('laptop') {
+    font-size: 32px;
+    line-height: 44px;
+  }
+
+  @include respond-to('pad_h') {
+    font-size: 24px;
+    line-height: 32px;
+  }
+
+  @include respond-to('pad_v') {
+    font-size: 22px;
+    line-height: 30px;
+  }
+
+  @include respond-to('phone') {
+    font-size: 18px;
+    line-height: 26px;
+  }
+}
+
+// 一级标题
+@mixin h1 {
+  font-size: 32px;
+  line-height: 44px;
+
+  @include respond-to('laptop') {
+    font-size: 20px;
+    line-height: 28px;
+  }
+
+  @include respond-to('pad_h') {
+    font-size: 20px;
+    line-height: 28px;
+  }
+
+  @include respond-to('pad_v') {
+    font-size: 18px;
+    line-height: 26px;
+  }
+
+  @include respond-to('phone') {
+    font-size: 16px;
+    line-height: 24px;
+  }
+}
+
+// 二级标题
+@mixin h2 {
+  font-size: 24px;
+  line-height: 32px;
+
+  @include respond-to('laptop') {
+    font-size: 20px;
+    line-height: 28px;
+  }
+
+  @include respond-to('pad_h') {
+    font-size: 18px;
+    line-height: 26px;
+  }
+
+  @include respond-to('pad_v') {
+    font-size: 18px;
+    line-height: 26px;
+  }
+
+  @include respond-to('phone') {
+    font-size: 16px;
+    line-height: 24px;
+  }
+}
+
+// 三级标题
+@mixin h3 {
+  font-size: 22px;
+  line-height: 30px;
+
+  @include respond-to('laptop') {
+    font-size: 18px;
+    line-height: 26px;
+  }
+
+  @include respond-to('pad_h') {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  @include respond-to('pad_v') {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  @include respond-to('phone') {
+    font-size: 16px;
+    line-height: 24px;
+  }
+}
+
+// 四级标题
+@mixin h4 {
+  font-size: 20px;
+  line-height: 28px;
+
+  @include respond-to('laptop') {
+    font-size: 18px;
+    line-height: 26px;
+  }
+
+  @include respond-to('pad_h') {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  @include respond-to('pad_v') {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  @include respond-to('phone') {
+    font-size: 14px;
+    line-height: 22px;
+  }
+}
+
+// 常规正文
+@mixin text1 {
+  font-size: 16px;
+  line-height: 24px;
+
+  @include respond-to('laptop') {
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  @include respond-to('pad_h') {
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  @include respond-to('pad_v') {
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  @include respond-to('phone') {
+    font-size: 12px;
+    line-height: 18px;
+  }
+}
+
+// 大号正文
+@mixin text2 {
+  font-size: 18px;
+  line-height: 26px;
+
+  @include respond-to('laptop') {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  @include respond-to('pad_h') {
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  @include respond-to('pad_v') {
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  @include respond-to('phone') {
+    font-size: 14px;
+    line-height: 22px;
+  }
+}
+
+// 提示文本1
+@mixin tip1 {
+  font-size: 14px;
+  line-height: 22px;
+
+  @include respond-to('laptop') {
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  @include respond-to('pad_h') {
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  @include respond-to('pad_v') {
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  @include respond-to('phone') {
+    font-size: 10px;
+    line-height: 16px;
+  }
+}
+
+// 提示文本2
+@mixin tip2 {
+  font-size: 12px;
+  line-height: 18px;
+
+  @include respond-to('laptop') {
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  @include respond-to('pad_h') {
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  @include respond-to('pad_v') {
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  @include respond-to('phone') {
+    font-size: 10px;
+    line-height: 16px;
+  }
+}

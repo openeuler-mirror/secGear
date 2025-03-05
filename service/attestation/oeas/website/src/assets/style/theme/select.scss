@@ -1,0 +1,11 @@
+.o-select {
+  --select-icon-size: 20px;
+  --select-radius: 4px;
+}
+.o-option {
+  --option-radius: var(--o-radius_control-xs);
+}
+
+.o-option-list {
+  --option-list-padding: 8px 6px;
+}

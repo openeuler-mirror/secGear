@@ -1,0 +1,79 @@
+.field-tabs {
+  > .o-tab-head > .o-tab-navs {
+    max-width: var(--layout-content-max-width);
+    padding-left: var(--layout-content-padding);
+    padding-right: var(--layout-content-padding);
+    margin: 0 auto;
+  }
+}
+.o-tab {
+  --tab-nav-divider: 1px solid var(--o-color-control4);
+}
+.domain-tabs {
+  &.min {
+    > .o-tab-head {
+      .o-tab-nav-anchor {
+        display: none;
+      }
+
+      .o-tab-nav-active {
+        color: var(--o-color-info1);
+        cursor: default;
+      }
+    }
+  }
+  .o-tab-head {
+    display: block !important;
+  }
+  .o-tab-navs {
+    --tab-nav-justify: left;
+    margin-bottom: 24px;
+  }
+  .o-table {
+    word-break: break-word;
+    --table-edge-padding: 24px;
+    .arch,
+    .appVer {
+      width: 250px;
+    }
+    tbody tr:hover {
+      background: none;
+    }
+  }
+
+  // 应用镜像样式
+  &.tabs-switch {
+    .o-tab-nav-list {
+      background: var(--o-color-fill1);
+      border-radius: 8px;
+      height: 40px;
+      padding: 4px;
+      .o-tab-nav {
+        margin: 0 !important;
+        position: relative;
+        padding: 2px 12px;
+        z-index: 3;
+      }
+    }
+    .o-tab-nav-anchor {
+      top: 0;
+      padding: 4px 0;
+      .o-tab-nav-anchor-line {
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        height: 100%;
+        background: var(--o-color-fill2);
+      }
+    }
+  }
+  &.tabs-one {
+    .o-tab-nav-active {
+      color: var(--o-color-info1);
+      cursor: default;
+      padding: 0;
+    }
+    .o-tab-nav-anchor {
+      display: none;
+    }
+  }
+}

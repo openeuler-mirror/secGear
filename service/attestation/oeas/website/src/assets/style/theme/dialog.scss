@@ -1,0 +1,44 @@
+@use '../mixin/screen.scss' as *;
+@use '../mixin/font.scss' as *;
+
+// 屏蔽loading 遮罩
+.o-layer {
+  .o-dlg-header {
+    color: var(--o-color-info1);
+  }
+
+  &.o-loading {
+    --loading-mask-icon-color: var(--o-color-info1);
+    --layer-align: top;
+    --layer-origin: top;
+    --loading-mask-color: var(--o-color-info1);
+    --layer-mask: var(--o-color-info4-inverse);
+    transition: none;
+    padding-top: 23%;
+
+    .o-loading-main {
+      flex-direction: column;
+      justify-content: flex-start;
+      @include text1;
+
+      .o-loading-icon {
+        font-size: 24px;
+        margin-bottom: 12px;
+      }
+
+      .o-rotating {
+        width: 24px;
+        height: 24px;
+        margin-bottom: 12px;
+      }
+    }
+  }
+}
+
+.o-dialog {
+  --dlg-radius: var(--o-radius-xs);
+
+  .o-dlg-footer {
+    margin-top: 32px;
+  }
+}

@@ -1,0 +1,11 @@
+.o-anchor {
+  --anchor-indicator-height: 100%;
+  .o-anchor-item-link {
+    &:hover {
+      --anchor-item-link-bg-color-hover: none;
+    }
+    &.is-active {
+      --anchor-item-link-bg-color-active: none;
+    }
+  }
+}
