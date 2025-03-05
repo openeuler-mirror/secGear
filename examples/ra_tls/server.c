@@ -165,6 +165,11 @@ int main(int argc, char *argv[])
         if (set_context_with_certificate(ssl_ctx, &cert, &prv_key) < 0) {
             break;
         }
+#ifdef CLIENT_WITH_CERT
+        // server verify client certificate
+        ra_tls_set_addr("http://server.com:8081/");
+        SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, ra_tls_verify_callback);
+#endif
         ssl = SSL_new(ssl_ctx);
         if (!ssl) {
             printf("SSL new failed\n");

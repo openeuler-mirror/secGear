@@ -18,7 +18,9 @@
 #include <arpa/inet.h>
 
 #include "ra_tls.h"
-
+#ifdef CLIENT_WITH_CERT
+const ra_mode mode = PASSPORT;
+#endif
 // return socket fd
 int connect_with_tcp(const char *dst, const int port)
 {
@@ -41,6 +43,70 @@ int connect_with_tcp(const char *dst, const int port)
 
     return client;
 }
+#ifdef CLIENT_WITH_CERT
+int generate_certificate(ra_tls_buf *cert, ra_tls_buf *prv_key)
+{
+    int res = 0;
+    printf("starting generate certificate...\n");
+    ra_cfg cfg;
+    cfg.aa_addr = "http://server.com:8081/";
+    cfg.uuid = "f68fd704-6eb1-4d14-b218-722850eb3ef0";
+    cfg.mode = mode;
+    if (mode == PASSPORT) {
+        printf("mode: Passport\n");
+    } else if (mode == BACKGROUND) {
+        printf("mode: Background\n");
+    }
+    printf("attestation agent address: %s\n", cfg.aa_addr);
+    printf("uuid: %s\n", cfg.uuid);
+    res = ra_tls_generate_certificate(cert, prv_key, &cfg, RSA_3072);
+    if (res < 0) {
+        printf("generate certificate failed\n");
+        return -1;
+    }
+    return 0;
+}
+
+int set_context_with_certificate(SSL_CTX *ssl_ctx, ra_tls_buf *cert, ra_tls_buf *prv_key)
+{
+    int ret = -1;
+    BIO *bio_cert = BIO_new_mem_buf(cert->buf, cert->filled);
+    BIO *bio_prv = BIO_new_mem_buf(prv_key->buf, prv_key->filled);
+    X509 *icert = NULL;
+    if (d2i_X509_bio(bio_cert, &icert) == NULL) {
+        printf("der read certificate failed: %s\n", ERR_reason_error_string(ERR_get_error()));
+        goto err;
+    }
+    EVP_PKEY *iprv_key = NULL;
+    if (d2i_PrivateKey_bio(bio_prv, &iprv_key) == NULL) {
+        printf("pem read private key failed: %s\n", ERR_reason_error_string(ERR_get_error()));
+        goto err;
+    }
+    if (SSL_CTX_use_certificate(ssl_ctx, icert) <= 0) {
+        printf("ctx use certificate failed: %s\n", ERR_reason_error_string(ERR_get_error()));
+        goto err;
+    }
+    if (SSL_CTX_use_PrivateKey(ssl_ctx, iprv_key) <= 0) {
+        printf("ctx use private key failed: %s\n", ERR_reason_error_string(ERR_get_error()));
+        goto err;
+    }
+    ret = 0;
+err:
+    if (bio_cert) {
+        BIO_free(bio_cert);
+    }
+    if (bio_prv) {
+        BIO_free(bio_prv);
+    }
+    if (icert) {
+        X509_free(icert);
+    }
+    if (iprv_key) {
+        EVP_PKEY_free(iprv_key);
+    }
+    return ret;
+}
+#endif
 
 #define BUF_LEN_MAX 256
 int main(int argc, char *argv[])
@@ -56,7 +122,25 @@ int main(int argc, char *argv[])
     size_t send_buf_len = strlen(send_buf);
     uint8_t recv_buf[BUF_LEN_MAX] = {0};
     size_t recv_buf_len = strlen(recv_buf);
+#ifdef CLIENT_WITH_CERT
+    ra_tls_buf cert = RA_TLS_BUF_INIT;
+    ra_tls_buf prv_key = RA_TLS_BUF_INIT;
 
+    if (generate_certificate(&cert, &prv_key) < 0) {
+        return -1;
+    }
+    /* when use PASSPORT mode, ra_tls_cert_extension_expired() can check extension is expired or not
+       it's benifit to avoid regenerate certificate repeatly
+    */
+    if (mode == PASSPORT && ra_tls_cert_extension_expired(&cert)) {
+        printf("certificate expired and regenarate\n");
+        ra_tls_buf_free(&cert);
+        ra_tls_buf_free(&prv_key);
+        if (generate_certificate(&cert, &prv_key) < 0) {
+            return -1;
+        }
+    }
+#endif
     server_sokcet = connect_with_tcp(dst, port);
     if (server_sokcet < 0) {
         printf("connect to[%s:%d] failed, exit\n", dst, port);
@@ -68,6 +152,11 @@ int main(int argc, char *argv[])
         printf("%s\n", ERR_reason_error_string(ERR_get_error()));
         goto err;
     }
+#ifdef CLIENT_WITH_CERT
+    if (set_context_with_certificate(ctx, &cert, &prv_key) < 0) {
+        goto err;
+    }
+#endif
     ra_tls_set_addr("http://server.com:8081/");
     SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, ra_tls_verify_callback);
 
@@ -103,6 +192,7 @@ int main(int argc, char *argv[])
 #endif
 end:
     SSL_shutdown(ssl);
+    ret = 0;
 err:
     if (ssl) {
         SSL_free(ssl);
@@ -112,6 +202,11 @@ err:
         SSL_CTX_free(ctx);
         ctx = NULL;
     }
+#ifdef CLIENT_WITH_CERT
+    ra_tls_buf_free(&cert);
+    ra_tls_buf_free(&prv_key);
+#endif
     close(server_sokcet);
     server_sokcet = -1;
+    return ret;
 }
