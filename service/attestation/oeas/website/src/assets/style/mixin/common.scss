@@ -1,0 +1,84 @@
+@mixin in-dark {
+  [data-o-theme='dark'] {
+    @content;
+  }
+}
+
+@mixin text-truncate($line-clamp: 1) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: $line-clamp;
+}
+
+@mixin img-in-dark {
+  filter: brightness(80%) grayscale(20%) contrast(1.2);
+}
+
+@mixin scrollbar {
+  &::-webkit-scrollbar-track {
+    border-radius: 4px;
+    background-color: var(--o-color-fill1);
+  }
+
+  &::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+    background-color: var(--o-color-fill1);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 4px;
+    background: var(--o-color-control1);
+  }
+}
+
+@mixin hoverable($hover: hover) {
+  @media (hover: $hover) {
+    @content;
+  }
+}
+
+@mixin hover() {
+  @media (hover: hover) {
+    &:hover {
+      @content;
+    }
+  }
+}
+
+@mixin me-hover() {
+  @content;
+
+  @media (hover: hover) {
+    &:hover {
+      @content;
+    }
+  }
+}
+
+@mixin x-hover() {
+  transition: all var(--o-duration-m1) var(--o-easing-standard-in);
+
+  @include hover {
+    transform: rotate(180deg);
+  }
+}
+
+@mixin x-svg-hover() {
+  & {
+    overflow: hidden;
+  }
+
+  svg {
+    transition: all var(--o-duration-m1) var(--o-easing-standard-in);
+  }
+
+  @include hover {
+    svg {
+      transform: rotate(180deg);
+    }
+  }
+}

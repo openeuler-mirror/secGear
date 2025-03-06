@@ -1,0 +1,10 @@
+.o-pagination {
+  --pagination-item-bg-color-current: var(--o-color-primary1);
+  --pagination-radius: var(--o-radius-xs);
+  .o-pagination-item.active {
+    color: var(--o-color-white);
+  }
+}
+.o_box-main {
+  --box-radius: var(--o-radius_control-xs);
+}

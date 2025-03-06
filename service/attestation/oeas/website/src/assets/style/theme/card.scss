@@ -1,0 +1,53 @@
+@use '../mixin/common.scss' as *;
+
+.o-card {
+  --card-cover-radius: 4px !important;
+  --card-radius: 4px !important;
+
+  --card-title-word-break: normal;
+  --card-detail-word-break: normal;
+  --card-main-padding: 24px 24px;
+  height: 100%;
+
+  // svg图标滑过变色
+  .path-fill {
+    fill: var(--o-color-info1);
+    transition: all var (--o-easing-standard) var(--o-duration-m2);
+  }
+
+  .o-card-icon {
+    svg {
+      width: 1em;
+      height: 1em;
+    }
+  }
+
+  &:hover {
+    .path-fill {
+      fill: var(--o-color-primary1);
+    }
+  }
+}
+
+.o-card-cover-h,
+.o-card-cover-v {
+  --card-cover-padding: 0 !important;
+}
+
+.o-card-cover-v {
+  --card-cover-radius: 4px 4px 0 0 !important;
+}
+
+.o-card-cursor-pointer {
+  @include hover {
+    .o-card-title {
+      color: var(--o-color-primary1);
+    }
+  }
+}
+
+// @include in-dark {
+//   .o-figure img {
+//     @include img-in-dark;
+//   }
+// }

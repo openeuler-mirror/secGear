@@ -1,0 +1,91 @@
+/* base */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-text-size-adjust: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  scroll-behavior: smooth;
+  box-sizing: border-box;
+  background-color: var(--o-color-fill1);
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica', 'Arial', sans-serif;
+  @include text1;
+  @include scrollbar;
+}
+
+:root.dark {
+  --el-color-primary: var(--o-color-kleinblue8);
+}
+
+*,
+:after,
+:before {
+  box-sizing: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+img {
+  vertical-align: top;
+}
+
+[tabindex] {
+  outline: none;
+}
+
+pre,
+code {
+  font-family: 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', monospace;
+}
+
+a {
+  cursor: pointer;
+  color: var(--o-color-link1);
+  text-decoration: none;
+  @include hover {
+    color: var(--o-color-link2);
+  }
+  &:active {
+    color: var(--o-color-link3);
+  }
+}
+
+blockquote,
+figure,
+form,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin: 0;
+}
+
+dd,
+dl,
+li,
+ol,
+ul {
+  margin: 0;
+  padding: 0;
+}
+
+ol,
+ul {
+  list-style: none outside none;
+}
+
+button,
+input,
+optgroup,
+section,
+textarea {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1.15;
+  margin: 0;
+}

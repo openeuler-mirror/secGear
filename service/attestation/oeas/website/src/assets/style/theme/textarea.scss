@@ -1,0 +1,8 @@
+.o-textarea {
+  --textarea-radius: var(--o-radius_control-xs);
+  --textarea-color: var(--o-color-info1);
+
+  .o_textarea-textarea::placeholder {
+    color: var(--o-color-info4);
+  }
+}

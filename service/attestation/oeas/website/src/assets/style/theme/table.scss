@@ -1,0 +1,70 @@
+@use '../mixin/font.scss' as *;
+
+.o-table {
+  --table-edge-padding: 32px;
+  --table-cell-padding: 16px 20px;
+  --table-head-cell-padding: 12px 20px;
+  --table-head-bg: var(--o-color-control3-light);
+  --table-color: var(--o-color-info1);
+  --table-radius: var(--o-radius-xs);
+  --table-loading-mask: var(--o-color-info4-inverse);
+
+  .o-table-loading-wrap {
+    z-index: 99;
+    flex-direction: column;
+
+    .o-icon-loading {
+      font-size: 24px;
+    }
+
+    .o-table-loading-label {
+      margin: 12px 0 0;
+      @include text1;
+    }
+  }
+
+  table th:first-child {
+    padding-left: var(--table-edge-padding);
+  }
+
+  table th:last-child {
+    padding-right: var(--table-edge-padding);
+  }
+
+  table td:first-child {
+    padding-left: var(--table-edge-padding);
+  }
+
+  table td:last-child {
+    padding-right: var(--table-edge-padding);
+  }
+
+  th {
+    font-weight: 500;
+    border-right: 0;
+  }
+
+  &.table-version {
+    --table-head-bg: var(--o-color-primary1);
+
+    th {
+      color: #fff;
+    }
+  }
+
+  td {
+    word-break: break-word;
+  }
+
+  &.o-table-small {
+    --table-cell-height: auto;
+    --table-cell-padding: 12px 16px;
+    --table-head-cell-padding: 9px 16px;
+    --table-edge-padding: 16px;
+
+    td,
+    th {
+      @include tip1;
+    }
+  }
+}

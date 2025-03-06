@@ -1,0 +1,5 @@
+@use '../mixin/common.scss' as *;
+
+.o-link-normal {
+  --link-color-hover: var(--o-color-link1);
+}

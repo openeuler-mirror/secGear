@@ -1,0 +1,11 @@
+.o-popup {
+  --popup-radius: var(--o-radius_control-xs);
+
+  .o-popup-body {
+    border-radius: var(--popup-radius);
+  }
+}
+
+.o-options-popup {
+  --popup-radius: var(--o-radius_control-xs);
+}
