@@ -19,14 +19,16 @@ set(CLIENT_SRC ${CMAKE_CURRENT_SOURCE_DIR}/client.c)
 
 set(LD_SO crypto ssl ra_tls)
 add_definitions(-DUSE_OPENSSL)
+#uncomment below when client use certificate
+add_definitions(-DCLIENT_WITH_CERT)
 set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "${CMAKE_INSTALL_PREFIX}/lib64")
 find_library(DEP_LIBS_PATH NAMES ${LD_SO} PATH ${CMAKE_LIBRARY_PATH})
 
 add_executable(${SERVER_NAME} ${SERVER_SRC})
 add_executable(${CLIENT_NAME} ${CLIENT_SRC})
 
-include_directories(${SERVER_NAME} ${CMAKE_INSTALL_PREFIX}/include/ra_tls)
-include_directories(${CLIENT_NAME} ${CMAKE_INSTALL_PREFIX}/include/ra_tls)
+include_directories(${SERVER_NAME} /usr/include/secGear)
+include_directories(${CLIENT_NAME} /usr/include/secGear)
 
 target_link_libraries(${SERVER_NAME} ${LD_SO})
 target_link_libraries(${CLIENT_NAME} ${LD_SO})
