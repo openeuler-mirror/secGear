@@ -33,6 +33,22 @@ pub struct PolicyLocation {
     pub id: String,
 }
 
+impl PolicyLocation {
+    pub(crate) fn check_legal(&self) -> bool {
+        if let Some(v) = &self.vendor {
+            if v.contains(['.', '/']) {
+                return false;
+            }
+        }
+
+        if self.id.contains(['/']) || !self.id.ends_with(".rego") {
+            return false;
+        }
+
+        true
+    }
+}
+
 impl std::convert::From<PolicyLocation> for String {
     fn from(value: PolicyLocation) -> Self {
         format!("{}", value)
