@@ -320,23 +320,11 @@ impl AttestationAgent {
         policy_id: Option<Vec<String>>,
     ) -> Result<String> {
         let challenge = String::from_utf8_lossy(challenge).to_string();
-        let mut session = match self
+        let ss = self
             .as_client_sessions
             .session_map
             .get_async(&challenge)
-            .await
-        {
-            Some(entry) => entry,
-            None => {
-                // Challenge should be posted to service previously.
-                bail!("challenge '{}' does not exist in sessions", challenge);
-            }
-        };
-
-        // If the session is already attested, directly use the token.
-        if let Some(t) = session.get().token.as_ref() {
-            return Ok(t.clone());
-        }
+            .await;
 
         let request_body = json!({
             "challenge": challenge,
@@ -344,9 +332,20 @@ impl AttestationAgent {
             "policy_id": policy_id,
         });
         let mut map = HeaderMap::new();
-        map.insert("Content-Type", HeaderValue::from_static("application/json"));
-        map.insert("as-challenge", HeaderValue::from_static("as"));
-        let client = session.get().as_client.clone();
+        let client;
+        if ss.is_none() {
+            client = self.create_client(self.config.protocal.clone(), true)?;
+            map.insert("Content-Type", HeaderValue::from_static("application/json"));
+        } else {
+            // If the session is already attested, directly use the token.
+            if let Some(t) = ss.as_ref().unwrap().get().token.as_ref() {
+                return Ok(t.clone());
+            }
+            map.insert("Content-Type", HeaderValue::from_static("application/json"));
+            map.insert("as-challenge", HeaderValue::from_static("as"));
+            client = ss.as_ref().unwrap().get().as_client.clone();
+        }
+
         let attest_endpoint = format!("{}/attestation", self.config.svr_url);
         let res = client
             .post(attest_endpoint)
@@ -358,7 +357,9 @@ impl AttestationAgent {
         match res.status() {
             reqwest::StatusCode::OK => {
                 let token = res.text().await?;
-                session.get_mut().token = Some(token.clone());
+                if ss.as_ref().is_some() {
+                    ss.unwrap().get_mut().token = Some(token.clone());
+                }
                 log::debug!("Remote Attestation success, AS Response: {:?}", token);
                 Ok(token)
             }

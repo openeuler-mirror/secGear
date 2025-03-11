@@ -220,64 +220,15 @@ static int get_token(ra_tls_buf *token, const char *endpoint_prefix, const char 
     return ret;
 }
 
-static char *fill_endpoint(char **endpoint, const char *prefix, const char *source)
-{
-    size_t endpoint_len = 0;
-    endpoint_len = strlen(prefix) + strlen(source) + 1;
-    *endpoint = malloc(endpoint_len);
-    if (*endpoint == NULL) {
-        return NULL;
-    }
-    strcpy(*endpoint, prefix);
-    strcat(*endpoint, source);
-    return *endpoint;
-}
-
-static char *fill_http_data(char **data, ra_tls_buf *key_hash)
-{
-    const char *http_data_format = "{\"user_data\":[]}";
-    size_t data_len = 0;
-    int res;
-    char *ptr;
-    data_len = strlen(http_data_format) + PUBLIC_KEY_HASH_PRINT_LEN + strlen("]}") + 1;
-    *data = malloc(data_len);
-    if (*data == NULL) {
-        return NULL;
-    }
-    ptr = *data;
-    res = sprintf(ptr, "{\"user_data\":[");
-    ptr += res;
-    for (size_t i = 0; i < key_hash->filled; i++) {
-        res = sprintf(ptr, "%hhu,", key_hash->buf[i]);
-        ptr += res;
-        if (ptr >= *data + data_len) {
-            goto err;
-        }
-    }
-    // point to last character
-    --ptr;
-    if (data_len - (ptr - *data) < 3) { // 3 means min buffer left to filled
-        goto err;
-    }
-    (void)sprintf(ptr, "]}");
-    goto end;
-err:
-    if (*data) {
-        free(*data);
-        *data = NULL;
-    }
-end:
-    return *data;
-}
-
 static int get_challenge(ra_tls_buf *challenge, const char *endpoint_prefix, ra_tls_buf *user_data)
 {
     int res;
     int ret = -1;
-    const char *source_name = "challenge";
-    char *endpoint = NULL;
-    char *http_data = NULL;
+    const size_t challenge_len = 32; // 32 means the length of challenge by default
+    size_t base64_len = 0;
+    uint8_t *base64 = NULL;
     ra_tls_buf key_hash = RA_TLS_BUF_INIT;
+    ra_tls_buf challenge_raw = RA_TLS_BUF_INIT;
     ra_tls_buf *pub_key = user_data;
     if (endpoint_prefix == NULL || challenge == NULL || pub_key == NULL) {
         return -1;
@@ -291,25 +242,31 @@ static int get_challenge(ra_tls_buf *challenge, const char *endpoint_prefix, ra_
     }
     printf("\n");
 #endif
-    if (fill_endpoint(&endpoint, endpoint_prefix, source_name) == NULL) {
-        goto err;
-    }
-    if (fill_http_data(&http_data, &key_hash) == NULL) {
-        goto err;
-    }
-    res = http_request(endpoint, "GET", http_data, challenge);
+// generate random 32B, concate with public key hash, then base64_url_encode
+    ra_tls_buf_init(&challenge_raw, challenge_len + key_hash.filled);
+    res = get_random(challenge_raw.buf, challenge_len);
     if (res < 0) {
+        printf("get random failed\n");
         goto err;
     }
+    memcpy(challenge_raw.buf + challenge_len, key_hash.buf, key_hash.filled);
+    challenge_raw.filled = challenge_len + key_hash.filled;
+
+    base64 = (uint8_t*)kpsecl_base64urlencode(challenge_raw.buf, challenge_raw.filled, &base64_len);
+    if (base64 == NULL) {
+        goto err;
+    }
+
+    ra_tls_buf_init(challenge, base64_len);
+    memcpy(challenge->buf, base64, base64_len);
+    challenge->filled = base64_len;
     ret = 0;
 err:
-    if (endpoint) {
-        free(endpoint);
-    }
-    if (http_data) {
-        free(http_data);
-    }
     ra_tls_buf_free(&key_hash);
+    ra_tls_buf_free(&challenge_raw);
+    if (base64) {
+        free(base64);
+    }
     return ret;
 }
 

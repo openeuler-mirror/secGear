@@ -79,6 +79,7 @@ int generate_key_pair_der(key_size key_len, ra_tls_buf *public_key, ra_tls_buf *
 // generate pem certificate，use evidence filled extension specified by oid
 int generate_certificate_with_extension(ra_tls_buf *cert, ra_tls_buf *evidence, ra_tls_buf *public_key,
     ra_tls_buf *private_key, const char *oid);
+int get_random(uint8_t *random, size_t len);
 
 #if defined(USE_OPENSSL)
 /*

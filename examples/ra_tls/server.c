@@ -58,7 +58,7 @@ int generate_certificate(ra_tls_buf *cert, ra_tls_buf *prv_key)
     int res = 0;
     printf("starting generate certificate...\n");
     ra_cfg cfg;
-    cfg.aa_addr = "http://server.com:8081/";
+    cfg.aa_addr = "http://127.0.0.1:8081/"; // agent address
     cfg.uuid = "f68fd704-6eb1-4d14-b218-722850eb3ef0";
     cfg.mode = mode;
     if (mode == PASSPORT) {
@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
         }
 #ifdef CLIENT_WITH_CERT
         // server verify client certificate
-        ra_tls_set_addr("http://server.com:8081/");
+        ra_tls_set_addr("http://127.0.0.1:8081/"); // agent address
         SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, ra_tls_verify_callback);
 #endif
         ssl = SSL_new(ssl_ctx);

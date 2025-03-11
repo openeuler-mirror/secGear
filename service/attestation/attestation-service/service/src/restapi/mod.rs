@@ -77,30 +77,32 @@ pub async fn attestation(
     let map = service.read().await.get_sessions();
     let request = request.0;
     let challenge = request.challenge;
-
-    if http_req.headers().contains_key("as-challenge") {
-        log::warn!("attestation request lacks 'as-challenge' header field.");
-    }
-
-    log::info!("sessions map len:{}", map.session_map.len());
-    let cookie = http_req
-        .cookie("oeas-session-id")
-        .ok_or(AsError::CookieMissing)?;
-    let session = map
-        .session_map
-        .get_async(cookie.value())
-        .await
-        .ok_or(AsError::SessionNotFound)?;
-    if session.is_expired() {
-        return Err(AsError::SessionExpired);
-    }
-    if challenge != session.challenge {
-        log::error!(
-            "request challenge:{} does not match session challenge:{}",
-            challenge,
-            session.challenge
-        );
-        return Err(AsError::ChallengeInvalid);
+    let mut cookie_exist = false;
+    let mut cookie = actix_web::cookie::Cookie::new("init", "init");
+    if !http_req.headers().contains_key("as-challenge") {
+        log::info!("attestation request lacks 'as-challenge' header field.");
+    } else {
+        log::info!("sessions map len:{}", map.session_map.len());
+        cookie = http_req
+            .cookie("oeas-session-id")
+            .ok_or(AsError::CookieMissing)?;
+        cookie_exist = true;
+        let session = map
+            .session_map
+            .get_async(cookie.value())
+            .await
+            .ok_or(AsError::SessionNotFound)?;
+        if session.is_expired() {
+            return Err(AsError::SessionExpired);
+        }
+        if challenge != session.challenge {
+            log::error!(
+                "request challenge:{} does not match session challenge:{}",
+                challenge,
+                session.challenge
+            );
+            return Err(AsError::ChallengeInvalid);
+        }
     }
 
     // The challenge in evidence is base64 encoded.
@@ -113,7 +115,12 @@ pub async fn attestation(
         .evaluate(&nonce, &evidence, &ids)
         .await?;
 
-    Ok(HttpResponse::Ok().cookie(cookie).body(token))
+    if cookie_exist {
+        Ok(HttpResponse::Ok().cookie(cookie).body(token))
+    } else {
+        Ok(HttpResponse::Ok().body(token))
+    }
+
 }
 
 #[derive(Deserialize, Serialize, Debug)]
