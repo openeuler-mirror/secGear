@@ -16,6 +16,7 @@
 #include <openssl/pem.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
+#include <openssl/rand.h>
 #include "ra_tls_imp.h"
 
 #define OID_LEN_MAX         64
@@ -535,6 +536,19 @@ int get_hash(ra_tls_buf *hash, ra_tls_buf *input, hash_type type)
         default:
             printf("unknown hash type\n");
             return -1;
+    }
+    return 0;
+}
+
+int get_random(uint8_t *random, size_t len)
+{
+    if (random == NULL) {
+        printf("buf for random is empty\n");
+        return -1;
+    }
+    if (RAND_bytes(random, len) != 1) {
+        printf("generate random failed\n");
+        return -1;
     }
     return 0;
 }
