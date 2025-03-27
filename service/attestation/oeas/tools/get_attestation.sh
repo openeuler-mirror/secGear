@@ -69,7 +69,7 @@ challenge=$(curl -c cookie -X GET ${oeas_url}/challenge | tr -d '"')
 cookie=$(cat cookie | grep oeas-session-id | awk '{print $7}')
 
 echo "获取aa evidence证明值"
-evi_req=$(printf "{\"challenge\": \"%s\", \"uuid\": \"xxx\"}" ${challenge})
+evi_req=$(printf "{\"challenge\":\"%s\",\"uuid\":\"xxx\"}" ${challenge})
 evi=$(curl -X GET -d ${evi_req} \
     -H "Content-Type: application/json" \
     ${aa_url}/evidence)
@@ -79,7 +79,7 @@ evi_base64=$(echo $evi | base64 | tr -d '\n' | tr -d '=')
 echo "获取oeas as_token"
 cookie_op=$(printf "oeas-session-id=%s" $cookie)
 as_token=$(curl -X GET --cookie ${cookie_op} \
-    -H "Authorization: Bearer ${openeuler_token}"  \
+    -H "token: ${openeuler_token}"  \
     -F "challenge=${challenge}"  \
     -F "evidence=${evi_base64}" \
     -F "policy_name=${policy}" \
@@ -88,8 +88,9 @@ echo  "as_token:"
 echo  "${as_token}"
 
 # 检查必要参数是否已设置
-if [[ -z "$resource_name" ]]; then
+if [[ -n "$resource_name" ]]; then
     echo "resource_content:"
-    curl -X GET -H "Authorization: Bearer ${openeuler_token}" \
-        "${oeas_url}/resource/storage?resource_name=${resource_name}&as_token=${as_token}"
+    curl -X GET -H "token: ${openeuler_token}" \
+        -H "Authorization: Bearer ${as_token}" \
+        "${oeas_url}/resource/storage?resource_name=${resource_name}"
 fi

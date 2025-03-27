@@ -1,11 +1,13 @@
 # OEAS API
 本文介绍OEAS服务提供的相关API接口及使用方法
 
-| API                                  | 描述                                                   |
-| ------------------------------------ | ------------------------------------------------------ |
-| [challenge](#challenge)              | 发起挑战，建立会话                                     |
-| [attestation](#attestation)          | 远程证明（需要openeuler社区私人令牌）                  |
-| [resource/storage](resource/storage) | 基于远程证明token获取密钥（需要openeuler社区私人令牌） |
+> oeas-API-url(${oeas_url})：https://www.openeuler.org/api/v1/oeas
+
+| API                                   | 描述                                                   |
+| ------------------------------------- | ------------------------------------------------------ |
+| [/challenge](#challenge)              | 发起挑战，建立会话                                     |
+| [/attestation](#attestation)          | 远程证明（需要openeuler社区私人令牌）                  |
+| [/resource/storage](resource/storage) | 基于远程证明token获取密钥（需要openeuler社区私人令牌） |
 
 ## challenge
 
@@ -22,7 +24,7 @@
 ### 请求示例
 
 ```
-curl -c cookie -X GET https://www.openeuler.org/api/v1/oeas/challenge
+curl -c cookie -X GET ${oeas_url}/challenge
 ```
 
 ### 返回内容
@@ -53,18 +55,18 @@ curl -c cookie -X GET https://www.openeuler.org/api/v1/oeas/challenge
 ### 请求头
 
 ```
-Authorization: Bearer ${openeuler_token}"
+token: ${openeuler_token}
 ```
 
 ### 请求示例
 
 ```
 curl -X GET --cookie ${cookie} \
-    -H "Authorization: Bearer ${openeuler_token}"  \
+    -H "token: ${openeuler_token}"  \
     -F "challenge=${challenge}"  \
     -F "evidence=${evi_base64}" \
     -F "policy_name=${policy}" \
-    https://www.openeuler.org/api/v1/oeas/attestation
+    ${oeas_url}/attestation
 ```
 
 ### 返回内容
@@ -90,14 +92,16 @@ curl -X GET --cookie ${cookie} \
 ### 请求头
 
 ```
-Authorization: Bearer ${openeuler_token}"
+token: ${openeuler_token}
+Authorization: Bearer ${as_token}
 ```
 
 ### 请求示例
 
 ```
-curl -X GET -H "Authorization: Bearer ${openeuler_token}" \
-    "https://www.openeuler.org/api/v1/oeas/resource/storage?resource_name=${resource_name}&as_token=${as_token}"
+    curl -X GET -H "token: ${openeuler_token}" \
+        -H "Authorization: Bearer ${as_token}" \
+        "${oeas_url}/resource/storage?resource_name=${resource_name}"
 ```
 
 ### 返回内容
@@ -106,3 +110,8 @@ curl -X GET -H "Authorization: Bearer ${openeuler_token}" \
 | ---------------- | -------- | -------- | -------- |
 | resource_content | 响应体   | 字符串   | 资源内容 |
 
+## 常见报错
+
+## FAQ
+
+### 如何获取私人令牌？

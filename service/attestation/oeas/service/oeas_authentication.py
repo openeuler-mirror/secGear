@@ -29,7 +29,7 @@ class Constants:
 
     # HTTP
     AUTH_FAILURE_CODE = 401
-    HTTP_STATUS_FAILURE = 504
+    HTTP_STATUS_FAILURE = 400
     HTTP_STATUS_SUCCESS = 200
     HEADER = {"Content-Type": "application/json"}
 
@@ -41,6 +41,7 @@ class Constants:
     AUTH_REQUEST_ERROR = "Auth Request Error"
     COOKIES_OR_TOKEN_ERROR = "Cookies or Token Error"
     EMPTY_CONTENT = "Content Empty"
+    FILE_FORMAT_ERROR = "File Content Format Error"
     FILE_READ_ERROR = "File Read Error"
     INVALID_FILENAME = "Invalid Filename"
     INVALID_PARAMETERS = "Invalid Parameters"
@@ -58,9 +59,8 @@ class Constants:
 
     # 测试地址
     # openeuler认证服务URL
-    OPENEULER_URL = "https://openeuler-usercenter.test.osinfra.cn"
-    AUTH_URL = f"{OPENEULER_URL}/oneid/user/checkPermission"
-    TOEKN_URL = f"{OPENEULER_URL}/oneid-workbench/openapi/token/check"
+    AUTH_URL = "https://openeuler-usercenter.test.osinfra.cn/oneid/user/checkPermission"
+    TOEKN_URL = "https://oneid-workbench-server.test.osinfra.cn/oneid-workbench/openapi/token/check"
 
     # secGear框架地址
     SECGEAR_URL = "http://127.0.0.1:8080"
@@ -244,10 +244,7 @@ class ResponseUtils:
 
         try:
             response = requests.request(
-                method="POST",
-                url=Constants.AUTH_URL,
-                headers=headers,
-                json=body,
+                method="POST", url=Constants.AUTH_URL, headers=headers, json=body
             )
             if response.status_code == 200:
                 try:
@@ -293,14 +290,12 @@ class ResponseUtils:
     def check_token(token: str, url: str) -> str:
         if token == "":
             return ""
-        send_data = {
-            "token": token,
-            "url": url,
-        }
-        response = requests.post(Constants.TOEKN_URL, json=send_data)
+        send_data = {"url": url}
+        header = {"token": token}
+        response = requests.post(Constants.TOEKN_URL, json=send_data, headers=header)
         if response.status_code == 200:
             try:
-                user_id = response.json()["data"]["user_id"]
+                user_id = response.json()["data"]["userId"]
                 return user_id
             except Exception as e:
                 logger.error(f"解析失败: {str(e)}")
@@ -404,8 +399,8 @@ def token_route(func):
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        openeuler_token = request.headers.get("Authorization", "").split(" ")[-1]
-        user_id = ResponseUtils.check_token(openeuler_token, request.base_url)
+        openeuler_token = request.headers.get("token", "")
+        user_id = ResponseUtils.check_token(openeuler_token, request.path)
         if not user_id:
             return make_response(Constants.INVALID_TOKEN, Constants.HTTP_STATUS_FAILURE)
         return func(user_id, *args, **kwargs)
@@ -453,7 +448,8 @@ def add_res(user_id: str, resp_openeuler: requests.models.Response) -> Response:
         )
     if not resource_content or not FileUtils.judge_resource_name(resource_name):
         return ResponseUtils.response_merge(
-            resp_openeuler, Constants.INVALID_RESOURCE_NAME
+            resp_openeuler,
+            f"{Constants.INVALID_RESOURCE_NAME} or {Constants.EMPTY_CONTENT}",
         )
 
     # 删除原有资源
@@ -543,8 +539,7 @@ def get_res_policy(user_id: str, resp_openeuler: requests.models.Response) -> Re
     policy_name = request.args.get("policy_name", "")
     if not FileUtils.judge_filename(policy_name):
         return ResponseUtils.response_merge(
-            resp_openeuler,
-            Constants.INVALID_POLICY_NAME,
+            resp_openeuler, Constants.INVALID_POLICY_NAME
         )
 
     policy_name = policy_name + Constants.SUFFIX_REGO
@@ -564,11 +559,14 @@ def add_ref(user_id: str, resp_openeuler: requests.models.Response) -> Response:
     if filename is False:
         return ResponseUtils.response_merge(resp_openeuler, content)
 
-    ref = [line.strip() for line in content.splitlines() if line.strip()]
-    ref_name = f"{user_id}_{filename}"
-    ref_data = {ref_name: ",".join(ref)}
+    try:
+        data = json.loads(content)
+    except Exception as e:
+        logger.error(f"Invalid JSON: {str(e)}")
+        return ResponseUtils.response_merge(resp_openeuler, Constants.FILE_FORMAT_ERROR)
 
-    sec_data = {"refs": json.dumps(ref_data)}
+    refs = {f"{user_id}_{k}": v for k, v in data.items()}
+    sec_data = {"refs": json.dumps(refs)}
     resp_sec = ResponseUtils.secgear_response(sec_data, Constants.REFERENCE_URL)
 
     return ResponseUtils.response_merge(resp_openeuler, resp_sec)
@@ -662,7 +660,7 @@ def get_token(user_id: str) -> Response:
 def get_res(user_id: str) -> Response:
     """获取资源内容"""
     resource_name = request.args.get("resource_name", "")
-    as_token = request.args.get("as_token")
+    as_token = request.headers.get("Authorization", "")
     if not FileUtils.judge_resource_name(resource_name):
         return make_response(
             Constants.INVALID_RESOURCE_NAME, Constants.HTTP_STATUS_FAILURE
@@ -670,7 +668,7 @@ def get_res(user_id: str) -> Response:
 
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {as_token}",
+        "Authorization": as_token,
     }
 
     sec_data = {"TeeGet": {"resource": {"vendor": user_id, "path": resource_name}}}
