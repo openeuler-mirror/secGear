@@ -1,0 +1,10 @@
+# oeas config
+
+# 测试地址
+[openeuler]
+auth_url = "https://openeuler-usercenter.test.osinfra.cn/oneid/user/checkPermission"
+token_url = "https://oneid-workbench-server.test.osinfra.cn/oneid-workbench/openapi/token/check"
+
+# secgear地址
+[secgear]
+secgear_as_url = "http://127.0.0.1:8080"
