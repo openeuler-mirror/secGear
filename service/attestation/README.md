@@ -167,6 +167,7 @@ cd secGear/service/attestation/attestation-agent
 ./target/debug/attestation-agent -p https -t cert.pem 2>&1 &
 
 // you can use -u specified destination which AA connect to , -s specified port which AA listen at
+// notice: use https when set svr_url in aa config file
 ./target/debug/attestation-agent -p https -t cert.pem -s server.com:8081 -u server.com:8080  2>&1 &
 
 ```
