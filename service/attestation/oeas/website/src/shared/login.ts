@@ -1,9 +1,9 @@
 import { isObject } from '@opensig/opendesign';
 
 import { getUserPermission } from '@/api/api-user';
-import { useUserPermission } from '@/stores/user';
+import { useUserInfo } from '@/stores/user';
 import { deleteCookie, getCookie } from '@/utils/cookie';
-import type { UserPermissionT } from '@/@types/type-user';
+import type { UserInfoT } from '@/@types/type-user';
 
 const LOGIN_KEYS = {
   USER_TOKEN: '_U_T_',
@@ -12,9 +12,9 @@ const LOGIN_KEYS = {
 
 /**
  * 存储 session 信息
- * @param {UserPermissionT} data 数据
+ * @param {UserInfoT} data 数据
  */
-function setSessionInfo(data: UserPermissionT) {
+function setSessionInfo(data: UserInfoT) {
   const { username, photo, aigcPrivacyAccepted } = data || {};
   if (username && photo) {
     sessionStorage.setItem(LOGIN_KEYS.USER_INFO, JSON.stringify({ username, photo, aigcPrivacyAccepted }));
@@ -23,7 +23,7 @@ function setSessionInfo(data: UserPermissionT) {
 
 /**
  * 获取 session 存储信息
- * @returns {UserPermissionT} 返回 session 存储信息
+ * @returns {UserInfoT} 返回 session 存储信息
  */
 function getSessionInfo() {
   let username = '';
@@ -44,7 +44,7 @@ function getSessionInfo() {
     username,
     photo,
     aigcPrivacyAccepted,
-  } as UserPermissionT;
+  } as UserInfoT;
 }
 
 /**
@@ -57,16 +57,16 @@ function removeSessionInfo() {
 /**
  * 跳转登录页面
  */
-export function goToLogin() {
+export function goToLogin(callbackLocation?: string) {
   const origin = import.meta.env.VITE_LOGIN_ORIGIN;
-  location.href = `${origin}/login?redirect_uri=${encodeURIComponent(location.href)}`;
+  location.href = `${origin}/login?redirect_uri=${encodeURIComponent(callbackLocation || location.href)}`;
 }
 
 /**
  * 清除用户登录信息
  */
 export function clearUserAuth() {
-  const { clearGuardAuthClient } = useUserPermission();
+  const { clearGuardAuthClient } = useUserInfo();
   clearGuardAuthClient();
   deleteCookie(LOGIN_KEYS.USER_TOKEN);
   removeSessionInfo();
@@ -92,7 +92,7 @@ export function getUserAuth() {
  * 判断是否登录
  */
 export async function isLogined() {
-  const { setGuardAuthClient, setLoginStatus } = useUserPermission();
+  const { setGuardAuthClient, setLoginStatus } = useUserInfo();
   const { token } = getUserAuth();
 
   // 不存在 token

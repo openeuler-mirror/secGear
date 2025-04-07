@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useVModel } from '@vueuse/core';
 import { ODialog, OButton, OForm, OFormItem, OIconAdd, OUpload, ORadioGroup, ORadio, type UploadFileT, useMessage, isArray } from '@opensig/opendesign';
 
 import { POLICY_TYPE } from '@/config/management';
 import { MANAGEMENT_POLICY_FILE_NAME_REGEXP, MANAGEMENT_POLICY_FILE_SIZE, MANAGEMENT_POLICY_FILE_SUFFIX } from '@/config/common';
 import { addPolicy, addResourcePolicy } from '@/api/api-management';
+import { watch } from 'vue';
 
 //----------------------- 变量 --------------------------
 const props = defineProps({
@@ -19,6 +20,12 @@ const emits = defineEmits(['update:visible', 'refresh']);
 const message = useMessage();
 const showDlg = useVModel(props, 'visible', emits);
 
+watch(showDlg, (val) => {
+  if (val) {
+    formData.file = undefined;
+  }
+});
+
 //----------------------- 表单校验 --------------------------
 // 策略类型校验
 const requiredSelectRules = [
@@ -31,7 +38,6 @@ const requiredSelectRules = [
 // 文件选择后校验
 const onAfterSelectBaselineFile = (files: FileList) => {
   const file = files[0];
-  console.log(file);
 
   // 选择不是 repo 的文件
   if (!file.name.endsWith(MANAGEMENT_POLICY_FILE_SUFFIX)) {
@@ -92,8 +98,8 @@ const submitForm = async () => {
     const request = formData.type === 0 ? addPolicy : addResourcePolicy;
     const postData = new FormData();
     postData.append('file', formData.file!![0].file!!);
-    const res = await request(postData);
-    emits('refresh');
+    await request(postData);
+    setTimeout(() => emits('refresh'), 10);
     showDlg.value = false;
     message.success({
       content: '新建成功',
@@ -102,6 +108,7 @@ const submitForm = async () => {
     loading.value = false;
   }
 };
+const selectedFile = computed(() =>  Array.isArray(formData.file) && formData.file.length > 0);
 </script>
 
 <template>
@@ -117,9 +124,9 @@ const submitForm = async () => {
           </ORadio>
         </ORadioGroup>
       </OFormItem>
-      <OFormItem label="策略内容" required field="file" :rules="requiredSelectRules">
-        <OUpload v-model="formData.file" show-uploading-icon accept=".repo" @after-select="onAfterSelectBaselineFile">
-          <template #select-extra>仅支持 repo 类型文件，上传文件名称仅支持字母和数字，且文件最大不超过100KB</template>
+      <OFormItem :class="['upload-form-item', selectedFile ? 'selected-file' : '']" label="策略内容" required field="file" :rules="requiredSelectRules">
+        <OUpload v-model="formData.file" show-uploading-icon accept=".rego" @after-select="onAfterSelectBaselineFile">
+          <template #select-extra>仅支持 rego 类型文件，上传文件名称仅支持字母和数字，且文件最大不超过100KB</template>
           <OButton color="primary" size="large" variant="outline" :icon="OIconAdd">上传文件</OButton>
         </OUpload>
       </OFormItem>

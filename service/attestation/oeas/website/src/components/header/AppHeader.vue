@@ -62,7 +62,7 @@ import { OPEN_EULER_LINK } from '@/config/common';
     align-items: center;
 
     @include respond-to('>pad_v') {
-      height: 80px;
+      height: 72px;
     }
 
     @include respond-to('<=pad_v') {

@@ -1,4 +1,4 @@
-FROM swr.cn-north-4.myhuaweicloud.com/opensourceway/node:latest as Builder
+FROM node:18.14.1 as Builder
 
 RUN mkdir -p /home/openeuler-sec-gear/web
 WORKDIR /home/openeuler-sec-gear/web
@@ -6,11 +6,11 @@ COPY . /home/openeuler-sec-gear/web
 
 RUN npm config set registry https://registry.npmmirror.com && npm install pnpm -g
 RUN pnpm install
-RUN pnpm build-only
+RUN pnpm build
 
-FROM swr.cn-north-4.myhuaweicloud.com/opensourceway/openeuler/nginx:latest as NginxBuilder
+FROM swr.cn-north-4.myhuaweicloud.com/opensourceway/openeuler/nginx:1.24.0-22.03-lts-sp1 as NginxBuilder
 
-FROM swr.cn-north-4.myhuaweicloud.com/opensourceway/openeuler/base:latest
+FROM openeuler/openeuler:22.03
 
 ENV NGINX_CONFIG_FILE /etc/nginx/nginx.conf
 ENV NGINX_CONFIG_PATH /etc/nginx/

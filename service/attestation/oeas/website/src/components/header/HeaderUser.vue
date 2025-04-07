@@ -2,29 +2,27 @@
 import { OIcon } from '@opensig/opendesign';
 
 import IconUser from '~icons/app/icon-user.svg';
+import { useUserInfo } from '@/stores/user';
+import { goToLogin } from '@/shared/login';
 
-import { goToLogin, isLogined } from '@/shared/login';
-import { useUserPermission } from '@/stores/user';
+const userInfoStore = useUserInfo();
 
-const userPermissionInfo = useUserPermission();
-
-async function getUserInfo() {
-  const result = await isLogined();
-  if (!result) {
-    //goToLogin();
+const onClickUser = () => {
+  if (userInfoStore.loginStatus === 'NOT_LOGIN') {
+    goToLogin();
   }
-}
-
-getUserInfo();
+};
 </script>
 
 <template>
   <div class="header-user">
-    <img v-if="userPermissionInfo.guardAuthClient.photo" :src="userPermissionInfo.guardAuthClient.photo" class="user-img" />
-    <OIcon v-else class="icon">
-      <IconUser />
+    <img v-if="userInfoStore.guardAuthClient.photo" :src="userInfoStore.guardAuthClient.photo" class="user-img" />
+    <OIcon v-else @click="onClickUser">
+      <IconUser class="icon" />
     </OIcon>
-    <p class="username" :title="userPermissionInfo.guardAuthClient.username">{{ userPermissionInfo.guardAuthClient.username }}</p>
+    <p v-if="userInfoStore.guardAuthClient.username" class="username" :title="userInfoStore.guardAuthClient.username">
+      {{ userInfoStore.guardAuthClient.username }}
+    </p>
   </div>
 </template>
 
@@ -35,7 +33,8 @@ getUserInfo();
   cursor: pointer;
 
   .icon {
-    font-size: 16px;
+    width: 20px;
+    height: 20px;
   }
 
   .user-img {

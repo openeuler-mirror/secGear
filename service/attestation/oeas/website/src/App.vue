@@ -26,7 +26,7 @@ import AppFooter from '@/components/AppFooter.vue';
 #app {
   --layout-content-max-width: 1544px;
   --layout-content-padding: 80px;
-  --layout-header-height: 80px;
+  --layout-header-height: 72px;
 
   min-width: 1200px;
   color: var(--o-color-info1);
@@ -37,11 +37,46 @@ import AppFooter from '@/components/AppFooter.vue';
   }
 
   @include respond-to('<=pad') {
+    --layout-header-height: 48px;
     --layout-content-padding: 32px;
   }
 
   @include respond-to('phone') {
     --layout-content-padding: 24px;
+  }
+}
+
+.dlg-form {
+  .o-form-item.align-center-form-item {
+    line-height: var(--o-control_size-l);
+  }
+  .o-form-item-label {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+  .upload-form-item {
+    &:not(.selected-file) {
+      .o-form-item-label {
+        margin-top: 0;
+        margin-bottom: 0;
+        line-height: var(--o-control_size-l);
+      }
+    }
+
+    &.selected-file {
+      .o-upload-row-item {
+        background-color: var(--upload-item-bg-hover);
+      }
+      .o-form-item-main-wrap {
+        display: block;
+      }
+      .o-upload-select-wrap {
+        display: none;
+      }
+      .o-upload-row-item {
+        margin-top: 0;
+      }
+    }
   }
 }
 </style>

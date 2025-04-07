@@ -1,24 +1,25 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
 import { isObject } from '@opensig/opendesign';
-import type { UserPermissionT } from '@/@types/type-user';
+import type { UserInfoT } from '@/@types/type-user';
 
 export type LoginStatus = 'NOT_LOGIN' | 'LOGINING' | 'LOGINED';
 
-export const useUserPermission = defineStore('login', () => {
+export const useUserInfo = defineStore('login', () => {
   // 登录信息
-  const guardAuthClient = ref<UserPermissionT>({
+  const guardAuthClient = ref<UserInfoT>({
     aigcPrivacyAccepted: '',
     email: '',
     photo: '',
     username: '',
   });
+  const hasPermission = ref(false);
 
   // 设置登录信息
-  const setGuardAuthClient = (data: UserPermissionT) => {
+  const setGuardAuthClient = (data: UserInfoT) => {
     if (isObject(data)) {
       Object.keys(guardAuthClient.value).forEach((key) => {
-        guardAuthClient.value[key as keyof UserPermissionT] = data[key as keyof UserPermissionT] || '';
+        guardAuthClient.value[key as keyof UserInfoT] = data[key as keyof UserInfoT] || '';
       });
     } else {
       clearGuardAuthClient();
@@ -48,5 +49,6 @@ export const useUserPermission = defineStore('login', () => {
     clearGuardAuthClient,
     loginStatus,
     setLoginStatus,
+    hasPermission,
   };
 });

@@ -1,16 +1,26 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
 import { useVModel } from '@vueuse/core';
-import { ODialog, OButton, OForm, OFormItem, OInput, OTextarea, useMessage, isArray } from '@opensig/opendesign';
+import { ODialog, OButton, OForm, OFormItem, OInput, OTextarea, useMessage, isArray, type RulesT } from '@opensig/opendesign';
 
 import { MANAGEMENT_RESOURCE_NAME_MAX_LEN, MANAGEMENT_RESOURCE_NAME_MIN_LEN, MANAGEMENT_RESOURCE_NAME_REGEXP } from '@/config/common';
 import { addStorage } from '@/api/api-management';
+import { watch } from 'vue';
+import { computed } from 'vue';
 
 //----------------------- 变量 --------------------------
 const props = defineProps({
   visible: {
     type: Boolean,
     default: false,
+  },
+  isEdit: {
+    type: Boolean,
+    default: false,
+  },
+  name: {
+    type: String,
+    default: '',
   },
   item: {
     type: Object,
@@ -21,10 +31,20 @@ const props = defineProps({
 const emits = defineEmits(['update:visible', 'refresh']);
 const message = useMessage();
 const showDlg = useVModel(props, 'visible', emits);
+const title = computed(() => (props.isEdit ? '修改资源' : '新增资源'));
 
+watch(showDlg, (val) => {
+  if (val && props.name) {
+    formData.resource_name = props.name;
+  } else {
+    Object.keys(formData).forEach((k) => {
+      formData[k as keyof typeof formData] = '';
+    });
+  }
+});
 //----------------------- 表单校验 --------------------------
 // 资源名称校验
-const resourceNameRules = [
+const resourceNameRules: RulesT[] = [
   {
     required: true,
     message: '请输入资源名称',
@@ -75,11 +95,11 @@ const submitForm = async () => {
 
   loading.value = true;
   try {
-    const res = await addStorage(formData);
-    emits('refresh');
+    await addStorage(formData);
+    setTimeout(() => emits('refresh'), 10);
     showDlg.value = false;
     message.success({
-      content: '新建成功',
+      content: props.isEdit ? '修改成功' : '新建成功',
     });
   } finally {
     loading.value = false;
@@ -89,17 +109,30 @@ const submitForm = async () => {
 
 <template>
   <ODialog v-model:visible="showDlg" :style="{ '--dlg-width': '930px' }">
-    <template #header>新增策略</template>
+    <template #header>{{ title }}</template>
 
-    <OForm ref="formRef" class="dlg-form" has-required label-justify="left" label-width="76px" :model="formData" @submit="submitForm">
-      <OFormItem label="资源名称" required field="resource_name" :rules="resourceNameRules">
-        <OInput v-model="formData.resource_name" class="full-item" size="large" :max-length="30" :auto-size="false" placeholder="请输入需要绑定的策略ID" />
+    <OForm ref="formRef" class="dlg-form" has-required label-justify="left" label-width="140px" :model="formData" @submit="submitForm">
+      <OFormItem label="资源名称" class="align-center-form-item text-count-item" required field="resource_name" :rules="resourceNameRules">
+        <OInput
+          :disabled="isEdit"
+          v-model="formData.resource_name"
+          class="full-item"
+          size="large"
+          :max-length="30"
+          :auto-size="false"
+          :inputOnOutlimit="false"
+          placeholder="请输入资源名称（至少1个字符，支持字母/数字/特殊符号，符号仅支持下划线_和横杠-）"
+        />
+        <div class="text-count">
+          <span :class="{ danger: formData.resource_name.length > MANAGEMENT_RESOURCE_NAME_MAX_LEN }">{{ formData.resource_name.length }}</span
+          >/{{ MANAGEMENT_RESOURCE_NAME_MAX_LEN }}
+        </div>
       </OFormItem>
-      <OFormItem label="策略ID" field="polcy_id">
-        <OInput v-model="formData.policy_name" class="full-item" size="large" placeholder="请输入需要绑定的策略ID" />
+      <OFormItem label="资源策略名称" class="align-center-form-item" field="polcy_id">
+        <OInput v-model="formData.policy_name" class="full-item" size="large" placeholder="请输入资源策略名称，如有多个策略请以英文逗号分隔" />
       </OFormItem>
       <OFormItem label="资源内容" required field="resource_content" :rules="resourceContentRules">
-        <OTextarea v-model="formData.resource_content" class="full-item" size="large" :rows="18" :max-length="5000" placeholder="请输入资源内容" />
+        <OTextarea v-model="formData.resource_content" class="full-item" size="large" :rows="12" :max-length="5000" placeholder="请输入资源内容" />
       </OFormItem>
 
       <div class="btn-form">
@@ -112,6 +145,7 @@ const submitForm = async () => {
 
 <style lang="scss" scoped>
 .dlg-form {
+  --form-label-main-gap: 0;
   color: var(--o-color-info1);
 
   .full-item {
@@ -132,6 +166,31 @@ const submitForm = async () => {
 
     .o-btn:not(:last-child) {
       margin-right: 16px;
+    }
+  }
+
+  .text-count-item {
+    :deep(.o-form-item-main-wrap) {
+      position: relative;
+    }
+
+    .text-count {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      margin: 1px;
+      padding: 0 12px;
+      color: var(--o-color-info4);
+      background-color: var(--o-color-fill2);
+      border-radius: var(--o-radius-xs);
+      @include tip2;
+
+      .danger {
+        color: var(--o-color-danger1);
+      }
     }
   }
 }

@@ -8,10 +8,15 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview"
   },
+  "pnpm": {
+    "overrides": {
+      "@babel/runtime": "7.26.10"
+    }
+  },
   "dependencies": {
     "@opensig/opendesign": "0.0.68",
     "@vueuse/core": "12.5.0",
-    "axios": "1.7.9",
+    "axios": "1.8.2",
     "pinia": "2.3.1",
     "vue": "3.5.13",
     "vue-router": "4.5.0"
