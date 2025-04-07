@@ -20,7 +20,7 @@ if [ -z "$(docker images -q "openeuler/openeuler:${VERSION}")" ]; then
   echo "本地未找到镜像，开始下载镜像文件: ${OPENEULER_DOCKER_URL}/${DOCKER_TAR}"
   
   # 尝试下载镜像文件
-  if ! curl -O "${OPENEULER_DOCKER_URL}/${DOCKER_TAR}"; then
+  if ! curl -OL "${OPENEULER_DOCKER_URL}/${DOCKER_TAR}"; then
     echo "下载镜像文件失败，尝试使用 docker pull 拉取镜像..."
     
     # 尝试使用 docker pull 拉取镜像

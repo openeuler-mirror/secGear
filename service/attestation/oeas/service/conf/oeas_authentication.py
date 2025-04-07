@@ -7,9 +7,8 @@ import functools
 import json
 import logging
 import re
-import sys
 
-from flask import Flask, request, make_response, Response
+from flask import Flask, request, make_response, Response, send_file, abort
 import jwt
 import requests
 import toml
@@ -23,31 +22,6 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 # 限制最大上传文件大小为100KB
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024
-
-
-def _load_config(config_path: str = "oeas.toml") -> Dict[str, Any]:
-    try:
-        config = toml.load(config_path)
-        required_keys = {
-            "openeuler": ["auth_url", "token_url"],
-            "secgear": ["secgear_as_url"],
-        }
-        for section, keys in required_keys.items():
-            if section not in config:
-                raise KeyError(f"Missing section [{section}]")
-            for key in keys:
-                if key not in config[section]:
-                    raise KeyError(f"Missing key {key} in section [{section}]")
-        return config
-    except FileNotFoundError as e:
-        logging.critical("Config file not found at: %s", str(e))
-        raise SystemExit(101) from e
-    except toml.TomlDecodeError as e:
-        logging.critical("Invalid TOML format: %s", str(e))
-        raise SystemExit(102) from e
-    except KeyError as e:
-        logging.critical("Configuration validation failed: %s", str(e))
-        raise SystemExit(103) from e
 
 
 # 常量定义
@@ -94,18 +68,30 @@ class Constants:
     RESOURCE_API = "/resource/storage"
     RESOURCE_POLICY_API = "/resource/policy"
 
-    @classmethod
-    def init_config(cls, config: Dict[str, Any]):
-        cls.AUTH_URL = config["openeuler"]["auth_url"]
-        cls.TOKEN_URL = config["openeuler"]["token_url"]
-        cls.SECGEAR_URL = config["secgear"]["secgear_as_url"]
-        # 完整URLs
-        cls.ATTESTATION_URL = f"{cls.SECGEAR_URL}{cls.ATTESTATION_API}"
-        cls.CHALLENGE_URL = f"{cls.SECGEAR_URL}{cls.CHALLENGE_API}"
-        cls.POLICY_URL = f"{cls.SECGEAR_URL}{cls.POLICY_API}"
-        cls.REFERENCE_URL = f"{cls.SECGEAR_URL}{cls.REFERENCE_API}"
-        cls.RESOURCE_POLICY_URL = f"{cls.SECGEAR_URL}{cls.RESOURCE_POLICY_API}"
-        cls.RESOURCE_URL = f"{cls.SECGEAR_URL}{cls.RESOURCE_API}"
+    try:
+        config = toml.load("oeas.toml")
+        # openeuler认证服务URL
+        AUTH_URL = config["openeuler"]["auth_url"]
+        TOKEN_URL = config["openeuler"]["token_url"]
+        # secGear框架地址
+        SECGEAR_URL = config["secgear"]["secgear_as_url"]
+    except FileNotFoundError as e:
+        logging.critical("Config file not found at: %s", str(e))
+        raise
+    except toml.TomlDecodeError as e:
+        logging.critical("Invalid TOML format: %s", str(e))
+        raise
+    except KeyError as e:
+        logging.critical("Configuration validation failed: %s", str(e))
+        raise
+
+    # 完整URLs
+    ATTESTATION_URL = f"{SECGEAR_URL}{ATTESTATION_API}"
+    CHALLENGE_URL = f"{SECGEAR_URL}{CHALLENGE_API}"
+    POLICY_URL = f"{SECGEAR_URL}{POLICY_API}"
+    REFERENCE_URL = f"{SECGEAR_URL}{REFERENCE_API}"
+    RESOURCE_POLICY_URL = f"{SECGEAR_URL}{RESOURCE_POLICY_API}"
+    RESOURCE_URL = f"{SECGEAR_URL}{RESOURCE_API}"
 
 
 # 正则表达式编译
@@ -319,7 +305,9 @@ class ResponseUtils:
             return ""
         send_data = {"url": url}
         header = {"token": token}
-        response = requests.post(Constants.TOKEN_URL, json=send_data, headers=header)
+        response = requests.post(
+            Constants.TOKEN_URL, json=send_data, headers=header, verify=False
+        )
         if response.status_code == 200:
             try:
                 user_id = response.json()["data"]["userId"]
@@ -727,11 +715,21 @@ def get_res(user_id: str) -> Response:
     return make_response(resp_sec.text, resp_sec.status_code)
 
 
-if __name__ == "__main__":
+@app.route("/oeas-api/cert")
+@token_route
+def download_cert(user_id: str) -> Response:
     try:
-        config = _load_config()
-        Constants.init_config(config)
-        app.run(host="0.0.0.0", port=5000)
+        file_path = "/etc/attestation/attestation-service/token/as_cert.pem"
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name="as_cert.pem",
+        )
+    except FileNotFoundError:
+        abort(404)
     except Exception as e:
-        logging.critical("Application startup failed: %s", str(e))
-        sys.exit(1)
+        abort(500)
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
