@@ -3,6 +3,7 @@ import type { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosRequestHeaders
 import { useMessage, isNull, isUndefined } from '@opensig/opendesign';
 
 import setConfig from './setConfig';
+import { clearUserAuth, goToLogin } from '../login';
 
 interface RequestConfig<D = any> extends AxiosRequestConfig {
   data?: D;
@@ -100,6 +101,7 @@ const responseInterceptorId = request.interceptors.response.use(
   },
   (err: AxiosError) => {
     const config = err.config as InternalRequestConfig;
+    err
 
     // 非取消请求发生异常，同样将请求移除请求池
     if (!axios.isCancel(err) && config?.url) {
@@ -125,8 +127,10 @@ const responseInterceptorId = request.interceptors.response.use(
 
     // token过期，重新登录
     if (err.response?.status === 401) {
-      //clearUserAuth();
-      //doLogin();
+      clearUserAuth();
+      if (!window.location.pathname.startsWith('/management/home')) {
+        goToLogin();
+      }
     }
 
     return Promise.reject(err);

@@ -10,6 +10,8 @@ import {
   MANAGEMENT_BASELINE_FILE_SUFFIX,
   MANAGEMENT_BASELINE_FILE_TYPE,
 } from '@/config/common';
+import { watch } from 'vue';
+import { computed } from 'vue';
 
 //----------------------- 变量 --------------------------
 const props = defineProps({
@@ -77,6 +79,15 @@ const formData = reactive({
   file: undefined as UploadFileT[] | undefined,
 });
 
+watch(
+  () => showDlg.value,
+  (val) => {
+    if (!val) {
+      formData.file = undefined;
+    }
+  },
+);
+
 const submitForm = async () => {
   if (loading.value) {
     return;
@@ -100,6 +111,7 @@ const submitForm = async () => {
     loading.value = false;
   }
 };
+const selectedFile = computed(() =>  Array.isArray(formData.file) && formData.file.length > 0);
 </script>
 
 <template>
@@ -107,9 +119,12 @@ const submitForm = async () => {
     <template #header>新增基线</template>
 
     <OForm ref="formRef" :model="formData" class="dlg-form" has-required label-justify="left" label-width="76px" @submit="submitForm">
-      <OFormItem label="基线内容" required field="file" :rules="requiredSelectRules">
+      <OFormItem :class="['upload-form-item', selectedFile ? 'selected-file' : '']" label="基线内容" required field="file" :rules="requiredSelectRules">
         <OUpload v-model="formData.file" show-uploading-icon accept=".json" @after-select="onAfterSelectBaselineFile">
-          <template #select-extra>仅支持 json 类型文件，文件名称仅支持字母和数字，且文件最大不超过100KB</template>
+          <template #select-extra>
+            <p>仅支持 json 类型文件，且文件最大不超过100KB</p>
+            <p>文件名称至少1个字符，包含字母、数字或特殊符号（仅支持下划线_和横杠-）</p>
+          </template>
           <OButton color="primary" size="large" variant="outline" :icon="OIconAdd">上传文件</OButton>
         </OUpload>
       </OFormItem>

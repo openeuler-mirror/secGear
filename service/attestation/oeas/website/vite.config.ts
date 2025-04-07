@@ -32,14 +32,5 @@ export default defineConfig({
       },
     },
   },
-  server: {
-    port: 9999,
-    proxy: {
-      '/api-omapi/': {
-        target: 'https://openeuler-usercenter.test.osinfra.cn/',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api-omapi/, ''),
-      },
-    },
-  },
+  server: {},
 });
