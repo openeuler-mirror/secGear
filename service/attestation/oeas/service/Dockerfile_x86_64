@@ -1,0 +1,56 @@
+ARG BASE_IMAGE
+ARG SECGEAR_REPO_URL
+
+FROM ${BASE_IMAGE} as attestation-service-builder
+
+ARG SECGEAR_REPO_URL
+WORKDIR /app
+COPY --from=data . .
+
+RUN dnf install -y 'dnf-command(config-manager)' perl git && \
+    dnf config-manager --add-repo ${SECGEAR_REPO_URL} && \
+    dnf install -y rust cargo rust-packaging kunpengsecl-attester && \
+    cd attestation-service/ && \
+    cargo build --release
+
+# 第二阶段：运行时
+FROM ${BASE_IMAGE} 
+ARG SECGEAR_REPO_URL
+
+RUN dnf install -y python3-pip openssl shadow kunpengsecl-attester && \
+    pip3 config set global.index-url https://mirrors.huaweicloud.com/repository/pypi/simple && \
+    pip3 install supervisor pyjwt requests flask gunicorn gunicorn[gevent] toml && \
+    mkdir -p /opt/attestation/attestation-service/verifier/virtcca && \
+    mkdir -p /opt/attestation/attestation-service/token && \
+    mkdir -p /opt/attestation/logs && \
+    dnf clean all && \
+    rm -rf /var/cache/yum/* && \
+    rm -rf /root/.cache/pip/*
+
+# 复制构建产物
+WORKDIR /opt/attestation
+COPY . .
+COPY --from=attestation-service-builder /app/attestation-service/target/release/attestation-service /usr/local/bin
+
+
+# 创建日志目录并设置权限（在RUN指令中添加）
+RUN mv ./Huawei* /opt/attestation/attestation-service/verifier/virtcca/ && \
+    cd /opt/attestation/attestation-service/token && \
+    openssl genrsa -out private.pem 2048 && \
+    openssl req -new -key private.pem -out server.csr \
+    -subj "/C=CN/ST=Zhejiang/L=Hangzhou/O=openEuler/CN=oeas" && \
+    openssl x509 -req -in server.csr -out as_cert.pem -signkey private.pem -days 3650
+
+RUN groupadd -g 1000 oeas && \
+    useradd -m -u 1000 -g 1000 oeas && \
+    chmod +x /opt/attestation/start.sh && \
+    chmod +x /usr/local/bin/attestation-service && \
+    yes | cp -r  /opt/attestation /etc && \
+    chown -R oeas:oeas /opt/attestation  && \
+    chown -R oeas:oeas /etc/attestation
+
+# 最终切换用户
+USER oeas
+WORKDIR /etc/attestation
+
+ENTRYPOINT ["/opt/attestation/start.sh"]

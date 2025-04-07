@@ -36,8 +36,6 @@ curl -c cookie -X GET ${oeas_url}/challenge
 
 
 
-
-
 ## attestation
 
 远程证明（需要openeuler社区私人令牌）
@@ -50,7 +48,7 @@ curl -c cookie -X GET ${oeas_url}/challenge
 | cookie          | 字符串   | 是       | challenge挑战接口返回的cookie                                |
 | challenge       | 字符串   | 是       | challenge挑战接口返回的challenge                             |
 | evi_base64      | 字符串   | 是       | Base64编码的TEE平台证据，使用secGear同一远程证明框架的Attestation Agent获取 |
-| policy          | 字符串   | 否       | 可选参数，用于指定本次验证所使用的策略。                     |
+| policy          | 字符串   | 否       | 可选参数，用于指定本次验证所使用的证明策略。支持使用多个策略，以英文逗号分隔 |
 
 ### 请求头
 
@@ -71,9 +69,9 @@ curl -X GET --cookie ${cookie} \
 
 ### 返回内容
 
-| 返回数据 | 数据来源 | 数据类型 | 描述              |
-| -------- | -------- | -------- | ----------------- |
-| as_token | 响应体   | 字符串   | Attestation Token |
+| 返回数据 | 数据来源 | 数据类型 | 描述                                           |
+| -------- | -------- | -------- | ---------------------------------------------- |
+| as_token | 响应体   | 字符串   | Attestation Token([说明文档](./oeas_token.md)) |
 
 
 
@@ -115,3 +113,5 @@ Authorization: Bearer ${as_token}
 ## FAQ
 
 ### 如何获取私人令牌？
+
+openEuler社区->个人中心->私人令牌->勾选`oeas-api`

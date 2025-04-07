@@ -110,4 +110,9 @@
 
 ### 如何体验OEAS远程证明服务？
 
-## 
+您需要申请oeas使用权限，才能使用oeas-web。申请方式可见[oeas主页](https://oeas.openeuler.org)
+
+### 使用OEAS Web过程中发现问题？
+
+可以复现过程、报错内容提到仓库issue，感谢您的反馈
+

@@ -1,16 +1,18 @@
-import functools
-import re
-import base64
-import json
-import logging
+from email.utils import parsedate_to_datetime
+from http.cookies import SimpleCookie
 from pathlib import Path
 from typing import Tuple, Union, Dict, Any, Optional
-from http.cookies import SimpleCookie
-from email.utils import parsedate_to_datetime
+import base64
+import functools
+import json
+import logging
+import re
+import sys
 
+from flask import Flask, request, make_response, Response
 import jwt
 import requests
-from flask import Flask, request, make_response, Response
+import toml
 
 # 配置日志
 logging.basicConfig(
@@ -19,6 +21,33 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+# 限制最大上传文件大小为100KB
+app.config["MAX_CONTENT_LENGTH"] = 100 * 1024
+
+
+def _load_config(config_path: str = "oeas.toml") -> Dict[str, Any]:
+    try:
+        config = toml.load(config_path)
+        required_keys = {
+            "openeuler": ["auth_url", "token_url"],
+            "secgear": ["secgear_as_url"],
+        }
+        for section, keys in required_keys.items():
+            if section not in config:
+                raise KeyError(f"Missing section [{section}]")
+            for key in keys:
+                if key not in config[section]:
+                    raise KeyError(f"Missing key {key} in section [{section}]")
+        return config
+    except FileNotFoundError as e:
+        logging.critical("Config file not found at: %s", str(e))
+        raise SystemExit(101) from e
+    except toml.TomlDecodeError as e:
+        logging.critical("Invalid TOML format: %s", str(e))
+        raise SystemExit(102) from e
+    except KeyError as e:
+        logging.critical("Configuration validation failed: %s", str(e))
+        raise SystemExit(103) from e
 
 
 # 常量定义
@@ -57,14 +86,6 @@ class Constants:
     SUFFIX_REGO = ".rego"
     SUFFIX_JSON = ".json"
 
-    # 测试地址
-    # openeuler认证服务URL
-    AUTH_URL = "https://openeuler-usercenter.test.osinfra.cn/oneid/user/checkPermission"
-    TOEKN_URL = "https://oneid-workbench-server.test.osinfra.cn/oneid-workbench/openapi/token/check"
-
-    # secGear框架地址
-    SECGEAR_URL = "http://127.0.0.1:8080"
-
     # API路径
     ATTESTATION_API = "/attestation"
     CHALLENGE_API = "/challenge"
@@ -73,13 +94,18 @@ class Constants:
     RESOURCE_API = "/resource/storage"
     RESOURCE_POLICY_API = "/resource/policy"
 
-    # 完整URLs
-    ATTESTATION_URL = f"{SECGEAR_URL}{ATTESTATION_API}"
-    CHALLENGE_URL = f"{SECGEAR_URL}{CHALLENGE_API}"
-    POLICY_URL = f"{SECGEAR_URL}{POLICY_API}"
-    REFERENCE_URL = f"{SECGEAR_URL}{REFERENCE_API}"
-    RESOURCE_POLICY_URL = f"{SECGEAR_URL}{RESOURCE_POLICY_API}"
-    RESOURCE_URL = f"{SECGEAR_URL}{RESOURCE_API}"
+    @classmethod
+    def init_config(cls, config: Dict[str, Any]):
+        cls.AUTH_URL = config["openeuler"]["auth_url"]
+        cls.TOKEN_URL = config["openeuler"]["token_url"]
+        cls.SECGEAR_URL = config["secgear"]["secgear_as_url"]
+        # 完整URLs
+        cls.ATTESTATION_URL = f"{cls.SECGEAR_URL}{cls.ATTESTATION_API}"
+        cls.CHALLENGE_URL = f"{cls.SECGEAR_URL}{cls.CHALLENGE_API}"
+        cls.POLICY_URL = f"{cls.SECGEAR_URL}{cls.POLICY_API}"
+        cls.REFERENCE_URL = f"{cls.SECGEAR_URL}{cls.REFERENCE_API}"
+        cls.RESOURCE_POLICY_URL = f"{cls.SECGEAR_URL}{cls.RESOURCE_POLICY_API}"
+        cls.RESOURCE_URL = f"{cls.SECGEAR_URL}{cls.RESOURCE_API}"
 
 
 # 正则表达式编译
@@ -233,7 +259,7 @@ class ResponseUtils:
         user_id = ResponseUtils.get_userid()
         if user_id == Constants.COOKIES_OR_TOKEN_ERROR:
             return False, make_response(
-                Constants.COOKIES_OR_TOKEN_ERROR, Constants.HTTP_STATUS_FAILURE
+                Constants.COOKIES_OR_TOKEN_ERROR, Constants.AUTH_FAILURE_CODE
             )
 
         headers = {}
@@ -253,6 +279,7 @@ class ResponseUtils:
                     if has_permission == True:
                         return user_id, response
                     else:
+                        response.status_code = Constants.AUTH_FAILURE_CODE
                         return False, ResponseUtils.response_merge(
                             response, Constants.NO_PERMISSION
                         )
@@ -292,7 +319,7 @@ class ResponseUtils:
             return ""
         send_data = {"url": url}
         header = {"token": token}
-        response = requests.post(Constants.TOEKN_URL, json=send_data, headers=header)
+        response = requests.post(Constants.TOKEN_URL, json=send_data, headers=header)
         if response.status_code == 200:
             try:
                 user_id = response.json()["data"]["userId"]
@@ -438,29 +465,39 @@ def get_res_list(user_id: str, resp_openeuler: requests.models.Response) -> Resp
 def add_res(user_id: str, resp_openeuler: requests.models.Response) -> Response:
     """添加资源"""
     resource_content = request.form.get("resource_content", "")
-    policy_name = request.form.get("policy_name", "")
+    policy = request.form.get("policy_name", "")
     resource_name = request.form.get("resource_name", "")
 
-    # 参数验证
-    if policy_name and not FileUtils.judge_filename(policy_name):
-        return ResponseUtils.response_merge(
-            resp_openeuler, Constants.INVALID_POLICY_NAME
-        )
     if not resource_content or not FileUtils.judge_resource_name(resource_name):
         return ResponseUtils.response_merge(
             resp_openeuler,
             f"{Constants.INVALID_RESOURCE_NAME} or {Constants.EMPTY_CONTENT}",
         )
 
-    # 删除原有资源
     sec_del = {"op": "Delete", "resource": {"vendor": user_id, "path": resource_name}}
-    ResponseUtils.secgear_response(sec_del, Constants.RESOURCE_URL)
-
-    # 添加新资源
     sec_data = {
-        "op": {"Add": {"content": resource_content, "policy": [policy_name]}},
+        "op": {"Add": {"content": resource_content, "policy": []}},
         "resource": {"vendor": user_id, "path": resource_name},
     }
+
+    if policy:
+        policy_list = [item.strip() for item in policy.split(",") if item.strip()]
+        invalid_policy_names = [
+            policy_name
+            for policy_name in policy_list
+            if not FileUtils.judge_filename(policy_name)
+        ]
+        if invalid_policy_names:
+            return ResponseUtils.response_merge(
+                resp_openeuler, Constants.INVALID_POLICY_NAME
+            )
+        sec_data["op"]["Add"]["policy"] = [
+            f"{user_id}/{policy_name}{Constants.SUFFIX_REGO}"
+            for policy_name in policy_list
+        ]
+
+    # 删除原有资源并添加新资源
+    ResponseUtils.secgear_response(sec_del, Constants.RESOURCE_URL)
     resp_sec = ResponseUtils.secgear_response(sec_data, Constants.RESOURCE_URL)
 
     return ResponseUtils.response_merge(resp_openeuler, resp_sec)
@@ -567,6 +604,7 @@ def add_ref(user_id: str, resp_openeuler: requests.models.Response) -> Response:
 
     refs = {f"{user_id}_{k}": v for k, v in data.items()}
     sec_data = {"refs": json.dumps(refs)}
+
     resp_sec = ResponseUtils.secgear_response(sec_data, Constants.REFERENCE_URL)
 
     return ResponseUtils.response_merge(resp_openeuler, resp_sec)
@@ -627,9 +665,9 @@ def get_challenge() -> Response:
 @token_route
 def get_token(user_id: str) -> Response:
     """获取attestation token"""
-    evidence = request.form.get("evidence")
-    policy_name = request.form.get("policy_name")
-    challenge = request.form.get("challenge")
+    evidence = request.form.get("evidence", "")
+    policy = request.form.get("policy_name", "")
+    challenge = request.form.get("challenge", "")
 
     if not evidence or not challenge:
         return make_response(
@@ -640,13 +678,22 @@ def get_token(user_id: str) -> Response:
     headers["Cookie"] = request.headers.get("Cookie", "")
 
     sec_as = {"challenge": challenge, "evidence": evidence, "policy_id": []}
-    if policy_name:
-        if not FileUtils.judge_filename(policy_name):
+
+    if policy:
+        policy_list = [item.strip() for item in policy.split(",") if item.strip()]
+        invalid_policy_names = [
+            policy_name
+            for policy_name in policy_list
+            if not FileUtils.judge_filename(policy_name)
+        ]
+        if invalid_policy_names:
             return make_response(
                 Constants.INVALID_POLICY_NAME, Constants.HTTP_STATUS_FAILURE
             )
-        policy_name = f"{user_id}_{policy_name}{Constants.SUFFIX_REGO}"
-        sec_as["policy_id"] = [policy_name]
+        sec_as["policy_id"] = [
+            f"{user_id}_{policy_name}{Constants.SUFFIX_REGO}"
+            for policy_name in policy_list
+        ]
 
     resp_sec = ResponseUtils.secgear_response(
         sec_as, Constants.ATTESTATION_URL, "POST", headers
@@ -681,4 +728,10 @@ def get_res(user_id: str) -> Response:
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    try:
+        config = _load_config()
+        Constants.init_config(config)
+        app.run(host="0.0.0.0", port=5000)
+    except Exception as e:
+        logging.critical("Application startup failed: %s", str(e))
+        sys.exit(1)
