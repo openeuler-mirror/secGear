@@ -46,6 +46,15 @@ import AppFooter from '@/components/AppFooter.vue';
   }
 }
 
+.header-user-dropdown-item {
+  min-width: 144px;
+  --dropdown-item-radius: 4px;
+
+  @include hover {
+    color: var(--o-color-link1);
+  }
+}
+
 .dlg-form {
   .o-form-item.align-center-form-item {
     line-height: var(--o-control_size-l);

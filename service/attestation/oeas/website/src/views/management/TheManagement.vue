@@ -59,7 +59,7 @@ const openDlg = () => {
 <template>
   <div class="the-management">
     <BannerLevel2 :background-image="imgBanner" :illustration="imgIllustration" title="openEuler远程证明服务" />
-    <ContentWrapper :vertical-padding="isHome ? '32px' : '40px'">
+    <ContentWrapper :vertical-padding="isHome ? ['32px', '72px'] : '40px'">
       <template v-if="isHome || hasPermission">
         <OTab v-if="!isHome" v-model="activeTab">
           <OTabPane v-for="item in tabs" :key="item.value" :value="item.value" :label="item.label" />

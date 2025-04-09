@@ -20,7 +20,7 @@ const openDlg = () => {
       <img src="@/assets/category/management/home-desc.png" alt="service-desc" />
       <div class="desc">
         <p>
-          OpenEuler Attestation Service
+          openEuler Attestation Service
           (OEAS)是欧拉社区推出的基于开源机密计算项目secGear远程证明统一框架的机密计算远程证明服务。致力于提供简单、易用的机密计算远程证明服务，兼容多TEE平台实现统一远程证明流程，推动机密计算生态发展。
           <a href="https://www.openeuler.org/zh/blog/20240110-sec/20240110-sec.html" target="_blank" rel="noopener noreferrer">secGear远程证明统一框架介绍</a>
         </p>
@@ -81,7 +81,7 @@ const openDlg = () => {
         <div class="right">
           <p class="title">
             <IconFeature />
-            OEAS管理
+            OEAS-API
           </p>
           <p class="desc">
             目前OEAS服务开放的API有<code>/challenge</code><code>/attestation</code><code>/resource/storage</code>用于实现远程证明的验证。具体可参考
@@ -134,6 +134,10 @@ const openDlg = () => {
 .service-desc {
   .card {
     padding-right: 32px;
+    border-radius: 4px;
+    img {
+      border-radius: 4px;
+    }
   }
   .desc {
     margin-left: 40px;
@@ -170,7 +174,7 @@ const openDlg = () => {
 .feature-support {
   .card {
     background-image: url('@/assets/category/management/home-feature-bg.png');
-    background-size: 100% auto;
+    background-size: 100% 100%;
     background-color: #ebecff;
     background-repeat: no-repeat;
     padding-left: 32px;
