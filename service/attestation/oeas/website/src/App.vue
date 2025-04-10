@@ -26,7 +26,7 @@ import AppFooter from '@/components/AppFooter.vue';
 #app {
   --layout-content-max-width: 1544px;
   --layout-content-padding: 80px;
-  --layout-header-height: 72px;
+  --layout-header-height: 80px;
 
   min-width: 1200px;
   color: var(--o-color-info1);
