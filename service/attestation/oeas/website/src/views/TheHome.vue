@@ -22,7 +22,7 @@ const openDlg = () => {
         <p>
           openEuler Attestation Service
           (OEAS)是欧拉社区推出的基于开源机密计算项目secGear远程证明统一框架的机密计算远程证明服务。致力于提供简单、易用的机密计算远程证明服务，兼容多TEE平台实现统一远程证明流程，推动机密计算生态发展。
-          <a href="https://www.openeuler.org/zh/blog/20240110-sec/20240110-sec.html" target="_blank" rel="noopener noreferrer">secGear远程证明统一框架介绍</a>
+          <a href="https://www.openeuler.org/zh/blog/20241230-secgear/20241230-secgear.html" target="_blank" rel="noopener noreferrer">secGear远程证明统一框架介绍</a>
         </p>
         <p>
           OEAS服务完全开源，源代码在Gitee社区的openeuler仓库下，以下是仓库地址：
