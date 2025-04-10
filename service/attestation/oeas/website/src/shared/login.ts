@@ -63,6 +63,13 @@ export function goToLogin(callbackLocation?: string) {
 }
 
 /**
+ * 退出登录
+ */
+export function logout() {
+  location.href = `${import.meta.env.VITE_LOGIN_ORIGIN}/logout?redirect_uri=${encodeURIComponent(location.origin)}`;
+}
+
+/**
  * 清除用户登录信息
  */
 export function clearUserAuth() {
