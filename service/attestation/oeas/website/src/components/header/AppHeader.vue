@@ -60,13 +60,9 @@ import { OPEN_EULER_LINK } from '@/config/common';
   .app-header-wrap {
     display: flex;
     align-items: center;
-
-    @include respond-to('>pad_v') {
-      height: 72px;
-    }
+    height: var(--layout-header-height);
 
     @include respond-to('<=pad_v') {
-      height: 48px;
       justify-content: space-between;
       position: relative;
     }
