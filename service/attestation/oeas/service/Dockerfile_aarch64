@@ -1,12 +1,11 @@
 ARG BASE_IMAGE
-ARG SECGEAR_REPO_URL
 FROM ${BASE_IMAGE} 
-ARG SECGEAR_REPO_URL
+
 WORKDIR /opt/attestation
 
-RUN dnf install -y python3-pip openssl shadow kunpengsecl-attester 'dnf-command(config-manager)' && \
-    dnf config-manager --add-repo ${SECGEAR_REPO_URL} && \
-    dnf install -y secGear-as virtCCA_sdk virtCCA_sdk-devel itrustee_sdk itrustee_sdk-devel rust cargo rust-packaging kunpengsecl-attester && \
+RUN dnf install -y python3-pip openssl shadow kunpengsecl-attester \
+    secGear-as virtCCA_sdk virtCCA_sdk-devel itrustee_sdk itrustee_sdk-devel \
+    rust cargo rust-packaging kunpengsecl-attester && \
     pip3 config set global.index-url https://mirrors.huaweicloud.com/repository/pypi/simple && \
     pip3 install supervisor pyjwt requests flask gunicorn gunicorn[gevent] toml && \
     cp -r /etc/attestation/* ./ && \

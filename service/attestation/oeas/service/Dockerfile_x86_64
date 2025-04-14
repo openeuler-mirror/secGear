@@ -7,10 +7,8 @@ ARG SECGEAR_REPO_URL
 WORKDIR /app
 COPY --from=data . .
 
-RUN dnf install -y 'dnf-command(config-manager)' perl git && \
-    dnf config-manager --add-repo ${SECGEAR_REPO_URL} && \
-    dnf install -y rust cargo rust-packaging kunpengsecl-attester && \
-    cd attestation-service/ && \
+RUN dnf install -y perl git rust cargo rust-packaging kunpengsecl-attester && \
+    cd attestation-service && \
     cargo build --release
 
 # 第二阶段：运行时
@@ -21,6 +19,7 @@ RUN dnf install -y python3-pip openssl shadow kunpengsecl-attester && \
     pip3 config set global.index-url https://mirrors.huaweicloud.com/repository/pypi/simple && \
     pip3 install supervisor pyjwt requests flask gunicorn gunicorn[gevent] toml && \
     mkdir -p /opt/attestation/attestation-service/verifier/virtcca && \
+    mkdir -p /etc/attestation/attestation-service/resource/policy/oeas && \
     mkdir -p /opt/attestation/attestation-service/policy && \
     mkdir -p /opt/attestation/attestation-service/token && \
     mkdir -p /opt/attestation/conf && \
@@ -34,6 +33,7 @@ WORKDIR /opt/attestation
 COPY ./conf ./conf
 COPY --from=attestation-service-builder /app/attestation-service/target/release/attestation-service /usr/local/bin
 COPY --from=attestation-service-builder /app/attestation-service/policy/src/opa/*.rego /opt/attestation/attestation-service/policy/
+COPY --from=attestation-service-builder /app/attestation-types/src/resource/policy/opa/*.rego /opt/attestation/attestation-service/resource/policy/oeas/
 
 RUN mv ./conf/Huawei* /opt/attestation/attestation-service/verifier/virtcca/ && \
     mv ./conf/attestation-service.conf /opt/attestation/attestation-service/ && \

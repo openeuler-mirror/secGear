@@ -55,11 +55,11 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         -c|--cert-update)
             update_cert=true
+            cert_url="${oeas_url}/cert"  # 同时更新 cert_url
             shift
             ;;
         -s|--as)
             oeas_url="$2"
-            cert_url="${oeas_url}/cert"  # 同时更新 cert_url
             shift 2
             ;;
         -a|--aa)
@@ -136,3 +136,5 @@ if [[ -n "$resource_name" ]]; then
         -H "Authorization: Bearer ${as_token}" \
         "${oeas_url}/resource/storage?resource_name=${resource_name}"
 fi
+echo
+echo
