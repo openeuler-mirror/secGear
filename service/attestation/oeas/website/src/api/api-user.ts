@@ -9,19 +9,36 @@ import { getUserAuth } from '@/shared/login';
  */
 export function getUserPermission(params: { community: string }) {
   const url = '/api-omapi/oneid/user/permission';
-  const { token } = getUserAuth();
 
   return request
     .get(url, {
       params,
       global: true,
-      headers: {
-        token,
-      },
     })
     .then((res: AxiosResponse) => {
       return res.data;
     });
+}
+
+/**
+ * 获取用户的授权信息
+ */
+export function checkUserPermission() {
+  const url = '/api-omapi/oneid/user/checkPermission';
+
+  return request
+    .post(
+      url,
+      {
+        resource: 'secgear',
+        actions: ['access'],
+      },
+      { showError: false }
+    )
+    .then((res: AxiosResponse) => {
+      return res.data.data as { hasPermission: boolean };
+    })
+    .catch(() => ({ hasPermission: false }));
 }
 
 /**
@@ -40,4 +57,17 @@ export function getUserInfo() {
     .then((res: AxiosResponse) => {
       return res.data;
     });
+}
+
+/**
+ * 获取消息中心未读消息数量
+ */
+export function getUnreadMsgCount(giteeLoginName?: string) {
+  return request
+    .get<{ count: Record<string, number> }>('/api-message/inner/count_new', {
+      params: { gitee_user_name: giteeLoginName },
+      showError: false,
+    })
+    .then((res) => res.data.count)
+    .catch(() => ({}));
 }

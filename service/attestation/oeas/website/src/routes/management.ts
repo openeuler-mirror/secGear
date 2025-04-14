@@ -10,6 +10,13 @@ export default [
     },
     children: [
       {
+        path: 'home',
+        name: 'home',
+        component: () => {
+          return import('@/views/TheHome.vue');
+        },
+      },
+      {
         path: 'baseline',
         name: 'baselineManagement',
         component: () => {

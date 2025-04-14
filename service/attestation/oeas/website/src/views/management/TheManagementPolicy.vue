@@ -8,16 +8,12 @@ import ManagementViewPolicyDialog from './components/ManagementViewPolicyDialog.
 import { COUNT_PER_PAGE } from '@/config/query';
 import useDialog from '@/components/easy-dialog/use-dialog';
 import { deleteResourcePolicy, getAllResourcePolicy } from '@/api/api-management';
+import { onMounted } from 'vue';
+import { computed } from 'vue';
 
 const message = useMessage();
 const showCreateDlg = ref(false);
-const tbData = ref([
-  {
-    index: 0,
-    name: '6666',
-    type: 0,
-  },
-]);
+const tbData = ref<any[]>([]);
 const totals = ref(0);
 const loading = ref(false);
 const queryData = ref({
@@ -33,6 +29,7 @@ const columns = [
 ];
 
 //----------------------- 获取列表 --------------------------
+const isEmpty = ref(false);
 const queryList = async () => {
   if (loading.value) {
     return;
@@ -41,26 +38,43 @@ const queryList = async () => {
   loading.value = true;
   try {
     const res = await getAllResourcePolicy();
-    console.log(res);
+    if (!Array.isArray(res) || res.length === 0) {
+      tbData.value = [];
+      isEmpty.value = true;
+      return;
+    }
+    if (Array.isArray(res)) {
+      isEmpty.value = false;
+      tbData.value = res.map((item, index) => {
+        return {
+          index: index + 1,
+          name: item.split('/')[1].split('.')[0],
+          type: '资源策略',
+        }
+      });
+    }
+  } catch (error) {
+    tbData.value = [];
+    isEmpty.value = true;
   } finally {
     loading.value = false;
   }
-}
+};
+
+onMounted(queryList);
 
 //----------------------- 删除 --------------------------
 const deleteData = async (name: string) => {
   try {
-    const res = await deleteResourcePolicy({
-      policy_name: name
-    });
+    const res = await deleteResourcePolicy({ policy_name: name });
 
     message.success({
       content: '删除成功',
     });
-  } catch{}
-}
+  } catch {}
+};
 
-const deleteConfirm = (name: string) => {
+const deleteConfirm = (row: any) => {
   useDialog().open({
     header: '确认删除',
     content: '删除后内容不可恢复，确认删除？',
@@ -76,7 +90,7 @@ const deleteConfirm = (name: string) => {
         variant: 'outline',
         onClick: () => {
           useDialog().close();
-          deleteData(name);
+          deleteData(row.name).then(() => setTimeout(queryList, 10));
         },
       },
       {
@@ -97,9 +111,21 @@ const deleteConfirm = (name: string) => {
 const previeItem = ref('');
 const showViewDlg = ref(false);
 
-const setViewDlgVisible = () => {
+const setViewDlgVisible = (name: string) => {
   showViewDlg.value = true;
+  previeItem.value = name;
 };
+
+const tableClasses = computed(() => {
+  const res = ['policy-table'];
+  if (isEmpty.value) {
+    res.push('hidden');
+  }
+  if (loading.value) {
+    res.push('loading');
+  }
+  return res;
+});
 </script>
 
 <template>
@@ -111,18 +137,24 @@ const setViewDlgVisible = () => {
     </div>
 
     <!-- 表格 -->
-    <OTable class="policy-table" :columns="columns" :data="tbData" :loading="loading">
-      <template #td_action="{ row }">
-        <OLink color="primary" @click="setViewDlgVisible">预览</OLink>
-        <OPopover position="top" trigger="hover">
-          <template #target>
-            <OLink disabled>修改</OLink>
-          </template>
-          <span>内测版暂不支持修改，可上传同名文件进行覆盖修改</span>
-        </OPopover>
-        <OLink color="danger" @click="deleteConfirm(row)">删除</OLink>
-      </template>
-    </OTable>
+    <div class="policy-table-wrap">
+      <OTable :class="tableClasses" :columns="columns" :data="tbData" :loading="loading">
+        <template #td_action="{ row }">
+          <OLink color="primary" @click="setViewDlgVisible(row.name)">预览</OLink>
+          <OPopover position="top" trigger="hover">
+            <template #target>
+              <OLink disabled>修改</OLink>
+            </template>
+            <span>内测版暂不支持修改，可上传同名文件进行覆盖修改</span>
+          </OPopover>
+          <OLink color="danger" @click="deleteConfirm(row as any)">删除</OLink>
+        </template>
+      </OTable>
+      <div class="not-found" v-if="isEmpty">
+        <img src="@/assets/category/management/not-found.png" alt="not-found" />
+        <p>您暂未新建策略</p>
+      </div>
+    </div>
     <div v-if="tbData.length > 0 && totals > queryData.page_size && !loading" class="pagination">
       <OPagination :total="totals" :page="queryData.page_num" :page-size="queryData.page_size" :page-sizes="COUNT_PER_PAGE" :show-more="false" />
     </div>
@@ -149,11 +181,39 @@ const setViewDlgVisible = () => {
     }
   }
 
-  .policy-table {
+  .policy-table-wrap {
     margin-top: 24px;
+    position: relative;
 
-    .o-link:not(:last-child) {
-      margin-right: 32px;
+    .policy-table {
+      min-height: calc(11 * var(--table-cell-height));
+      &.hidden {
+        z-index: -1;
+      }
+      .o-link:not(:last-child) {
+        margin-right: 32px;
+      }
+      &.loading {
+        :deep(.o-table-wrap) {
+          min-height: calc(11 * var(--table-cell-height));
+        }
+      }
+    }
+
+    .not-found {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      
+      p {
+        margin-top: 16px;
+        font-size: var(--o-font_size-text1);
+        color: var(--o-color-info2);
+      }
     }
   }
 

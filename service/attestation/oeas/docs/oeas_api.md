@@ -110,7 +110,7 @@ curl -X GET -H "token: ${openeuler_token}" \
 
 ## cert
 
-基于远程证明 token 获取密钥（需要 openeuler 社区私人令牌）
+基于远程证明 token 获取 Attestation Service 证书（需要 openeuler 社区私人令牌）
 
 ### 请求参数
 

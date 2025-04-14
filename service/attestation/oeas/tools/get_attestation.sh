@@ -85,10 +85,10 @@ if [[ "$update_cert" == true ]]; then
     if [[ -n "$openeuler_token" && -n "$cert_url" ]]; then
         echo "正在更新 as_cert.pem 文件..."
         
-        curl -k -X GET -H "token: ${openeuler_token}" \
+        curl -L -k -X GET -H "token: ${openeuler_token}" \
         -o /etc/attestation/attestation-agent/as_cert.pem \
         ${oeas_url}/cert
-        curl -k -X GET ${aa_conf_url} \
+        curl -L -k -X GET ${aa_conf_url} \
         -o /etc/attestation/attestation-agent/attestation-agent.conf
         
         if [[ $? -eq 0 ]]; then
@@ -106,12 +106,12 @@ if [[ "$update_cert" == true ]]; then
 fi
 
 echo "获取oeas挑战值"
-challenge=$(curl -k -c cookie -X GET ${oeas_url}/challenge | tr -d '"')
+challenge=$(curl -L -k -c cookie -X GET ${oeas_url}/challenge | tr -d '"')
 cookie=$(cat cookie | grep oeas-session-id | awk '{print $7}')
 
 echo "获取aa evidence证明值"
 evi_req=$(printf "{\"challenge\":\"%s\",\"uuid\":\"${oeas_uuid}\"}" ${challenge})
-evi=$(curl -k -X GET -d ${evi_req} \
+evi=$(curl -L -k -X GET -d ${evi_req} \
     -H "Content-Type: application/json" \
     ${aa_url}/evidence)
 # echo $evi
@@ -119,7 +119,7 @@ evi_base64=$(echo $evi | base64 | tr -d '\n' | tr -d '=')
 
 echo "获取oeas as_token"
 cookie_op=$(printf "oeas-session-id=%s" $cookie)
-as_token=$(curl -k -X GET --cookie ${cookie_op} \
+as_token=$(curl -L -k -X GET --cookie ${cookie_op} \
     -H "Expect: " \
     -H "token: ${openeuler_token}"  \
     -F "challenge=${challenge}"  \
@@ -132,7 +132,7 @@ echo  "${as_token}"
 # 检查必要参数是否已设置
 if [[ -n "$resource_name" ]]; then
     echo "resource_content:"
-    curl -k -X GET -H "token: ${openeuler_token}" \
+    curl -L -k -X GET -H "token: ${openeuler_token}" \
         -H "Authorization: Bearer ${as_token}" \
         "${oeas_url}/resource/storage?resource_name=${resource_name}"
 fi

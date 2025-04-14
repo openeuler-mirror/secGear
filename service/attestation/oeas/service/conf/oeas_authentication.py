@@ -726,9 +726,9 @@ def download_cert(user_id: str) -> Response:
             download_name="as_cert.pem",
         )
     except FileNotFoundError:
-        abort(404)
+        return abort(404)
     except Exception as e:
-        abort(500)
+        return abort(500)
 
 
 if __name__ == "__main__":

@@ -46,7 +46,7 @@ const showCreateDlg = ref(false);
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 155px 0 382px 0;
+    padding-top: 155px;
     color: var(--o-color-info2);
     text-align: center;
     @include text1;

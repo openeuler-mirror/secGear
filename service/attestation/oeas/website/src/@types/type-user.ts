@@ -1,4 +1,4 @@
-export interface UserPermissionT {
+export interface UserInfoT {
   aigcPrivacyAccepted: string; // 接受aigc隐私政策时间
   email?: string; // 邮箱
   photo: string; // 头像

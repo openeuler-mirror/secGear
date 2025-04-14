@@ -28,20 +28,28 @@ const queryContent = async () => {
       policy_name: props.name,
     });
 
-    content.value = res.data;
+    content.value = res;
   } finally {
     loading.value = false;
   }
 };
 
-watch(() => props.visible, queryContent);
+watch(
+  () => props.visible,
+  (val) => {
+    if (val) {
+      queryContent();
+    } else {
+      content.value = '';
+    }
+  }
+);
 </script>
 
 <template>
   <ODialog v-model:visible="showDlg" class="" :style="{ '--dlg-width': '930px' }">
     <template #header>查看资源策略</template>
-
-    <OForm ref="formRef" class="dlg-form" has-required label-justify="left" label-width="110px">
+    <OForm ref="formRef" class="view-policy-form dlg-form" has-required label-justify="left" label-width="110px">
       <OFormItem label="资源策略名称">
         <div class="name">{{ name }}</div>
       </OFormItem>
@@ -53,6 +61,14 @@ watch(() => props.visible, queryContent);
     </OForm>
   </ODialog>
 </template>
+
+<style lang="scss">
+.view-policy-form {
+  .o-form-item-label {
+    line-height: 40px;
+  }
+}
+</style>
 
 <style lang="scss" scoped>
 .dlg-form {
@@ -78,7 +94,7 @@ watch(() => props.visible, queryContent);
   }
 
   .content-wrap {
-    height: 588px;
+    height: 388px;
     overflow-y: auto;
   }
 
