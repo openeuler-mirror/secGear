@@ -1,0 +1,12 @@
+# oeas config
+# 如需自定义配置，请将自定义文件挂载至目录/vault/secrets/oeas.toml
+# 如需使用https启动，请将证书文件挂载至目录/vault/secrets/server.key 和 /vault/secrets/server.crt
+
+# 正式地址
+[openeuler]
+auth_url = "https://omapi.osinfra.cn/oneid/user/checkPermission"
+token_url = "https://oneid-workbench-service.openeuler-oneid-workbench.svc.cluster.local:8080/oneid-workbench/openapi/token/check"
+
+# secgear地址
+[secgear]
+secgear_as_url = "http://127.0.0.1:8080"

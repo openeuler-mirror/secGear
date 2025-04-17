@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 set -e
 
-VERSION="24.09"
+VERSION="25.03"
 VERSION_UPPER=$(echo "$VERSION" | tr '[:lower:]' '[:upper:]')
 RELEASE="openEuler-${VERSION_UPPER}"
 
@@ -12,7 +12,6 @@ IMAGE_NAME="openeuler-${VERSION}"
 CONTAINER_NAME="oeas"
 
 DATA_DIR=$(readlink -f "$(dirname "$(dirname "$PWD")")")
-SECGEAR_REPO_URL="http://121.36.84.172/dailybuild/EBS-openEuler-25.03/rc6_openeuler-2025-03-26-10-07-43/everything/${ARCH}/"
 
 echo "正在获取镜像 openeuler 镜像"
 # 检查本地是否已有镜像
@@ -20,7 +19,7 @@ if [ -z "$(docker images -q "openeuler/openeuler:${VERSION}")" ]; then
   echo "本地未找到镜像，开始下载镜像文件: ${OPENEULER_DOCKER_URL}/${DOCKER_TAR}"
   
   # 尝试下载镜像文件
-  if ! curl -O "${OPENEULER_DOCKER_URL}/${DOCKER_TAR}"; then
+  if ! curl -OL "${OPENEULER_DOCKER_URL}/${DOCKER_TAR}"; then
     echo "下载镜像文件失败，尝试使用 docker pull 拉取镜像..."
     
     # 尝试使用 docker pull 拉取镜像
@@ -47,7 +46,6 @@ echo "openeuler 镜像加载完成，正在构建镜像"
 
 DOCKER_BUILDKIT=1 docker build --build-arg BASE_IMAGE=openeuler/openeuler:${VERSION} \
     -f Dockerfile_${ARCH} \
-    --build-arg SECGEAR_REPO_URL=${SECGEAR_REPO_URL} \
     --build-context data="$DATA_DIR" \
     -t "$CONTAINER_NAME" .
 

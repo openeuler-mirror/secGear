@@ -16,7 +16,7 @@
 
 #### 新增基线
 
-上传基线文件，文件类型(后缀)：*.json。文件模板:  [your_ref_name.json](./templates/your_ref_name.json)
+上传基线文件，文件类型(后缀)：\*.json。文件模板: [your_ref_name.json](./templates/your_ref_name.json)
 
 ## 证明策略管理
 
@@ -34,7 +34,7 @@
 
 #### 新增证明策略
 
-上传证明策略文件，文件类型(后缀): *.rego。策略编写与设置可见：[policy.md](./policy.md) 。文件模板：[your_policy_name.rego](./templates/your_policy_name.rego)
+上传证明策略文件，文件类型(后缀): \*.rego。策略编写与设置可见：[policy.md](./policy.md) 。文件模板：[your_policy_name.rego](./templates/your_policy_name.rego)
 
 ## 资源策略管理
 
@@ -55,11 +55,11 @@
 
 #### 资源策略列表
 
-显示已有资源策略至Web页面，提供查看策略内容、删除功能
+显示已有资源策略至 Web 页面，提供查看策略内容、删除功能
 
 #### 新增资源策略
 
-上传资源策略文件，文件类型(后缀): *.rego。策略编写与设置可见：[policy.md](./policy.md)  。文件模板：[your_res_policy_name.rego](./templates/your_res_policy_name.rego)
+上传资源策略文件，文件类型(后缀): \*.rego。策略编写与设置可见：[policy.md](./policy.md) 。文件模板：[your_res_policy_name.rego](./templates/your_res_policy_name.rego)
 
 #### 删除资源策略
 
@@ -88,7 +88,7 @@
 
 #### 资源列表
 
-显示已有资源至Web页面，提供修改、删除功能
+显示已有资源至 Web 页面，提供修改、删除功能
 
 #### 新增资源
 
@@ -102,17 +102,14 @@
 
 修改资源内容与绑定的资源策略（可选），目前不支持已有资源的内容显示
 
-
-
 ## 常见报错
 
 ## FAQ
 
-### 如何体验OEAS远程证明服务？
+### 如何体验 OEAS 远程证明服务？
 
-您需要申请oeas使用权限，才能使用oeas-web。申请方式可见[oeas主页](https://oeas.openeuler.org)
+您需要申请 oeas 使用权限，才能使用 oeas-web。申请方式可见[oeas 主页](https://oeas.openeuler.org)
 
-### 使用OEAS Web过程中发现问题？
+### 使用 OEAS Web 过程中发现问题？
 
-可以复现过程、报错内容提到仓库issue，感谢您的反馈
-
+可以将复现过程、报错内容提到仓库 issue，感谢您的反馈
