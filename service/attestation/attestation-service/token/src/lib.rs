@@ -17,8 +17,9 @@ use jsonwebtoken::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::path::Path;
 use thiserror;
+
+const PRIVATE_KEY_PATH: &str = "/etc/attestation/attestation-service/token/private.pem";
 
 #[derive(thiserror::Error, Debug)]
 pub enum SignError {
@@ -40,17 +41,23 @@ pub struct TokenSignConfig {
     pub nbf: usize,            // 生效时刻
     pub valid_duration: usize, // 有效时间
     pub alg: SignAlg,
-    pub key: String,
+    pub key: Vec<u8>,
 }
 
 impl Default for TokenSignConfig {
     fn default() -> Self {
+        let default_key = std::fs::read(PRIVATE_KEY_PATH)
+        .map_err(|err| {
+            SignError::ReadKeyFail(format!("Failed to read {PRIVATE_KEY_PATH}: {err}"))
+        })
+        .unwrap();
+
         TokenSignConfig {
             iss: "oeas".to_string(),
             nbf: 0,
             valid_duration: 300,
             alg: SignAlg::PS256,
-            key: "/etc/attestation/attestation-service/token/private.pem".to_string(),
+            key: default_key,
         }
     }
 }
@@ -111,14 +118,8 @@ impl TokenSigner {
                 alg
             )));
         }
-        if !Path::new(&self.config.key).exists() {
-            return Err(SignError::UnsupportAlg(format!(
-                "token verfify failed, {:?} cert not exist",
-                self.config.key
-            )));
-        }
-        let key = std::fs::read(&self.config.key).unwrap();
-        let key_value: EncodingKey = match EncodingKey::from_rsa_pem(&key) {
+
+        let key_value: EncodingKey = match EncodingKey::from_rsa_pem(&self.config.key) {
             Ok(val) => val,
             _ => {
                 return Err(SignError::ReadKeyFail(format!("get key from input error")));
