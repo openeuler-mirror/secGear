@@ -9,8 +9,8 @@
 | API                                   | 描述                                                       |
 | ------------------------------------- | ---------------------------------------------------------- |
 | [/challenge](#challenge)              | 发起挑战，建立会话                                         |
-| [/attestation](#attestation)          | 远程证明（需要 openeuler 社区私人令牌）                    |
-| [/resource/storage](resource/storage) | 基于远程证明 token 获取密钥（需要 openeuler 社区私人令牌） |
+| [/attestation](#attestation)          | 远程证明（需要 openEuler 社区私人令牌）                    |
+| [/resource/storage](resource/storage) | 基于远程证明 token 获取密钥（需要 openEuler 社区私人令牌） |
 | [/cert](cert)                         | OEAS 证书下载（Attestation Agent 使用）                    |
 
 ## challenge
@@ -40,7 +40,7 @@ curl -c cookie -X GET ${oeas_url}/challenge
 
 ## attestation
 
-远程证明（需要 openeuler 社区私人令牌）
+远程证明（需要 openEuler 社区私人令牌）
 
 ### 请求参数
 
@@ -77,7 +77,7 @@ curl -X GET --cookie ${cookie} \
 
 ## resource/storage
 
-基于远程证明 token 获取密钥（需要 openeuler 社区私人令牌）
+基于远程证明 token 获取密钥（需要 openEuler 社区私人令牌）
 
 ### 请求参数
 
@@ -110,7 +110,7 @@ curl -X GET -H "token: ${openeuler_token}" \
 
 ## cert
 
-基于远程证明 token 获取 Attestation Service 证书（需要 openeuler 社区私人令牌）
+基于远程证明 token 获取 Attestation Service 证书（需要 openEuler 社区私人令牌）
 
 ### 请求参数
 
