@@ -25,8 +25,9 @@ use openssl::rsa;
 use openssl::x509;
 use serde_json::json;
 
-pub use attestation_types::VirtccaEvidence;
+pub use attestation_types::{UefiLog, VirtccaEvidence};
 pub mod ima;
+pub mod uefi;
 
 #[cfg(not(feature = "no_as"))]
 const VIRTCCA_ROOT_CERT: &str =
@@ -125,29 +126,62 @@ impl Evidence {
 
         // verify ima
         let ima_log = match virtcca_ev.ima_log {
-            Some(ima_log) => ima_log,
-            _ => {
+            Some(ima_log) => {
+                log::info!("get ima log");
+                ima_log
+            }
+            None => {
                 log::info!("no ima log");
                 vec![]
             }
         };
+
         let ima: serde_json::Value =
-            ima::ImaVerify::default().ima_verify(&ima_log, evidence.cvm_token.rem[0].clone())?;
+            ima::ImaVerify::default().ima_verify(&ima_log, &evidence.cvm_token.rem)?;
+
+        // verify uefi
+        let uefi_log = if let Some(uefi_log) = virtcca_ev.uefi_log {
+            if !uefi_log.ccel_table.is_empty() && !uefi_log.ccel_data.is_empty() {
+                log::info!("get valid uefi log");
+                uefi_log
+            } else {
+                log::info!("uefi log is invalid (empty fields)");
+                UefiLog {
+                    ccel_table: vec![],
+                    ccel_data: vec![],
+                }
+            }
+        } else {
+            log::info!("no uefi log at all");
+            UefiLog {
+                ccel_table: vec![],
+                ccel_data: vec![],
+            }
+        };
+
+        let uefi: serde_json::Value =
+            uefi::UefiVerify::default().uefi_verify(uefi_log, evidence.cvm_token.rem.clone())?;
 
         // todo parsed TeeClaim
-        evidence.parse_claim_from_evidence(ima)
+        evidence.parse_claim_from_evidence(ima, uefi)
     }
+
     pub fn parse_evidence(evidence: &[u8]) -> Result<TeeClaim> {
         let virtcca_ev: VirtccaEvidence = serde_json::from_slice(evidence)?;
         let evidence = virtcca_ev.evidence;
         let evidence = Evidence::decode(evidence)?;
 
         let ima = json!("");
+        let uefi = json!("");
         // parsed TeeClaim
-        let claim = evidence.parse_claim_from_evidence(ima).unwrap();
+        let claim = evidence.parse_claim_from_evidence(ima, uefi).unwrap();
         Ok(claim["payload"].clone() as TeeClaim)
     }
-    fn parse_claim_from_evidence(&self, ima: serde_json::Value) -> Result<TeeClaim> {
+    fn parse_claim_from_evidence(
+        &self,
+        ima: serde_json::Value,
+        uefi: serde_json::Value,
+    ) -> Result<TeeClaim> {
         let payload = json!({
             "vcca.cvm.challenge": hex::encode(self.cvm_token.challenge.clone()),
             "vcca.cvm.rpv": hex::encode(self.cvm_token.rpv.clone()),
@@ -162,6 +196,7 @@ impl Evidence {
             "tee": "vcca",
             "payload" : payload,
             "ima": ima,
+            "uefi": uefi,
         });
         Ok(claim as TeeClaim)
     }
@@ -242,6 +277,7 @@ impl Evidence {
 
         Ok(())
     }
+
     #[cfg(feature = "no_as")]
     fn compare_with_ref(&mut self) -> Result<()> {
         let ref_file = std::fs::read(VIRTCCA_REF_VALUE_FILE)?;
@@ -499,6 +535,7 @@ mod tests {
             evidence: token.to_vec(),
             dev_cert: dev_cert,
             ima_log: None,
+            uefi_log: None,
         };
         let virtcca_ev = serde_json::to_vec(&virtcca_ev).unwrap();
         let r = Evidence::verify(&challenge, &virtcca_ev);
@@ -507,4 +544,21 @@ mod tests {
             Err(e) => assert!(false, "verify failed {:?}", e),
         }
     }
+}
+
+use std::collections::HashSet;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
+
+pub fn file_reader(file_path: &str) -> io::Result<HashSet<String>> {
+    let file = File::open(file_path)?;
+    let reader = BufReader::new(file);
+    let mut set = HashSet::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        set.insert(line.trim_end().to_string());
+    }
+
+    Ok(set)
 }

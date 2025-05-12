@@ -329,6 +329,7 @@ mod tests {
         "report": {
             "default_vcca.rego": "{\"vcca.cvm.rim\":\"1ee366339c8245a34a8ad9d27a0b912a588af7da8aef514ae8dec22746956dd1\"}",
             "ima": {}
+            "uefi": {}
         }
     },
     "tee": "vcca",

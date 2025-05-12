@@ -9,6 +9,7 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+use super::{file_reader, CVM_REM_ARR_SIZE};
 use anyhow::{bail, Result};
 use fallible_iterator::FallibleIterator;
 use ima_measurements::{Event, EventData, Parser};
@@ -27,7 +28,7 @@ const IMA_REFERENCE_FILE: &str =
 pub struct ImaVerify {}
 
 impl ImaVerify {
-    pub fn ima_verify(&self, ima_log: &[u8], ima_log_hash: Vec<u8>) -> Result<Value> {
+    pub fn ima_verify(&self, ima_log: &[u8], cvm_rem: &[Vec<u8>; CVM_REM_ARR_SIZE]) -> Result<Value> {
         if ima_log.to_vec().is_empty() {
             return Ok(json!({}));
         }
@@ -38,10 +39,16 @@ impl ImaVerify {
             events.push(event);
         }
 
+        let pcr_index = events[1].pcr_index;
+        let ima_index : usize = match (pcr_index-1).try_into() {
+            Ok(idx) => idx,
+            Err(_) => bail!("Invalid pcr_index for IMA"),
+        };
         let pcr_values = parser.pcr_values();
-        let pcr_10 = pcr_values.get(&10).expect("PCR 10 not measured");
-        let string_pcr_sha256 = hex::encode(pcr_10.sha256);
-        let string_ima_log_hash = hex::encode(ima_log_hash);
+        let pcr_value = pcr_values.get(&pcr_index).expect("PCR not measured");
+        let string_pcr_sha256 = hex::encode(pcr_value.sha256);
+        let string_ima_log_hash = hex::encode(cvm_rem[ima_index].clone());
+        log::debug!("pcr_index: {}, string_pcr_sha256: {}, string_ima_log_hash: {}",pcr_index, string_pcr_sha256, string_ima_log_hash);
 
         if string_pcr_sha256.clone() != string_ima_log_hash {
             log::error!(
@@ -49,13 +56,10 @@ impl ImaVerify {
                 string_pcr_sha256,
                 string_ima_log_hash
             );
-            bail!("ima log hash verify failed");
+            bail!("IMA log hash verification failed. Please check the log and reference data, and verify if PCR has been extended to PCR4.");
         }
 
-        let ima_refs: Vec<_> = file_reader(IMA_REFERENCE_FILE)?
-            .into_iter()
-            .map(String::from)
-            .collect();
+        let ima_refs = file_reader(IMA_REFERENCE_FILE)?;
 
         let mut ima_detail = Map::new();
         // parser each file digest in ima log, and compare with reference base value
@@ -83,24 +87,4 @@ impl ImaVerify {
 
         Ok(js_ima_detail)
     }
-}
-
-use std::io::BufRead;
-use std::io::BufReader;
-fn file_reader(file_path: &str) -> ::std::io::Result<Vec<String>> {
-    let file = std::fs::File::open(file_path).expect("open ima reference file failed");
-    let mut strings = Vec::<String>::new();
-    let mut reader = BufReader::new(file);
-    let mut buf = String::new();
-    let mut n: usize;
-    loop {
-        n = reader.read_line(&mut buf)?;
-        if n == 0 {
-            break;
-        }
-        buf.pop();
-        strings.push(buf.clone());
-        buf.clear();
-    }
-    Ok(strings)
 }

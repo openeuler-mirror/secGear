@@ -16,7 +16,6 @@
 
 use anyhow::*;
 use async_trait::async_trait;
-use log;
 
 #[cfg(feature = "itrustee-attester")]
 mod itrustee;

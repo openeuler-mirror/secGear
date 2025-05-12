@@ -16,7 +16,6 @@
 
 use anyhow::*;
 use async_trait::async_trait;
-use serde_json;
 
 use attestation_types::{Evidence, TeeType};
 
