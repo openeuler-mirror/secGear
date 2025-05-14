@@ -19,10 +19,17 @@ use serde_json::Value;
 pub const SESSION_TIMEOUT_MIN: i64 = 1;
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct UefiLog {
+    pub ccel_table: Vec<u8>,
+    pub ccel_data: Vec<u8>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct VirtccaEvidence {
     pub evidence: Vec<u8>,
     pub dev_cert: Vec<u8>,
     pub ima_log: Option<Vec<u8>>,
+    pub uefi_log: Option<UefiLog>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

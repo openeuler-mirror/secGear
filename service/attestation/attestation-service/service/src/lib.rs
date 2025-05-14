@@ -109,6 +109,28 @@ impl AttestationService {
             sessions: web::Data::new(SessionMap::new()),
         })
     }
+
+    async fn evaluate_evidence_field(claims_evidence: &Value, field: &str, mut passed: &mut bool) {
+        log::debug!(
+            "claims evidence {}: {:?}",
+            field,
+            claims_evidence[field].clone()
+        );
+        if *passed {
+            match claims_evidence[field].clone() {
+                Value::Object(obj) => {
+                    for (_k, v) in obj {
+                        if v == Value::Bool(false) {
+                            *passed = false;
+                            break;
+                        }
+                    }
+                }
+                _ => log::debug!("no {} result", field),
+            }
+        }
+    }
+
     /// evaluate tee evidence with reference and policy, and issue attestation result token
     pub async fn evaluate(
         &self,
@@ -120,18 +142,8 @@ impl AttestationService {
         let claims_evidence = verifier.verify_evidence(user_data, evidence).await?;
 
         let mut passed = true;
-        log::debug!("claims evidece ima: {:?}", claims_evidence["ima"].clone());
-        match claims_evidence["ima"].clone() {
-            serde_json::Value::Object(obj) => {
-                for (_k, v) in obj {
-                    if v == Value::Bool(false) {
-                        passed = false;
-                        break;
-                    }
-                }
-            }
-            _ => log::debug!("no ima result"),
-        }
+        AttestationService::evaluate_evidence_field(&claims_evidence, "ima", &mut passed).await;
+        AttestationService::evaluate_evidence_field(&claims_evidence, "uefi", &mut passed).await;
 
         // get reference by keys in claims_evidence
         let mut ops_refs = ReferenceOps::default();
@@ -158,8 +170,10 @@ impl AttestationService {
             .await;
         let mut report = serde_json::json!({});
         let mut ref_exist_null: bool = false;
+
         match result {
             Ok(eval) => {
+                log::debug!("policy: {:?}", eval);
                 for id in eval.keys() {
                     let val = Value::from_str(&eval[id].clone())?;
                     let refs = match val
@@ -193,6 +207,12 @@ impl AttestationService {
             .as_object_mut()
             .unwrap()
             .insert("ima".to_string(), claims_evidence["ima"].clone());
+
+        // add uefi detail result to report
+        report
+            .as_object_mut()
+            .unwrap()
+            .insert("uefi".to_string(), claims_evidence["uefi"].clone());
 
         // issue attestation result token
         let evl_report = EvlReport {

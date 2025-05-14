@@ -15,7 +15,7 @@
 //! Call the hardware sdk or driver to get the specific evidence
 
 use anyhow::{bail, Result};
-use attestation_types::VirtccaEvidence;
+use attestation_types::{UefiLog, VirtccaEvidence};
 use log;
 use std::path::Path;
 
@@ -24,6 +24,10 @@ use crate::virtcca::virtcca::tsi_free_ctx;
 use crate::EvidenceRequest;
 
 mod virtcca;
+
+const IMA_LOG_PATH: &str = "/sys/kernel/security/ima/binary_runtime_measurements";
+const CCEL_TABLE_PATH: &str = "/sys/firmware/acpi/tables/CCEL";
+const CCEL_DATA_PATH: &str = "/sys/firmware/acpi/tables/data/CCEL";
 
 #[derive(Debug, Default)]
 pub struct VirtccaAttester {}
@@ -41,6 +45,7 @@ pub fn detect_platform() -> bool {
 }
 
 const MAX_CHALLENGE_LEN: usize = 64;
+
 fn virtcca_get_token(user_data: EvidenceRequest) -> Result<VirtccaEvidence> {
     let mut challenge = base64_url::decode(&user_data.challenge)?;
     let len = challenge.len();
@@ -88,18 +93,46 @@ fn virtcca_get_token(user_data: EvidenceRequest) -> Result<VirtccaEvidence> {
             Some(ima) => ima,
             None => false,
         };
+
         let ima_log = match with_ima {
             true => {
-                Some(std::fs::read("/sys/kernel/security/ima/binary_runtime_measurements").unwrap())
-            }
+                match std::fs::read(IMA_LOG_PATH) {
+                    Ok(d) => {
+                        log::info!("read ima log success");
+                        Some(d)
+                    },
+                    Err(e) => {
+                        log::error!("read IMA log failed: {}", e);
+                        bail!("get ima log failed");
+                    }
+                }
+            },
             false => None,
+        };
+
+        let ccel_table = std::fs::read(CCEL_TABLE_PATH).ok();
+        let ccel_data = std::fs::read(CCEL_DATA_PATH).ok();
+        let uefi_log = match (ccel_table, ccel_data) {
+            (Some(table), Some(data)) => {
+                log::info!("read ccel table and data success");
+                Some(UefiLog {
+                    ccel_table: table,
+                    ccel_data: data,
+                })
+            },
+            _ => {
+                log::warn!("read ccel table or data failed");
+                None
+            }
         };
 
         let evidence = VirtccaEvidence {
             evidence: token,
             dev_cert: dev_cert,
             ima_log: ima_log,
+            uefi_log: uefi_log,
         };
+
         let _ = tsi_free_ctx(ctx);
         Ok(evidence)
     }
