@@ -16,6 +16,7 @@ Usage: ./get_attestation.sh [options]
 脚本运行依赖本地secGear Attestation Agent。请确认本地Attestation Agent是否正常运行
 Options:
   -t, --token <openeuler_token>   设置 openeuler 私人令牌
+  -i, --ima                       (可选)开启ima度量
   -u, --uuid <uuid>               (可选)设置UUID，使用itrustee则必须传入UUID
   -r, --resource <resource_name>  (可选)设置资源名称 (未使用参数则不会进行资源查询)
   -p, --policy <policy>           (可选)设置策略 (默认使用OEAS策略)

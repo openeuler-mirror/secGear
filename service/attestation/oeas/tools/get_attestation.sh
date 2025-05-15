@@ -11,6 +11,7 @@ resource_name=""
 openeuler_token=""
 oeas_uuid=""
 update_cert=false
+ima=false
 
 # 使用说明函数
 usage() {
@@ -19,6 +20,7 @@ usage() {
     echo "脚本运行依赖本地secGear Attestation Agent。请确认本地Attestation Agent是否正常运行"
     echo "Options:"
     echo "  -t, --token <openeuler_token>   设置 openeuler 私人令牌"
+    echo "  -i, --ima                       (可选)开启ima度量"
     echo "  -u, --uuid <uuid>               (可选)设置UUID，使用itrustee则必须传入UUID"
     echo "  -r, --resource <resource_name>  (可选)设置资源名称 (未使用参数则不会进行资源查询)"
     echo "  -p, --policy <policy>           (可选)设置策略 (默认使用OEAS策略)"
@@ -122,7 +124,7 @@ get_challenge() {
 # 获取 AA Evidence 证明值
 get_evidence() {
     echo "获取 AA Evidence 证明值..."
-    evi_req=$(printf "{\"challenge\":\"%s\",\"uuid\":\"${oeas_uuid}\"}" "${challenge}")
+    evi_req=$(printf "{\"challenge\":\"%s\",\"uuid\":\"${oeas_uuid}\",\"ima\":${ima}}" "${challenge}")
     evi=$(curl -L -k -X GET -d "${evi_req}" \
           -H "Content-Type: application/json" \
           "${aa_url}/evidence")
@@ -137,13 +139,16 @@ get_evidence() {
 get_as_token() {
     echo "获取 oeas as_token..."
     cookie_op=$(printf "oeas-session-id=%s" "$cookie")
+    evi_file=$(mktemp)
+    printf "%s" "${evi_base64}" > "${evi_file}"
     as_token=$(curl -L -k -X GET --cookie "${cookie_op}" \
                -H "Expect: " \
                -H "token: ${openeuler_token}"  \
                -F "challenge=${challenge}"  \
-               -F "evidence=${evi_base64}" \
+               -F "evidence=@${evi_file}" \
                -F "policy_name=${policy}" \
                "${oeas_url}/attestation")
+    rm -f "${evi_file}"
     if [[ -z "$as_token" ]]; then
         echo "无法获取 AS Token，请检查 OEAS 服务或输入参数是否正确。"
         exit 1
@@ -179,6 +184,7 @@ main() {
             -c|--cert-update) update_cert=true; shift ;;
             -s|--as) oeas_url="$2"; shift 2 ;;
             -a|--aa) aa_url="$2"; shift 2 ;;
+            -i|--ima) ima=true; shift 1 ;;
             *) echo "未知参数: $1"; usage ;;
         esac
     done
