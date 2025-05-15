@@ -590,8 +590,7 @@ def add_ref(user_id: str, resp_openeuler: requests.models.Response) -> Response:
         logger.error(f"Invalid JSON: {str(e)}")
         return ResponseUtils.response_merge(resp_openeuler, Constants.FILE_FORMAT_ERROR)
 
-    refs = {f"{user_id}_{k}": v for k, v in data.items()}
-    sec_data = {"refs": json.dumps(refs)}
+    sec_data = {"refs": json.dumps(data)}
 
     resp_sec = ResponseUtils.secgear_response(sec_data, Constants.REFERENCE_URL)
 
