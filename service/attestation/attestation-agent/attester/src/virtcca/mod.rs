@@ -95,16 +95,14 @@ fn virtcca_get_token(user_data: EvidenceRequest) -> Result<VirtccaEvidence> {
         };
 
         let ima_log = match with_ima {
-            true => {
-                match std::fs::read(IMA_LOG_PATH) {
-                    Ok(d) => {
-                        log::info!("read ima log success");
-                        Some(d)
-                    },
-                    Err(e) => {
-                        log::error!("read IMA log failed: {}", e);
-                        bail!("get ima log failed");
-                    }
+            true => match std::fs::read(IMA_LOG_PATH) {
+                Ok(d) => {
+                    log::info!("read ima log success");
+                    Some(d)
+                }
+                Err(e) => {
+                    log::error!("read IMA log failed: {}", e);
+                    bail!("get ima log failed");
                 }
             },
             false => None,
@@ -119,7 +117,7 @@ fn virtcca_get_token(user_data: EvidenceRequest) -> Result<VirtccaEvidence> {
                     ccel_table: table,
                     ccel_data: data,
                 })
-            },
+            }
             _ => {
                 log::warn!("read ccel table or data failed");
                 None

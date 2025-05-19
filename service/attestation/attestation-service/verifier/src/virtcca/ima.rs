@@ -39,11 +39,14 @@ impl ImaVerify {
             events.push(event);
         }
 
+        if events.len() < 2 {
+            bail!("No IMA measurement records for files found.");
+        }
         let pcr_index = events[1].pcr_index;
-        let ima_index : usize = match (pcr_index-1).try_into() {
-            Ok(idx) => idx,
-            Err(_) => bail!("Invalid pcr_index for IMA"),
-        };
+        if pcr_index < 1 || pcr_index > CVM_REM_ARR_SIZE as u32 {
+            bail!("Invalid pcr_index for IMA");
+        }
+        let ima_index  = (pcr_index - 1) as usize;
         let pcr_values = parser.pcr_values();
         let pcr_value = pcr_values.get(&pcr_index).expect("PCR not measured");
         let string_pcr_sha256 = hex::encode(pcr_value.sha256);
