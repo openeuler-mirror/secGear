@@ -20,8 +20,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-# 限制最大上传文件大小为100KB
-app.config["MAX_CONTENT_LENGTH"] = 100 * 1024
+# 限制最大上传文件大小为10MB
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024 * 10
 
 
 # 常量定义
@@ -590,8 +590,7 @@ def add_ref(user_id: str, resp_openeuler: requests.models.Response) -> Response:
         logger.error(f"Invalid JSON: {str(e)}")
         return ResponseUtils.response_merge(resp_openeuler, Constants.FILE_FORMAT_ERROR)
 
-    refs = {f"{user_id}_{k}": v for k, v in data.items()}
-    sec_data = {"refs": json.dumps(refs)}
+    sec_data = {"refs": json.dumps(data)}
 
     resp_sec = ResponseUtils.secgear_response(sec_data, Constants.REFERENCE_URL)
 
@@ -653,11 +652,18 @@ def get_challenge() -> Response:
 @token_route
 def get_token(user_id: str) -> Response:
     """获取attestation token"""
-    evidence = request.form.get("evidence", "")
+    evidence_file = request.files.get("evidence")
     policy = request.form.get("policy_name", "")
     challenge = request.form.get("challenge", "")
 
-    if not evidence or not challenge:
+    if not evidence_file or not challenge:
+        return make_response(
+            Constants.INVALID_PARAMETERS, Constants.HTTP_STATUS_FAILURE
+        )
+        
+    try:
+        evidence = evidence_file.read().decode("utf-8")
+    except UnicodeDecodeError:
         return make_response(
             Constants.INVALID_PARAMETERS, Constants.HTTP_STATUS_FAILURE
         )
