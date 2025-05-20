@@ -23,10 +23,15 @@ const AA_ADDR: &str = "http://127.0.0.1:8081";
 #[tokio::main]
 async fn main() {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+
+    // 解析命令行参数
+    let args: Vec<String> = std::env::args().collect();
+    let ima = args.contains(&"--ima".to_string()) || args.contains(&"-i".to_string());
+
     let mut handles = Vec::with_capacity(TEST_THREAD_NUM as usize);
     for i in 0..TEST_THREAD_NUM {
         let t = tokio::spawn(async move {
-            aa_proc(i).await;
+            aa_proc(i, ima).await;
         });
         handles.push(t);
     }
@@ -37,7 +42,7 @@ async fn main() {
     log::info!("main stop");
 }
 
-async fn aa_proc(i: i64) {
+async fn aa_proc(i: i64, ima: bool) {
     log::info!("attestation_proc thread {} start", i);
 
     // get challenge
@@ -77,6 +82,7 @@ async fn aa_proc(i: i64) {
     let request_body = json!({
         "challenge": challenge,
         "uuid": String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),
+        "ima": ima,
     });
     log::info!(
         "thread {} case2 get evidence, request body: {}",
@@ -150,6 +156,7 @@ async fn aa_proc(i: i64) {
         let request_body = json!({
             "challenge": challenge,
             "uuid": String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),
+            "ima": ima,
         });
         log::info!(
             "thread {} case5 get token, request body: {}",
