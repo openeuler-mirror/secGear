@@ -17,7 +17,7 @@ const onClickUser = () => {
 };
 
 const jumpToUserZone = () => {
-  window.open('https://www.openeuler.org/zh/workspace', '_blank');
+  window.open(import.meta.env.VITE_USER_CENTER, '_blank');
 };
 
 const jumpToMsgCenter = () => {
