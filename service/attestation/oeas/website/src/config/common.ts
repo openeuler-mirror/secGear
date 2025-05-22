@@ -1,4 +1,4 @@
-export const OPEN_EULER_LINK = 'https://www.openeuler.org/'; // 欧拉官网地址
+export const OPEN_EULER_LINK = import.meta.env.VITE_MAIN_DOMAIN_URL; // 欧拉官网地址
 
 export const MANAGEMENT_BASELINE_FILE_TYPE = 'application/json'; // 基线管理-新增基线-基线内容文件类型
 export const MANAGEMENT_BASELINE_FILE_SUFFIX = '.json'; // 策略管理-新增策略-策略内容文件类型
