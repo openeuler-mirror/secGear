@@ -23,6 +23,7 @@ import LogoRedditSquareHover from '@/assets/category/footer/reddit-square_hover.
 import LogoLinkedinHover from '@/assets/category/footer/linkdin_hover.png';
 import LogoYoutubeHover from '@/assets/category/footer/youtube_hover.png';
 import LogoTwitterHover from '@/assets/category/footer/x_hover.png';
+import { OPEN_EULER_LINK } from './common';
 
 // 媒体链接
 export const linksData = {
@@ -118,37 +119,37 @@ export const linksData2 = {
   zh: [
     {
       NAME: '品牌',
-      URL: 'https://www.openeuler.org/zh/other/brand/',
+      URL: `${OPEN_EULER_LINK}/zh/other/brand/`,
     },
     {
       NAME: '隐私政策',
-      URL: 'https://www.openeuler.org/zh/other/privacy/',
+      URL: `${OPEN_EULER_LINK}/zh/other/privacy/`,
     },
     {
       NAME: '法律声明',
-      URL: 'https://www.openeuler.org/zh/other/legal/',
+      URL: `${OPEN_EULER_LINK}/zh/other/legal/`,
     },
     {
       NAME: '关于cookies',
-      URL: 'https://www.openeuler.org/zh/other/cookies/',
+      URL: `${OPEN_EULER_LINK}/zh/other/cookies/`,
     },
   ],
   en: [
     {
       NAME: 'Trademark',
-      URL: 'https://www.openeuler.org/en/other/brand/',
+      URL: `${OPEN_EULER_LINK}/en/other/brand/`,
     },
     {
       NAME: 'Privacy Policy',
-      URL: 'https://www.openeuler.org/en/other/privacy/',
+      URL: `${OPEN_EULER_LINK}/en/other/privacy/`,
     },
     {
       NAME: 'Legal Notice',
-      URL: 'https://www.openeuler.org/en/other/legal/',
+      URL: `${OPEN_EULER_LINK}/en/other/legal/`,
     },
     {
       NAME: 'About Cookies',
-      URL: 'https://www.openeuler.org/en/other/cookies/',
+      URL: `${OPEN_EULER_LINK}/en/other/cookies/`,
     },
   ],
 };
@@ -173,7 +174,7 @@ export const quickNav = {
         },
         {
           title: '贡献看板',
-          link: 'https://datastat.openeuler.org/zh/overview',
+          link: `${import.meta.env.VITE_SERVICE_DATASTAT_URL}/zh/overview`,
         },
         {
           title: '社区介绍',
@@ -215,7 +216,7 @@ export const quickNav = {
         },
         {
           title: '软件中心',
-          link: 'https://easysoftware.openeuler.org/zh',
+          link: `${import.meta.env.VITE_SERVICE_SOFTWARE_URL}/zh`,
         },
       ],
     },
@@ -224,11 +225,11 @@ export const quickNav = {
       list: [
         {
           title: '文档',
-          link: 'https://docs.openeuler.org/zh/',
+          link: `${import.meta.env.VITE_SERVICE_DOCS_URL}/zh/`,
         },
         {
           title: 'FAQ',
-          link: 'https://www.openeuler.org/zh/faq/',
+          link: `${OPEN_EULER_LINK}/zh/faq/`,
         },
         {
           title: '联系我们',
@@ -293,7 +294,7 @@ export const quickNav = {
         },
         {
           title: 'Statistics',
-          link: 'https://datastat.openeuler.org/en/overview',
+          link: `${import.meta.env.VITE_SERVICE_DATASTAT_URL}/en/overview`,
         },
       ],
     },
@@ -329,10 +330,6 @@ export const quickNav = {
           title: 'Commercial Releases',
           link: '/en/download/commercial-release/',
         },
-        // {
-        //   title: '软件中心',
-        //   link: 'https://easysoftware.openeuler.org/en',
-        // },
       ],
     },
     {
@@ -340,11 +337,11 @@ export const quickNav = {
       list: [
         {
           title: 'Documentation',
-          link: 'https://docs.openeuler.org/en/',
+          link: `${import.meta.env.VITE_SERVICE_DOCS_URL}/en/`,
         },
         {
           title: 'FAQ',
-          link: 'https://www.openeuler.org/en/faq/',
+          link: `${OPEN_EULER_LINK}/en/faq/`,
         },
         {
           title: 'Contact Us',
