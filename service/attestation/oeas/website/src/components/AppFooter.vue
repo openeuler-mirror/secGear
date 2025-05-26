@@ -15,6 +15,7 @@ import CodeTitleXzs from '@/assets/category/footer/img-xzs.png';
 import CodeTitleGzh from '@/assets/category/footer/img-gzh.png';
 import CodeImgXzs from '@/assets/category/footer/code-xzs.png';
 import CodeImgZgz from '@/assets/category/footer/code-zgz.jpg';
+import Police from '@/assets/category/footer/police.png';
 
 const props = defineProps({
   lang: {
@@ -42,6 +43,8 @@ const footerCodeList = [
     label: 'openEuler公众号',
   },
 ];
+
+const filingLink = 'https://beian.miit.gov.cn/#/Integrated/index';
 
 //-------------底部媒体 hover 改变图片 src-----------------
 const currentHoverId = ref('');
@@ -133,11 +136,18 @@ watch(
                 />
               </template>
             </div>
-            <p class="copyright">版权所有 © {{ new Date().getFullYear() }} openEuler 保留一切权利</p>
             <p class="license">
               <span>遵循</span>
               木兰宽松许可证第2版（MulanPSL2）
             </p>
+            <div class="copyright">
+              <p>版权所有 © {{ new Date().getFullYear() }}</p>
+              <div class="filing">
+                <a :href="filingLink" target="_blank" class="filing-link"> 京ICP备2020036654号-1 </a>
+                <img :src="Police" class="filing-img" />
+                <p>京公网安备 11030102011597 号</p>
+              </div>
+            </div>
           </div>
           <div class="footer-right">
             <div v-if="lang === 'zh'" class="code-box">
@@ -358,9 +368,33 @@ $color: #fff;
   .copyright {
     margin-top: 6px;
     color: rgba(255, 255, 255, 0.6);
+    display: flex;
+    gap: var(--o-gap-2);
 
+    @include respond-to('<=pad') {
+      flex-direction: column;
+      gap: 6px;
+    }
     @include respond-to('<=pad_v') {
       margin-top: 4px;
+      gap: 4px;
+    }
+
+    .filing {
+      display: flex;
+      gap: var(--o-gap-2);
+
+      .filing-link {
+        color: rgba(255, 255, 255, 0.6);
+        @include hover {
+          color: rgba(255, 255, 255, 1);
+        }
+      }
+      .filing-img {
+        height: 16px;
+        width: 16px;
+        align-self: center;
+      }
     }
   }
 
@@ -389,6 +423,7 @@ $color: #fff;
     .footer-option-item {
       display: flex;
       align-items: center;
+      justify-content: center;
     }
 
     @include respond-to('<=pad_v') {
