@@ -187,6 +187,7 @@ $color: #fff;
   }
 
   .footer-content {
+    --layout-content-padding: 64px;
     background: url('@/assets/category/footer/footer-bg.png') no-repeat bottom center;
     @include tip1;
 
@@ -279,7 +280,7 @@ $color: #fff;
 
     .inner {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       padding: 8px 0 32px;
       position: relative;
