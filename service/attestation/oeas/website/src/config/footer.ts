@@ -393,7 +393,7 @@ export const quickNav = {
 export const friendshipLinks = {
   zh: [
     {
-      link: 'http://www.mulanos.cn/',
+      link: 'https://portal.mulanos.cn/',
       title: '木兰开源社区',
     },
     {
@@ -435,6 +435,10 @@ export const friendshipLinks = {
     {
       link: 'http://www.ebaina.com/',
       title: 'Ebaina',
+    },
+    {
+      link: 'https://www.openubmc.cn',
+      title: 'openUBMC',
     },
   ],
   en: [
