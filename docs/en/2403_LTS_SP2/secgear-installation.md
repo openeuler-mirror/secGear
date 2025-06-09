@@ -21,7 +21,7 @@
 
 ### Environment Preparation
 
-For details, see [Environment Requirements](https://www.hikunpeng.com/document/detail/en/kunpengcctrustzone/fg-tz/kunpengtrustzone_20_0018.html) and [Procedure](https://www.hikunpeng.com/document/detail/en/kunpengcctrustzone/fg-tz/kunpengtrustzone_20_0019.html) on the Kunpeng official website.
+For details, see [Environment Requirements](https://www.hikunpeng.com/document/detail/en/kunpengcctrustzone/trustzone/fg/kunpengtrustzone_20_0018.html) and [Procedure](https://www.hikunpeng.com/document/detail/en/kunpengcctrustzone/trustzone/fg/kunpengtrustzone_20_0019.html) on the Kunpeng official website.
 
 ### Installation
 

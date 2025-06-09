@@ -29,7 +29,7 @@ openEuler 22.03 LTS及以上
 
 ### 环境准备
 
- 参考鲲鹏官网[环境要求](https://www.hikunpeng.com/document/detail/zh/kunpengcctrustzone/fg-tz/kunpengtrustzone_20_0018.html)和[搭建步骤](https://www.hikunpeng.com/document/detail/zh/kunpengcctrustzone/fg-tz/kunpengtrustzone_20_0019.html)。
+ 参考鲲鹏官网[环境要求](https://www.hikunpeng.com/document/detail/zh/kunpengcctrustzone/trustzone/fg/kunpengtrustzone_20_0018.html)和[搭建步骤](https://www.hikunpeng.com/document/detail/zh/kunpengcctrustzone/trustzone/fg/kunpengtrustzone_20_0019.html)。
 
 ### 安装操作
 
