@@ -50,14 +50,17 @@ if(CC_GP)
         ${LOCAL_ROOT_PATH}/inc/host_inc
         ${LOCAL_ROOT_PATH}/inc/host_inc/gp
         ${LOCAL_ROOT_PATH}/component/remote_attest
-        ${LOCAL_ROOT_PATH}/component/remote_attest/ra_report)
+        ${LOCAL_ROOT_PATH}/component/remote_attest/ra_report
+        ${LOCAL_ROOT_PATH}/service/attestation/attestation-agent/c_header
+        ${LOCAL_ROOT_PATH}/thirdparty/base64url)
     add_library(u${PREFIX} SHARED ${SOURCE_FILE} ${AUTO_FILES})
 
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(u${PREFIX} PRIVATE 
-            ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+            ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+            ${LOCAL_ROOT_PATH}/service/attestation/attestation-agent/target/debug/)
     endif()
-    target_link_libraries(u${PREFIX} secgear_ra)
+    target_link_libraries(u${PREFIX} secgear_ra attestation_agent)
 endif()
  
 if(CC_SGX)
@@ -84,16 +87,19 @@ if(CC_SGX)
         ${OPENSSL_PATH}/include
         ${SGX_SDK_PATH}/include
         ${LOCAL_ROOT_PATH}/component/remote_attest
-        ${LOCAL_ROOT_PATH}/component/remote_attest/ra_report)
+        ${LOCAL_ROOT_PATH}/component/remote_attest/ra_report
+        ${LOCAL_ROOT_PATH}/service/attestation/attestation-agent/c_header
+        ${LOCAL_ROOT_PATH}/thirdparty/base64url)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${host_C_Flags}")
     add_library(u${PREFIX} SHARED ${SOURCE_FILE} ${AUTO_FILES})
 
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
 	    target_link_directories(u${PREFIX} PRIVATE 
             ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-            ${CMAKE_BINARY_DIR}/lib/)
+            ${CMAKE_BINARY_DIR}/lib/
+            ${CMAKE_SOURCE_DIR}/service/attestation/attestation-agent/target/debug/)
     endif()
-    target_link_libraries(u${PREFIX} secgear_ra)
+    target_link_libraries(u${PREFIX} secgear_ra attestation_agent)
 endif()
 
 install(TARGETS u${PREFIX} 

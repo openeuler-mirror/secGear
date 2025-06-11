@@ -19,7 +19,7 @@ if (CC_GP)
     set(THIRDPARTY_VERIFY teeverifier)
 endif()
 
-target_link_libraries(${OUTPUT} pthread csecure_channel ${THIRDPARTY_VERIFY})
+target_link_libraries(${OUTPUT} pthread csecure_channel ${THIRDPARTY_VERIFY} attestation_agent)
 
 set_target_properties(${OUTPUT} PROPERTIES SKIP_BUILD_RPATH TRUE)
 

@@ -55,17 +55,13 @@ typedef struct Tuple2_bool_bool {
 Vec_uint8_t
 get_report (
     Vec_uint8_t const * c_challenge,
-    Tuple2_bool_bool_t const * c_ima);
+    Tuple2_bool_bool_t const * c_ima,
+    Vec_uint8_t const * c_uuid);
 
 /** <No documentation available> */
 void
 init_env_logger (
     Vec_uint8_t const * c_level);
-
-/** <No documentation available> */
-Vec_uint8_t
-parse_report (
-    Vec_uint8_t const * report);
 
 /** <No documentation available> */
 Vec_uint8_t

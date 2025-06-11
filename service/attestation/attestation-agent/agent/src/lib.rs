@@ -490,6 +490,7 @@ pub fn init_env_logger(c_level: Option<&repr_c::String>) {
 pub fn get_report(
     c_challenge: Option<&repr_c::Vec<u8>>,
     c_ima: &repr_c::TaggedOption<bool>,
+    c_uuid: &repr_c::String,
 ) -> repr_c::Vec<u8> {
     log::debug!("input challenge: {:?}, ima: {:?}", c_challenge, c_ima);
     let ima = match c_ima {
@@ -505,7 +506,7 @@ pub fn get_report(
     };
 
     let input: EvidenceRequest = EvidenceRequest {
-        uuid: "f68fd704-6eb1-4d14-b218-722850eb3ef0".to_string(),
+        uuid: c_uuid.to_string(),
         challenge: challenge,
         ima: Some(ima),
     };
@@ -529,10 +530,10 @@ pub fn get_report(
     report.into()
 }
 
-#[cfg(feature = "no_as")]
+#[cfg(all(feature = "no_as", feature = "parse_evidence"))]
 use verifier::virtcca_parse_evidence;
 
-#[cfg(feature = "no_as")]
+#[cfg(all(feature = "no_as", feature = "parse_evidence"))]
 #[ffi_export]
 pub fn parse_report(report: Option<&repr_c::Vec<u8>>) -> repr_c::String {
     let report = match report {

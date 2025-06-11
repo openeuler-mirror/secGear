@@ -17,11 +17,12 @@ use log;
 use serde_json::json;
 use std::ops::Add;
 use std::path::Path;
+use serde_json::Value;
 
 mod itrustee;
 
-const ITRUSTEE_REF_VALUE_FILE: &str =
-    "/etc/attestation/attestation-service/verifier/itrustee/basevalue.txt";
+const ITRUSTEE_REF_VALUE_DIR: &str =
+    "/etc/attestation/attestation-service/reference-itrustee/";
 
 #[derive(Debug, Default)]
 pub struct ItrusteeVerifier {}
@@ -57,19 +58,32 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         size: in_data.len() as ::std::os::raw::c_uint,
         buf: in_data.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
     };
-
+    // parse uuid from evidence to find it's basevalue file that store in ITRUSTEE_REF_VALUE_DIR
+    let evidence_json:Value = serde_json::from_slice(evidence)?;
+    println!("{}", serde_json::to_string_pretty(&evidence_json).unwrap());
+    let uuid;
+    if let Some(v)= evidence_json.get("payload")
+                            .and_then(|v|v.get("uuid"))
+                            .and_then(|v|v.as_str()) {
+        uuid = v;
+    }
+    else {
+        log::error!("parse uuid from evidence failed");
+        bail!("parse uuid from evidence faild");
+    }
     let policy: std::os::raw::c_int = 1; // 1: verify ta_imag; 2: verfiy ta_mem; 3: verify ta_img and ta_mem hash;
-    if !Path::new(ITRUSTEE_REF_VALUE_FILE).exists() {
+    let ref_value_file = ITRUSTEE_REF_VALUE_DIR.to_string() + "itrustee_" + uuid;
+    if !Path::new(&ref_value_file).exists() {
         log::error!(
             "itrustee verify report {} not exists",
-            ITRUSTEE_REF_VALUE_FILE
+            ref_value_file
         );
         bail!(
             "itrustee verify report {} not exists",
-            ITRUSTEE_REF_VALUE_FILE
+            ref_value_file
         );
     }
-    let ref_file = String::from(ITRUSTEE_REF_VALUE_FILE);
+    let ref_file = String::from(ref_value_file);
     let mut file = ref_file.add("\0");
     let basevalue = file.as_mut_ptr() as *mut ::std::os::raw::c_char;
     unsafe {

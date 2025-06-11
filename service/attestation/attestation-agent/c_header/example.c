@@ -38,9 +38,14 @@ void *thread_proc(void *arg)
         ._0 = true,
         ._1 = false,    // true: enable to get report with ima
     };
-
+    const char *uuid = "f68fd704-6eb1-4d14-b218-722850eb3ef0";
+    Vec_uint8_t uuid_rust = {
+        .ptr = (uint8_t *)uuid,
+        .len = strlen(uuid),
+        .cap = strlen(uuid),
+    };
     // step3: get report
-    Vec_uint8_t report = get_report(&challenge, &ima);
+    Vec_uint8_t report = get_report(&challenge, &ima, &uuid_rust);
     Vec_uint8_t claim;
     if (report.len != 0) {
         report.ptr[report.len] = '\0'; // rust return string has no '\0'

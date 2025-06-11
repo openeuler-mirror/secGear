@@ -16,6 +16,12 @@ use openssl::sha::sha256;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use thiserror::{self, Error};
+use std::fs::File;
+use std::path::Path;
+use std::io::Write;
+
+const ITRUSTEE_REF_VALUE_DIR: &str =
+    "/etc/attestation/attestation-service/reference-itrustee/";
 
 pub struct ReferenceOps {
     store: Box<dyn KvStore>,
@@ -90,7 +96,16 @@ impl ReferenceOps {
         let refs =
             Extractor::split(ref_set).ok_or(RefOpError::Err("parse reference fail".to_string()))?;
         for item in refs {
-            self.register_reference(&item)?
+            self.register_reference(&item)?;
+            // refnamex with prefix "itrustee_" should write to seperate file，itrustee sdk will use it
+            if item.name.starts_with("itrustee_") {
+                let file_name = ITRUSTEE_REF_VALUE_DIR.to_string() + item.name.as_str();
+                let path = Path::new(file_name.as_str());
+                let mut file = File::create(path)
+                    .map_err(|_|RefOpError::Err("create itrustee reference file failed: ".to_string() + file_name.as_str()))?;
+                file.write_all(&item.value.as_str().unwrap().as_bytes())
+                    .map_err(|_|RefOpError::Err("write itrustee reference file failed".to_string() + file_name.as_str()))?;
+            }
         }
         Ok(())
     }
