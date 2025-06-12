@@ -22,7 +22,7 @@ cc_enclave_result_t cc_enclave_create(const char*path, enclave_type_t type, uint
 
 - Path：入参，要加载的 enclave 路径
 - Type：入参，用来指定 TEE 解决方案， 如 SGX_ENCLAVE_TYPE、GP_ENCLAVE_TYPE、AUTO_ENCLAVE_TYPE
-- version：入参，指定的 enclave engine 的版本，目前只有一个版本，取值为 0。
+- version：入参，指定的 enclave engine 的版本，目前只有一个版本，取值为 0
 - Flags：入参，标志位，说明这个 enclave 运行状态，例如调试状态 SECGEAR_DEBUG_FLAG、模拟状态 SECGEAR_SIMULATE_FLAG（目前不支持）
 - features：入参，用于设置一些关于 enclave 支持的特性，例如 SGX 的 PCL、 switchless 等。目前不支持，请设置为 NULL
 - features_count：入参，入参 features 特性结构体的数量。目前不支持，请设置为 0

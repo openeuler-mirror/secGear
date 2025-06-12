@@ -10,7 +10,7 @@ Creates an enclave API.
 
 Initialization API. The function calls different TEE creation functions based on the type to initialize the enclave context in different TEE solutions. This API is called by the REE.
 
-> ![](./public_sys-resources/icon-note.gif) **Note:**  
+> [!NOTE]NOTE  
 > Due to Intel SGX restrictions, memory mapping contention exists when multiple thread invoke cc_enclave_create concurrently. As a result, the creation of the enclave API may fail. Avoid concurrent invocations of cc_enclave_create in your code.
 
 **Function Declaration:**

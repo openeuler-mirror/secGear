@@ -4,14 +4,14 @@ href: ./secgear.md
 Description: Build applications with secGear to safeguard data during cloud operations.
 sections:
   - label: Introduction to secGear
-    href: ./introduction-to-secgear.md
+    href: ./introduction_to_secgear.md
   - label: secGear Installation
-    href: ./secgear-installation.md
+    href: ./secgear_installation.md
   - label: API Reference
-    href: ./api-reference.md
+    href: ./api_reference.md
   - label: Developer Guide
-    href: ./developer-guide.md
+    href: ./developer_guide.md
   - label: secGear Tools
-    href: ./using-secgear-tools.md
+    href: ./using_secgear_tools.md
   - label: Application Scenarios
-    href: ./application-scenarios.md
+    href: ./application_scenarios.md
