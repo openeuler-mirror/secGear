@@ -4,14 +4,14 @@ href: ./secgear.md
 description: 使用 secGear 统一机密计算编程框架开发应用程序，保障云端数据运行时的安全性
 sections:
   - label: 认识secGear
-    href: ./introduction-to-secGear.md
+    href: ./introduction_to_secgear.md
   - label: 安装与部署
-    href: ./secgear-installation.md
+    href: ./secgear_installation.md
   - label: 接口说明
-    href: ./api-reference.md
+    href: ./api_reference.md
   - label: 开发secGear应用程序
-    href: ./developer-guide.md
+    href: ./developer_guide.md
   - label: 使用secGear工具
-    href: ./using-secgear-tools.md
+    href: ./using_secgear_tools.md
   - label: 应用场景
-    href: ./application-scenarios.md
+    href: ./application_scenarios.md

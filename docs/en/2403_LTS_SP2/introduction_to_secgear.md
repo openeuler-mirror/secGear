@@ -149,7 +149,7 @@ Peer-to-peer verification process (without the attestation service):
 1. The user initiates a challenge to the TEE platform, which then returns the attestation report to the user.
 2. The user uses a local peer-to-peer TEE verification plugin to verify the report.
 
-> ![](./public_sys-resources/icon-note.gif) **Note:**  
+> [!NOTE]NOTE   
 > The attestation agent varies depending on whether peer-to-peer verification or remote attestation service verification is used. Users can select the desired mode during compilation by specifying the appropriate option, enabling the attestation agent to support either the attestation service or peer-to-peer mode.
 
 #### Application Scenarios
