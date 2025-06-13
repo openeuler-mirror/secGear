@@ -10,6 +10,7 @@
 #include "status.h"
 #include "sc_demo_u.h"
 #include "usr_msg.h"
+#include "rust_attestation_agent.h"
 
 #define MAXBUF 10240
 #define MAX_LISTEN_NUM 100
@@ -110,6 +111,14 @@ int main(int argc, char **argv)
     int sockfd;
     struct sockaddr_in svr_addr, conn_addr;
     uint32_t conn_len = sizeof(conn_addr);
+
+    char *level = "info";
+    Vec_uint8_t log_level = {
+        .ptr = (uint8_t *)level,
+        .len = strlen(level),
+        .cap = strlen(level)
+    };
+    init_env_logger(&log_level);
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
