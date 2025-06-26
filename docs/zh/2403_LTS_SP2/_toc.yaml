@@ -1,6 +1,5 @@
 label: secGear开发指南
 isManual: true
-href: ./secgear.md
 description: 使用 secGear 统一机密计算编程框架开发应用程序，保障云端数据运行时的安全性
 sections:
   - label: 认识secGear
