@@ -20,8 +20,11 @@ use log;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::path::Path;
+use sha2::{Sha256, Digest};
 
 use crate::EvidenceRequest;
+// Note: IMA module is available via crate::ima if needed in the future
+use crate::ima;
 
 mod itrustee;
 
@@ -59,24 +62,63 @@ struct ItrusteeInput {
     handler: String,
     payload: ReportInputPayload,
 }
+
 const MAX_CHALLENGE_LEN: usize = 64;
+const MAX_CHALLENGE_LEN_IMA: usize = 32;
 fn itrustee_get_evidence(user_data: EvidenceRequest) -> Result<String> {
     let challenge = base64_url::decode(&user_data.challenge)?;
     let len = challenge.len();
-    if len <= 0 || len > MAX_CHALLENGE_LEN {
+    let with_ima = match user_data.ima {
+        Some(ima) => ima,
+        None => false,
+    };
+    // If IMA is enabled, the challenge length is 32 bytes, otherwise it is 64 bytes
+    // As we need 32 bytes to pass IMA log hash to the TEE.
+    let max_challenge_len = if with_ima {
+        MAX_CHALLENGE_LEN_IMA
+    } else {
+        MAX_CHALLENGE_LEN
+    };
+    if len <= 0 || len > max_challenge_len {
         log::error!(
-            "challenge len is error, expecting 0 < len <= {}, got {}",
-            MAX_CHALLENGE_LEN,
+            "challenge length is wrong, expecting 0 < len <= {}, got {}",
+            max_challenge_len,
             len
         );
         bail!(
-            "challenge len is error, expecting 0 < len <= {}, got {}",
-            MAX_CHALLENGE_LEN,
+            "challenge length is wrong, expecting 0 < len <= {}, got {}",
+            max_challenge_len,
             len
         );
     }
+
+    let ima_log= if with_ima {
+        ima::read_ima_log_if_requested(with_ima)?
+    } else {
+        None
+    };
+
+    let nonce = if with_ima {
+        if ima_log.is_none() {
+            log::error!("ima log is empty");
+            bail!("ima log is empty");
+        }
+        
+        // Calculate SHA256 hash of IMA log
+        let mut hasher = Sha256::new();
+        hasher.update(&ima_log.unwrap());
+        let ima_log_hash = hasher.finalize();
+        
+        // Combine challenge and IMA log hash
+        let mut combined = challenge.clone();
+        combined.extend_from_slice(&ima_log_hash);
+        String::from_utf8(combined)?
+    } else {
+        String::from_utf8(challenge)?
+    };
+
     let payload = ReportInputPayload {
-        nonce: String::from_utf8(user_data.challenge)?,
+        nonce: nonce,
         uuid: user_data.uuid,
         with_tcb: false,
         request_key: true,
@@ -111,8 +153,11 @@ fn itrustee_get_evidence(user_data: EvidenceRequest) -> Result<String> {
         report.set_len(out_len);
     }
     let str_report = String::from_utf8(report)?;
-
-    Ok(str_report)
+    let final_report = ItrusteeEvidence {
+        report: str_report,
+        ima_log: ima_log,
+    };
+    Ok(final_report)
 }
 
 fn itrustee_provision() -> Result<()> {
