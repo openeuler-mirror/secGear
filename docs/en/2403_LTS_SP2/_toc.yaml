@@ -1,7 +1,6 @@
 label: secGear Developer Guide
 isManual: true
-href: ./secgear.md
-Description: Build applications with secGear to safeguard data during cloud operations.
+description: Build applications with secGear to safeguard data during cloud operations.
 sections:
   - label: Introduction to secGear
     href: ./introduction_to_secgear.md
