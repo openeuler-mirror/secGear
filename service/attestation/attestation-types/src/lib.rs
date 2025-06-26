@@ -41,6 +41,12 @@ pub enum TeeType {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct ItrusteeEvidence {
+    pub report: String,
+    pub ima_log: Option<Vec<u8>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Evidence {
     pub tee: TeeType,
     pub evidence: String,
