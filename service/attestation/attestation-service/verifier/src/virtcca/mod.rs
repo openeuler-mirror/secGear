@@ -12,6 +12,7 @@
 
 //! virtcca verifier plugin
 use super::TeeClaim;
+use crate::ima::ImaVerifier;
 
 use anyhow::{anyhow, bail, Result};
 use ciborium;
@@ -26,7 +27,6 @@ use openssl::x509;
 use serde_json::json;
 
 pub use attestation_types::{UefiLog, VirtccaEvidence};
-pub mod ima;
 pub mod uefi;
 
 #[cfg(not(feature = "no_as"))]
@@ -136,8 +136,8 @@ impl Evidence {
             }
         };
 
-        let ima: serde_json::Value =
-            ima::ImaVerify::default().ima_verify(&ima_log, &evidence.cvm_token.rem)?;
+        let ima: serde_json::Value = crate::ima::virtcca::VirtCCAImaVerify::default()
+            .ima_verify(&ima_log, &evidence.cvm_token.rem)?;
 
         // verify uefi
         let uefi_log = if let Some(uefi_log) = virtcca_ev.uefi_log {
@@ -544,21 +544,4 @@ mod tests {
             Err(e) => assert!(false, "verify failed {:?}", e),
         }
     }
-}
-
-use std::collections::HashSet;
-use std::fs::File;
-use std::io::{self, BufRead, BufReader};
-
-pub fn file_reader(file_path: &str) -> io::Result<HashSet<String>> {
-    let file = File::open(file_path)?;
-    let reader = BufReader::new(file);
-    let mut set = HashSet::new();
-
-    for line in reader.lines() {
-        let line = line?;
-        set.insert(line.trim_end().to_string());
-    }
-
-    Ok(set)
 }

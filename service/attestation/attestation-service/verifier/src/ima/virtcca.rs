@@ -9,7 +9,8 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use super::{file_reader, CVM_REM_ARR_SIZE};
+
+use super::{file_reader, ImaVerifier};
 use anyhow::{bail, Result};
 use fallible_iterator::FallibleIterator;
 use ima_measurements::{Event, EventData, Parser};
@@ -24,12 +25,15 @@ const IMA_REFERENCE_FILE: &str =
 const IMA_REFERENCE_FILE: &str =
     "/etc/attestation/attestation-agent/local_verifier/virtcca/ima/digest_list_file";
 
-#[derive(Debug, Default)]
-pub struct ImaVerify {}
+const CVM_REM_ARR_SIZE: usize = 4;
 
-impl ImaVerify {
-    pub fn ima_verify(&self, ima_log: &[u8], cvm_rem: &[Vec<u8>; CVM_REM_ARR_SIZE]) -> Result<Value> {
-        if ima_log.to_vec().is_empty() {
+/// VirtCCA specific IMA verifier implementation
+#[derive(Debug, Default)]
+pub struct VirtCCAImaVerify {}
+
+impl ImaVerifier for VirtCCAImaVerify {
+    fn ima_verify(&self, ima_log: &[u8], cvm_rem: &[Vec<u8>]) -> Result<Value> {
+        if ima_log.is_empty() {
             return Ok(json!({}));
         }
 
@@ -42,18 +46,26 @@ impl ImaVerify {
         if events.len() < 2 {
             bail!("No IMA measurement records for files found.");
         }
+        
         let pcr_index = events[1].pcr_index;
         if pcr_index < 1 || pcr_index > CVM_REM_ARR_SIZE as u32 {
             bail!("Invalid pcr_index for IMA");
         }
-        let ima_index  = (pcr_index - 1) as usize;
+        
+        let ima_index = (pcr_index - 1) as usize;
         let pcr_values = parser.pcr_values();
         let pcr_value = pcr_values.get(&pcr_index).expect("PCR not measured");
         let string_pcr_sha256 = hex::encode(pcr_value.sha256);
         let string_ima_log_hash = hex::encode(cvm_rem[ima_index].clone());
-        log::debug!("pcr_index: {}, string_pcr_sha256: {}, string_ima_log_hash: {}",pcr_index, string_pcr_sha256, string_ima_log_hash);
+        
+        log::debug!(
+            "pcr_index: {}, string_pcr_sha256: {}, string_ima_log_hash: {}",
+            pcr_index, 
+            string_pcr_sha256, 
+            string_ima_log_hash
+        );
 
-        if string_pcr_sha256.clone() != string_ima_log_hash {
+        if string_pcr_sha256 != string_ima_log_hash {
             log::error!(
                 "ima log verify failed string_pcr_sha256 {}, string_ima_log_hash {}",
                 string_pcr_sha256,
@@ -85,9 +97,10 @@ impl ImaVerify {
                 ima_detail.insert(name, Value::Bool(false));
             }
         }
+        
         let js_ima_detail: Value = ima_detail.into();
         log::debug!("ima verify detail result: {:?}", js_ima_detail);
 
         Ok(js_ima_detail)
     }
-}
+} 
