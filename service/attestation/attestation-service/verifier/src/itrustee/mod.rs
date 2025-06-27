@@ -17,6 +17,8 @@ use log;
 use serde_json::json;
 use std::ops::Add;
 use std::path::Path;
+use crate::ima::ImaVerifier;
+use attestation_types::ItrusteeEvidence;
 
 mod itrustee;
 
@@ -34,6 +36,16 @@ impl ItrusteeVerifier {
 const MAX_CHALLENGE_LEN: usize = 64;
 fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     let challenge = base64_url::decode(user_data)?;
+    let evidence: ItrusteeEvidence = serde_json::from_slice(evidence)?;
+    let report = evidence.report;
+    let with_ima = match evidence.ima_log {
+        Some(_) => true,
+        None => false,
+    };
+    let ima_log = match evidence.ima_log {
+        Some(ima_log) => ima_log,
+        None => vec![],
+    };
     let len = challenge.len();
     if len <= 0 || len > MAX_CHALLENGE_LEN {
         log::error!(
@@ -48,7 +60,7 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         );
     }
     let mut in_data = challenge.to_vec();
-    let mut in_evidence = evidence.to_vec();
+    let mut in_evidence = report.as_bytes().to_vec();
     let mut data_buf: itrustee::buffer_data = itrustee::buffer_data {
         size: in_evidence.len() as ::std::os::raw::c_uint,
         buf: in_evidence.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
@@ -79,13 +91,24 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
             bail!("itrustee verify report failed ret:{}", ret);
         }
     }
-    let js_evidence: serde_json::Value = serde_json::from_slice(evidence)?;
+
+    let js_evidence: serde_json::Value = serde_json::from_str(&report)?;
+    let mut ima = serde_json::Value::Null;
+    
+    if with_ima {
+        let report_nonce = js_evidence["payload"]["nonce"].as_str().unwrap();
+        let ima_log_hash = base64_url::decode(&report_nonce[32..])?;
+        ima = crate::ima::itrustee::ItrusteeImaVerify::default()
+            .ima_verify(&ima_log, &[ima_log_hash])?;
+    }
+
     let payload = json!({
         "itrustee.nonce": js_evidence["payload"]["nonce"].clone(),
         "itrustee.hash_alg": js_evidence["payload"]["hash_alg"].clone(),
         "itrustee.key": js_evidence["payload"]["key"].clone(),
         "itrustee.ta_img": js_evidence["payload"]["ta_img"].clone(),
         "itrustee.ta_mem": js_evidence["payload"]["ta_mem"].clone(),
+        "itrustee.ima": ima,
         "itrustee.uuid": js_evidence["payload"]["uuid"].clone(),
         "itrustee.version": js_evidence["payload"]["version"].clone(),
     });

@@ -28,6 +28,8 @@ pub mod virtcca;
 #[cfg(feature = "rustcca-verifier")]
 pub mod rustcca;
 
+pub mod ima;
+
 pub type TeeClaim = serde_json::Value;
 
 #[derive(Debug, Default)]
