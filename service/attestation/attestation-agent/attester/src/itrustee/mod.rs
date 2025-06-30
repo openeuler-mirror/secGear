@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::path::Path;
 use sha2::{Sha256, Digest};
+use attestation_types::ItrusteeEvidence;
 
 use crate::EvidenceRequest;
 // Note: IMA module is available via crate::ima if needed in the future
@@ -106,7 +107,7 @@ fn itrustee_get_evidence(user_data: EvidenceRequest) -> Result<String> {
         
         // Calculate SHA256 hash of IMA log
         let mut hasher = Sha256::new();
-        hasher.update(&ima_log.unwrap());
+        hasher.update(ima_log.as_ref().unwrap());
         let ima_log_hash = hasher.finalize();
         
         // Combine challenge and IMA log hash
@@ -157,7 +158,9 @@ fn itrustee_get_evidence(user_data: EvidenceRequest) -> Result<String> {
         report: str_report,
         ima_log: ima_log,
     };
-    Ok(final_report)
+
+    let final_report_str = serde_json::to_string(&final_report)?;
+    Ok(final_report_str)
 }
 
 fn itrustee_provision() -> Result<()> {

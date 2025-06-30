@@ -110,7 +110,7 @@ impl AttestationService {
         })
     }
 
-    async fn evaluate_evidence_field(claims_evidence: &Value, field: &str, mut passed: &mut bool) {
+    async fn evaluate_evidence_field(claims_evidence: &Value, field: &str, passed: &mut bool) {
         log::debug!(
             "claims evidence {}: {:?}",
             field,
