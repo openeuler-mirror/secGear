@@ -113,9 +113,10 @@ fn itrustee_get_evidence(user_data: EvidenceRequest) -> Result<String> {
         // Combine challenge and IMA log hash
         let mut combined = challenge.clone();
         combined.extend_from_slice(&ima_log_hash);
-        String::from_utf8(combined)?
+        // String::from_utf8(combined)?
+        base64_url::encode(&combined)
     } else {
-        String::from_utf8(challenge)?
+        String::from_utf8(user_data.challenge)?
     };
 
     let payload = ReportInputPayload {
