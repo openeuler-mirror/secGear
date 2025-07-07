@@ -13,7 +13,6 @@
 //! itrustee verifier plugin
 
 use super::*;
-use attestation_types::resource::error;
 use log;
 use serde_json::json;
 use std::ops::Add;
@@ -31,11 +30,11 @@ pub struct ItrusteeVerifier {}
 
 impl ItrusteeVerifier {
     pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
-        return evalute_wrapper(user_data, evidence);
+        return evaluate_wrapper(user_data, evidence);
     }
 }
 const MAX_CHALLENGE_LEN: usize = 64;
-fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
+fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     let challenge = base64_url::decode(user_data)?;
     let evidence: ItrusteeEvidence = serde_json::from_slice(evidence)?;
     
