@@ -13,6 +13,7 @@
 //! itrustee verifier plugin
 
 use super::*;
+use attestation_types::resource::error;
 use log;
 use serde_json::json;
 use std::ops::Add;
@@ -22,8 +23,8 @@ use attestation_types::ItrusteeEvidence;
 
 mod itrustee;
 
-const ITRUSTEE_REF_VALUE_FILE: &str =
-    "/etc/attestation/attestation-service/verifier/itrustee/basevalue.txt";
+const ITRUSTEE_REF_VALUE_DIR: &str =
+    "/etc/attestation/attestation-service/verifier/itrustee";
 
 #[derive(Debug, Default)]
 pub struct ItrusteeVerifier {}
@@ -37,7 +38,11 @@ const MAX_CHALLENGE_LEN: usize = 64;
 fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     let challenge = base64_url::decode(user_data)?;
     let evidence: ItrusteeEvidence = serde_json::from_slice(evidence)?;
+    
+    println!("{}", serde_json::to_string_pretty(&evidence).unwrap());
+    
     let report = evidence.report;
+    let js_evidence: serde_json::Value = serde_json::from_str(&report)?;
     let with_ima = match evidence.ima_log {
         Some(_) => true,
         None => false,
@@ -59,7 +64,28 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
             len
         );
     }
+
+    let mut ima = serde_json::Value::Null;
     let mut in_data = challenge.to_vec();
+    if with_ima {
+        let report_nonce = js_evidence["payload"]["nonce"].as_str().unwrap();
+        let nonce_all = base64_url::decode(&report_nonce)?;
+        if nonce_all.len() != MAX_CHALLENGE_LEN {
+            log::error!("IMA verification: nonce length is not 64 bytes, got {}", nonce_all.len());
+            bail!("IMA verification: nonce length is not 64 bytes, got {}", nonce_all.len());
+        }
+        let nonce_expected = &nonce_all[..32]; // 前32字节是challenge
+        let ima_log_hash = &nonce_all[32..];   // 后32字节是ima_log_hash
+        if nonce_expected != challenge {
+            log::error!("IMA verification: nonce and challenge mismatch");
+            bail!("IMA verification: nonce and challenge mismatch");
+        }
+        ima = crate::ima::itrustee::ItrusteeImaVerify::default()
+            .ima_verify(&ima_log, &[ima_log_hash.to_vec()])?;
+        in_data = nonce_all.to_vec();
+    }
+
+    // let mut in_data = challenge.to_vec();
     let mut in_evidence = report.as_bytes().to_vec();
     let mut data_buf: itrustee::buffer_data = itrustee::buffer_data {
         size: in_evidence.len() as ::std::os::raw::c_uint,
@@ -70,18 +96,30 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         buf: in_data.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
     };
 
+    
     let policy: std::os::raw::c_int = 1; // 1: verify ta_imag; 2: verfiy ta_mem; 3: verify ta_img and ta_mem hash;
-    if !Path::new(ITRUSTEE_REF_VALUE_FILE).exists() {
+
+    let uuid;
+    if let Some(v) = js_evidence.get("payload")
+                                      .and_then(|v|v.get("uuid"))
+                                      .and_then(|v|v.as_str()) {
+        uuid = v;
+    } else {
+        log::error!("Parse TA uuid from evidence failed.");
+        bail!("Parse TA uuid from evidence failed.");
+    }
+    let ref_file = ITRUSTEE_REF_VALUE_DIR.to_string() + "/itrustee_" + uuid;
+    if !Path::new(&ref_file).exists() {
         log::error!(
             "itrustee verify report {} not exists",
-            ITRUSTEE_REF_VALUE_FILE
+            ref_file
         );
         bail!(
             "itrustee verify report {} not exists",
-            ITRUSTEE_REF_VALUE_FILE
+            ref_file
         );
     }
-    let ref_file = String::from(ITRUSTEE_REF_VALUE_FILE);
+    
     let mut file = ref_file.add("\0");
     let basevalue = file.as_mut_ptr() as *mut ::std::os::raw::c_char;
     unsafe {
@@ -92,15 +130,7 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         }
     }
 
-    let js_evidence: serde_json::Value = serde_json::from_str(&report)?;
-    let mut ima = serde_json::Value::Null;
     
-    if with_ima {
-        let report_nonce = js_evidence["payload"]["nonce"].as_str().unwrap();
-        let ima_log_hash = base64_url::decode(&report_nonce[32..])?;
-        ima = crate::ima::itrustee::ItrusteeImaVerify::default()
-            .ima_verify(&ima_log, &[ima_log_hash])?;
-    }
 
     let payload = json!({
         "itrustee.nonce": js_evidence["payload"]["nonce"].clone(),
