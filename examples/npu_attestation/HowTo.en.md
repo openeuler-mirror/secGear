@@ -6,7 +6,7 @@ For legacy NPU hardware that does not support device measurement (i.e., NPUs wit
 
 Because NPUs lack persistent storage, their initialization process requires the host-side device driver to participate whenever the system is powered on or restarted. During this process, the device driver reads the NPU firmware files stored on the host and transfers them one by one to designated memory locations on the NPU, completing the firmware flashing and overwriting.
 
-Based on this workflow, during system initialization and NPU driver loading, you can leverage the IMA feature to measure the firmware files accessed by the NPU driver. These measurement results can then be anchored to the host's RoT. By taking advantage of the tamper-resistant and unforgeable properties of the RoT, you can ensure the authenticity and reliability of the measurement results.
+Based on this workflow, during system initialization and NPU driver loading, you can leverage the IMA feature to measure the firmware files accessed by the NPU driver. These measurement results can then be anchored to the host's RoT. By taking advantage of the tamper-resistant and unforgeable properties of the RoT, you can ensure the authenticity and reliability of the measurement results. When collecting measurement evidence, the attestation agent reads the IMA logs, calculates the SHA-256 hash, and sends this hash along with the attestation request. This ensures the hash is included in the evidence and signed by the CPU-TEE. Later, when the evidence is verified by the attestation service, the CPU-TEE guarantees the authenticity of the evidence, so the verifier can trust the IMA log hash within. After verifying the hash and the evidence, the verifier can replay the IMA log to further check the integrity of the measured content.
 
 ## Feature Dependencies
 
@@ -67,7 +67,7 @@ vim ascendfw/ascendfw.te
 
 2. Define a new policy. Example content:
 
-```Selinux
+```SELinux
 module ascendfw 1.0;
 require { type unconfined_t; }
 type ascendfw_t;
