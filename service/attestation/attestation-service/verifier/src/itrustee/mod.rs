@@ -38,7 +38,7 @@ fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     let challenge = base64_url::decode(user_data)?;
     let evidence: ItrusteeEvidence = serde_json::from_slice(evidence)?;
     
-    println!("{}", serde_json::to_string_pretty(&evidence).unwrap());
+    log::debug!("{}", serde_json::to_string_pretty(&evidence).unwrap());
     
     let report = evidence.report;
     let js_evidence: serde_json::Value = serde_json::from_str(&report)?;
@@ -96,7 +96,8 @@ fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     };
 
     
-    let policy: std::os::raw::c_int = 1; // 1: verify ta_imag; 2: verfiy ta_mem; 3: verify ta_img and ta_mem hash;
+    // 1: verify ta_img; 2: verfiy ta_mem; 3: verify ta_img and ta_mem hash;
+    let policy: std::os::raw::c_int = 1;
 
     let uuid;
     if let Some(v) = js_evidence.get("payload")
@@ -138,10 +139,14 @@ fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         "itrustee.uuid": js_evidence["payload"]["uuid"].clone(),
         "itrustee.version": js_evidence["payload"]["version"].clone(),
     });
+
     let claim = json!({
         "tee": "itrustee",
         "payload" : payload,
         "ima" : ima,
     });
+
+    log::debug!("claim: {}", serde_json::to_string_pretty(&claim).unwrap());
+
     Ok(claim as TeeClaim)
 }
