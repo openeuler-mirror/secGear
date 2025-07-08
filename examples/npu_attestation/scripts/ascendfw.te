@@ -1,0 +1,4 @@
+module ascendfw 1.0;
+require { type unconfined_t; }
+type ascendfw_t;
+files_type(ascendfw_t)
