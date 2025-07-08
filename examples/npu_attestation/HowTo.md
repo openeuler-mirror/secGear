@@ -9,7 +9,7 @@
 
 ## 特性依赖
 - 支持IMA（Integrity Measurement Architecture）度量框架
-- 主机侧具备硬件可信根（如TPM、vTPM、虚拟化可信根等）
+- 主机侧具备硬件可信根（如TPM、TPCM等, vTPM未测试）
 - NPU固件文件可被主机驱动正常读取和加载
 - 支持远程证明服务（如attestation-service）和相关API
 - 具备固件参考值（Reference Value）管理与配置能力
@@ -37,7 +37,7 @@ getenforce
 ls /sys/kernel/security/ima/
 
 # 检查NPU驱动是否加载
-lsmod | grep ascend
+lsmod | grep -i ascend
 
 # 检查固件文件是否存在
 ls -la /usr/local/Ascend/driver/device/
@@ -136,7 +136,7 @@ $ measure ascendfw_t files
 measure func=FILE_CHECK obj_type=ascendfw_t
 audit func=FILE_CHECK obj_type=ascendfw_t
 ```
-
+(注意：在实际部署中，建议对attestation-agent组件进行度量，保证关键组件的完整性)
 关于IMA特性和策略语法的介绍，请参考[openEuler 22.03 LTS SP4 IMA特性](https://docs.openeuler.org/zh/docs/22.03_LTS_SP4/docs/Administration/可信计算.html#内核完整性度量ima "openEuler 22.03 IMA特性使用说明")
 
 #### 2.2 重启系统并生效
@@ -165,6 +165,10 @@ cd build
 cmake -DENCLAVE=GP ..
 make
 make install
+```
+运行样例程序
+```
+/vendor/bin/secgear_hellorld
 ```
 
 ### 4. 编译secGear远程证明框架
@@ -250,8 +254,8 @@ cd secgear/service/attestation/attestation-agent
    # 检查IMA是否启用
    cat /proc/cmdline | grep ima
    
-   # 重新加载IMA策略
-   echo 1 > /sys/kernel/security/ima/policy
+   # 重新加载IMA策略, 参考[加载自定义IMA策略](https://wiki.gentoo.org/wiki/Integrity_Measurement_Architecture "How do I load a custom IMA policy?")
+   cat /etc/ima/ima-policy > /sys/kernel/security/ima/policy
    ```
 
 3. **NPU固件文件未被度量**
