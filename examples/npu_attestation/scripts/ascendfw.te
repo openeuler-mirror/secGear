@@ -1,4 +1,9 @@
-module ascendfw 1.0;
-require { type unconfined_t; }
+policy_module(ascendfw, 1.0);
+require { 
+   type unconfined_t;
+   class file { read write };
+}
+
 type ascendfw_t;
 files_type(ascendfw_t)
+allow unconfied_t ascendfw_t:file { read write };

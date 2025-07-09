@@ -67,11 +67,16 @@ vim ascendfw/ascendfw.te
 
 2. Define a new policy. Example content:
 
-```SELinux
-module ascendfw 1.0;
-require { type unconfined_t; }
+```bash
+policy_module(ascendfw, 1.0);
+require { 
+   type unconfined_t;
+   class file { read write };
+}
+
 type ascendfw_t;
 files_type(ascendfw_t)
+allow unconfied_t ascendfw_t:file { read write };
 ```
 
 3. Apply the policy to file contexts:
@@ -81,7 +86,7 @@ vim ascendfw.fc
 ```
 Example file content:
 
-```SELinux
+```bash
 /usr/local/Ascend/driver/device(/.*)?   gen_context(unconfined_u:object_r:ascendfw_t, s0)
 ```
 

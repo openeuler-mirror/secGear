@@ -69,11 +69,16 @@ vim ascendfw/ascendfw.te
 
 2. 定义一个新策略，内容样例：
 
-```SELinux
-module ascendfw 1.0;
-require { type unconfined_t; }
+```bash
+policy_module(ascendfw, 1.0);
+require { 
+   type unconfined_t;
+   class file { read write };
+}
+
 type ascendfw_t;
 files_type(ascendfw_t)
+allow unconfied_t ascendfw_t:file { read write };
 ```
 
 3. 应用到文件上下文
@@ -84,7 +89,7 @@ vim ascendfw.fc
 
 文件内容样例：
 
-```SElinux
+```bash
 /usr/local/Ascend/driver/device(/.*)?   gen_context(unconfined_u:object_r:ascendfw_t, s0)
 ```
  
