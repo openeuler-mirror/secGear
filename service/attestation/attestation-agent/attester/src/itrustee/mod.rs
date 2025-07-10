@@ -20,6 +20,7 @@ use log;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::path::Path;
+use std::fs;
 use sha2::{Sha256, Digest};
 use attestation_types::ItrusteeEvidence;
 
@@ -45,7 +46,9 @@ impl ItrusteeAttester {
 }
 
 pub fn detect_platform() -> bool {
-    Path::new("/usr/bin/tee").exists()
+    fs::read_to_string("/proc/modules")
+        .map(|content| content.lines().any(|line| line.starts_with("tzdriver")))
+        .unwrap_or(false)
 }
 
 #[derive(Serialize, Deserialize)]
