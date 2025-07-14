@@ -22,15 +22,17 @@
 #define BUF_LEN 32
 
 volatile sig_atomic_t g_exit_flag = 0;
+volatile sig_atomic_t g_force_exit = 0;
+uint32_t g_sleep_time = 10;
 
 void sigint_handler(int signum)
 {
     static int count = 0;
     count++;
     if (count == 1) {
-        g_exit_flag = 1; // first ctrl+c triggers elegent exit
+        g_exit_flag = 1; // first ctrl+c triggers elegant exit
     } else {
-        exit(1); // second ctrl+c triggers immediate exit
+        g_force_exit = 1; // second ctrl+c triggers immediate exit
     }
 }
 
@@ -74,7 +76,7 @@ int main()
     printf("host create enclave success\n");
 
     // Keep TA alive during attestation, unless user ctrl+c exits.
-    while (!g_exit_flag) {
+    while (!g_exit_flag && !g_force_exit) {
         res = get_string(&context, &retval, buf);
         if (res != CC_SUCCESS || retval != (int)CC_SUCCESS) {
             printf("Ecall enclave error\n");
@@ -82,15 +84,15 @@ int main()
             printf("enclave say:%s\n", buf);
         }
 
-        sleep(10);
+        sleep(g_sleep_time);
     }
 
     res = cc_enclave_destroy(&context);
-    if(res != CC_SUCCESS) {
+    if (res != CC_SUCCESS) {
         printf("host destroy enclave error\n");
     } else {
         printf("host destroy enclave success\n");
     }
 end:
-    return res;
+    return g_force_exit ? 1 : res;
 }
