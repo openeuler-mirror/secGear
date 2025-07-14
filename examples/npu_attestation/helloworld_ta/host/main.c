@@ -38,11 +38,14 @@ void sigint_handler(int signum)
 
 int main()
 {
-    int  retval = 0;
+    int retval = 0;
     char *path = PATH;
-    char buf[BUF_LEN];
-    struct sigaction sa;
-    
+    char buf[BUF_LEN] = {0};
+    char real_p[PATH_MAX] = {0};
+    struct sigaction sa = {0};
+    cc_enclave_t context = {0};
+    cc_enclave_result_t res = CC_FAIL;
+
     sigemptyset(&sa.sa_mask);
     sa.sa_handler = sigint_handler;
     sa.sa_flags = 0;
@@ -51,10 +54,6 @@ int main()
         return 1;
     }
 
-    cc_enclave_t context = {0};
-    cc_enclave_result_t res = CC_FAIL;
-
-    char real_p[PATH_MAX];
     /* check file exists, if not exist then use absolute path */
     if (realpath(path, real_p) == NULL) {
         if (getcwd(real_p, sizeof(real_p)) == NULL) {
@@ -71,7 +70,7 @@ int main()
     res = cc_enclave_create(real_p, AUTO_ENCLAVE_TYPE, 0, SECGEAR_DEBUG_FLAG, NULL, 0, &context);
     if (res != CC_SUCCESS) {
         printf("host create enclave error\n");
-        goto end; 
+        goto end;
     }
     printf("host create enclave success\n");
 
