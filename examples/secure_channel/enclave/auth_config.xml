@@ -1,0 +1,6 @@
+<auth_conf>
+    <auth_base_info auth_enable="false" auth_type_uid="true" />
+    <auth_cmdline_uid>
+        <item cmdline="/vendor/bin/test" uid="0" />
+    </auth_cmdline_uid>
+</auth_conf>

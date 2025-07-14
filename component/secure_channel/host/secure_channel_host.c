@@ -27,6 +27,8 @@
 #include "secure_channel_common.h"
 #include "sg_ra_report.h"
 #include "enclave_internal.h"
+#include "rust_attestation_agent.h"
+#include "base64url.h"
 
 #define RSA_PUBKEY_LEN 640
 static int sec_chl_gen_pubkey(cc_enclave_t *context, sec_chl_msg_t *msg, sec_chl_msg_t **rsp_msg, size_t *rsp_msg_len)
@@ -59,31 +61,72 @@ static int sec_chl_gen_pubkey(cc_enclave_t *context, sec_chl_msg_t *msg, sec_chl
     return CC_SUCCESS;
 }
 
+cc_enclave_result_t get_ra_report(cc_ra_buf_t *challenge, cc_ra_buf_t *report, cc_ra_buf_t *uuid)
+{
+    Vec_uint8_t res;
+    cc_enclave_result_t ret;
+    uint8_t *challenge_base64 = NULL;
+    size_t challenge_base64_len = 0;
+    challenge_base64 = (uint8_t *)kpsecl_base64urlencode(challenge->buf, challenge->len, &challenge_base64_len);
+    if (challenge_base64 == NULL) {
+        ret = CC_ERROR_NO_DATA;
+        goto err;
+    }
+    Vec_uint8_t challenge_rust;
+    challenge_rust.ptr = challenge_base64;
+    challenge_rust.len = challenge_base64_len - 1;
+    challenge_rust.cap = challenge_base64_len - 1;
+    Tuple2_bool_bool_t ima = { // definae input ima = Some(false)
+        ._0 = true,
+        ._1 = false, // false: disable to get report with ima
+    };
+    Vec_uint8_t uuid_rust = {
+        .ptr = (uint8_t *)uuid->buf,
+        .len = uuid->len,
+        .cap = uuid->len,
+    };
+    res = get_report(&challenge_rust, &ima, &uuid_rust);
+    if (res.len == 0) {
+        ret = CC_ERROR_SEC_CHL_GET_RA_REPORT;
+        goto err;
+    }
+    if (res.len + 1 > report->len) {
+        ret = CC_ERROR_SHORT_BUFFER;
+        goto err;
+    }
+    (void)memcpy(report->buf, res.ptr, res.len);
+    report->len = res.len;
+    report->buf[report->len] = '\0';
+    ret = CC_SUCCESS;
+err:
+    if (challenge_base64) {
+        free(challenge_base64);
+    }
+    free_rust_vec(res);
+    return ret;
+}
+
 static int sec_chl_get_ra_report(cc_enclave_t *context, sec_chl_msg_t *msg,
     sec_chl_msg_t **rsp_msg, size_t *rsp_msg_len)
 {
     (void)context;
     cc_enclave_result_t ret_val;
     sec_chl_msg_t *rsp = NULL;
-
     sec_chl_ra_req_t *ra_req = (sec_chl_ra_req_t *)(msg->data);
 
-    cc_get_ra_report_input_t ra_input = {0};
-    ra_input.taid = (uint8_t *)ra_req->taid;
-    (void)memcpy(ra_input.nonce, ra_req->nonce, SEC_CHL_REQ_NONCE_LEN);
-    ra_input.nonce_len = SEC_CHL_REQ_NONCE_LEN + 1;
-    ra_input.with_tcb = ra_req->with_tcb;
-    ra_input.req_key = ra_req->req_key;
-
+    uint8_t challenge_buf[SEC_CHL_REQ_NONCE_LEN + 1] = {0};
+    cc_ra_buf_t challenge = {SEC_CHL_REQ_NONCE_LEN + 1, challenge_buf};
+    (void)memcpy(challenge.buf, ra_req->nonce, SEC_CHL_REQ_NONCE_LEN);
+    challenge.len = SEC_CHL_REQ_NONCE_LEN;
     uint8_t data[REPORT_OUT_LEN] = {0};
     cc_ra_buf_t report = {REPORT_OUT_LEN, data};
-
-    ret_val = cc_get_ra_report(&ra_input, &report);
-
+    cc_ra_buf_t uuid = {CC_TAID_LEN, (uint8_t *)&(ra_req->taid)};
+    ret_val = get_ra_report(&challenge, &report, &uuid);
     if (ret_val != CC_SUCCESS) {
         print_error_term("secure channel host get ra report failed\n");
         return CC_ERROR_SEC_CHL_GET_RA_REPORT;
     }
+
     rsp = (sec_chl_msg_t *)calloc(1, sizeof(sec_chl_msg_t) + report.len);
     (void)memcpy(rsp->data, report.buf, report.len);
     rsp->data_len = report.len;

@@ -42,7 +42,7 @@ void *cc_malloc_shared_memory(cc_enclave_t *enclave, size_t size)
 
     cc_enclave_result_t ret;
     void *ptr;
-    for (int i = 0; i < 2; i++) {
+    for (int i = 1; i < 2; i++) { // 2:try different shared memory type
         ptr = FUNC_CREATE_SHARED_MEM(enclave)(enclave, size, false, i);
         if (ptr == NULL) {
             CC_RWLOCK_UNLOCK(&enclave->rwlock);

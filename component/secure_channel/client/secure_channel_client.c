@@ -23,6 +23,7 @@
 #include "sg_ra_report_verify.h"
 #include "cJSON.h"
 #include "base64url.h"
+#include "rust_attestation_agent.h"
 
 
 #define SEC_CHL_RECV_BUF_MAX_LEN REPORT_OUT_LEN
@@ -182,31 +183,13 @@ cc_enclave_result_t cc_sec_chl_client_callback(cc_sec_chl_ctx_t *ctx, void *buf,
     return CC_SUCCESS;
 }
 
-static cc_enclave_result_t get_taid_from_file(char *file, char *taid)
-{
-    FILE *fp = fopen(file, "r");
-    if (!fp) {
-        printf("secure channel init read taid failed\n");
-        return CC_ERROR_SEC_CHL_INIT_GET_TAID;
-    }
-
-    int ret = fscanf(fp, "%s", taid);    // only read taid from line
-    fclose(fp);
-    if (ret < 0) {
-        printf("secure channel init read taid and hash from file failed\n");
-        return CC_ERROR_SEC_CHL_INIT_GET_TAID;
-    }
-
-    return CC_SUCCESS;
-}
-
 static cc_enclave_result_t request_report(cc_sec_chl_ctx_t *ctx, sec_chl_msg_type_t type, bool with_request_key)
 {
     cc_enclave_result_t ret;
     sec_chl_msg_t *msg = NULL;
     size_t data_len = 0;
 
-    if (ctx->basevalue != NULL) {
+    if (ctx->uuid != NULL) {
         data_len = sizeof(sec_chl_ra_req_t);
     }
 
@@ -216,16 +199,11 @@ static cc_enclave_result_t request_report(cc_sec_chl_ctx_t *ctx, sec_chl_msg_typ
     }
     msg->msg_type = type;
 
-    if (ctx->basevalue != NULL) {
+    if (ctx->uuid != NULL) {
         sec_chl_ra_req_t *ra_req = (sec_chl_ra_req_t *)msg->data;
         ra_req->with_tcb = false;
         ra_req->req_key = with_request_key;
-
-        ret = get_taid_from_file(ctx->basevalue, ra_req->taid);
-        if (ret != CC_SUCCESS) {
-            free(msg);
-            return ret;
-        }
+        (void)memcpy(ra_req->taid, ctx->uuid, CC_TAID_LEN);
         if (RAND_priv_bytes(ra_req->nonce, SEC_CHL_REQ_NONCE_LEN) <= 0) {
             free(msg);
             return CC_FAIL;
@@ -253,11 +231,23 @@ static cc_enclave_result_t get_svr_key_from_report(cc_sec_chl_ctx_t *ctx, cc_ra_
     cc_enclave_result_t ret = CC_ERROR_SEC_CHL_INVALID_REPORT;
     uint8_t *n = NULL;
     uint8_t *e = NULL;
-
-    cJSON *cj_report = cJSON_ParseWithLength((char *)report->buf, report->len);
-    if (cj_report == NULL) {
+    cJSON *cj_report = NULL;
+    cJSON *root = NULL;
+    root = cJSON_ParseWithLength((char *)report->buf, report->len);
+    if (root == NULL) {
         printf("report to json failed\n");
         return CC_ERROR_SEC_CHL_INVALID_REPORT;
+    }
+    cJSON *evidence = cJSON_GetObjectItemCaseSensitive(root, "evidence");
+    if (evidence == NULL) {
+        printf("get evidence from report failed\n");
+        goto end;
+    }
+    cj_report = cJSON_Parse((char *)cJSON_GetStringValue(evidence));
+    if (cj_report == NULL) {
+        printf("parse evidence value to json failed\n");
+        ret = CC_ERROR_SEC_CHL_INVALID_REPORT;
+        goto end;
     }
     cJSON *cj_payload = cJSON_GetObjectItemCaseSensitive(cj_report, "payload");
     if (cj_payload == NULL) {
@@ -327,8 +317,12 @@ end:
     if (e != NULL) {
         free(e);
     }
-    cJSON_Delete(cj_report);
-
+    if (root) {
+        cJSON_Delete(root);
+    }
+    if (cj_report) {
+        cJSON_Delete(cj_report);
+    }
     return ret;
 }
 
@@ -356,6 +350,32 @@ end:
     return rsa_key;
 }
 
+cc_enclave_result_t verify_ra_report(cc_ra_buf_t *challenge, cc_ra_buf_t *report)
+{
+    Vec_uint8_t res;
+    cc_enclave_result_t ret = CC_SUCCESS;
+    uint8_t *challenge_base64 = NULL;
+    size_t challenge_base64_len = 0;
+    challenge_base64 = (uint8_t *)kpsecl_base64urlencode(challenge->buf, challenge->len, &challenge_base64_len);
+    if (challenge_base64 == NULL) {
+        printf("base64url encode challenge failed\n");
+        return CC_ERROR_NO_DATA;
+    }
+    Vec_uint8_t challenge_rust;
+    challenge_rust.ptr = challenge_base64;
+    challenge_rust.len = challenge_base64_len - 1;
+    challenge_rust.cap = challenge_base64_len - 1;
+    Vec_uint8_t report_rust = {report->buf, report->len, report->len};
+    res = verify_report(&challenge_rust, &report_rust);
+    if (res.len == 0) {
+        printf("verify report failed\n");
+        ret = CC_ERROR_SEC_CHL_INIT_VERIFY_REPORT;
+    }
+    free_rust_vec(res);
+    free(challenge_base64);
+    return ret;
+}
+
 static cc_enclave_result_t parse_svrpubkey_from_recv_msg(cc_sec_chl_ctx_t *ctx, sec_chl_msg_t *msg)
 {
     cc_enclave_result_t ret;
@@ -366,8 +386,7 @@ static cc_enclave_result_t parse_svrpubkey_from_recv_msg(cc_sec_chl_ctx_t *ctx, 
         cc_ra_buf_t nonce = {0};
         nonce.len = SEC_CHL_REQ_NONCE_LEN;
         nonce.buf = ctx->handle->ra_req.nonce;
-
-        ret = cc_verify_report(&report, &nonce, CC_RA_VERIFY_TYPE_STRICT, ctx->basevalue);
+        ret = verify_ra_report(&nonce, &report);
         if (ret != CC_SUCCESS) {
             printf("verify report failed ret:%u\n", ret);
             return CC_ERROR_SEC_CHL_INIT_VERIFY_REPORT;

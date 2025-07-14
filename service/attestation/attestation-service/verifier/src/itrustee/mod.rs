@@ -24,6 +24,7 @@ mod itrustee;
 
 const ITRUSTEE_REF_VALUE_DIR: &str =
     "/etc/attestation/attestation-service/verifier/itrustee";
+const MAX_CHALLENGE_LEN: usize = 64;
 
 #[derive(Debug, Default)]
 pub struct ItrusteeVerifier {}
@@ -33,7 +34,7 @@ impl ItrusteeVerifier {
         return evaluate_wrapper(user_data, evidence);
     }
 }
-const MAX_CHALLENGE_LEN: usize = 64;
+
 fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     let challenge = base64_url::decode(user_data)?;
     let evidence: ItrusteeEvidence = serde_json::from_slice(evidence)?;
@@ -94,8 +95,7 @@ fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         size: in_data.len() as ::std::os::raw::c_uint,
         buf: in_data.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
     };
-
-    
+  
     // 1: verify ta_img; 2: verfiy ta_mem; 3: verify ta_img and ta_mem hash;
     let policy: std::os::raw::c_int = 1;
 

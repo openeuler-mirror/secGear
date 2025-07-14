@@ -31,14 +31,18 @@ include_directories(
     ${LOCAL_ROOT_PATH}/component/remote_attest/ra_verify
     ${LOCAL_ROOT_PATH}/thirdparty/cjson
     ${LOCAL_ROOT_PATH}/thirdparty/base64url
+    ${LOCAL_ROOT_PATH}/service/attestation/attestation-agent/c_header
 )
 add_library(c${PREFIX} SHARED ${SOURCE_FILE} ${CJSON_SRC} ${BASE64_SRC})
 
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
-    target_link_directories(c${PREFIX} PRIVATE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+    target_link_directories(c${PREFIX} PRIVATE
+        ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+        ${LOCAL_ROOT_PATH}/service/attestation/attestation-agent/target/debug/
+    )
 endif()
 
-target_link_libraries(c${PREFIX} ssl crypto secgear_verify)
+target_link_libraries(c${PREFIX} ssl crypto secgear_verify attestation_agent)
 
 install(TARGETS c${PREFIX} 
         LIBRARY

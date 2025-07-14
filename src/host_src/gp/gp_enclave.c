@@ -205,7 +205,7 @@ cc_enclave_result_t init_uswitchless(cc_enclave_t *enclave, const enclave_featur
     size_t pool_buf_len = sl_get_pool_buf_len_by_config(&cfg);
     cc_enclave_result_t ret;
     sl_task_pool_t *pool;
-    for (int i = 0; i < 2; i++) {
+    for (int i = 1; i < 2; i++) { // 2:try different shared memory type
         void *pool_buf = gp_malloc_shared_memory(enclave, pool_buf_len, true, i);
         if (pool_buf == NULL) {
             return CC_ERROR_OUT_OF_MEMORY;
