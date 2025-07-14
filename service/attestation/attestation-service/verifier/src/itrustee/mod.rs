@@ -31,7 +31,7 @@ pub struct ItrusteeVerifier {}
 
 impl ItrusteeVerifier {
     pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
-        return evaluate_wrapper(user_data, evidence);
+        evaluate_wrapper(user_data, evidence)
     }
 }
 
@@ -43,16 +43,10 @@ fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     
     let report = evidence.report;
     let js_evidence: serde_json::Value = serde_json::from_str(&report)?;
-    let with_ima = match evidence.ima_log {
-        Some(_) => true,
-        None => false,
-    };
-    let ima_log = match evidence.ima_log {
-        Some(ima_log) => ima_log,
-        None => vec![],
-    };
+    let with_ima = evidence.ima_log.is_some();
+    let ima_log = evidence.ima_log.unwrap_or_default();
     let len = challenge.len();
-    if len <= 0 || len > MAX_CHALLENGE_LEN {
+    if len == 0 || len > MAX_CHALLENGE_LEN {
         log::error!(
             "challenge len is error, expecting 0 < len <= {}, got {}",
             MAX_CHALLENGE_LEN,

@@ -19,13 +19,11 @@ use base64_url;
 use log;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::path::Path;
 use std::fs;
 use sha2::{Sha256, Digest};
 use attestation_types::ItrusteeEvidence;
 
 use crate::EvidenceRequest;
-// Note: IMA module is available via crate::ima if needed in the future
 use crate::ima;
 
 mod itrustee;
@@ -96,7 +94,7 @@ fn itrustee_get_evidence(user_data: EvidenceRequest) -> Result<String> {
         );
     }
 
-    let ima_log= if with_ima {
+    let ima_log = if with_ima {
         ima::read_ima_log_if_requested(with_ima)?
     } else {
         None
@@ -116,7 +114,6 @@ fn itrustee_get_evidence(user_data: EvidenceRequest) -> Result<String> {
         // Combine challenge and IMA log hash
         let mut combined = challenge.clone();
         combined.extend_from_slice(&ima_log_hash);
-        // String::from_utf8(combined)?
         base64_url::encode(&combined)
     } else {
         String::from_utf8(user_data.challenge)?
@@ -131,7 +128,7 @@ fn itrustee_get_evidence(user_data: EvidenceRequest) -> Result<String> {
         hash_alg: String::from("HS256"),
     };
 
-    let itrustee_input: ItrusteeInput = ItrusteeInput {
+    let itrustee_input = ItrusteeInput {
         handler: String::from("report-input"),
         payload: payload,
     };

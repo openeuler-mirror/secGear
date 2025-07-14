@@ -55,7 +55,7 @@ impl VirtCCAVerifier {
     pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         let challenge = base64_url::decode(user_data)?;
         let len = challenge.len();
-        if len <= 0 || len > MAX_CHALLENGE_LEN {
+        if len == 0 || len > MAX_CHALLENGE_LEN {
             log::error!(
                 "challenge len is error, expecting 0 < len <= {}, got {}",
                 MAX_CHALLENGE_LEN,
@@ -67,7 +67,7 @@ impl VirtCCAVerifier {
                 len
             );
         }
-        return Evidence::verify(&challenge.to_vec(), evidence);
+        Evidence::verify(&challenge.to_vec(), evidence)
     }
 }
 
@@ -183,8 +183,8 @@ impl Evidence {
         uefi: serde_json::Value,
     ) -> Result<TeeClaim> {
         let payload = json!({
-            "vcca.cvm.challenge": hex::encode(self.cvm_token.challenge.clone()),
-            "vcca.cvm.rpv": hex::encode(self.cvm_token.rpv.clone()),
+            "vcca.cvm.challenge": hex::encode(self.cvm_token.challenge),
+            "vcca.cvm.rpv": hex::encode(self.cvm_token.rpv),
             "vcca.cvm.rim": hex::encode(self.cvm_token.rim.clone()),
             "vcca.cvm.rem.0": hex::encode(self.cvm_token.rem[0].clone()),
             "vcca.cvm.rem.1": hex::encode(self.cvm_token.rem[1].clone()),

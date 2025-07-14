@@ -82,7 +82,7 @@ impl CommonImaVerifier {
                 EventData::ImaNg { digest, name } => (name.clone(), digest.digest.clone()),
                 _ => bail!("Invalid event {:?}", event),
             };
-            if name == "boot_aggregate".to_string() {
+            if name == "boot_aggregate" {
                 continue;
             }
             let hex_str_digest = hex::encode(file_digest);
