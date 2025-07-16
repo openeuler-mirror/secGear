@@ -6,7 +6,7 @@
 
 由于NPU无持久化存储能力，在系统上电或重启时，NPU初始化过程需要主机侧设备驱动参与。在设备驱动的运作下，主机上存储的NPU固件文件被一一读取并传输至NPU侧指定内存位置，完成固件刷写和覆盖。
 
-根据这一流程，可以在系统初始化流程中的NPU驱动加载时，利用IMA特性对NPU驱动读取的固件文件进行度量，并将结果扩展到主机侧硬件可信根中。进而利用硬件可信根的不可篡改和不可伪造特点对度量结果进行保护，确保结果验证的真实可信。在获取度量报告时，证明代理读取IMA日志并计算sha256 hash值，将hash值传入CPU-TEE并作为度量报告的一部分进行保护。在验证度量报告时，通过“验证度量报告真实性和完整性--确保IMA日志完整性--IMA日志回放验证”来确保度量结果真实可信。
+根据这一流程，可以在系统初始化流程中的NPU驱动加载时，利用IMA特性对NPU驱动读取的固件文件进行度量，并将结果扩展到主机侧硬件可信根中。进而利用硬件可信根的不可篡改和不可伪造特点对度量结果进行保护，确保结果验证的真实可信。在获取度量报告时，证明代理读取IMA日志并计算sha256 hash值，将hash值传入CPU-TEE并作为度量报告的一部分进行保护。在验证度量报告时，通过"验证度量报告真实性和完整性--确保IMA日志完整性--IMA日志回放验证"来确保度量结果真实可信。
 
 ## 特性依赖
 
@@ -78,7 +78,7 @@ require {
 
 type ascendfw_t;
 files_type(ascendfw_t)
-allow unconfied_t ascendfw_t:file { read write };
+allow unconfined_t ascendfw_t:file { read write };
 ```
 
 3. 应用到文件上下文
@@ -118,7 +118,7 @@ semanage fcontext -a -t ascendfw_t "/usr/local/Ascend/driver/device(/.*)?"
 最后，检查selinux fcontext内容是否有相关记录
 
 ```bash
-semanage fcontext -l |grep ascendfw_t
+semanage fcontext -l | grep ascendfw_t
 ```
 
 同时检查NPU固件文件目录的SELinux上下文标签是否符合预期
@@ -175,7 +175,7 @@ audit func=FILE_CHECK obj_type=ascendfw_t
 重启系统后，内核启动日志会打印IMA特性相关内容
 
 ```bash
-dmesg|grep -i ima
+dmesg | grep -i ima
 ```
 
 可以看到IMA策略在NPU驱动加载前已更新完毕。

@@ -76,7 +76,7 @@ require {
 
 type ascendfw_t;
 files_type(ascendfw_t)
-allow unconfied_t ascendfw_t:file { read write };
+allow unconfined_t ascendfw_t:file { read write };
 ```
 
 3. Apply the policy to file contexts:
