@@ -10,10 +10,11 @@
  * See the Mulan PSL v2 for more details.
  */
 
-use super::{CommonImaVerifier, HashVerifier, ImaVerifier};
+use super::{file_reader, ImaVerifier};
 use anyhow::{bail, Result};
-use ima_measurements::{Event, Parser};
-use serde_json::Value;
+use fallible_iterator::FallibleIterator;
+use ima_measurements::{Event, EventData, Parser};
+use serde_json::{json, Map, Value};
 
 #[cfg(not(feature = "no_as"))]
 const IMA_REFERENCE_FILE: &str =
@@ -26,35 +27,36 @@ const IMA_REFERENCE_FILE: &str =
 
 const CVM_REM_ARR_SIZE: usize = 4;
 
-/// VirtCCA specific hash verifier implementation
+/// VirtCCA specific IMA verifier implementation
 #[derive(Debug, Default)]
-pub struct VirtCCAHashVerifier {
-    cvm_rem: Vec<Vec<u8>>,
-}
+pub struct VirtCCAImaVerify {}
 
-impl VirtCCAHashVerifier {
-    pub fn new(cvm_rem: Vec<Vec<u8>>) -> Self {
-        Self { cvm_rem }
-    }
-}
+impl ImaVerifier for VirtCCAImaVerify {
+    fn ima_verify(&self, ima_log: &[u8], cvm_rem: &[Vec<u8>]) -> Result<Value> {
+        if ima_log.is_empty() {
+            return Ok(json!({}));
+        }
 
-impl HashVerifier for VirtCCAHashVerifier {
-    fn verify_hash(&self, _ima_log: &[u8], events: &[Event]) -> Result<()> {
+        let mut parser = Parser::new(ima_log);
+        let mut events: Vec<Event> = Vec::new();
+        while let Some(event) = parser.next()? {
+            events.push(event);
+        }
+
+        if events.len() < 2 {
+            bail!("No IMA measurement records for files found.");
+        }
+        
         let pcr_index = events[1].pcr_index;
         if pcr_index < 1 || pcr_index > CVM_REM_ARR_SIZE as u32 {
             bail!("Invalid pcr_index for IMA");
         }
         
         let ima_index = (pcr_index - 1) as usize;
-        if ima_index >= self.cvm_rem.len() {
-            bail!("ima_index {} out of bounds for cvm_rem array of size {}", ima_index, self.cvm_rem.len());
-        }
-        
-        let parser = Parser::new(_ima_log);
         let pcr_values = parser.pcr_values();
         let pcr_value = pcr_values.get(&pcr_index).expect("PCR not measured");
         let string_pcr_sha256 = hex::encode(pcr_value.sha256);
-        let string_ima_log_hash = hex::encode(self.cvm_rem[ima_index].clone());
+        let string_ima_log_hash = hex::encode(cvm_rem[ima_index].clone());
         
         log::debug!(
             "pcr_index: {}, string_pcr_sha256: {}, string_ima_log_hash: {}",
@@ -72,19 +74,33 @@ impl HashVerifier for VirtCCAHashVerifier {
             bail!("IMA log hash verification failed. Please check the log and reference data, and verify if PCR has been extended to PCR4.");
         }
 
-        Ok(())
-    }
-}
+        let ima_refs = file_reader(IMA_REFERENCE_FILE)?;
 
-/// VirtCCA specific IMA verifier implementation
-#[derive(Debug, Default)]
-pub struct VirtCCAImaVerify {}
-
-impl ImaVerifier for VirtCCAImaVerify {
-    fn ima_verify(&self, ima_log: &[u8], cvm_rem: &[Vec<u8>]) -> Result<Value> {
-        let common_verifier = CommonImaVerifier::new(IMA_REFERENCE_FILE.to_string());
-        let hash_verifier = VirtCCAHashVerifier::new(cvm_rem.to_vec());
+        let mut ima_detail = Map::new();
+        // parser each file digest in ima log, and compare with reference base value
+        for event in events {
+            let (name, file_digest) = match event.data {
+                EventData::ImaNg { digest, name } => (name, digest.digest),
+                _ => bail!("Invalid event {:?}", event),
+            };
+            if name == "boot_aggregate".to_string() {
+                continue;
+            }
+            let hex_str_digest = hex::encode(file_digest);
+            if ima_refs.contains(&hex_str_digest) {
+                ima_detail.insert(name, Value::Bool(true));
+            } else {
+                log::error!(
+                    "there is no refernce base value of file digest {:?}",
+                    hex_str_digest
+                );
+                ima_detail.insert(name, Value::Bool(false));
+            }
+        }
         
-        common_verifier.verify_ima(ima_log, &hash_verifier)
+        let js_ima_detail: Value = ima_detail.into();
+        log::debug!("ima verify detail result: {:?}", js_ima_detail);
+
+        Ok(js_ima_detail)
     }
 } 
