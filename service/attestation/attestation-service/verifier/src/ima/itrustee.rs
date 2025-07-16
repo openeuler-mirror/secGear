@@ -10,12 +10,12 @@
  * See the Mulan PSL v2 for more details.
  */
 
-use super::{file_reader, ImaVerifier};
+use super::{file_reader, ImaVerifier, verify_ima_events};
 use anyhow::{bail, Result};
 use fallible_iterator::FallibleIterator;
-use ima_measurements::{Event, EventData, Parser};
+use ima_measurements::{Event, Parser};
 use openssl::sha::sha256;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 
 #[cfg(not(feature = "no_as"))]
 const IMA_REFERENCE_FILE: &str =
@@ -46,9 +46,7 @@ impl ImaVerifier for ItrusteeImaVerify {
             bail!("No IMA measurement records for files found.");
         }
         
-        let _pcr_index = events[1].pcr_index;
         // Note: iTrustee does not check pcr_index as it is TPM dependent.
-        
         // Verify that ima_log_hash array is not empty before accessing
         if ima_log_hash.is_empty() {
             bail!("ima_log_hash array is empty");
@@ -65,31 +63,7 @@ impl ImaVerifier for ItrusteeImaVerify {
 
         let ima_refs = file_reader(IMA_REFERENCE_FILE)?;
 
-        let mut ima_detail = Map::new();
-        // parse each file digest in ima log, and compare with reference base value
-        for event in events {
-            let (name, file_digest) = match event.data {
-                EventData::ImaNg { digest, name } => (name, digest.digest),
-                _ => bail!("Invalid event {:?}", event),
-            };
-            if name == "boot_aggregate".to_string() {
-                continue;
-            }
-            let hex_str_digest = hex::encode(file_digest);
-            if ima_refs.contains(&hex_str_digest) {
-                ima_detail.insert(name, Value::Bool(true));
-            } else {
-                log::error!(
-                    "there is no reference base value of file digest {:?}",
-                    hex_str_digest
-                );
-                ima_detail.insert(name, Value::Bool(false));
-            }
-        }
-        
-        let js_ima_detail: Value = ima_detail.into();
-        log::debug!("ima verify detail result: {:?}", js_ima_detail);
-
-        Ok(js_ima_detail)
+        // Use the common function to verify IMA events
+        verify_ima_events(&events, &ima_refs)
     }
 } 
