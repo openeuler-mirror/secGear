@@ -2,11 +2,11 @@
 
 ## Basic Principles
 
-For legacy NPU hardware that does not support device measurement (i.e., NPUs without a hardware root of trust (RoT)), you can verify the integrity of the NPU computing environment by measuring the NPU firmware—assuming local physical and side-channel attacks are out of scope.
+This guide addresses legacy NPU hardware that lacks device measurement capabilities (i.e., NPUs without a hardware root of trust (RoT)). For such systems, you can verify NPU computing environment integrity by measuring the NPU firmware—assuming local physical and side-channel attacks are outside the scope of consideration.
 
-Because NPUs lack persistent storage, their initialization process requires the host-side device driver to participate whenever the system is powered on or restarted. During this process, the device driver reads the NPU firmware files stored on the host and transfers them one by one to designated memory locations on the NPU, completing the firmware flashing and overwriting.
+Since NPUs don't have persistent storage, their initialization process relies on the host-side device driver whenever the system boots or restarts. The driver reads NPU firmware files stored on the host and transfers them to designated memory locations on the NPU, completing the firmware flashing process.
 
-Based on this workflow, during system initialization and NPU driver loading, you can leverage the IMA feature to measure the firmware files accessed by the NPU driver. These measurement results can then be anchored to the host's RoT. By taking advantage of the tamper-resistant and unforgeable properties of the RoT, you can ensure the authenticity and reliability of the measurement results. When collecting measurement evidence, the attestation agent reads the IMA logs, calculates the SHA-256 hash, and sends this hash along with the attestation request. This ensures the hash is included in the evidence and signed by the CPU-TEE. Later, when the evidence is verified by the attestation service, the CPU-TEE guarantees the authenticity of the evidence, so the verifier can trust the IMA log hash within. After verifying the hash and the evidence, the verifier can replay the IMA log to further check the integrity of the measured content.
+Leveraging this workflow, you can use the IMA (Integrity Measurement Architecture) feature during system initialization and NPU driver loading to measure the firmware files accessed by the NPU driver. These measurement results are then anchored to the host's RoT. The tamper-resistant and unforgeable properties of the RoT ensure the authenticity and reliability of these measurements. When collecting attestation evidence, the attestation agent reads IMA logs, calculates SHA-256 hashes, and includes these hashes in the attestation request. This ensures the hashes are protected within the evidence and signed by the CPU-TEE. During verification, the CPU-TEE guarantees evidence authenticity, allowing the verifier to trust the IMA log hashes. After verifying both the hashes and evidence, the verifier can replay the IMA log to further validate the integrity of the measured content.
 
 ## Feature Dependencies
 
@@ -79,11 +79,12 @@ files_type(ascendfw_t)
 allow unconfined_t ascendfw_t:file { read write };
 ```
 
-3. Apply the policy to file contexts:
+3. Apply to file contexts:
 
 ```bash
 vim ascendfw.fc
 ```
+
 Example file content:
 
 ```bash
@@ -110,15 +111,15 @@ Note: If you do not create an `ascendfw.fc` file, you must manually label the ta
 semanage fcontext -a -t ascendfw_t "/usr/local/Ascend/driver/device(/.*)?"
 ```
 
-6. Verify the result:
+6. Check the result:
 
-Check for relevant records in the SELinux fcontext list:
+Finally, check if there are relevant records in the SELinux fcontext content:
 
 ```bash
 semanage fcontext -l | grep ascendfw_t
 ```
 
-Also, verify that the SELinux context label for the NPU firmware directory is as expected:
+Also check if the SELinux context label for the NPU firmware file directory meets expectations:
 
 ```bash
 ls -lZ /usr/local/Ascend/driver/device
@@ -169,21 +170,21 @@ For an introduction to IMA features and policy syntax, see [openEuler 22.03 LTS 
 
 #### 2.2 Reboot the System to Apply the Policy
 
-After rebooting, check the kernel boot log for IMA-related messages:
+After rebooting, the kernel boot log will print IMA-related content:
 
 ```bash
 dmesg | grep -i ima
 ```
 
-You should see that the IMA policy was updated before the NPU driver loaded.
+You can see that the IMA policy has been updated before the NPU driver loaded.
 
-To further verify the policy loaded by the IMA fs interface:
+To further check the IMA fs interface policy content:
 
 ```bash
 cat /sys/kernel/security/ima/policy
 ```
 
-Check if the NPU driver loading generated measurement records:
+Confirm whether NPU driver loading generated measurement records:
 
 ```bash
 cat /sys/kernel/security/ima/ascii_runtime_measurements
@@ -191,7 +192,7 @@ cat /sys/kernel/security/ima/ascii_runtime_measurements
 
 ### 3. Compile the Sample TA Program
 
-Use CMake to build `helloworld_ta`:
+Use cmake to compile `helloworld_ta`:
 
 ```bash
 cd helloworld_ta
@@ -210,7 +211,7 @@ Run the sample program:
 
 ### 4. Compile the secGear Remote Attestation Framework
 
-#### 4.1 Build attestation-agent
+#### 4.1 Compile attestation-agent
 
 For example, with TrustZone/iTrustee:
 
@@ -219,7 +220,7 @@ cd secgear/service/attestation/attestation-agent
 cargo build --features itrustee-attester
 ```
 
-#### 4.2 Build attestation-service
+#### 4.2 Compile attestation-service
 
 ```bash
 cd secgear/service/attestation/attestation-service
@@ -228,31 +229,31 @@ cargo build --features itrustee-verifier
 
 #### 4.3 Deploy the Agent and Service
 
-Refer to [secGear Remote Attestation Service Setup](https://gitee.com/openeuler/secGear/blob/master/service/attestation/README.md) to generate certificates, `aa-config`, and `as-config`, deploy them to the appropriate directories, and then run `attestation-agent` and `attestation-service`.
+According to [secGear Remote Attestation Service Setup](https://gitee.com/openeuler/secGear/blob/master/service/attestation/README.md), generate certificates, `aa-config`, and `as-config` content and deploy them to the appropriate directories, then run `attestation-agent` and `attestation-service`.
 
 ### 5. Register the Sample TA Baseline with the Attestation Service
 
-After building `helloworld_ta`, a TA measurement baseline will be generated:
+In the previous steps, after compiling `helloworld_ta`, a TA measurement baseline will be generated:
 
 ```bash
 cat helloworld_ta/build/lib/hash_uuid.txt
 ```
 
-Extract the `img_hash` and `mem_hash` fields, then use `curl` to register the baseline with the local attestation service:
+We need the `img_hash` and `mem_hash` fields from it, and use curl to initiate baseline registration with the locally running attestation service:
 
 ```bash
 curl -H "Content-Type:application/json" -X POST -d '{"refs":"{\"itrustee_uuid\":\"uuid img_hash mem_hash\"}"}'  http://127.0.0.1:8080/reference
 ```
 
-Replace `uuid`, `img_hash`, and `mem_hash` with the actual values.
+Replace the uuid, img_hash, and mem_hash in the command with the corresponding values/strings.
 
 ### 6. Deploy the IMA Measurement Baseline
 
-In a secure environment, use `sha256sum` to calculate the hash of the NPU firmware files and write the values to the attestation service's baseline file:
+In a secure environment, use `sha256sum` to calculate the measurement values of the NPU firmware files and write the values to the attestation service's baseline file:
 
 ```bash
 # Calculate the hash of the NPU firmware files
-sha256sum /usr/local/Ascend/driver/device/*.bin > /tmp/npu_firmware_hashes.txt
+sha256sum /usr/local/Ascend/driver/device/* > /tmp/npu_firmware_hashes.txt
 
 # Create the baseline file directory
 mkdir -p /etc/attestation/attestation-service/verifier/itrustee/ima/
@@ -261,18 +262,18 @@ mkdir -p /etc/attestation/attestation-service/verifier/itrustee/ima/
 cp /tmp/npu_firmware_hashes.txt /etc/attestation/attestation-service/verifier/itrustee/ima/digest_list_file
 ```
 
-Each line should contain the hash for one file.
+Each line should contain the measurement value for one file.
 
 ### 7. Run the Sample
 
-Use the `aa-test` program to initiate an attestation request for `helloworld_ta`, including the IMA measurement information for the NPU firmware:
+Use the `aa-test` program to initiate an attestation request for `helloworld_ta`, requiring the inclusion of IMA measurement information for the NPU firmware:
 
 ```bash
 cd secgear/service/attestation/attestation-agent
 ./target/debug/aa-test --ima
 ```
 
-In the attestation service window, you should see the attestation report sent by `attestation-agent`, which includes IMA measurement information. The attestation service will verify the report against the baseline and return a token to `aa-test`.
+In the attestation service window, you can see the attestation report content sent by `attestation-agent`, which includes IMA measurement-related information. The attestation service verifies the report content against the baseline and returns a Token to `aa-test`.
 
 ## Troubleshooting
 
@@ -316,25 +317,29 @@ In the attestation service window, you should see the attestation report sent by
    ls -lZ /usr/local/Ascend/driver/device/
    
    # Manually trigger measurement
-   cat /usr/local/Ascend/driver/device/*.bin > /dev/null
+   cat /usr/local/Ascend/driver/device/* > /dev/null
    ```
 
 4. **Attestation service connection failed**
 
+   Troubleshooting approach:
+   1) Check the attestation service logs and startup parameters to ensure the service process is listening on the same address and port as being accessed.
+
    ```bash
-   # Check service status
-   systemctl status attestation-service
-   
    # Check port listening
    netstat -tlnp | grep 8080
    ```
 
+   2) Verify network connectivity with the attestation service, such as being able to ping the IP address.
+   3) Check server-side firewall rules to see if relevant ports are blocked, such as using iptables or firewall-cmd commands.
+
 5. **Baseline registration failed**
 
+   Troubleshooting approach:
+   1) Check the attestation service logs to determine if the service process has sufficient permissions to read and write files in the /etc/attestation directory.
+   2) Check if the registration message format is correct, such as:
+
    ```bash
-   # Check service logs
-   journalctl -u attestation-service -f
-   
    # Validate JSON format
    echo '{"refs":"{\"itrustee_uuid\":\"test_uuid test_hash test_hash\"}"}' | jq .
    ```
@@ -345,7 +350,7 @@ In the attestation service window, you should see the attestation report sent by
 2. **Policy validation**: Regularly verify the effectiveness of SELinux and IMA policies.
 3. **Log monitoring**: Monitor access and error logs for the attestation service.
 4. **Certificate management**: Regularly update attestation service certificates and keys.
-5. **Firmware verification**: Only use trusted NPU firmware sources; avoid unverified firmware.
+5. **Firmware verification**: Ensure NPU firmware sources are trusted; avoid using unverified firmware.
 
 ## Related Links
 

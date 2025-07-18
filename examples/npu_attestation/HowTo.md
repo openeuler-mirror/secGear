@@ -255,7 +255,7 @@ curl -H "Content-Type:application/json" -X POST -d '{"refs":"{\"itrustee_uuid\":
 
 ```bash
 # 计算NPU固件文件的哈希值
-sha256sum /usr/local/Ascend/driver/device/*.bin > /tmp/npu_firmware_hashes.txt
+sha256sum /usr/local/Ascend/driver/device/* > /tmp/npu_firmware_hashes.txt
 
 # 创建基线文件目录
 mkdir -p /etc/attestation/attestation-service/verifier/itrustee/ima/
@@ -319,25 +319,29 @@ cd secgear/service/attestation/attestation-agent
    ls -lZ /usr/local/Ascend/driver/device/
    
    # 手动触发度量
-   cat /usr/local/Ascend/driver/device/*.bin > /dev/null
+   cat /usr/local/Ascend/driver/device/* > /dev/null
    ```
 
 4. **证明服务连接失败**
 
+   排查思路：
+   1) 查看证明服务运行日志和启动参数，确保服务进程监听的地址和端口与访问的一致。
+
    ```bash
-   # 检查服务状态
-   systemctl status attestation-service
-   
    # 检查端口监听
    netstat -tlnp | grep 8080
    ```
 
+   2) 确定与证明服务间的网络是联通，如能ping通IP地址。
+   3) 查看服务器侧防火墙规则设置，是否禁止了相关端口，如使用iptables或firewall-cmd命令。
+
 5. **基线值注册失败**
 
+   排查思路：
+   1) 查看证明服务运行日志，确定服务进程是否有足够的权限读写/etc/attestation目录下的文件。
+   2) 查看注册消息格式是否正确，如：
+
    ```bash
-   # 检查服务日志
-   journalctl -u attestation-service -f
-   
    # 验证JSON格式
    echo '{"refs":"{\"itrustee_uuid\":\"test_uuid test_hash test_hash\"}"}' | jq .
    ```
