@@ -21,11 +21,11 @@ const IMA_LOG_PATH: &str = "/sys/kernel/security/ima/binary_runtime_measurements
 
 /// IMA log reader and handler
 #[derive(Debug, Default)]
-pub struct ImaLogReader {}
+struct ImaLogReader {}
 
 impl ImaLogReader {
     /// Create a new IMA log reader instance
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {}
     }
 
@@ -33,7 +33,7 @@ impl ImaLogReader {
     /// 
     /// Returns the IMA log data as a vector of bytes, or None if IMA is not enabled
     /// or the log cannot be read.
-    pub fn read_ima_log(&self) -> Result<Option<Vec<u8>>> {
+    fn read_ima_log(&self) -> Result<Option<Vec<u8>>> {
         match std::fs::read(IMA_LOG_PATH) {
             Ok(data) => {
                 log::info!("read ima log success");
@@ -47,7 +47,7 @@ impl ImaLogReader {
     }
 
     /// Check if IMA is available on the system
-    pub fn is_ima_available(&self) -> bool {
+    fn is_ima_available(&self) -> bool {
         std::path::Path::new(IMA_LOG_PATH).exists()
     }
 
@@ -55,21 +55,13 @@ impl ImaLogReader {
     /// 
     /// This function checks the `with_ima` parameter and reads the IMA log
     /// only if it's requested.
-    pub fn read_ima_log_if_requested(&self, with_ima: bool) -> Result<Option<Vec<u8>>> {
+    fn read_ima_log_if_requested(&self, with_ima: bool) -> Result<Option<Vec<u8>>> {
         if with_ima {
             self.read_ima_log()
         } else {
             Ok(None)
         }
     }
-}
-
-/// Convenience function to read IMA log
-/// 
-/// This is a standalone function that can be used without creating an ImaLogReader instance.
-pub fn read_ima_log() -> Result<Option<Vec<u8>>> {
-    let reader = ImaLogReader::new();
-    reader.read_ima_log()
 }
 
 /// Convenience function to read IMA log if requested
