@@ -11,7 +11,7 @@
  */
 
 use super::{file_reader, ImaVerifier, verify_ima_events};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use fallible_iterator::FallibleIterator;
 use ima_measurements::{Event, Parser};
 use openssl::sha::sha256;
@@ -61,8 +61,11 @@ impl ImaVerifier for ItrusteeImaVerify {
                         ima_log_hashsum: {:?}, ima_log_hash: {:?}", ima_log_hashsum, ima_log_hash[0]);
         }
 
-        let ima_refs = file_reader(IMA_REFERENCE_FILE)?;
-
+        let ima_refs = file_reader(IMA_REFERENCE_FILE)
+            .map_err(|err| anyhow!("Failed to read {}: {}", IMA_REFERENCE_FILE, err))?
+            .into_iter()
+            .map(String::from)
+            .collect();
         // Use the common function to verify IMA events
         verify_ima_events(&events, &ima_refs)
     }

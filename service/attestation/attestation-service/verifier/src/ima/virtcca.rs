@@ -11,7 +11,7 @@
  */
 
 use super::{file_reader, ImaVerifier, verify_ima_events};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use fallible_iterator::FallibleIterator;
 use ima_measurements::{Event, Parser};
 use serde_json::{json, Value};
@@ -75,7 +75,11 @@ impl ImaVerifier for VirtCCAImaVerify {
             bail!("IMA log hash verification failed. Please check the log and reference data, and verify if PCR has been extended to PCR4.");
         }
 
-        let ima_refs = file_reader(IMA_REFERENCE_FILE)?;
+        let ima_refs = file_reader(IMA_REFERENCE_FILE)
+            .map_err(|err| anyhow!("Failed to read {}: {}", IMA_REFERENCE_FILE, err))?
+            .into_iter()
+            .map(String::from)
+            .collect();
 
         // Use the common function to verify IMA events
         verify_ima_events(&events, &ima_refs)
