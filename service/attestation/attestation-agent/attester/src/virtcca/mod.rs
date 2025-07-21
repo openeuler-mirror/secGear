@@ -22,10 +22,10 @@ use std::path::Path;
 use self::virtcca::{get_attestation_token, get_dev_cert, tsi_new_ctx};
 use crate::virtcca::virtcca::tsi_free_ctx;
 use crate::EvidenceRequest;
+use crate::ima;
 
 mod virtcca;
 
-const IMA_LOG_PATH: &str = "/sys/kernel/security/ima/binary_runtime_measurements";
 const CCEL_TABLE_PATH: &str = "/sys/firmware/acpi/tables/CCEL";
 const CCEL_DATA_PATH: &str = "/sys/firmware/acpi/tables/data/CCEL";
 
@@ -94,19 +94,8 @@ fn virtcca_get_token(user_data: EvidenceRequest) -> Result<VirtccaEvidence> {
             None => false,
         };
 
-        let ima_log = match with_ima {
-            true => match std::fs::read(IMA_LOG_PATH) {
-                Ok(d) => {
-                    log::info!("read ima log success");
-                    Some(d)
-                }
-                Err(e) => {
-                    log::error!("read IMA log failed: {}", e);
-                    bail!("get ima log failed");
-                }
-            },
-            false => None,
-        };
+        // Use the new IMA module to read IMA log
+        let ima_log = ima::read_ima_log_if_requested(with_ima)?;
 
         let ccel_table = std::fs::read(CCEL_TABLE_PATH).ok();
         let ccel_data = std::fs::read(CCEL_DATA_PATH).ok();

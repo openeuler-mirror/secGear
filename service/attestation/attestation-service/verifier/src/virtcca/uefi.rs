@@ -10,7 +10,8 @@
  * See the Mulan PSL v2 for more details.
 */
 
-use super::{file_reader, CVM_REM_ARR_SIZE};
+use super::CVM_REM_ARR_SIZE;
+use crate::ima::file_reader;
 use anyhow::{bail, Result};
 use attestation_types::UefiLog;
 use eventlog_rs::{self, Eventlog};

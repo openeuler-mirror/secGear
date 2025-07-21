@@ -17,26 +17,36 @@ use log;
 use serde_json::json;
 use std::ops::Add;
 use std::path::Path;
-use serde_json::Value;
+use crate::ima::ImaVerifier;
+use attestation_types::ItrusteeEvidence;
 
 mod itrustee;
 
 const ITRUSTEE_REF_VALUE_DIR: &str =
-    "/etc/attestation/attestation-service/reference-itrustee/";
+    "/etc/attestation/attestation-service/verifier/itrustee";
+const MAX_CHALLENGE_LEN: usize = 64;
 
 #[derive(Debug, Default)]
 pub struct ItrusteeVerifier {}
 
 impl ItrusteeVerifier {
     pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
-        return evalute_wrapper(user_data, evidence);
+        evaluate_wrapper(user_data, evidence)
     }
 }
-const MAX_CHALLENGE_LEN: usize = 64;
-fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
+
+fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     let challenge = base64_url::decode(user_data)?;
+    let evidence: ItrusteeEvidence = serde_json::from_slice(evidence)?;
+    
+    log::debug!("{}", serde_json::to_string_pretty(&evidence).unwrap());
+    
+    let report = evidence.report;
+    let js_evidence: serde_json::Value = serde_json::from_str(&report)?;
+    let with_ima = evidence.ima_log.is_some();
+    let ima_log = evidence.ima_log.unwrap_or_default();
     let len = challenge.len();
-    if len <= 0 || len > MAX_CHALLENGE_LEN {
+    if len == 0 || len > MAX_CHALLENGE_LEN {
         log::error!(
             "challenge len is error, expecting 0 < len <= {}, got {}",
             MAX_CHALLENGE_LEN,
@@ -48,8 +58,29 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
             len
         );
     }
+
+    let mut ima = serde_json::Value::Null;
     let mut in_data = challenge.to_vec();
-    let mut in_evidence = evidence.to_vec();
+    if with_ima {
+        let report_nonce = js_evidence["payload"]["nonce"].as_str().unwrap();
+        let nonce_all = base64_url::decode(&report_nonce)?;
+        if nonce_all.len() != MAX_CHALLENGE_LEN {
+            log::error!("IMA verification: nonce length is not 64 bytes, got {}", nonce_all.len());
+            bail!("IMA verification: nonce length is not 64 bytes, got {}", nonce_all.len());
+        }
+        let nonce_expected = &nonce_all[..32]; // 前32字节是challenge
+        let ima_log_hash = &nonce_all[32..];   // 后32字节是ima_log_hash
+        if nonce_expected != challenge {
+            log::error!("IMA verification: nonce and challenge mismatch");
+            bail!("IMA verification: nonce and challenge mismatch");
+        }
+        ima = crate::ima::itrustee::ItrusteeImaVerify::default()
+            .ima_verify(&ima_log, &[ima_log_hash.to_vec()])?;
+        in_data = nonce_all.to_vec();
+    }
+
+    // let mut in_data = challenge.to_vec();
+    let mut in_evidence = report.as_bytes().to_vec();
     let mut data_buf: itrustee::buffer_data = itrustee::buffer_data {
         size: in_evidence.len() as ::std::os::raw::c_uint,
         buf: in_evidence.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
@@ -58,32 +89,31 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         size: in_data.len() as ::std::os::raw::c_uint,
         buf: in_data.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
     };
-    // parse uuid from evidence to find it's basevalue file that store in ITRUSTEE_REF_VALUE_DIR
-    let evidence_json:Value = serde_json::from_slice(evidence)?;
-    println!("{}", serde_json::to_string_pretty(&evidence_json).unwrap());
+  
+    // 1: verify ta_img; 2: verfiy ta_mem; 3: verify ta_img and ta_mem hash;
+    let policy: std::os::raw::c_int = 1;
+
     let uuid;
-    if let Some(v)= evidence_json.get("payload")
-                            .and_then(|v|v.get("uuid"))
-                            .and_then(|v|v.as_str()) {
+    if let Some(v) = js_evidence.get("payload")
+                                      .and_then(|v|v.get("uuid"))
+                                      .and_then(|v|v.as_str()) {
         uuid = v;
+    } else {
+        log::error!("Parse TA uuid from evidence failed.");
+        bail!("Parse TA uuid from evidence failed.");
     }
-    else {
-        log::error!("parse uuid from evidence failed");
-        bail!("parse uuid from evidence faild");
-    }
-    let policy: std::os::raw::c_int = 1; // 1: verify ta_imag; 2: verfiy ta_mem; 3: verify ta_img and ta_mem hash;
-    let ref_value_file = ITRUSTEE_REF_VALUE_DIR.to_string() + "itrustee_" + uuid;
-    if !Path::new(&ref_value_file).exists() {
+    let ref_file = ITRUSTEE_REF_VALUE_DIR.to_string() + "/itrustee_" + uuid;
+    if !Path::new(&ref_file).exists() {
         log::error!(
             "itrustee verify report {} not exists",
-            ref_value_file
+            ref_file
         );
         bail!(
             "itrustee verify report {} not exists",
-            ref_value_file
+            ref_file
         );
     }
-    let ref_file = String::from(ref_value_file);
+    
     let mut file = ref_file.add("\0");
     let basevalue = file.as_mut_ptr() as *mut ::std::os::raw::c_char;
     unsafe {
@@ -93,7 +123,7 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
             bail!("itrustee verify report failed ret:{}", ret);
         }
     }
-    let js_evidence: serde_json::Value = serde_json::from_slice(evidence)?;
+
     let payload = json!({
         "itrustee.nonce": js_evidence["payload"]["nonce"].clone(),
         "itrustee.hash_alg": js_evidence["payload"]["hash_alg"].clone(),
@@ -103,9 +133,14 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         "itrustee.uuid": js_evidence["payload"]["uuid"].clone(),
         "itrustee.version": js_evidence["payload"]["version"].clone(),
     });
+
     let claim = json!({
         "tee": "itrustee",
         "payload" : payload,
+        "ima" : ima,
     });
+
+    log::debug!("claim: {}", serde_json::to_string_pretty(&claim).unwrap());
+
     Ok(claim as TeeClaim)
 }

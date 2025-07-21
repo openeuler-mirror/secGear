@@ -1,0 +1,1 @@
+/usr/local/Ascend/driver/device(/.*)?   gen_context(unconfined_u:object_r:ascendfw_t, s0)

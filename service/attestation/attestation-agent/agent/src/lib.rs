@@ -19,7 +19,7 @@ pub mod restapi;
 pub mod result;
 
 use actix_web::web::Bytes;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use attestation_types::{resource::ResourceLocation, service::GetResourceOp};
 use attester::{Attester, AttesterAPIs};

@@ -23,6 +23,9 @@ mod itrustee;
 #[cfg(feature = "virtcca-attester")]
 pub mod virtcca;
 
+// IMA module for handling IMA logs
+pub mod ima;
+
 #[derive(Debug, Clone)]
 pub struct EvidenceRequest {
     pub uuid: String,
