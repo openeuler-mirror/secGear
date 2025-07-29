@@ -143,7 +143,7 @@ impl AttestationService {
 
         let mut passed = true;
         AttestationService::evaluate_evidence_field(&claims_evidence, "ima", &mut passed).await;
-        AttestationService::evaluate_evidence_field(&claims_evidence, "uefi", &mut passed).await;
+        AttestationService::evaluate_evidence_field(&claims_evidence, "event", &mut passed).await;
 
         // get reference by keys in claims_evidence
         let mut ops_refs = ReferenceOps::default();
@@ -208,11 +208,11 @@ impl AttestationService {
             .unwrap()
             .insert("ima".to_string(), claims_evidence["ima"].clone());
 
-        // add uefi detail result to report
+        // add event detail result to report
         report
             .as_object_mut()
             .unwrap()
-            .insert("uefi".to_string(), claims_evidence["uefi"].clone());
+            .insert("event".to_string(), claims_evidence["event"].clone());
 
         // issue attestation result token
         let evl_report = EvlReport {

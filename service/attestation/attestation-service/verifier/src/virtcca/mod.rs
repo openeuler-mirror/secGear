@@ -26,8 +26,8 @@ use openssl::rsa;
 use openssl::x509;
 use serde_json::json;
 
-pub use attestation_types::{UefiLog, VirtccaEvidence};
-pub mod uefi;
+pub use attestation_types::VirtccaEvidence;
+pub mod event_log;
 
 #[cfg(not(feature = "no_as"))]
 const VIRTCCA_ROOT_CERT: &str =
@@ -139,31 +139,23 @@ impl Evidence {
         let ima: serde_json::Value = crate::ima::virtcca::VirtCCAImaVerify::default()
             .ima_verify(&ima_log, &evidence.cvm_token.rem)?;
 
-        // verify uefi
-        let uefi_log = if let Some(uefi_log) = virtcca_ev.uefi_log {
-            if !uefi_log.ccel_table.is_empty() && !uefi_log.ccel_data.is_empty() {
-                log::info!("get valid uefi log");
-                uefi_log
-            } else {
-                log::info!("uefi log is invalid (empty fields)");
-                UefiLog {
-                    ccel_table: vec![],
-                    ccel_data: vec![],
-                }
+        // verify event
+        let event_log = match virtcca_ev.event_log {
+            Some(log) => {
+                log::info!("get event log");
+                log
             }
-        } else {
-            log::info!("no uefi log at all");
-            UefiLog {
-                ccel_table: vec![],
-                ccel_data: vec![],
+            None => {
+                log::info!("no event log");
+                vec![]
             }
         };
 
-        let uefi: serde_json::Value =
-            uefi::UefiVerify::default().uefi_verify(uefi_log, evidence.cvm_token.rem.clone())?;
+        let event: serde_json::Value =
+            event_log::EventVerify::event_verify(event_log, evidence.cvm_token.rem.clone())?;
 
         // todo parsed TeeClaim
-        evidence.parse_claim_from_evidence(ima, uefi)
+        evidence.parse_claim_from_evidence(ima, event)
     }
 
     pub fn parse_evidence(evidence: &[u8]) -> Result<TeeClaim> {
@@ -172,15 +164,15 @@ impl Evidence {
         let evidence = Evidence::decode(evidence)?;
 
         let ima = json!("");
-        let uefi = json!("");
+        let event = json!("");
         // parsed TeeClaim
-        let claim = evidence.parse_claim_from_evidence(ima, uefi).unwrap();
+        let claim = evidence.parse_claim_from_evidence(ima, event).unwrap();
         Ok(claim["payload"].clone() as TeeClaim)
     }
     fn parse_claim_from_evidence(
         &self,
         ima: serde_json::Value,
-        uefi: serde_json::Value,
+        event: serde_json::Value,
     ) -> Result<TeeClaim> {
         let payload = json!({
             "vcca.cvm.challenge": hex::encode(self.cvm_token.challenge),
@@ -196,7 +188,7 @@ impl Evidence {
             "tee": "vcca",
             "payload" : payload,
             "ima": ima,
-            "uefi": uefi,
+            "event": event,
         });
         Ok(claim as TeeClaim)
     }
@@ -533,9 +525,9 @@ mod tests {
         let challenge = Vec::new();
         let virtcca_ev = VirtccaEvidence {
             evidence: token.to_vec(),
-            dev_cert: dev_cert,
+            dev_cert,
             ima_log: None,
-            uefi_log: None,
+            event_log: None,
         };
         let virtcca_ev = serde_json::to_vec(&virtcca_ev).unwrap();
         let r = Evidence::verify(&challenge, &virtcca_ev);

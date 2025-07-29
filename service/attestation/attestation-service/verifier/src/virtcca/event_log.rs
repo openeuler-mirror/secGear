@@ -13,7 +13,6 @@
 use super::CVM_REM_ARR_SIZE;
 use crate::ima::file_reader;
 use anyhow::{bail, Result};
-use attestation_types::UefiLog;
 use eventlog_rs::{self, Eventlog};
 use hex;
 use log;
@@ -22,13 +21,13 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 
 #[cfg(not(feature = "no_as"))]
-const UEFI_REFERENCE_FILE: &str =
-    "/etc/attestation/attestation-service/verifier/virtcca/uefi/digest_list_file";
+const EVENT_REFERENCE_FILE: &str =
+    "/etc/attestation/attestation-service/verifier/virtcca/event/digest_list_file";
 
-// attestation agent local uefi reference
+// attestation agent local event reference
 #[cfg(feature = "no_as")]
-const UEFI_REFERENCE_FILE: &str =
-    "/etc/attestation/attestation-agent/local_verifier/virtcca/uefi/digest_list_file";
+const EVENT_REFERENCE_FILE: &str =
+    "/etc/attestation/attestation-agent/local_verifier/virtcca/event/digest_list_file";
 
 #[derive(Debug)]
 pub struct FirmwareState {
@@ -38,12 +37,12 @@ pub struct FirmwareState {
 }
 
 #[derive(Debug, Default)]
-pub struct UefiVerify {}
+pub struct EventVerify {}
 
-impl UefiVerify {
-    pub fn compare_rtmr_with_uefi_log(
+impl EventVerify {
+    pub fn compare_rtmr_with_event_log(
         _replayed_rtmr: &HashMap<u32, Vec<u8>>,
-        uefi_log_hash: &[Vec<u8>; CVM_REM_ARR_SIZE],
+        event_log_hash: &[Vec<u8>; CVM_REM_ARR_SIZE],
     ) -> bool {
         for i in 1..CVM_REM_ARR_SIZE as u32 {
             let index = i as usize - 1;
@@ -60,36 +59,36 @@ impl UefiVerify {
                 return false;
             }
 
-            if uefi_log_hash[index].len() != 32 {
+            if event_log_hash[index].len() != 32 {
                 log::error!(
-                    "UEFI_LOG_HASH[{}] hash length invalid: {}",
+                    "EVENT_LOG_HASH[{}] hash length invalid: {}",
                     i,
-                    uefi_log_hash[index].len()
+                    event_log_hash[index].len()
                 );
                 return false;
             }
 
             // 如果哈希不匹配，记录详细信息
-            if rtmr_value != &uefi_log_hash[index] {
-                log::error!("RTMR[{}] and UEFI_LOG_HASH[{}] do not match.", i, index);
+            if rtmr_value != &event_log_hash[index] {
+                log::error!("RTMR[{}] and EVENT_LOG_HASH[{}] do not match.", i, index);
                 log::debug!("RTMR[{}] = {}", i, hex::encode(rtmr_value));
                 log::debug!(
-                    "UEFI_LOG_HASH[{}] = {}",
+                    "EVENT_LOG_HASH[{}] = {}",
                     index,
-                    hex::encode(&uefi_log_hash[index])
+                    hex::encode(&event_log_hash[index])
                 );
                 return false;
             }
 
             log::debug!("RTMR[{}] = {}", i, hex::encode(rtmr_value));
             log::debug!(
-                "UEFI_LOG_HASH[{}] = {}",
+                "EVENT_LOG_HASH[{}] = {}",
                 index,
-                hex::encode(&uefi_log_hash[index])
+                hex::encode(&event_log_hash[index])
             );
         }
 
-        log::info!("All RTMR values match UEFI log hashes.");
+        log::info!("All RTMR values match EVENT log hashes.");
         true
     }
 
@@ -147,19 +146,19 @@ impl UefiVerify {
         state
     }
 
-    pub fn check_uefi_references(
+    pub fn check_event_references(
         firmware_state: &FirmwareState,
-        uefi_refs: &HashSet<String>,
+        event_refs: &HashSet<String>,
     ) -> serde_json::Value {
-        let mut uefi_detail: Map<String, Value> = Map::new();
+        let mut event_detail: Map<String, Value> = Map::new();
 
         for (index, image) in firmware_state.grub_image_list.iter().enumerate() {
-            let exists = uefi_refs.contains(image);
+            let exists = event_refs.contains(image);
             let key = format!("Image[{}]", index);
-            uefi_detail.insert(key, Value::Bool(exists));
+            event_detail.insert(key, Value::Bool(exists));
             if !exists {
                 log::debug!(
-                    "GRUB Image[{}] ('{}') not found in UEFI reference set.",
+                    "GRUB Image[{}] ('{}') not found in EVENT reference set.",
                     index,
                     image
                 );
@@ -167,44 +166,43 @@ impl UefiVerify {
         }
 
         for (key, value) in firmware_state.state_hash.iter() {
-            let exists = uefi_refs.contains(value);
-            uefi_detail.insert(key.clone(), Value::Bool(exists));
+            let exists = event_refs.contains(value);
+            event_detail.insert(key.clone(), Value::Bool(exists));
             if !exists {
-                log::debug!("'{}' : '{}' not found in UEFI reference set.", key, value);
+                log::debug!("'{}' : '{}' not found in EVENT reference set.", key, value);
             }
         }
-        let js_uefi_detail: Value = uefi_detail.into();
-        log::debug!("uefi event verify detail result: {:?}", js_uefi_detail);
-        log::info!("uefi event verify Finished");
-        js_uefi_detail
+        let js_event_detail: Value = event_detail.into();
+        log::debug!("event event verify detail result: {:?}", js_event_detail);
+        log::info!("event event verify Finished");
+        js_event_detail
     }
 
-    pub fn uefi_verify(
-        &self,
-        uefi_log: UefiLog,
-        uefi_log_hash: [Vec<u8>; CVM_REM_ARR_SIZE],
+    pub fn event_verify(
+        event_log: Vec<u8>,
+        event_log_hash: [Vec<u8>; CVM_REM_ARR_SIZE],
     ) -> Result<Value> {
-        if uefi_log.ccel_data.is_empty() {
+        if event_log.is_empty() {
             return Ok(json!({}));
         }
 
-        let event_log = eventlog_rs::Eventlog::try_from(uefi_log.ccel_data).unwrap();
-        let _replayed_rtmr = event_log.replay_measurement_registry();
+        let event_parsed = eventlog_rs::Eventlog::try_from(event_log).unwrap();
+        let _replayed_rtmr = event_parsed.replay_measurement_registry();
 
-        if !UefiVerify::compare_rtmr_with_uefi_log(&_replayed_rtmr, &uefi_log_hash) {
-            log::error!("uefi log hash verify failed");
-            bail!("uefi log hash verify failed");
+        if !EventVerify::compare_rtmr_with_event_log(&_replayed_rtmr, &event_log_hash) {
+            log::error!("event log hash verify failed");
+            bail!("event log hash verify failed");
         }
 
-        let uefi_refs = file_reader(UEFI_REFERENCE_FILE)?;
-        log::debug!("uefi reference file: {:?}", uefi_refs);
+        let event_refs = file_reader(EVENT_REFERENCE_FILE)?;
+        log::debug!("event reference file: {:?}", event_refs);
 
-        let firmware_state: FirmwareState = UefiVerify::firmware_log_state(&event_log);
+        let firmware_state: FirmwareState = EventVerify::firmware_log_state(&event_parsed);
         log::debug!("firmware state: {:?}", firmware_state);
 
-        Ok(UefiVerify::check_uefi_references(
+        Ok(EventVerify::check_event_references(
             &firmware_state,
-            &uefi_refs,
+            &event_refs,
         ))
     }
 }
