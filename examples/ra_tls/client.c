@@ -109,7 +109,7 @@ err:
 #endif
 
 #define BUF_LEN_MAX 256
-int main(int argc, char *argv[])
+int main(void)
 {
     int res = 0;
     int ret = -1;
@@ -119,9 +119,9 @@ int main(int argc, char *argv[])
     int port = 10001;
     int server_sokcet = -1;
     uint8_t send_buf[BUF_LEN_MAX] = {"Hello Server\n"};
-    size_t send_buf_len = strlen(send_buf);
+    size_t send_buf_len = strlen((const char *)send_buf);
     uint8_t recv_buf[BUF_LEN_MAX] = {0};
-    size_t recv_buf_len = strlen(recv_buf);
+    size_t recv_buf_len = strlen((const char *)recv_buf);
 #ifdef CLIENT_WITH_CERT
     ra_tls_buf cert = RA_TLS_BUF_INIT;
     ra_tls_buf prv_key = RA_TLS_BUF_INIT;
@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
         goto end;
     }
     recv_buf_len = res;
-    printf("read from peer[len = %d]: %s\n", recv_buf_len, recv_buf);
+    printf("read from peer[len = %lu]: %s\n", recv_buf_len, recv_buf);
 #endif
 end:
     SSL_shutdown(ssl);

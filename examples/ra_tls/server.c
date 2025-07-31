@@ -117,9 +117,8 @@ err:
 }
 
 
-int main(int argc, char *argv[])
+int main(void)
 {
-    int res = 0;
     ra_tls_buf cert = RA_TLS_BUF_INIT;
     ra_tls_buf prv_key = RA_TLS_BUF_INIT;
     int client_socket = -1;
@@ -196,7 +195,7 @@ int main(int argc, char *argv[])
             break;
         }
         read_buf[read_len] = '\0';
-        printf("read data[%d]: %s\n", read_len, read_buf);
+        printf("read data[%lu]: %s\n", read_len, read_buf);
         printf("write back\n");
         write_len = SSL_write(ssl, read_buf, read_len);
         if (write_len <= 0) {

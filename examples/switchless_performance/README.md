@@ -1,4 +1,4 @@
-<img src="docs/logo.png" alt="secGear" style="zoom:100%;" />
+<img src="../../sdk/docs/logo.png" alt="secGear" style="zoom:100%;" />
 
 switchless
 ============================
