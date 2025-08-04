@@ -11,46 +11,68 @@
  */
 
 //! virtcca verifier plugin
-use super::TeeClaim;
-use crate::ima::ImaVerifier;
+pub mod ccatoken;
+pub mod event_log;
+use attestation_types::VirtccaEvidence;
+use ccatoken::{CvmToken, Decode, PlatformToken};
+use event_log::EventVerify;
 
-use anyhow::{anyhow, bail, Result};
-use ciborium;
-use ciborium::Value;
-use cose::keys::CoseKey;
-use cose::message::CoseMessage;
+use super::TeeClaim;
+use crate::ima::{virtcca::VirtCCAImaVerify, ImaVerifier};
+use anyhow::{anyhow, bail, Ok, Result};
+use ciborium::{de, Value};
+use cose::{
+    keys::{CoseKey, EC2, KEY_OPS_VERIFY, RSA},
+    message::CoseMessage,
+};
 use log;
-use openssl::pkey::PKey;
-use openssl::pkey::Public;
-use openssl::rsa;
-use openssl::x509;
+use openssl::{
+    bn::BigNumContext,
+    ec::{EcGroup, EcKey, PointConversionForm},
+    hash::{hash, MessageDigest},
+    nid::Nid,
+    pkey::{Id, PKey, Public},
+    x509::X509,
+};
 use serde_json::json;
 
-pub use attestation_types::VirtccaEvidence;
-pub mod event_log;
-
 #[cfg(not(feature = "no_as"))]
-const VIRTCCA_ROOT_CERT: &str =
+const RSA_ROOT_CERT: &str =
     "/etc/attestation/attestation-service/verifier/virtcca/Huawei Equipment Root CA.pem";
 #[cfg(not(feature = "no_as"))]
-const VIRTCCA_SUB_CERT: &str =
+const RSA_SUB_CERT: &str =
     "/etc/attestation/attestation-service/verifier/virtcca/Huawei IT Product CA.pem";
+const ECCP_ROOT_CERT: &str =
+    "/etc/attestation/attestation-service/verifier/virtcca/eccp521_root_cert.pem";
+#[cfg(not(feature = "no_as"))]
+const ECCP_SUB_CERT: &str =
+    "/etc/attestation/attestation-service/verifier/virtcca/eccp521_sub_cert.pem";
 
 // attestation agent local reference
 #[cfg(feature = "no_as")]
 const VIRTCCA_REF_VALUE_FILE: &str =
     "/etc/attestation/attestation-agent/local_verifier/virtcca/ref_value.json";
 #[cfg(feature = "no_as")]
-const VIRTCCA_ROOT_CERT: &str =
+const RSA_ROOT_CERT: &str =
     "/etc/attestation/attestation-agent/local_verifier/virtcca/Huawei Equipment Root CA.pem";
 #[cfg(feature = "no_as")]
-const VIRTCCA_SUB_CERT: &str =
+const RSA_SUB_CERT: &str =
     "/etc/attestation/attestation-agent/local_verifier/virtcca/Huawei IT Product CA.pem";
+#[cfg(feature = "no_as")]
+const ECCP_ROOT_CERT: &str =
+    "/etc/attestation/attestation-agent/local_verifier/virtcca/eccp521_root_cert.pem";
+#[cfg(feature = "no_as")]
+const ECCP_SUB_CERT: &str =
+    "/etc/attestation/attestation-agent/local_verifier/virtcca/eccp521_sub_cert.pem";
+
+const MAX_CHALLENGE_LEN: usize = 64;
+const CBOR_TAG: u64 = 399;
+const CVM_LABEL: i128 = 44241;
+const PLATFORM_LABEL: i128 = 44234;
 
 #[derive(Debug, Default)]
 pub struct VirtCCAVerifier {}
 
-const MAX_CHALLENGE_LEN: usize = 64;
 impl VirtCCAVerifier {
     pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         let challenge = base64_url::decode(user_data)?;
@@ -71,38 +93,20 @@ impl VirtCCAVerifier {
     }
 }
 
-const CBOR_TAG: u64 = 399;
-const CVM_LABEL: i128 = 44241;
-
-const CVM_CHALLENGE_LABEL: i128 = 10;
-const CVM_RPV_LABEL: i128 = 44235;
-const CVM_RIM_LABEL: i128 = 44238;
-const CVM_REM_LABEL: i128 = 44239;
-const CVM_HASH_ALG_LABEL: i128 = 44236;
-const CVM_PUB_KEY_LABEL: i128 = 44237;
-const CVM_PUB_KEY_HASH_ALG_LABEL: i128 = 44240;
-
-const CVM_CHALLENGE_SIZE: usize = 64;
-const CVM_RPV_SIZE: usize = 64;
-const CVM_REM_ARR_SIZE: usize = 4;
-const CVM_PUB_KEY_SIZE: usize = 550;
-
-#[derive(Debug)]
-pub struct CvmToken {
-    pub challenge: [u8; CVM_CHALLENGE_SIZE], //    10 => bytes .size 64
-    pub rpv: [u8; CVM_RPV_SIZE],             // 44235 => bytes .size 64
-    pub rim: Vec<u8>,                        // 44238 => bytes .size {32,48,64}
-    pub rem: [Vec<u8>; CVM_REM_ARR_SIZE],    // 44239 => [ 4*4 bytes .size {32,48,64} ]
-    pub hash_alg: String,                    // 44236 => text
-    pub pub_key: [u8; CVM_PUB_KEY_SIZE],     // 44237 => bytes .size 550
-    pub pub_key_hash_alg: String,            // 44240 => text
+pub struct Evidence {
+    // COSE Sign1 envelope for cvm_token
+    pub cvm_envelop: CoseMessage,
+    // Decoded cvm token
+    pub cvm_token: CvmToken,
+    pub platform_envelop: CoseMessage,
+    pub platform_token: PlatformToken,
+    pub is_platform: bool,
 }
 
-pub struct Evidence {
-    /// COSE Sign1 envelope for cvm_token
-    pub cvm_envelop: CoseMessage,
-    /// Decoded cvm token
-    pub cvm_token: CvmToken,
+impl Default for Evidence {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Evidence {
@@ -110,13 +114,21 @@ impl Evidence {
         Self {
             cvm_envelop: CoseMessage::new_sign(),
             cvm_token: CvmToken::new(),
+            platform_envelop: CoseMessage::new_sign(),
+            platform_token: PlatformToken::new(),
+            is_platform: false,
         }
     }
     pub fn verify(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         let virtcca_ev: VirtccaEvidence = serde_json::from_slice(evidence)?;
         let evidence = virtcca_ev.evidence;
-        let dev_cert = virtcca_ev.dev_cert;
         let mut evidence = Evidence::decode(evidence)?;
+
+        let dev_cert = if evidence.is_platform {
+            X509::from_pem(&virtcca_ev.dev_cert)?
+        } else {
+            X509::from_der(&virtcca_ev.dev_cert)?
+        };
 
         // verify platform token
         evidence.verify_platform_token(&dev_cert)?;
@@ -136,8 +148,8 @@ impl Evidence {
             }
         };
 
-        let ima: serde_json::Value = crate::ima::virtcca::VirtCCAImaVerify::default()
-            .ima_verify(&ima_log, &evidence.cvm_token.rem)?;
+        let ima: serde_json::Value =
+            VirtCCAImaVerify::default().ima_verify(&ima_log, &evidence.cvm_token.rem)?;
 
         // verify event
         let event_log = match virtcca_ev.event_log {
@@ -152,12 +164,10 @@ impl Evidence {
         };
 
         let event: serde_json::Value =
-            event_log::EventVerify::event_verify(event_log, evidence.cvm_token.rem.clone())?;
+            EventVerify::event_verify(event_log, evidence.cvm_token.rem.clone())?;
 
-        // todo parsed TeeClaim
         evidence.parse_claim_from_evidence(ima, event)
     }
-
     pub fn parse_evidence(evidence: &[u8]) -> Result<TeeClaim> {
         let virtcca_ev: VirtccaEvidence = serde_json::from_slice(evidence)?;
         let evidence = virtcca_ev.evidence;
@@ -169,6 +179,7 @@ impl Evidence {
         let claim = evidence.parse_claim_from_evidence(ima, event).unwrap();
         Ok(claim["payload"].clone() as TeeClaim)
     }
+
     fn parse_claim_from_evidence(
         &self,
         ima: serde_json::Value,
@@ -182,7 +193,8 @@ impl Evidence {
             "vcca.cvm.rem.1": hex::encode(self.cvm_token.rem[1].clone()),
             "vcca.cvm.rem.2": hex::encode(self.cvm_token.rem[2].clone()),
             "vcca.cvm.rem.3": hex::encode(self.cvm_token.rem[3].clone()),
-            "vcca.platform": "",
+            "vcca.is_platform": self.is_platform.clone(),
+            "vcca.platform.measure_value": self.platform_token.sw_components.clone(),
         });
         let claim = json!({
             "tee": "vcca",
@@ -190,23 +202,96 @@ impl Evidence {
             "ima": ima,
             "event": event,
         });
-        Ok(claim as TeeClaim)
+        Ok(claim)
     }
-    fn verify_platform_token(&mut self, dev_cert: &[u8]) -> Result<()> {
-        // todo verify platform COSE_Sign1 by dev_cert, virtCCA report has no platform token now
 
-        // verify dev_cet by cert chain
-        Evidence::verify_dev_cert_chain(dev_cert)?;
+    pub fn pkey_to_cosekey(pkey: &PKey<Public>) -> Result<CoseKey> {
+        let mut cose_key = CoseKey::new();
+        match pkey.id() {
+            Id::RSA => {
+                let rsa = pkey.rsa()?;
+                cose_key.kty(RSA);
+                cose_key.n(rsa.n().to_vec());
+                cose_key.e(rsa.e().to_vec());
+            }
+            Id::EC => {
+                let ec_key = pkey.ec_key()?;
+                cose_key.kty(EC2);
+                let group = ec_key.group();
+                match group.curve_name() {
+                    Some(openssl::nid::Nid::SECP521R1) => cose_key.crv(cose::keys::P_521),
+                    Some(nid) => bail!("Unsupported EC curve: {:?}", nid),
+                    None => bail!("EC key has no associated curve name"),
+                }
+
+                let public_key = ec_key.public_key();
+                let mut ctx = BigNumContext::new()?;
+                let encoded_point =
+                    public_key.to_bytes(group, PointConversionForm::UNCOMPRESSED, &mut ctx)?;
+                if !encoded_point.is_empty() && encoded_point[0] == 0x04 {
+                    let coordinate_len = (encoded_point.len() - 1) / 2;
+                    let x = encoded_point[1..1 + coordinate_len].to_vec();
+                    let y = encoded_point[1 + coordinate_len..].to_vec();
+                    cose_key.x(x);
+                    cose_key.y(y);
+                } else {
+                    bail!("Unsupported EC point format");
+                }
+            }
+            _ => bail!("Unsupported key type"),
+        }
+
+        Ok(cose_key)
+    }
+
+    pub fn verify_cose_sign1(envelop: &mut CoseMessage, pkey: &PKey<Public>) -> Result<()> {
+        let mut cose_key: CoseKey = Evidence::pkey_to_cosekey(pkey)?;
+        cose_key.key_ops(vec![KEY_OPS_VERIFY]);
+        match envelop.header.alg {
+            Some(alg) => cose_key.alg(alg),
+            None => bail!("cose sign verify alg is none"),
+        }
+        envelop
+            .key(&cose_key)
+            .map_err(|err| anyhow!("set cose_key to COSE_Sign1 envelop failed: {err:?}"))?;
+        envelop
+            .decode(None, None)
+            .map_err(|err| anyhow!("verify COSE_Sign1 signature failed:{err:?}"))?;
 
         Ok(())
     }
-    // todo verify cert chain, now only verify signature
-    fn verify_dev_cert_chain(dev_cert: &[u8]) -> Result<()> {
-        let dev_cert = x509::X509::from_der(dev_cert)?;
-        let sub_cert_file = std::fs::read(VIRTCCA_SUB_CERT)?;
-        let sub_cert = x509::X509::from_pem(&sub_cert_file)?;
-        let root_cert_file = std::fs::read(VIRTCCA_ROOT_CERT)?;
-        let root_cert = x509::X509::from_pem(&root_cert_file)?;
+
+    fn verify_platform_token(&mut self, dev_cert: &X509) -> Result<()> {
+        // verify dev_cet by cert chain
+        log::info!("verify dev_cert by cert chain");
+        Evidence::verify_dev_cert_chain(dev_cert)?;
+
+        // verify platform token cose_sign1
+        if self.is_platform {
+            log::info!("verify platform COSE_Sign1 by dev_cert");
+            let pkey = dev_cert.public_key()?;
+            Evidence::verify_cose_sign1(&mut self.platform_envelop, &pkey)?;
+        }
+
+        Ok(())
+    }
+
+    //get cert path by cert_type
+    fn detect_cert_path(dev_cert: &X509) -> Result<(&'static str, &'static str)> {
+        let pubkey = dev_cert.public_key()?;
+        match pubkey.id() {
+            Id::RSA => Ok((RSA_ROOT_CERT, RSA_SUB_CERT)),
+            Id::EC => Ok((ECCP_ROOT_CERT, ECCP_SUB_CERT)),
+            _ => Err(anyhow!("unsupported cert type")),
+        }
+    }
+
+    fn verify_dev_cert_chain(dev_cert: &X509) -> Result<()> {
+        let (root_cert_path, sub_cert_path) = Evidence::detect_cert_path(dev_cert)?;
+        let sub_cert_file = std::fs::read(sub_cert_path)?;
+        let sub_cert = X509::from_pem(&sub_cert_file)?;
+        let root_cert_file = std::fs::read(root_cert_path)?;
+        let root_cert = X509::from_pem(&root_cert_file)?;
 
         // verify dev_cert by sub_cert
         let ret = dev_cert.verify(&(sub_cert.public_key()? as PKey<Public>))?;
@@ -228,6 +313,44 @@ impl Evidence {
         }
         Ok(())
     }
+
+    pub fn verfiy_cvm_challenge(&self, challenge: &[u8], raw_pub_key: &[u8]) -> Result<()> {
+        let digest = match self.cvm_token.pub_key_hash_alg.as_str() {
+            "sha-256" => MessageDigest::sha256(),
+            "sha-384" => MessageDigest::sha384(),
+            "sha-512" => MessageDigest::sha512(),
+            _ => bail!("unsupported algorithm for pubkey verification"),
+        };
+
+        // Calculate the hash value of the CVM public key
+        let calculated_challenge = hash(digest, raw_pub_key)?;
+
+        // Compare value with the platform challenge value
+        if calculated_challenge.as_ref() != challenge {
+            log::error!(
+                "verify cvm pubkey by platform challenge failed, expected: {:?}, got: {:?}",
+                challenge,
+                calculated_challenge
+            );
+            bail!("verify cvm pubkey by platform challenge failed");
+        }
+
+        Ok(())
+    }
+
+    pub fn raw_ec_public_key_to_pkey(&self) -> Result<PKey<Public>> {
+        let raw_key = &self.cvm_token.pub_key;
+        // Check if it's in uncompressed format (the first byte should be 0x04)
+        if raw_key.is_empty() || raw_key[0] != 0x04 {
+            bail!("Invalid uncompressed EC public key format");
+        }
+        let group = EcGroup::from_curve_name(Nid::SECP521R1)?;
+        let mut ctx = BigNumContext::new()?;
+        let point = openssl::ec::EcPoint::from_bytes(&group, raw_key, &mut ctx)?;
+        let ec_key = EcKey::from_public_key(&group, &point)?;
+
+        Ok(PKey::from_ec_key(ec_key)?)
+    }
     fn verify_cvm_token(&mut self, challenge: &[u8]) -> Result<()> {
         // verify challenge
         let len = challenge.len();
@@ -245,23 +368,15 @@ impl Evidence {
             );
         }
 
-        // todo verify cvm pubkey by platform.challenge, virtCCA report has no platform token now
-
-        // verify COSE_Sign1 signature begin
-        let raw_pub_key = self.cvm_token.pub_key;
-        let mut cose_key: CoseKey = Evidence::from_raw_pub_key(&raw_pub_key)?;
-        cose_key.key_ops(vec![cose::keys::KEY_OPS_VERIFY]);
-        match self.cvm_envelop.header.alg {
-            Some(alg) => cose_key.alg(alg),
-            None => bail!("cose sign verify alg is none"),
+        if self.is_platform {
+            self.verfiy_cvm_challenge(&self.platform_token.challenge, &self.cvm_token.pub_key)?;
+            log::info!("verify cvm pubkey by platform challenge success");
         }
-        self.cvm_envelop
-            .key(&cose_key)
-            .map_err(|err| anyhow!("set cose_key to COSE_Sign1 envelop failed: {err:?}"))?;
-        self.cvm_envelop
-            .decode(None, None)
-            .map_err(|err| anyhow!("verify COSE_Sign1 signature failed:{err:?}"))?;
-        // verify COSE_Sign1 signature end
+
+        let pkey = PKey::public_key_from_der(&self.cvm_token.pub_key)
+            .or_else(|_| self.raw_ec_public_key_to_pkey())?;
+
+        Evidence::verify_cose_sign1(&mut self.cvm_envelop, &pkey)?;
 
         // verfiy cvm token with reference value
         #[cfg(feature = "no_as")]
@@ -295,20 +410,21 @@ impl Evidence {
 
         Ok(())
     }
-    fn from_raw_pub_key(raw_pub_key: &[u8]) -> Result<CoseKey> {
-        let pub_key: rsa::Rsa<Public> = rsa::Rsa::public_key_from_der(raw_pub_key)?;
-        let mut cose_key = CoseKey::new();
-        cose_key.kty(cose::keys::RSA);
-        cose_key.e(pub_key.e().to_vec());
-        cose_key.n(pub_key.n().to_vec());
 
-        Ok(cose_key)
+    fn cose_decode(envelop: &mut CoseMessage) -> Result<()> {
+        envelop.init_decoder(None).map_err(|e| {
+            log::error!("decode COSE failed, {:?}", e);
+            anyhow::anyhow!("decode COSE failed")
+        })?;
+        log::debug!("decode COSE success");
+        Ok(())
     }
+
     pub fn decode(raw_evidence: Vec<u8>) -> Result<Evidence> {
         let mut evidence: Evidence = Evidence::new();
 
         // decode CBOR evidence to ciborium Value
-        let val: Value = ciborium::de::from_reader(raw_evidence.as_slice())?;
+        let val: Value = de::from_reader(raw_evidence.as_slice())?;
         log::debug!(
             "[debug] decode CBOR virtcca token to ciborium Value:{:?}",
             val
@@ -331,6 +447,10 @@ impl Evidence {
                     if let Value::Integer(i) = k {
                         match (*i).into() {
                             CVM_LABEL => evidence.set_cvm_token(v)?,
+                            PLATFORM_LABEL => {
+                                evidence.is_platform = true;
+                                evidence.set_platform_token(v)?
+                            }
                             err => bail!("unknown label {}", err),
                         }
                     } else {
@@ -344,170 +464,23 @@ impl Evidence {
             bail!("expecting tag type");
         }
 
-        let ret = evidence.cvm_envelop.init_decoder(None);
-        match ret {
-            Ok(_) => log::debug!("decode COSE success"),
-            Err(e) => {
-                log::error!("decode COSE failed, {:?}", e);
-                bail!("decode COSE failed");
-            }
+        Evidence::cose_decode(&mut evidence.cvm_envelop)?;
+        evidence.cvm_token = CvmToken::decode(&evidence.cvm_envelop.payload)?;
+
+        if evidence.is_platform {
+            Evidence::cose_decode(&mut evidence.platform_envelop)?;
+            evidence.platform_token = PlatformToken::decode(&evidence.platform_envelop.payload)?;
         }
 
-        // decode cvm CBOR payload
-        evidence.cvm_token = CvmToken::decode(&evidence.cvm_envelop.payload)?;
         Ok(evidence)
     }
     fn set_cvm_token(&mut self, v: &Value) -> Result<()> {
-        let tmp = v.as_bytes();
-        if tmp.is_none() {
-            log::error!("cvm token is none");
-            bail!("cvm token is none");
-        }
-        self.cvm_envelop.bytes = tmp.unwrap().clone();
+        self.cvm_envelop.bytes = Decode::get_vec(v, "cvm_token", vec![])?;
         Ok(())
     }
-}
 
-impl CvmToken {
-    pub fn new() -> Self {
-        Self {
-            challenge: [0; CVM_CHALLENGE_SIZE],
-            rpv: [0; CVM_RPV_SIZE],
-            rim: vec![0, 64],
-            rem: Default::default(),
-            hash_alg: String::from(""),
-            pub_key: [0; CVM_PUB_KEY_SIZE],
-            pub_key_hash_alg: String::from(""),
-        }
-    }
-    pub fn decode(raw_payload: &Vec<u8>) -> Result<CvmToken> {
-        let payload: Vec<u8> = ciborium::de::from_reader(raw_payload.as_slice())?;
-        log::debug!("After decode CBOR payload, payload {:?}", payload);
-        let payload: Value = ciborium::de::from_reader(payload.as_slice())?;
-        log::debug!("After decode CBOR payload agin, payload {:?}", payload);
-        let mut cvm_token: CvmToken = CvmToken::new();
-        if let Value::Map(contents) = payload {
-            for (k, v) in contents.iter() {
-                if let Value::Integer(i) = k {
-                    match (*i).into() {
-                        CVM_CHALLENGE_LABEL => cvm_token.set_challenge(v)?,
-                        CVM_RPV_LABEL => cvm_token.set_rpv(v)?,
-                        CVM_RIM_LABEL => cvm_token.set_rim(v)?,
-                        CVM_REM_LABEL => cvm_token.set_rem(v)?,
-                        CVM_HASH_ALG_LABEL => cvm_token.set_hash_alg(v)?,
-                        CVM_PUB_KEY_LABEL => cvm_token.set_pub_key(v)?,
-                        CVM_PUB_KEY_HASH_ALG_LABEL => cvm_token.set_pub_key_hash_alg(v)?,
-                        err => bail!("cvm payload unknown label {}", err),
-                    }
-                } else {
-                    bail!("cvm payload expecting integer key");
-                }
-            }
-        } else {
-            bail!("expecting cvm payload map type");
-        }
-        log::debug!("cvm_token decode from raw payload, {:?}", cvm_token);
-        Ok(cvm_token)
-    }
-    fn set_challenge(&mut self, v: &Value) -> Result<()> {
-        let tmp = v.as_bytes();
-        if tmp.is_none() {
-            bail!("cvm token challenge is none");
-        }
-        let tmp = tmp.unwrap().clone();
-        if tmp.len() != CVM_CHALLENGE_SIZE {
-            bail!(
-                "cvm token challenge expecting {} bytes, got {}",
-                CVM_CHALLENGE_SIZE,
-                tmp.len()
-            );
-        }
-        self.challenge[..].clone_from_slice(&tmp);
-        Ok(())
-    }
-    fn set_rpv(&mut self, v: &Value) -> Result<()> {
-        let tmp = v.as_bytes();
-        if tmp.is_none() {
-            bail!("cvm token rpv is none");
-        }
-        let tmp = tmp.unwrap().clone();
-        if tmp.len() != CVM_RPV_SIZE {
-            bail!(
-                "cvm token rpv expecting {} bytes, got {}",
-                CVM_RPV_SIZE,
-                tmp.len()
-            );
-        }
-        self.rpv[..].clone_from_slice(&tmp);
-        Ok(())
-    }
-    fn get_measurement(v: &Value, who: &str) -> Result<Vec<u8>> {
-        let tmp = v.as_bytes();
-        if tmp.is_none() {
-            bail!("cvm token {} is none", who);
-        }
-        let tmp = tmp.unwrap().clone();
-        if !matches!(tmp.len(), 32 | 48 | 64) {
-            bail!(
-                "cvm token {} expecting 32, 48 or 64 bytes, got {}",
-                who,
-                tmp.len()
-            );
-        }
-        Ok(tmp)
-    }
-    fn set_rim(&mut self, v: &Value) -> Result<()> {
-        self.rim = Self::get_measurement(v, "rim")?;
-        Ok(())
-    }
-    fn set_rem(&mut self, v: &Value) -> Result<()> {
-        let tmp = v.as_array();
-        if tmp.is_none() {
-            bail!("cvm token rem is none");
-        }
-        let tmp = tmp.unwrap().clone();
-        if tmp.len() != 4 {
-            bail!(
-                "cvm token rem expecting size {}, got {}",
-                CVM_REM_ARR_SIZE,
-                tmp.len()
-            );
-        }
-
-        for (i, val) in tmp.iter().enumerate() {
-            self.rem[i] = Self::get_measurement(val, "rem[{i}]")?;
-        }
-        Ok(())
-    }
-    fn get_hash_alg(v: &Value, who: &str) -> Result<String> {
-        let alg = v.as_text();
-        if alg.is_none() {
-            bail!("{} hash alg must be str", who);
-        }
-        Ok(alg.unwrap().to_string())
-    }
-    fn set_hash_alg(&mut self, v: &Value) -> Result<()> {
-        self.hash_alg = Self::get_hash_alg(v, "cvm token")?;
-        Ok(())
-    }
-    fn set_pub_key(&mut self, v: &Value) -> Result<()> {
-        let tmp = v.as_bytes();
-        if tmp.is_none() {
-            bail!("cvm token pub key is none");
-        }
-        let tmp = tmp.unwrap().clone();
-        if tmp.len() != CVM_PUB_KEY_SIZE {
-            bail!(
-                "cvm token pub key len expecting {}, got {}",
-                CVM_PUB_KEY_SIZE,
-                tmp.len()
-            );
-        }
-        self.pub_key[..].clone_from_slice(&tmp);
-        Ok(())
-    }
-    fn set_pub_key_hash_alg(&mut self, v: &Value) -> Result<()> {
-        self.pub_key_hash_alg = Self::get_hash_alg(v, "pub key")?;
+    fn set_platform_token(&mut self, v: &Value) -> Result<()> {
+        self.platform_envelop.bytes = Decode::get_vec(v, "platform_token", vec![])?;
         Ok(())
     }
 }

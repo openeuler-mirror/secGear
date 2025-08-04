@@ -10,7 +10,6 @@
  * See the Mulan PSL v2 for more details.
 */
 
-use super::CVM_REM_ARR_SIZE;
 use crate::ima::file_reader;
 use anyhow::{bail, Result};
 use eventlog_rs::{self, Eventlog};
@@ -29,6 +28,7 @@ const EVENT_REFERENCE_FILE: &str =
 const EVENT_REFERENCE_FILE: &str =
     "/etc/attestation/attestation-agent/local_verifier/virtcca/event/digest_list_file";
 
+const CVM_REM_ARR_SIZE: usize = 4;
 #[derive(Debug)]
 pub struct FirmwareState {
     pub grub_image_count: u8,

@@ -148,6 +148,7 @@ impl AttestationService {
         // get reference by keys in claims_evidence
         let mut ops_refs = ReferenceOps::default();
         let refs_of_claims = ops_refs.query(&claims_evidence["payload"].to_string());
+        log::debug!("refs_of_claims: {:?}", refs_of_claims);
         // apply policy to verify claims_evidence with reference value
         let policy_ids = match policy_ids {
             Some(policy_id) => policy_id.clone(),
@@ -169,7 +170,7 @@ impl AttestationService {
             )
             .await;
         let mut report = serde_json::json!({});
-        let mut ref_exist_null: bool = false;
+        let mut ref_verify: bool = true;
 
         match result {
             Ok(eval) => {
@@ -187,8 +188,8 @@ impl AttestationService {
                     };
                     for key in refs.keys() {
                         // reference value is null means not found
-                        if refs[key].is_null() {
-                            ref_exist_null = true;
+                        if refs[key].is_null() || refs[key] == Value::Bool(false) {
+                            ref_verify = false;
                         }
                     }
                     report
@@ -222,7 +223,7 @@ impl AttestationService {
                     .ok_or(anyhow!("tee type unknown"))?,
             ),
             result: EvlResult {
-                eval_result: passed & !ref_exist_null,
+                eval_result: passed & ref_verify,
                 policy: policy_ids,
                 report: report,
             },
