@@ -1,0 +1,7 @@
+{
+  "id": "login.01",
+  "name": "禁止空口令登录",
+  "description": "禁止空口令登录。若允许空口令登录，会增加空口令账号本身被攻击或被用来作为攻击账号的风险。",
+  "entry": "disable_ssh_no_pass.sh",
+  "services": ["sshd"]
+}

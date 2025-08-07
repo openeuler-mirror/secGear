@@ -1,0 +1,6 @@
+{
+  "id": "sys.02",
+  "name": "禁止开启kexec功能",
+  "description": "禁止开启kexec功能。kexec允许替换当前正在运行的内核，可能被攻击者利用加载恶意内核。若使用场景无内核升级需求，建议关闭kexec功能。",
+  "entry": "disable_kexec.sh"
+}

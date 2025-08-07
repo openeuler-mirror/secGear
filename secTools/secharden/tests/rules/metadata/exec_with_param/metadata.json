@@ -1,0 +1,15 @@
+{
+  "id": "exec_with_param",
+  "name": "valid metadata",
+  "description": "valid metadata",
+  "entry": "entry.sh",
+  "parameters": [
+    {
+      "id": "input",
+      "name": "input",
+      "description": "input parameter",
+      "converter": "TestConverter",
+      "cmd_template": "%file1 %file2"
+    }
+  ]
+}

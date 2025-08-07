@@ -1,0 +1,6 @@
+{
+  "id": "priv.01",
+  "name": "最小化文件权限",
+  "description": "最小化文件权限。最小化系统中敏感文件的访问权限，防止因权限过大导致攻击者进行文件篡改攻击。",
+  "entry": "minimal_file_permission.sh"
+}

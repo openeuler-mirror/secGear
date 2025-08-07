@@ -1,0 +1,15 @@
+{
+  "id": "no_converter",
+  "name": "xxx",
+  "description": "xxx",
+  "entry": "metadata.json",
+  "parameters": [
+    {
+      "id": "xxx",
+      "name": "xxx",
+      "description": "xxx",
+      "converter": "NotFoundConverter",
+      "cmd_template": "%file"
+    }
+  ]
+}

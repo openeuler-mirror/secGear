@@ -1,0 +1,6 @@
+{
+  "id": "sys.01",
+  "name": "配置dmesg访问权限",
+  "description": "配置dmesg访问权限。限制访问 dmesg 信息权限，无特权的用户无法查看系统信息，从而可以避免任何人从系统信息获取敏感信息。",
+  "entry": "enable_dmesg_restrict.sh"
+}

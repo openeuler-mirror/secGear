@@ -1,0 +1,14 @@
+{
+  "test": {
+    "name": "Test Category",
+    "description": "This is a test category for demonstration purposes."
+  },
+  "test1": {
+    "name": "Test1 Category",
+    "description": "This is a test category for demonstration purposes."
+  },
+  "error": {
+    "name": "Error Category",
+    "description": "This is a test category with error"
+  }
+}

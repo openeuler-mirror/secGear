@@ -1,0 +1,7 @@
+{
+  "id": "login.05",
+  "name": "禁止使用X11 Forwarding",
+  "description": "禁止使用X11 Forwarding。SSH的X11 Forwarding功能允许在本地主机上执行远程主机的GUI程序。启用X11 Forwarding功能会扩大攻击面，存在被X11服务器端其他用户攻击的可能。如果业务场景中不需要，则建议禁止该功能。",
+  "entry": "disable_ssh_x11_forwarding.sh",
+  "services": ["sshd"]
+}

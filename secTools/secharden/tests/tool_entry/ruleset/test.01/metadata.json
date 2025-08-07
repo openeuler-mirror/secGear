@@ -1,0 +1,6 @@
+{
+  "id": "test.01",
+  "name": "valid metadata",
+  "description": "valid metadata",
+  "entry": "entry.sh"
+}

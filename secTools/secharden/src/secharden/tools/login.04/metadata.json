@@ -1,0 +1,7 @@
+{
+  "id": "login.04",
+  "name": "禁用SSH的TCP转发功能",
+  "description": "禁用SSH的TCP转发功能。TCP端口转发是通过SSH隧道在本地主机和远程主机之间传输数据的功能。禁用该功能可以限制用户在SSH会话中的数据传输和访问范围，从而增强系统的安全性。",
+  "entry": "disable_ssh_tcp_forwarding.sh",
+  "services": ["sshd"]
+}

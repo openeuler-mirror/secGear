@@ -1,0 +1,6 @@
+{
+  "id": "login.06",
+  "name": "禁止使用SysRq键",
+  "description": "禁止使用SysRq键。SysRq使得具有物理访问权限的用户能够访问计算机中危险的系统级命令，攻击者可以通过键盘触发SysRq的调用，直接发送命令到内核，对系统造成影响。",
+  "entry": "disable_sysrq.sh"
+}

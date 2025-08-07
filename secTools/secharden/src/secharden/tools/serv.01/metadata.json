@@ -1,0 +1,7 @@
+{
+  "id": "serv.01",
+  "name": "启用rsyslog服务",
+  "description": "启用rsyslog服务。若不开启rsyslog服务，系统日志无法转储到持久性存储设备，系统重启后，会导致日志丢失。",
+  "entry": "/bin/true",
+  "services": ["rsyslog"]
+}

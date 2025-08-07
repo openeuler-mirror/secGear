@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "./metadata.json",
+  "title": "Tool metadata Schema",
+  "description": "Schema file for tool declaration",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "rule id, use to identify specific rule"
+        },
+        "name": {
+          "type": "string",
+          "description": "rule name"
+        },
+        "description": {
+          "type": "string",
+          "description": "rule description"
+        },
+        "entry": {
+          "type": "string",
+          "description": "rule entry script"
+        },
+        "parameters": {
+          "type": "array",
+          "description": "parameters for entry script",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "parameters id, use to identify specific config"
+              },
+              "name": {
+                "type": "string",
+                "description": "parameters name"
+              },
+              "description": {
+                "type": "string",
+                "description": "parameter description"
+              },
+              "converter": {
+                "type": "string",
+                "description": "parameter converter, use to convert config value to script argument"
+              },
+              "cmd_template": {
+                "type": "string",
+                "description": "command option for parameter to pass into the script, leave blank if no command option"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "description",
+              "converter",
+              "cmd_template"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "services": {
+          "type": "array",
+          "description": "services to be restart after rule execution",
+          "items": {
+            "type": "string",
+            "description": "service name to be restarted"
+          }
+        },
+        "urls": {
+          "type": "array",
+          "description": "reference urls",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "url title"
+              },
+              "url": {
+                "type": "string",
+                "description": "url link"
+              }
+            },
+            "required": [
+              "title",
+              "url"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "entry"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

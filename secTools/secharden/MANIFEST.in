@@ -1,0 +1,4 @@
+graft src/secharden/tools
+graft src/secharden/schema
+include src/secharden/VERSION
+prune src/secharden/devtools

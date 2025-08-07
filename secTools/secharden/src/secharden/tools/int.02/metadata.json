@@ -1,0 +1,12 @@
+{
+  "id": "int.02",
+  "name": "启用DIM动态度量内核",
+  "description": "启用DIM动态度量内核。DIM特性通过在程序运行时对内存中的关键数据（如代码段、数据段）进行度量，并将度量结果和基准值进行对比，确定内存数据是否被篡改，从而检测攻击行为，并采取应对措施。",
+  "entry": "enforce_dim.sh",
+  "urls": [
+    {
+      "title": "动态完整性度量 (DIM)",
+      "url": "https://docs.openeuler.org/en/docs/24.03_LTS_SP2/server/security/trusted_computing/dim.html"
+    }
+  ]
+}

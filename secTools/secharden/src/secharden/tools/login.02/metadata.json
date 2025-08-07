@@ -1,0 +1,7 @@
+{
+  "id": "login.02",
+  "name": "禁止使用PermitUserEnvironment",
+  "description": "禁止使用PermitUserEnvironment。PermitUserEnvironment允许用户设置SSH环境变量，则攻击者可以通过修改SSH环境变量绕过安全机制，或者执行攻击代码。",
+  "entry": "disable_ssh_permit_user_environment.sh",
+  "services": ["sshd"]
+}

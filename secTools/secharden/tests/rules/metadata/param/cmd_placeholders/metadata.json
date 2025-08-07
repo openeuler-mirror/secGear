@@ -1,0 +1,15 @@
+{
+  "id": "cmd_placeholders",
+  "name": "xxx",
+  "description": "xxx",
+  "entry": "metadata.json",
+  "parameters": [
+    {
+      "id": "xxx",
+      "name": "xxx",
+      "description": "xxx",
+      "converter": "TestConverter",
+      "cmd_template": "%file1 %file2"
+    }
+  ]
+}

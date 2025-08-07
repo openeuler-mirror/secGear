@@ -1,0 +1,7 @@
+{
+  "id": "login.08",
+  "name": "设置最大认证次数",
+  "description": "设置最大认证次数。如果该值配置比较大，则单次连接过程中客户端可以尝试多次认证失败，降低了攻击开销。",
+  "entry": "set_ssh_max_auth_tries.sh",
+  "services": ["sshd"]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "int.03",
+  "name": "启用IMA度量关键文件",
+  "description": "启用IMA度量关键文件。IMA 度量是一个开源的可信计算组件。其维护了一个运行时度量列表，并在 TPM 设备存在时则针对该列表生成整体完整性度量值并记录到 TPM 中。",
+  "entry": "enforce_ima.sh",
+  "parameters": [
+    {
+      "id": "selinux_tags",
+      "name": "selinux 标签列表文件",
+      "description": "该文件包含一个 selinux 标签列表，表示这些标签需要被 ima 度量。要求文件每行一个标签。",
+      "converter": "FileListConverter",
+      "cmd_template": "%file"
+    }
+  ],
+  "urls": [
+    {
+      "title": "Integrity Measurement Architecture (IMA) Wiki",
+      "url": "https://sourceforge.net/p/linux-ima/wiki/Home/"
+    },
+    {
+      "title": "内核完整性度量（IMA）",
+      "url": "https://docs.openeuler.org/zh/docs/24.03_LTS_SP2/server/security/trusted_computing/ima.html"
+    }
+  ]
+}

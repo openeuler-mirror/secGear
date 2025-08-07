@@ -1,0 +1,6 @@
+{
+  "id": "net.09",
+  "name": "启用TCP-SYN cookie",
+  "description": "启用TCP-SYN cookie。攻击者使用SYN泛洪攻击时会快速耗尽内核中半开连接队列，阻止合法连接。如果启用SYN cookie，即使受到拒绝服务攻击仍允许系统继续接受合法连。",
+  "entry": "enable_tcp_syn_cookies.sh"
+}

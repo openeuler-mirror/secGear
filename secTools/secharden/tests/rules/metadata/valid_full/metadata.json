@@ -1,0 +1,21 @@
+{
+  "id": "valid_full",
+  "name": "valid metadata",
+  "description": "valid metadata",
+  "entry": "metadata.json",
+  "parameters": [
+    {
+      "id": "xxx",
+      "name": "xxx",
+      "description": "xxx",
+      "converter": "FileListConverter",
+      "cmd_template": "%file test"
+    }
+  ],
+  "urls": [
+    {
+      "url": "https://example.com",
+      "title": "example"
+    }
+  ]
+}

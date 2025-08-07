@@ -1,0 +1,6 @@
+{
+  "id": "kern.02",
+  "name": "启用内核ASLR",
+  "description": "启用内核ASLR。ASLR通过每次将栈的起始位置、函数库和程序本身移至随机位置，使得内存攻击时无法猜测正确的内存位置，导致攻击无法成功实施。",
+  "entry": "enable_kernel_aslr.sh"
+}

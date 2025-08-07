@@ -1,0 +1,15 @@
+{
+  "id": "cmd_mismatch_id",
+  "name": "xxx",
+  "description": "xxx",
+  "entry": "metadata.json",
+  "parameters": [
+    {
+      "id": "xxx",
+      "name": "xxx",
+      "description": "xxx",
+      "converter": "FileListConverter",
+      "cmd_template": "%f"
+    }
+  ]
+}

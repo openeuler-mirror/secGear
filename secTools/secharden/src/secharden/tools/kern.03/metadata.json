@@ -1,0 +1,6 @@
+{
+  "id": "kern.03",
+  "name": "确保内核触发错误后直接退出",
+  "description": "确保内核触发错误后直接退出。系统内核在发现一些非致命错误时会触发oops，如果在oops发生后内核仍然继续运行，可能会导致错误依然存在并影响内核的稳定性和可靠性。因此，建议设置使能panic_on_oops，在发生oops后直接panic退出而不是继续运行。",
+  "entry": "enable_panic_on_oops.sh"
+}

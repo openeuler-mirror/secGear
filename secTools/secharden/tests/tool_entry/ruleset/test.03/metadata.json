@@ -1,0 +1,7 @@
+{
+  "id": "test.03",
+  "name": "valid metadata",
+  "description": "valid metadata",
+  "entry": "true",
+  "services": ["sshd"]
+}

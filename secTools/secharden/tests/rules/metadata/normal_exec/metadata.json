@@ -1,0 +1,6 @@
+{
+  "id": "normal_exec",
+  "name": "valid metadata",
+  "description": "valid metadata",
+  "entry": "entry.sh"
+}

@@ -1,0 +1,22 @@
+{
+  "nometa": {
+    "name": "No Metadata",
+    "description": "This category does not have metadata."
+  },
+  "test": {
+    "name": "Test Category",
+    "description": "This is a test category with metadata."
+  },
+  "test1": {
+    "name": "Test Category 1",
+    "description": "This is another test category with metadata."
+  },
+  "notdir": {
+    "name": "Not a Directory Category",
+    "description": "This category is not a directory"
+  },
+  "invalid": {
+    "name": "Invalid Category",
+    "description": "This category has invalid metadata."
+  }
+}

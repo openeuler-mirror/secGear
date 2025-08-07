@@ -1,0 +1,6 @@
+{
+  "id": "sys.03",
+  "name": "限制内核符号读取权限",
+  "description": "限制内核符号读取权限。kptr_restrict的作用是保护内核符号地址，保护等级低时普通用户可以访问得到内核符号地址容易被攻击者利用，增加了攻击面降低了系统安全性。",
+  "entry": "enable_kptr_restrict.sh"
+}

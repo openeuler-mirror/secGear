@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE comps
+  PUBLIC '-//openEuler//DTD Comps info//EN'
+  'comps.dtd'>
+<comps>
+  <group>
+    <id>core</id>
+    <name>Core</name>
+    <name xml:lang="zh_CN">核心</name>
+    <description>Smallest possible installation</description>
+    <description xml:lang="zh_CN">最小安装</description>
+    <default>true</default>
+    <uservisible>false</uservisible>
+    <packagelist>
+      <packagereq type="mandatory">audit</packagereq>
+      <packagereq type="mandatory">kernel</packagereq>
+      <packagereq type="mandatory">basesystem</packagereq>
+      <packagereq type="mandatory">bash</packagereq>
+      <packagereq type="mandatory">coreutils</packagereq>
+      <packagereq type="mandatory">cronie</packagereq>
+      <packagereq type="mandatory">curl</packagereq>
+      <packagereq type="mandatory">dnf</packagereq>
+      <packagereq type="mandatory">e2fsprogs</packagereq>
+      <packagereq type="mandatory">filesystem</packagereq>
+      <packagereq type="mandatory">firewalld</packagereq>
+      <packagereq type="mandatory">glibc</packagereq>
+      <packagereq type="mandatory">grubby</packagereq>
+      <packagereq type="mandatory">hostname</packagereq>
+      <packagereq type="mandatory">initscripts</packagereq>
+      <packagereq type="mandatory">iproute</packagereq>
+      <packagereq type="mandatory">iprutils</packagereq>
+      <packagereq type="mandatory">iputils</packagereq>
+      <packagereq type="mandatory">irqbalance</packagereq>
+      <packagereq type="mandatory">kbd</packagereq>
+      <packagereq type="mandatory">kexec-tools</packagereq>
+      <packagereq type="mandatory">less</packagereq>
+      <packagereq type="mandatory">man-db</packagereq>
+      <packagereq type="mandatory">ncurses</packagereq>
+      <packagereq type="mandatory">openssh</packagereq>
+      <packagereq type="mandatory">openssh-server</packagereq>
+      <packagereq type="mandatory">openssh-clients</packagereq>
+      <packagereq type="mandatory">parted</packagereq>
+      <packagereq type="mandatory">passwd</packagereq>
+      <packagereq type="mandatory">policycoreutils</packagereq>
+      <packagereq type="mandatory">procps-ng</packagereq>
+      <packagereq type="mandatory">rng-tools</packagereq>
+      <packagereq type="mandatory">rootfiles</packagereq>
+      <packagereq type="mandatory">rpm</packagereq>
+      <packagereq type="mandatory">selinux-policy-targeted</packagereq>
+      <packagereq type="mandatory">setup</packagereq>
+      <packagereq type="mandatory">shadow</packagereq>
+      <packagereq type="mandatory">sssd</packagereq>
+      <packagereq type="mandatory">sudo</packagereq>
+      <packagereq type="mandatory">systemd</packagereq>
+      <packagereq type="mandatory">tuned</packagereq>
+      <packagereq type="mandatory">util-linux</packagereq>
+      <packagereq type="mandatory">vim-minimal</packagereq>
+      <packagereq type="mandatory">xfsprogs</packagereq>
+      <packagereq type="mandatory">yum</packagereq>
+      <packagereq type="mandatory">wget</packagereq>
+      <packagereq type="mandatory">openEuler-release</packagereq>
+      <packagereq type="mandatory">openEuler-performance</packagereq>
+      <packagereq type="mandatory">openEuler-latest-release</packagereq>
+      <packagereq type="default">NetworkManager</packagereq>
+      <packagereq type="default">NetworkManager-config-server</packagereq>
+      <packagereq type="default">authselect</packagereq>
+      <packagereq type="default">dnf-plugins-core</packagereq>
+      <packagereq type="default">dracut-config-rescue</packagereq>
+      <packagereq type="default">kernel-tools</packagereq>
+      <packagereq type="default">sysfsutils</packagereq>
+      <packagereq type="default">linux-firmware</packagereq>
+      <packagereq type="default">lshw</packagereq>
+      <packagereq type="default">lsscsi</packagereq>
+      <packagereq type="default">rsyslog</packagereq>
+      <packagereq type="default">security-tool</packagereq>
+      <packagereq type="default">sg3_utils</packagereq>
+      <packagereq type="optional">dracut-config-generic</packagereq>
+      <packagereq type="optional">dracut-network</packagereq>
+      <packagereq type="optional">rdma-core</packagereq>
+      <packagereq type="optional">selinux-policy-mls</packagereq>
+      <packagereq type="mandatory">selinux-policy-devel</packagereq>
+      <packagereq type="mandatory">selinux-policy</packagereq>
+      <packagereq type="mandatory">setools-console</packagereq>
+      <packagereq type="mandatory">dim</packagereq>
+      <packagereq type="mandatory">dim_tools</packagereq>
+    </packagelist>
+  </group>
+  <environment>
+    <id>minimal-environment</id>
+    <name>Minimal Install</name>
+    <name xml:lang="zh_CN">最小安装</name>
+    <description>Basic functionality.</description>
+    <description xml:lang="zh_CN">基本功能。</description>
+    <display_order>1</display_order>
+    <grouplist>
+      <groupid>core</groupid>
+    </grouplist>
+    <optionlist>
+      <groupid>standard</groupid>
+    </optionlist>
+  </environment>
+  <langpacks>
+    <match install="aspell-%s" name="aspell"/>
+    <match install="autocorr-%s" name="autocorr-en"/>
+    <match install="gnome-getting-started-docs-%s" name="gnome-getting-started-docs"/>
+    <match install="hunspell-%s" name="hunspell"/>
+    <match install="hyphen-%s" name="hyphen"/>
+    <match install="libreoffice-help-%s" name="libreoffice-core"/>
+    <match install="man-pages-%s" name="man-pages"/>
+    <match install="mythes-%s" name="mythes"/>
+  </langpacks>
+</comps>

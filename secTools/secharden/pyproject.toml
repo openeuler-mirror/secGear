@@ -1,0 +1,35 @@
+[project]
+name = "secharden"
+version = "1.0.0"
+description = "command line for os hardening configuration management"
+readme = "README.md"
+authors = [
+    { name = "Tomahawkd", email = "tomahawkd00@outlook.com" }
+]
+dependencies = [
+    "jsonschema",
+    "pyyaml",
+]
+
+classifiers = [
+    "Environment :: Console",
+    "License :: OSI Approved :: Mulan Permissive Software License v2 (MulanPSL-2.0)",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3"
+]
+
+[project.scripts]
+secharden = "secharden.secharden:main"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+]
+
+[project.urls]
+Homepage = "https://gitee.com/openeuler/secGear"
+
+[tool.uv]
+package = true

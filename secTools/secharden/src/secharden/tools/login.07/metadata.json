@@ -1,0 +1,6 @@
+{
+  "id": "login.07",
+  "name": "避免开启tcp_timestamps",
+  "description": "避免开启tcp_timestamps。tcp_timestamps用于记录TCP数据包的发送时间，可用于RTT测量（RTTM）和保护序号绕回（PAWS），启用该选项可能遭受拒绝服务攻击。",
+  "entry": "disable_tcp_timestamps.sh"
+}

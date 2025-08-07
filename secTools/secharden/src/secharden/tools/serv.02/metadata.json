@@ -1,0 +1,6 @@
+{
+  "id": "serv.02",
+  "name": "Selinux启用enforce模式",
+  "description": "Selinux启用enforce模式。SELinux是Linux发行版中内置的安全模块，通过细粒度的访问控制机制实现应用程序对资源的访问控制。SELinux只有工作在enforcing模式时才能有效启用并保护系统。",
+  "entry": "enable_selinux_enforce.sh"
+}

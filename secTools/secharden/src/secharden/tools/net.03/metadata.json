@@ -1,0 +1,6 @@
+{
+  "id": "net.03",
+  "name": "禁止IP转发",
+  "description": "禁止IP转发。如果该结点不作为网关服务器，则应禁用IP转发功能。否则攻击者可将此系统作为路由器使用。",
+  "entry": "disable_ip_forward.sh"
+}

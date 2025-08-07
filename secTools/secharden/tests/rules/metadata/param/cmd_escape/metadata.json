@@ -1,0 +1,15 @@
+{
+  "id": "cmd_escape",
+  "name": "xxx",
+  "description": "xxx",
+  "entry": "metadata.json",
+  "parameters": [
+    {
+      "id": "xxx",
+      "name": "xxx",
+      "description": "xxx",
+      "converter": "FileListConverter",
+      "cmd_template": "%file %%file"
+    }
+  ]
+}

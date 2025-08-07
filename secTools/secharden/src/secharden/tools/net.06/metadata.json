@@ -1,0 +1,6 @@
+{
+  "id": "net.06",
+  "name": "丢弃伪造的ICMP报文",
+  "description": "丢弃伪造的ICMP报文。一些攻击者会发送违反RFC-1122的ICMP报文，并试图用大量无用的错误信息填充日志文件系统。",
+  "entry": "drop_forge_icmp_package.sh"
+}

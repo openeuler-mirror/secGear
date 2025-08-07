@@ -1,0 +1,22 @@
+{
+  "id": "test.02",
+  "name": "valid metadata",
+  "description": "valid metadata",
+  "entry": "entry.sh",
+  "parameters": [
+    {
+      "id": "input",
+      "name": "input",
+      "description": "input parameter",
+      "converter": "TestConverter",
+      "cmd_template": "%file1 %file2"
+    },
+    {
+      "id": "input1",
+      "name": "input1",
+      "description": "input1 parameter",
+      "converter": "TestConverter",
+      "cmd_template": "%file1 %file2"
+    }
+  ]
+}

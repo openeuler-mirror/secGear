@@ -1,0 +1,6 @@
+{
+  "id": "sys.04",
+  "name": "限制ptrace范围",
+  "description": "限制ptrace范围。ptrace是一种系统调用用于进程跟踪，提供了父进程可以观察并控制子进程的能力。无限制的ptrace使用可能导致攻击者劫持关键进程进行系统攻击。",
+  "entry": "enable_ptrace_scope.sh"
+}

@@ -1,0 +1,6 @@
+{
+  "id": "kern.01",
+  "name": "开启BPF加固功能",
+  "description": "开启BPF加固功能。BFP代码支持JIT编译执行和解释执行。其中JIT编译执行面临JIT喷射攻击的风险，攻击者可能利用该风险攻击内核进行提权。BPF加固功能会对JIT编译执行进行加固，缓解某些类型的JIT喷射攻击，降低内核面临的攻击风险。",
+  "entry": "enable_bpf_jit_harden.sh"
+}

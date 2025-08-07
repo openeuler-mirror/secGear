@@ -1,0 +1,7 @@
+{
+  "id": "login.03",
+  "name": "禁用root用户通过SSH登录",
+  "description": "禁用root用户通过SSH登录。要求系统管理员使用自己的个人账户进行SSH登录，然后通过sudo或 su提升权限到root。这样可在发生安全事件时提供清晰的审计线索。",
+  "entry": "disable_ssh_root_login.sh",
+  "services": ["sshd"]
+}
