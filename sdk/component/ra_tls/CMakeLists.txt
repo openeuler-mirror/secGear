@@ -34,6 +34,15 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty/base64url)
 
 set(LIB_SRC ${LIB_SRC} ${BASE64_SRC})
 add_library(${LIB_NAME} SHARED ${LIB_SRC})
+
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
+    target_link_directories(${LIB_NAME} PUBLIC
+        ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+    )
+else()
+    link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY} ${CMAKE_BINARY_DIR}/lib)
+endif()
+
 target_link_libraries(${LIB_NAME} PUBLIC ${LD_SO})
 
 set_target_properties(${LIB_NAME} PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")

@@ -38,7 +38,13 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-maybe-uninitialized -fPIC")
 if(CC_GP)
     if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
         link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-        ${CMAKE_BINARY_DIR}/lib/)
+            ${CMAKE_BINARY_DIR}/lib)
+
+        if (CMAKE_BUILD_TYPE MATCHES "Debug")
+            link_directories(${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/debug)
+        else()
+            link_directories(${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/release)
+        endif()
     endif()
 
     include_directories(
@@ -58,9 +64,18 @@ if(CC_GP)
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
         target_link_directories(u${PREFIX} PRIVATE 
             ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-            ${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/release
-            ${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/debug
+            ${CMAKE_BINARY_DIR}/lib
         )
+
+        if(CMAKE_BUILD_TYPE MATCHES "Debug")
+            target_link_directories(u${PREFIX} PRIVATE
+                ${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/debug
+            )
+        else()
+            target_link_directories(u${PREFIX} PRIVATE
+                ${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/release
+        )
+    endif()
     endif()
     target_link_libraries(u${PREFIX} secgear_ra attestation_agent)
 endif()
@@ -77,7 +92,13 @@ if(CC_SGX)
 
     if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
         link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-        ${CMAKE_BINARY_DIR}/lib/)
+        ${CMAKE_BINARY_DIR}/lib)
+
+        if (CMAKE_BUILD_TYPE MATCHES "Debug")
+            link_directories(${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/debug)
+        else()
+            link_directories(${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/release)
+        endif()
     endif()
 
     include_directories(
@@ -98,10 +119,18 @@ if(CC_SGX)
     if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
 	    target_link_directories(u${PREFIX} PRIVATE 
             ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-            ${CMAKE_BINARY_DIR}/lib/
-            ${CMAKE_SOURCE_DIR}/../service/attestation/attestation-agent/target/release
-            ${CMAKE_SOURCE_DIR}/../service/attestation/attestation-agent/target/debug
+            ${CMAKE_BINARY_DIR}/lib
         )
+
+        if(CMAKE_BUILD_TYPE MATCHES "Debug")
+            target_link_directories(u${PREFIX} PRIVATE
+                ${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/debug
+            )
+        else()
+            target_link_directories(u${PREFIX} PRIVATE
+                ${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/release
+            )
+        endif()
     endif()
     target_link_libraries(u${PREFIX} secgear_ra attestation_agent)
 endif()

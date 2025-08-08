@@ -20,6 +20,12 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 
 if(${CMAKE_VERSION} VERSION_LESS "3.13.0")
     link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+
+    if (CMAKE_BUILD_TYPE MATCHES "Debug")
+        link_directories(${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/debug)
+    else()
+        link_directories(${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/release)
+    endif()
 endif()
 
 include_directories( 
@@ -38,9 +44,17 @@ add_library(c${PREFIX} SHARED ${SOURCE_FILE} ${CJSON_SRC} ${BASE64_SRC})
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13.0")
     target_link_directories(c${PREFIX} PRIVATE
         ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-        ${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/release
-        ${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/debug
     )
+
+    if(CMAKE_BUILD_TYPE MATCHES "Debug")
+        target_link_directories(c${PREFIX} PRIVATE
+            ${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/debug
+        )
+    else()
+        target_link_directories(c${PREFIX} PRIVATE
+            ${LOCAL_ROOT_PATH}/../service/attestation/attestation-agent/target/release
+        )
+    endif()
 endif()
 
 target_link_libraries(c${PREFIX} ssl crypto secgear_verify attestation_agent)
