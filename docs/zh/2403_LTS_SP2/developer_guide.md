@@ -42,7 +42,7 @@ cd examples/helloworld
 > ![](./public_sys-resources/icon-note.gif)说明:
 >
 > - 鲲鹏开发者证书需要向华为业务负责人[申请开发者证书](https://gitee.com/link?target=https%3A%2F%2Fwww.hikunpeng.com%2Fdocument%2Fdetail%2Fzh%2Fkunpengcctrustzone%2Ffg-tz%2Fkunpengtrustzone_04_0009.html)。
-> - SGX以Debug模式调试，暂时不用申请。如需正式商用并且用intel的远程证明服务，需要向Intel[申请License](https://gitee.com/link?target=https%3A%2F%2Fwww.intel.com%2Fcontent%2Fwww%2Fus%2Fen%2Fdeveloper%2Ftools%2Fsoftware-guard-extensions%2Frequest-license.html)。
+> - SGX以Debug模式调试，暂时不用申请。如需正式商用并且用intel的远程证明服务，需要向Intel申请License。
 
 申请成功后会得到开发者证书相关文件，需要放置到代码目录相应位置。
 

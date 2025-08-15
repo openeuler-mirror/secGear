@@ -38,6 +38,10 @@ set(SGX_SDK_DEFAULT_PATH /opt/intel/sgxsdk)
 set(GP_SDK_DEFAULT_PATH /opt/itrustee_sdk)
 set(PL_SDK_DEFAULT_PATH /root/dev/sdk)
 
+if (NOT CMAKE_BUILD_TYPE)
+	set(CMAKE_BUILD_TYPE "Debug")
+endif()
+
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
 	add_definitions(-DDEBUG_FILE_LINE)
 	#set enclave log level

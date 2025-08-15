@@ -42,7 +42,7 @@ In addition to the preceding three parts, there are compilation project file (**
 > [!NOTE]NOTE 
 >
 > - The Kunpeng developer license needs to be [applied for from the Huawei service owner](https://www.hikunpeng.com/document/detail/en/kunpengcctrustzone/fg-tz/kunpengtrustzone_04_0009.html).
-> - Because Intel SGX is debugged in debug mode, you do not need to apply for a developer license currently. If the remote attestation service of Intel is required for commercial use, you need to [apply for a license from Intel](https://www.intel.com/content/www/us/en/developer/tools/software-guard-extensions/request-license.html).
+> - Because Intel SGX is debugged in debug mode, you do not need to apply for a developer license currently. If the remote attestation service of Intel is required for commercial use, you need to apply for a license from Intel.
 
 After the application is successful, the developer license file is obtained and needs to be stored in the corresponding code directory.
 
