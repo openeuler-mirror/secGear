@@ -192,49 +192,69 @@ struct GetResourceRequest {
     resource: ResourceLocation,
 }
 
-#[get("/resource/storage")]
+#[get("/resource")]
 pub async fn get_resource(
     request: web::Json<GetResourceRequest>,
     agent: web::Data<Arc<RwLock<AttestationAgent>>>,
 ) -> Result<HttpResponse> {
-    let agent = agent.read().await;
+    let request = request.0;
+    log::debug!("get resource request: {:?}", request);
+    let uuid = request.uuid.clone();
+    let challenge = request.challenge;
+    let ima = request.ima;
+    let policy_id = request.policy_id;
+    let resource = request.resource;
 
-    // If user provides the challenge number, use the challenge to find session.
-    let challenge = match request.challenge.as_ref() {
-        Some(c) => c.clone(),
-        None => agent
-            .get_challenge(None)
+    let token = if let Some(challenge) = challenge {
+        let ev = EvidenceRequest {
+            uuid: request.uuid,
+            challenge: challenge.into_bytes(),
+            ima: ima,
+        };
+        let input = TokenRequest {
+            ev_req: ev,
+            policy_id: policy_id,
+        };
+        agent
+            .read()
             .await
-            .map_err(|err| AgentError::ChallengeError(err.to_string()))?,
+            .get_token(input)
+            .await
+            .map_err(|err| AgentError::GetTokenError(err.to_string()))?
+    } else {
+        // Use stored token if available
+        "".to_string() // Placeholder - need to implement token storage
     };
 
-    // base64 encoded challenge
-    let ev_req = EvidenceRequest {
-        uuid: request.uuid.clone(),
-        challenge: challenge.clone().into_bytes(),
-        ima: request.ima,
-    };
-
-    let token_req = TokenRequest {
-        ev_req,
-        policy_id: request.policy_id.clone(),
-    };
-
-    #[cfg(feature = "no_as")]
-    {
-        return Err(Error::Other(anyhow!(
-            "Resource can only be got from attestation server."
-        )));
-    }
-
-    let token = agent.get_token(token_req).await?;
-
-    let restful = format!("{}/resource/storage", agent.config.svr_url,);
-
-    let resource = agent
-        .get_resource(&challenge, &restful, request.resource.clone(), &token)
+    let resource_content = agent
+        .read()
+        .await
+        .get_resource(&uuid, "", resource, &token)
         .await
         .map_err(|err| AgentError::GetTokenError(err.to_string()))?;
 
-    Ok(HttpResponse::Ok().body(resource))
+    Ok(HttpResponse::Ok().body(resource_content))
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct GetCurrentTokenRequest {}
+
+#[get("/current_token")]
+pub async fn get_current_token(
+    _request: Option<web::Json<GetCurrentTokenRequest>>,
+    agent: web::Data<Arc<RwLock<AttestationAgent>>>,
+) -> Result<HttpResponse> {
+    log::debug!("get current token request");
+    
+    let agent_guard = agent.read().await;
+    let token = if let Ok(token_guard) = agent_guard.current_token.lock() {
+        match token_guard.as_ref() {
+            Some(token) => token.clone(),
+            None => "No active token available".to_string(),
+        }
+    } else {
+        "Failed to access token storage".to_string()
+    };
+    
+    Ok(HttpResponse::Ok().body(token))
 }

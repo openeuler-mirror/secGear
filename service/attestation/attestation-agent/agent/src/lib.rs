@@ -34,6 +34,8 @@ use std::fs::File;
 use std::path::Path;
 use thiserror;
 use token_verifier::{TokenRawData, TokenVerifier, TokenVerifyConfig};
+use std::sync::Arc;
+use std::sync::Mutex;
 
 pub type TeeClaim = serde_json::Value;
 
@@ -266,17 +268,25 @@ impl TryFrom<&Path> for AAConfig {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct AttestationAgent {
     pub config: AAConfig,
     as_client_sessions: SessionMap,
+    attestation_interval: Option<u64>,
+    current_token: Arc<Mutex<Option<String>>>,
 }
 
 #[allow(dead_code)]
 impl AttestationAgent {
     pub fn new(config: AAConfig) -> Result<Self, Error> {
+        Self::new_with_interval(config, None)
+    }
+
+    pub fn new_with_interval(config: AAConfig, attestation_interval: Option<u64>) -> Result<Self, Error> {
         let as_client_sessions = SessionMap::new();
         let sessions = as_client_sessions.clone();
+        
+        // Start session cleanup task
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(std::time::Duration::from_secs(60)).await;
@@ -286,10 +296,73 @@ impl AttestationAgent {
                     .await;
             }
         });
-        Ok(AttestationAgent {
+
+        let agent = AttestationAgent {
             config,
             as_client_sessions,
-        })
+            attestation_interval,
+            current_token: Arc::new(Mutex::new(None)),
+        };
+
+        // Start active attestation task if interval is specified
+        if let Some(interval) = attestation_interval {
+            if interval > 0 {
+                let agent_clone = agent.clone();
+                tokio::spawn(async move {
+                    agent_clone.start_active_attestation().await;
+                });
+            }
+        }
+
+        Ok(agent)
+    }
+
+    /// Start active attestation task
+    async fn start_active_attestation(&self) {
+        log::info!("Starting active attestation with interval {} seconds", self.attestation_interval.unwrap());
+        
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(self.attestation_interval.unwrap())).await;
+            
+            match self.perform_active_attestation().await {
+                Ok(token) => {
+                    log::info!("Active attestation successful, token obtained");
+                    // Store the token in the agent
+                    if let Ok(mut token_guard) = self.current_token.lock() {
+                        *token_guard = Some(token);
+                        log::debug!("Token stored successfully");
+                    } else {
+                        log::error!("Failed to store token: mutex lock failed");
+                    }
+                }
+                Err(e) => {
+                    log::error!("Active attestation failed: {:?}", e);
+                }
+            }
+        }
+    }
+
+    /// Perform active attestation: get challenge, evidence, and verify with AS
+    async fn perform_active_attestation(&self) -> Result<String> {
+        // Generate a random challenge
+        let mut challenge_data = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut challenge_data);
+        let _challenge = base64_url::encode(&challenge_data);
+        
+        // Create evidence request
+        let evidence_request = EvidenceRequest {
+            uuid: "active-attestation".to_string(),
+            challenge: challenge_data.to_vec(),
+            ima: Some(true), // Enable IMA for active attestation
+        };
+        
+        // Get evidence from TEE
+        let evidence = self.get_evidence(evidence_request).await?;
+        
+        // Verify evidence with attestation service
+        let token = self.verify_evidence_by_as(&challenge_data, &evidence, None).await?;
+        
+        Ok(token)
     }
 
     fn create_client(&self, protocal: HttpProtocal, cookie_store: bool) -> Result<reqwest::Client> {

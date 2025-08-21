@@ -14,6 +14,7 @@ use anyhow::{bail, Result};
 use attestation_agent::{
     restapi::{
         get_challenge, get_evidence, get_resource, get_token, verify_evidence, verify_token,
+        get_current_token,
     },
     AAConfig, AttestationAgent, HttpProtocal, DEFAULT_AACONFIG_FILE,
 };
@@ -28,7 +29,7 @@ const DEFAULT_SOCKETADDR: &str = "127.0.0.1:8081";
 #[command(version, about, long_about = None)]
 pub struct Cli {
     /// Socket address to listen on
-    #[arg(short, long, default_value_t = DEFAULT_SOCKETADDR.to_string())]
+    #[arg(short = 'l', long, default_value_t = DEFAULT_SOCKETADDR.to_string())]
     socketaddr: String,
     /// Socket address connect to
     #[arg(short = 'u', long, default_value_t = String::from(""))]
@@ -50,6 +51,10 @@ pub struct Cli {
     /// root certificate to verify peer
     #[arg(short = 't', long = "cert_root", default_value_t = String::from(""))]
     cert_root: String,
+
+    /// Active attestation interval in seconds (0 to disable)
+    #[arg(short = 's', long = "attestation_interval", default_value_t = 0)]
+    attestation_interval: u64,
 }
 
 #[actix_web::main]
@@ -79,7 +84,11 @@ async fn main() -> Result<()> {
         config.svr_url = config.protocal.get_protocal() + "://" + &cli.serverurl.clone();
     }
 
-    let server = AttestationAgent::new(config).unwrap();
+    let server = if cli.attestation_interval > 0 {
+        AttestationAgent::new_with_interval(config, Some(cli.attestation_interval)).unwrap()
+    } else {
+        AttestationAgent::new(config).unwrap()
+    };
     let service = web::Data::new(Arc::new(RwLock::new(server)));
     HttpServer::new(move || {
         App::new()
@@ -90,6 +99,7 @@ async fn main() -> Result<()> {
             .service(get_token)
             .service(verify_token)
             .service(get_resource)
+            .service(get_current_token)
             .default_service(web::to(|| HttpResponse::NotFound()))
     })
     .bind(cli.socketaddr)?
