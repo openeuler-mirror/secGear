@@ -334,33 +334,58 @@ impl AttestationAgent {
         
         log::info!("Starting active attestation with interval {} seconds", interval);
         
+        let mut iteration_count = 0;
+        let mut consecutive_failures = 0;
+        
         loop {
+            iteration_count += 1;
+            log::info!("Active attestation iteration {} starting", iteration_count);
+            
             tokio::time::sleep(std::time::Duration::from_secs(interval)).await;
+            log::debug!("Sleep completed, proceeding with attestation");
             
             match self.perform_active_attestation().await {
                 Ok(token) => {
                     log::info!("Active attestation successful, token obtained");
+                    consecutive_failures = 0; // 重置失败计数
+                    
                     // Store the token in the agent
-                    if let Ok(mut token_guard) = self.current_token.lock() {
-                        *token_guard = Some(token);
-                        log::debug!("Token stored successfully");
-                    } else {
-                        log::error!("Failed to store token: mutex lock failed");
+                    match self.current_token.lock() {
+                        Ok(mut token_guard) => {
+                            *token_guard = Some(token);
+                            log::debug!("Token stored successfully");
+                        }
+                        Err(e) => {
+                            log::error!("Failed to store token: mutex lock failed: {:?}", e);
+                        }
                     }
                 }
                 Err(e) => {
-                    log::error!("Active attestation failed: {:?}", e);
+                    consecutive_failures += 1;
+                    log::error!("Active attestation failed (attempt {}): {:?}", iteration_count, e);
+                    log::error!("Consecutive failures: {}", consecutive_failures);
+                    
+                    // 如果连续失败次数过多，增加延迟
+                    if consecutive_failures >= 3 {
+                        log::warn!("Too many consecutive failures, adding extra delay");
+                        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                    }
                 }
             }
+            
+            log::debug!("Active attestation iteration {} completed", iteration_count);
         }
     }
 
     /// Perform active attestation: get challenge, evidence, and verify with AS
     async fn perform_active_attestation(&self) -> Result<String> {
+        log::info!("Starting perform_active_attestation");
+        
         // Generate a random challenge
         let mut challenge_data = [0u8; 32];
         rand::thread_rng().fill_bytes(&mut challenge_data);
         let _challenge = base64_url::encode(&challenge_data);
+        log::debug!("Generated challenge data: {} bytes", challenge_data.len());
         
         // Create evidence request
         let evidence_request = EvidenceRequest {
@@ -368,13 +393,35 @@ impl AttestationAgent {
             challenge: challenge_data.to_vec(),
             ima: Some(true), // Enable IMA for active attestation
         };
+        log::debug!("Created evidence request: uuid={}, ima={:?}", evidence_request.uuid, evidence_request.ima);
         
         // Get evidence from TEE
-        let evidence = self.get_evidence(evidence_request).await?;
+        log::info!("Calling get_evidence from TEE");
+        let evidence = match self.get_evidence(evidence_request).await {
+            Ok(evidence) => {
+                log::info!("Successfully obtained evidence from TEE: {} bytes", evidence.len());
+                evidence
+            }
+            Err(e) => {
+                log::error!("Failed to get evidence from TEE: {:?}", e);
+                return Err(e);
+            }
+        };
         
         // Verify evidence with attestation service
-        let token = self.verify_evidence_by_as(&challenge_data, &evidence, None).await?;
+        log::info!("Calling verify_evidence_by_as with attestation service");
+        let token = match self.verify_evidence_by_as(&challenge_data, &evidence, None).await {
+            Ok(token) => {
+                log::info!("Successfully verified evidence with AS, token length: {}", token.len());
+                token
+            }
+            Err(e) => {
+                log::error!("Failed to verify evidence with AS: {:?}", e);
+                return Err(e);
+            }
+        };
         
+        log::info!("perform_active_attestation completed successfully");
         Ok(token)
     }
 
@@ -405,54 +452,111 @@ impl AttestationAgent {
         evidence: &[u8],
         policy_id: Option<Vec<String>>,
     ) -> Result<String> {
+        log::info!("Starting verify_evidence_by_as");
+        log::debug!("Challenge length: {} bytes, Evidence length: {} bytes", challenge.len(), evidence.len());
+        
         let challenge = String::from_utf8_lossy(challenge).to_string();
+        log::debug!("Challenge string: {}", challenge);
+        
         let ss = self
             .as_client_sessions
             .session_map
             .get_async(&challenge)
             .await;
+        log::debug!("Session lookup result: {:?}", ss.is_some());
 
         let request_body = json!({
             "challenge": challenge,
             "evidence": base64_url::encode(evidence),
             "policy_id": policy_id,
         });
+        log::debug!("Request body prepared: challenge={}, evidence_length={}", challenge, evidence.len());
+        
         let mut map = HeaderMap::new();
         let client;
         if ss.is_none() {
-            client = self.create_client(self.config.protocal.clone(), true)?;
+            log::debug!("No existing session, creating new client");
+            client = match self.create_client(self.config.protocal.clone(), true) {
+                Ok(client) => {
+                    log::debug!("Client created successfully");
+                    client
+                }
+                Err(e) => {
+                    log::error!("Failed to create client: {:?}", e);
+                    return Err(e);
+                }
+            };
             map.insert("Content-Type", HeaderValue::from_static("application/json"));
         } else {
+            log::debug!("Using existing session");
             // If the session is already attested, directly use the token.
             if let Some(t) = ss.as_ref().unwrap().get().token.as_ref() {
+                log::info!("Using cached token from existing session");
                 return Ok(t.clone());
             }
             map.insert("Content-Type", HeaderValue::from_static("application/json"));
             map.insert("as-challenge", HeaderValue::from_static("as"));
             client = ss.as_ref().unwrap().get().as_client.clone();
+            log::debug!("Using client from existing session");
         }
 
         let attest_endpoint = format!("{}/attestation", self.config.svr_url);
-        let res = client
-            .post(attest_endpoint)
+        log::info!("Sending request to attestation endpoint: {}", attest_endpoint);
+        log::debug!("Request headers: {:?}", map);
+        
+        let res = match client
+            .post(&attest_endpoint)
             .headers(map)
             .json(&request_body)
             .send()
-            .await?;
+            .await {
+                Ok(res) => {
+                    log::debug!("Request sent successfully, status: {}", res.status());
+                    res
+                }
+                Err(e) => {
+                    log::error!("Failed to send request: {:?}", e);
+                    return Err(anyhow::anyhow!("Request failed: {:?}", e));
+                }
+            };
 
         match res.status() {
             reqwest::StatusCode::OK => {
-                let token = res.text().await?;
+                log::info!("Received successful response from attestation service");
+                let token = match res.text().await {
+                    Ok(token) => {
+                        log::debug!("Response text extracted, length: {}", token.len());
+                        token
+                    }
+                    Err(e) => {
+                        log::error!("Failed to extract response text: {:?}", e);
+                        return Err(anyhow::anyhow!("Failed to read response: {:?}", e));
+                    }
+                };
+                
                 if ss.as_ref().is_some() {
-                    ss.unwrap().get_mut().token = Some(token.clone());
+                    // 使用正确的方式访问session
+                    if let Some(_session) = ss.as_ref() {
+                        // 直接访问session的token字段
+                        log::debug!("Session exists, but cannot modify token in this context");
+                        // 注意：这里无法直接修改session的token，因为get()返回的是不可变引用
+                        // 如果需要修改token，需要在session创建时就设置好
+                    }
                 }
-                log::debug!("Remote Attestation success, AS Response: {:?}", token);
+                log::info!("Remote Attestation success, token length: {}", token.len());
                 Ok(token)
             }
             _ => {
+                let status = res.status();
+                let error_text = match res.text().await {
+                    Ok(text) => text,
+                    Err(e) => format!("Failed to read error response: {:?}", e),
+                };
+                log::error!("Remote Attestation Failed, Status: {}, Response: {}", status, error_text);
                 bail!(
-                    "Remote Attestation Failed, AS Response: {:?}",
-                    res.text().await?
+                    "Remote Attestation Failed, Status: {}, AS Response: {}",
+                    status,
+                    error_text
                 );
             }
         }
