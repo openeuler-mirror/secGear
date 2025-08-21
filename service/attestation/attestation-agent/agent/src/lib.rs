@@ -311,7 +311,11 @@ impl AttestationAgent {
                 tokio::spawn(async move {
                     agent_clone.start_active_attestation().await;
                 });
+            } else {
+                log::warn!("Attestation interval is 0, skipping active attestation task");
             }
+        } else {
+            log::debug!("No attestation interval specified, skipping active attestation task");
         }
 
         Ok(agent)
@@ -319,10 +323,19 @@ impl AttestationAgent {
 
     /// Start active attestation task
     async fn start_active_attestation(&self) {
-        log::info!("Starting active attestation with interval {} seconds", self.attestation_interval.unwrap());
+        // 安全检查：确保 attestation_interval 不为 None
+        let interval = match self.attestation_interval {
+            Some(interval) if interval > 0 => interval,
+            _ => {
+                log::error!("Invalid attestation interval: {:?}", self.attestation_interval);
+                return; // 提前返回，避免无限循环
+            }
+        };
+        
+        log::info!("Starting active attestation with interval {} seconds", interval);
         
         loop {
-            tokio::time::sleep(std::time::Duration::from_secs(self.attestation_interval.unwrap())).await;
+            tokio::time::sleep(std::time::Duration::from_secs(interval)).await;
             
             match self.perform_active_attestation().await {
                 Ok(token) => {
