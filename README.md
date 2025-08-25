@@ -1,4 +1,4 @@
-<img src="sdk/docs/logo.png" alt="secGear" style="zoom:100%;" />
+<img src="docs/logo.png" alt="secGear" style="zoom:100%;" />
 
 secGear
 ============================
@@ -89,7 +89,7 @@ make && sudo make install
 使用sdk进行开发，请参考[Guide](./README.en.md)
 
 编译&部署远程证明服务框架及组件，请参考[attestation/README](./service/attestation/README.md)
-```
+
 
 如何贡献
 ----------------
