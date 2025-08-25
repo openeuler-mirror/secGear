@@ -1,10 +1,22 @@
-# if create a new rego file, "output" should exist,
-# package name should be "attestation"
 package attestation
-import rego.v1
-expect_keys := ["itrustee.ta_img", "itrustee.ta_mem"]
-input_keys := object.keys(input)
-output[exist] := input[exist] if {
-    some exist in expect_keys
-    exist in input_keys
+import future.keywords.if
+
+allow := true if {
+    input["itrustee.ta_img"] != null
+    input["itrustee.ta_mem"] != null
+} else := false
+
+ta_img := input["itrustee.ta_img"] if {
+    input["itrustee.ta_img"] != null
+} else := null
+
+ta_mem := input["itrustee.ta_mem"] if {
+    input["itrustee.ta_mem"] != null
+} else := null
+
+#output and output.allow must exist
+output := {
+    "allow": allow,
+    "itrustee.ta_img": ta_img,
+    "itrustee.ta_mem": ta_mem
 }

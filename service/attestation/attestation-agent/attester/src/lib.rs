@@ -46,7 +46,6 @@ pub struct Attester {}
 #[async_trait]
 impl AttesterAPIs for Attester {
     async fn tee_get_evidence(&self, _user_data: EvidenceRequest) -> Result<Vec<u8>> {
-
         #[cfg(feature = "itrustee-attester")]
         if itrustee::detect_platform() {
             let evidence = itrustee::ItrusteeAttester::default()
@@ -67,7 +66,7 @@ impl AttesterAPIs for Attester {
                 .await?;
             let aa_evidence = attestation_types::Evidence {
                 tee: attestation_types::TeeType::Virtcca,
-                evidence: evidence,
+                evidence,
             };
             let evidence = serde_json::to_vec(&aa_evidence)?;
             return Ok(evidence);

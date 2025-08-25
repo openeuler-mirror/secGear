@@ -15,18 +15,17 @@
 //! Call the hardware sdk or driver to get the specific evidence
 
 use anyhow::{bail, Result};
-use attestation_types::{UefiLog, VirtccaEvidence};
+use attestation_types::VirtccaEvidence;
 use log;
 use std::path::Path;
 
 use self::virtcca::{get_attestation_token, get_dev_cert, tsi_new_ctx};
+use crate::ima;
 use crate::virtcca::virtcca::tsi_free_ctx;
 use crate::EvidenceRequest;
-use crate::ima;
 
 mod virtcca;
 
-const CCEL_TABLE_PATH: &str = "/sys/firmware/acpi/tables/CCEL";
 const CCEL_DATA_PATH: &str = "/sys/firmware/acpi/tables/data/CCEL";
 
 #[derive(Debug, Default)]
@@ -49,7 +48,7 @@ const MAX_CHALLENGE_LEN: usize = 64;
 fn virtcca_get_token(user_data: EvidenceRequest) -> Result<VirtccaEvidence> {
     let mut challenge = base64_url::decode(&user_data.challenge)?;
     let len = challenge.len();
-    if len <= 0 || len > MAX_CHALLENGE_LEN {
+    if len == 0 || len > MAX_CHALLENGE_LEN {
         log::error!(
             "challenge len is error, expecting 0 < len <= {}, got {}",
             MAX_CHALLENGE_LEN,
@@ -97,27 +96,22 @@ fn virtcca_get_token(user_data: EvidenceRequest) -> Result<VirtccaEvidence> {
         // Use the new IMA module to read IMA log
         let ima_log = ima::read_ima_log_if_requested(with_ima)?;
 
-        let ccel_table = std::fs::read(CCEL_TABLE_PATH).ok();
-        let ccel_data = std::fs::read(CCEL_DATA_PATH).ok();
-        let uefi_log = match (ccel_table, ccel_data) {
-            (Some(table), Some(data)) => {
-                log::info!("read ccel table and data success");
-                Some(UefiLog {
-                    ccel_table: table,
-                    ccel_data: data,
-                })
+        let event_log = match std::fs::read(CCEL_DATA_PATH) {
+            Ok(data) => {
+                log::info!("read ccel data success");
+                Some(data)
             }
-            _ => {
-                log::warn!("read ccel table or data failed");
+            Err(e) => {
+                log::warn!("read ccel data failed: {}", e);
                 None
             }
         };
 
         let evidence = VirtccaEvidence {
             evidence: token,
-            dev_cert: dev_cert,
-            ima_log: ima_log,
-            uefi_log: uefi_log,
+            dev_cert,
+            ima_log,
+            event_log,
         };
 
         let _ = tsi_free_ctx(ctx);

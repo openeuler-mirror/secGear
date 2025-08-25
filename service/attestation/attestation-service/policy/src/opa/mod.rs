@@ -13,7 +13,7 @@ use base64::Engine;
 use policy_engine::{PolicyEngine, PolicyEngineError};
 use regorus::Value;
 use std::{collections::HashMap, path::PathBuf};
-
+use log;
 use crate::policy_engine;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -73,6 +73,7 @@ impl PolicyEngine for OPA {
             let input = Value::from_json_str(refs).map_err(|err| {
                 PolicyEngineError::InvalidReport(format!("report to Value failed: {}", err))
             })?;
+            log::debug!("input: {}", input);
             engine.set_input(input);
 
             if !data_for_policy.is_empty() {
