@@ -69,6 +69,14 @@ TEE_Result TA_OpenSessionEntryPoint(uint32_t paramTypes,
     TEE_Result ret = TEE_SUCCESS;
     SLogTrace("---- TA_OpenSessionEntryPoint -------- ");
 
+    uint32_t param_in = 0;
+    uint32_t param_shared_mem = 1;
+    if (TEE_PARAM_TYPE_GET(paramTypes, param_shared_mem) == TEE_PARAM_TYPE_MEMREF_REGISTER_INOUT) {
+        ret = register_shared_memory_by_session(params[param_in].memref.buffer,
+            params[param_shared_mem].memref.buffer, sessionContext);
+        tlogi("[secGear]TA_OpenSessionEntryPoint register shared memory ret:%d, shared_mem:%p", ret, *sessionContext);
+    }
+
     return ret;
 }
 
@@ -83,6 +91,12 @@ void TA_CloseSessionEntryPoint(void *sessionContext)
 {
     (void)sessionContext;  /* -Wunused-parameter */
     SLogTrace("---- TA_CloseSessionEntryPoint ----- ");
+
+    // find shared mem block by session, and destroy
+    if (sessionContext != NULL) {
+        tlogi("[secGear]TA_CloseSessionEntryPoint unregister shared_mem:%p", sessionContext);
+        open_session_unregister_shared_memory(sessionContext);
+    }
 }
 
 /**
