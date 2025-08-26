@@ -379,18 +379,20 @@ impl AttestationAgent {
 
     /// Perform active attestation: get challenge, evidence, and verify with AS
     async fn perform_active_attestation(&self) -> Result<String> {
-        log::info!("Starting perform_active_attestation");
+
         
         // Generate a random challenge
-        let mut challenge_data = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut challenge_data);
+        let challenge_data: [u8; 32] = rand::random();
+        // rand::thread_rng().fill_bytes(&mut challenge_data);
         let _challenge = base64_url::encode(&challenge_data);
-        log::debug!("Generated challenge data: {} bytes", challenge_data.len());
+        let encoded_challenge = _challenge.into_bytes();
+   
         
-        // Create evidence request
+        // Create evidence request, use fixed uuid for testing.
+        // TODO: allow user to set uuid
         let evidence_request = EvidenceRequest {
-            uuid: "active-attestation".to_string(),
-            challenge: challenge_data.to_vec(),
+            uuid: "f68fd704-6eb1-4d14-b218-722850eb3ef0".to_string(),
+            challenge: encoded_challenge.clone(),
             ima: Some(true), // Enable IMA for active attestation
         };
         log::debug!("Created evidence request: uuid={}, ima={:?}", evidence_request.uuid, evidence_request.ima);
@@ -409,8 +411,8 @@ impl AttestationAgent {
         };
         
         // Verify evidence with attestation service
-        log::info!("Calling verify_evidence_by_as with attestation service");
-        let token = match self.verify_evidence_by_as(&challenge_data, &evidence, None).await {
+        // #[cfg(not(feature = "no_as"))]
+        let token = match self.verify_evidence_by_as(&encoded_challenge, &evidence, Some(vec!["0".to_string()])).await {
             Ok(token) => {
                 log::info!("Successfully verified evidence with AS, token length: {}", token.len());
                 token
@@ -420,8 +422,7 @@ impl AttestationAgent {
                 return Err(e);
             }
         };
-        
-        log::info!("perform_active_attestation completed successfully");
+
         Ok(token)
     }
 
