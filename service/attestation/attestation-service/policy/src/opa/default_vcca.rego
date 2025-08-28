@@ -5,6 +5,7 @@ import future.keywords.if
 
 #---------------Platform SW Verify Start---------------
 
+# 自定义policy验证platform sw时，请设置platform_sw_measure_value
 # platform_sw_measure_value数据摘取software_components.json的measure_value字段
 # software_components.json是platform_token底层组件json文件，随BIOS发行版本带入
 # hash_algorithm字段不验证
@@ -21,14 +22,14 @@ platform_sw_measure_value := [
     }
 ]
 
-platform_sw_verify := true if {
-    input["vcca.is_platform"] == false
-} else := input["vcca.platform.measure_value"] == platform_sw_measure_value
+# 自定义policy验证platform sw时，请取消下方三行代码注释
+# platform_sw_verify := true if {
+#     input["vcca.is_platform"] == false
+# } else := input["vcca.platform.measure_value"] == platform_sw_measure_value
 
-
-# 验证platform sw需自定义policy，可参考本默认策略实现
-# 默认策略不验证platform sw，如需验证请注释下一行代码
+# 默认策略不验证platform sw;自定义policy验证platform sw时，请注释下一行代码
 platform_sw_verify := "Not Verified"
+
 #---------------Platform SW Verify End---------------
 
 allow := true if {
