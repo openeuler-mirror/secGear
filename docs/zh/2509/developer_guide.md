@@ -39,10 +39,10 @@ cd examples/helloworld
 
 除以上三部分主体代码外，还有编译工程文件（CMakeLists.txt）、开发者证书（SGX的Enclave.config.xml/Enclave.lds，鲲鹏的manifest.txt/config_cloud.ini）。
 
-> ![](./public_sys-resources/icon-note.gif)说明:
+> [!NOTE]说明
 >
 > - 鲲鹏开发者证书需要向华为业务负责人[申请开发者证书](https://gitee.com/link?target=https%3A%2F%2Fwww.hikunpeng.com%2Fdocument%2Fdetail%2Fzh%2Fkunpengcctrustzone%2Ffg-tz%2Fkunpengtrustzone_04_0009.html)。
-> - SGX以Debug模式调试，暂时不用申请。如需正式商用并且用intel的远程证明服务，需要向Intel申请License。
+> - SGX以Debug模式调试，暂时不用申请。如需正式商用并且用intel的远程证明服务，需要向Intel[申请License](https://gitee.com/link?target=https%3A%2F%2Fwww.intel.com%2Fcontent%2Fwww%2Fus%2Fen%2Fdeveloper%2Ftools%2Fsoftware-guard-extensions%2Frequest-license.html)。
 
 申请成功后会得到开发者证书相关文件，需要放置到代码目录相应位置。
 
@@ -68,8 +68,8 @@ cd examples/helloworld
 // clone secGear repository
 git clone https://gitee.com/openeuler/secGear.git
 
-// build sdk and examples
-cd secGear/sdk
+// build secGear and examples
+cd secGear
 source environment
 mkdir debug && cd debug && cmake -DENCLAVE=GP .. && make && sudo make install
 
@@ -83,8 +83,8 @@ mkdir debug && cd debug && cmake -DENCLAVE=GP .. && make && sudo make install
 // clone secGear repository
 git clone https://gitee.com/openeuler/secGear.git
 
-// build sdk and examples
-cd secGear/sdk
+// build secGear and examples
+cd secGear
 source /opt/intel/sgxsdk/environment && source environment
 mkdir debug && cd debug && cmake .. && make && sudo make install
 
