@@ -52,9 +52,9 @@ pub struct Cli {
     #[arg(short = 't', long = "cert_root", default_value_t = String::from(""))]
     cert_root: String,
 
-    /// Active attestation interval in seconds (0 to disable)
-    #[arg(short = 's', long = "attestation_interval", default_value_t = 0)]
-    attestation_interval: u64,
+    /// global switch for active attestation
+    #[arg(short = 's', long = "enable_active_attestation", default_value_t = false)]
+    enable_active_attestation: bool,
 }
 
 #[actix_web::main]
@@ -84,8 +84,9 @@ async fn main() -> Result<()> {
         config.svr_url = config.protocal.get_protocal() + "://" + &cli.serverurl.clone();
     }
 
-    let server = if cli.attestation_interval > 0 {
-        AttestationAgent::new_with_interval(config, Some(cli.attestation_interval)).unwrap()
+    // Use command line parameter for enable_active_attestation
+    let server = if cli.enable_active_attestation {
+        AttestationAgent::new_with_interval(config, cli.enable_active_attestation).unwrap()
     } else {
         AttestationAgent::new(config).unwrap()
     };

@@ -24,7 +24,7 @@ use async_trait::async_trait;
 use attestation_types::{resource::ResourceLocation, service::GetResourceOp};
 use attester::{Attester, AttesterAPIs};
 use log;
-use rand::RngCore;
+use rand::{RngCore, Rng};
 use reqwest::Client;
 use result::Error;
 use serde::{Deserialize, Serialize};
@@ -233,6 +233,14 @@ impl HttpProtocal {
     }
 }
 
+// AppConfig for active attestation
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppConfig {
+    pub uuid: String,
+    pub ima: bool,
+    pub interval: u64,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AAConfig {
     // Attestation Service url
@@ -240,6 +248,10 @@ pub struct AAConfig {
     // Http protocal, such as http or https
     pub protocal: HttpProtocal,
     token_cfg: TokenVerifyConfig,
+    // active attestation switch
+    pub enable_active_attestation: bool,
+    // list of apps for active attestation
+    pub app_list: Vec<AppConfig>,
 }
 
 impl Default for AAConfig {
@@ -248,6 +260,8 @@ impl Default for AAConfig {
             svr_url: String::from("http://127.0.0.1:8080"),
             token_cfg: TokenVerifyConfig::default(),
             protocal: HttpProtocal::default(),
+            enable_active_attestation: false,
+            app_list: Vec::new(),
         }
     }
 }
@@ -272,17 +286,17 @@ impl TryFrom<&Path> for AAConfig {
 pub struct AttestationAgent {
     pub config: AAConfig,
     as_client_sessions: SessionMap,
-    attestation_interval: Option<u64>,
     current_token: Arc<Mutex<Option<String>>>,
 }
 
 #[allow(dead_code)]
 impl AttestationAgent {
     pub fn new(config: AAConfig) -> Result<Self, Error> {
-        Self::new_with_interval(config, None)
+        let enable_active_attestation = config.enable_active_attestation;
+        Self::new_with_interval(config, enable_active_attestation)
     }
 
-    pub fn new_with_interval(config: AAConfig, attestation_interval: Option<u64>) -> Result<Self, Error> {
+    pub fn new_with_interval(config: AAConfig, enable_active_attestation: bool) -> Result<Self, Error> {
         let as_client_sessions = SessionMap::new();
         let sessions = as_client_sessions.clone();
         
@@ -297,54 +311,65 @@ impl AttestationAgent {
             }
         });
 
+        // Start active attestation task if enable_active_attestation is true
+        let app_list = config.app_list.clone();
+        
         let agent = AttestationAgent {
             config,
             as_client_sessions,
-            attestation_interval,
             current_token: Arc::new(Mutex::new(None)),
         };
 
-        // Start active attestation task if interval is specified
-        if let Some(interval) = attestation_interval {
-            if interval > 0 {
-                let agent_clone = agent.clone();
-                tokio::spawn(async move {
-                    agent_clone.start_active_attestation().await;
-                });
-            } else {
-                log::warn!("Attestation interval is 0, skipping active attestation task");
+        if enable_active_attestation {
+            for app in &app_list {
+                if app.interval > 0 {
+                    let agent_clone = agent.clone();
+                    let app_clone = app.clone();
+                    tokio::spawn(async move {
+                        // Add random delay betwenn [0, 1) seconds to avoid all tasks starting at the same time
+                        let delay = rand::thread_rng().gen_range(0..1);
+                        tokio::time::sleep(std::time::Duration::from_secs(delay)).await;   
+                        agent_clone.start_active_attestation(&app_clone).await;
+                    });
+                } else {
+                    log::warn!("Attestation interval is 0, skipping active attestation task {}", app.uuid);
+                }
             }
         } else {
-            log::debug!("No attestation interval specified, skipping active attestation task");
+            log::debug!("Active attestation disabled, skipping active attestation task");
         }
 
         Ok(agent)
     }
 
     /// Start active attestation task
-    async fn start_active_attestation(&self) {
-        // 安全检查：确保 attestation_interval 不为 None
-        let interval = match self.attestation_interval {
-            Some(interval) if interval > 0 => interval,
-            _ => {
-                log::error!("Invalid attestation interval: {:?}", self.attestation_interval);
-                return; // 提前返回，避免无限循环
-            }
+    async fn start_active_attestation(&self, config: &AppConfig) {
+        // 安全检查：确保 interval 大于 0
+        let interval = if config.interval > 0 {
+            config.interval
+        } else {
+            log::error!("Invalid attestation interval: {}", config.interval);
+            return; // 提前返回，避免无限循环
         };
         
         log::info!("Starting active attestation with interval {} seconds", interval);
         
         let mut iteration_count = 0;
         let mut consecutive_failures = 0;
+        let max_consecutive_failures = 5; // 最大连续失败次数
+        let max_delay = config.interval * 2; // 最大延迟时间（秒）
         
         loop {
             iteration_count += 1;
             log::info!("Active attestation iteration {} starting", iteration_count);
             
-            tokio::time::sleep(std::time::Duration::from_secs(interval)).await;
-            log::debug!("Sleep completed, proceeding with attestation");
+            // 检查是否达到最大连续失败次数
+            if consecutive_failures >= max_consecutive_failures {
+                log::error!("Too many consecutive failures ({}), stopping active attestation", consecutive_failures);
+                break;
+            }
             
-            match self.perform_active_attestation().await {
+            match self.perform_active_attestation(config).await {
                 Ok(token) => {
                     log::info!("Active attestation successful, token obtained");
                     consecutive_failures = 0; // 重置失败计数
@@ -365,35 +390,37 @@ impl AttestationAgent {
                     log::error!("Active attestation failed (attempt {}): {:?}", iteration_count, e);
                     log::error!("Consecutive failures: {}", consecutive_failures);
                     
-                    // 如果连续失败次数过多，增加延迟
-                    if consecutive_failures >= 3 {
-                        log::warn!("Too many consecutive failures, adding extra delay");
-                        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                    // 使用指数退避算法计算延迟时间
+                    if consecutive_failures > 1 {
+                        let delay = std::cmp::min(
+                            10 * (2_u64.pow(consecutive_failures as u32 - 1)), // 指数退避
+                            max_delay // 限制最大延迟
+                        );
+                        log::warn!("Adding exponential backoff delay: {} seconds", delay);
+                        tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
                     }
                 }
             }
             
             log::debug!("Active attestation iteration {} completed", iteration_count);
+            
+            // 在循环末尾sleep，避免第一次执行前的延迟
+            tokio::time::sleep(std::time::Duration::from_secs(interval)).await;
         }
     }
 
     /// Perform active attestation: get challenge, evidence, and verify with AS
-    async fn perform_active_attestation(&self) -> Result<String> {
-
-        
+    async fn perform_active_attestation(&self, config: &AppConfig) -> Result<String> {        
         // Generate a random challenge
         let challenge_data: [u8; 32] = rand::random();
-        // rand::thread_rng().fill_bytes(&mut challenge_data);
-        let _challenge = base64_url::encode(&challenge_data);
-        let encoded_challenge = _challenge.into_bytes();
-   
+        let challenge = base64_url::encode(&challenge_data);
+        let encoded_challenge = challenge.as_bytes().to_vec();
         
-        // Create evidence request, use fixed uuid for testing.
-        // TODO: allow user to set uuid
+        // Create evidence request from AppConfig
         let evidence_request = EvidenceRequest {
-            uuid: "f68fd704-6eb1-4d14-b218-722850eb3ef0".to_string(),
+            uuid: config.uuid.clone(),
             challenge: encoded_challenge.clone(),
-            ima: Some(true), // Enable IMA for active attestation
+            ima: Some(config.ima), // Enable IMA for active attestation
         };
         log::debug!("Created evidence request: uuid={}, ima={:?}", evidence_request.uuid, evidence_request.ima);
         
