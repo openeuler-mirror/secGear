@@ -28,6 +28,8 @@ use rand::{RngCore, Rng};
 use reqwest::Client;
 use result::Error;
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::str::FromStr;
 use serde_json::json;
 use serde_json::Value;
 use std::fs::File;
@@ -233,12 +235,157 @@ impl HttpProtocal {
     }
 }
 
-// AppConfig for active attestation
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
+pub enum Platform {
+    Itrustee,
+    Virtcca,
+    CCA,
+    Unknown,
+}
+
+impl FromStr for Platform {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "itrustee" => Ok(Platform::Itrustee),
+            "virtcca" => Ok(Platform::Virtcca),
+            "cca" => Ok(Platform::CCA),
+            _ => Ok(Platform::Unknown),
+        }
+    }
+}
+
+impl fmt::Display for Platform {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Platform::Itrustee => write!(f, "itrustee"),
+            Platform::Virtcca => write!(f, "virtcca"),
+            Platform::CCA => write!(f, "cca"),
+            Platform::Unknown => write!(f, "unknown"),
+        }
+    }
+}
+
+impl Serialize for Platform {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for Platform {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Platform::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+// AppConfig for active attestation TAs
+// TODO: if enable_active_attestation is true but app_list is empty, 
+// then find a way to decide if it is in a vm/container
+#[derive(Clone, Debug)]
 pub struct AppConfig {
     pub uuid: String,
     pub ima: bool,
     pub interval: u64,
+    pub platform: Platform,
+}
+
+impl Serialize for AppConfig {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("AppConfig", 4)?;
+        state.serialize_field("uuid", &self.uuid)?;
+        state.serialize_field("ima", &self.ima)?;
+        state.serialize_field("interval", &self.interval)?;
+        state.serialize_field("platform", &self.platform)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for AppConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{self, MapAccess, Visitor};
+        use std::fmt;
+
+        struct AppConfigVisitor;
+
+        impl<'de> Visitor<'de> for AppConfigVisitor {
+            type Value = AppConfig;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct AppConfig")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<AppConfig, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut uuid = None;
+                let mut ima = None;
+                let mut interval = None;
+                let mut platform = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        "uuid" => {
+                            if uuid.is_some() {
+                                return Err(de::Error::duplicate_field("uuid"));
+                            }
+                            uuid = Some(map.next_value()?);
+                        }
+                        "ima" => {
+                            if ima.is_some() {
+                                return Err(de::Error::duplicate_field("ima"));
+                            }
+                            ima = Some(map.next_value()?);
+                        }
+                        "interval" => {
+                            if interval.is_some() {
+                                return Err(de::Error::duplicate_field("interval"));
+                            }
+                            interval = Some(map.next_value()?);
+                        }
+                        "platform" => {
+                            if platform.is_some() {
+                                return Err(de::Error::duplicate_field("platform"));
+                            }
+                            platform = Some(map.next_value()?);
+                        }
+                        _ => {
+                            let _ = map.next_value::<de::IgnoredAny>()?;
+                        }
+                    }
+                }
+
+                let uuid = uuid.ok_or_else(|| de::Error::missing_field("uuid"))?;
+                let ima = ima.unwrap_or(false); // 默认值为 false
+                let interval = interval.unwrap_or(30); // 默认值为 30
+                let platform = platform.unwrap_or(Platform::Unknown); // 默认值为 Unknown
+
+                Ok(AppConfig {
+                    uuid,
+                    ima,
+                    interval,
+                    platform,
+                })
+            }
+        }
+
+        const FIELDS: &'static [&'static str] = &["uuid", "ima", "interval", "platform"];
+        deserializer.deserialize_struct("AppConfig", FIELDS, AppConfigVisitor)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -412,10 +559,12 @@ impl AttestationAgent {
     /// Perform active attestation: get challenge, evidence, and verify with AS
     async fn perform_active_attestation(&self, config: &AppConfig) -> Result<String> {        
         // Generate a random challenge
-        let challenge_data: [u8; 32] = rand::random();
-        let challenge = base64_url::encode(&challenge_data);
-        let encoded_challenge = challenge.as_bytes().to_vec();
-        
+        // let challenge_data: [u8; 32] = rand::random();
+        // let challenge = base64_url::encode(&challenge_data);
+        // Get challenge from AS
+        let challenge_from_as = self.get_challenge_from_as(None).await?;
+        let encoded_challenge = challenge_from_as.as_bytes().to_vec();
+               
         // Create evidence request from AppConfig
         let evidence_request = EvidenceRequest {
             uuid: config.uuid.clone(),
@@ -833,4 +982,89 @@ pub fn generate_headers() -> ::std::io::Result<()> {
     ::safer_ffi::headers::builder()
         .to_file("./c_header/rust_attestation_agent.h")?
         .generate()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json;
+
+    #[test]
+    fn test_platform_from_str() {
+        // 测试字符串到枚举的转换
+        assert_eq!(Platform::from_str("itrustee").unwrap(), Platform::Itrustee);
+        assert_eq!(Platform::from_str("Itrustee").unwrap(), Platform::Itrustee);
+        assert_eq!(Platform::from_str("ITRUSTEE").unwrap(), Platform::Itrustee);
+        
+        assert_eq!(Platform::from_str("virtcca").unwrap(), Platform::Virtcca);
+        assert_eq!(Platform::from_str("VirtCCA").unwrap(), Platform::Virtcca);
+        assert_eq!(Platform::from_str("VIRTCCA").unwrap(), Platform::Virtcca);
+        
+        assert_eq!(Platform::from_str("cca").unwrap(), Platform::CCA);
+        assert_eq!(Platform::from_str("CCA").unwrap(), Platform::CCA);
+        
+        assert_eq!(Platform::from_str("unknown").unwrap(), Platform::Unknown);
+        assert_eq!(Platform::from_str("invalid").unwrap(), Platform::Unknown);
+    }
+
+    #[test]
+    fn test_platform_display() {
+        // 测试枚举到字符串的转换
+        assert_eq!(Platform::Itrustee.to_string(), "itrustee");
+        assert_eq!(Platform::Virtcca.to_string(), "virtcca");
+        assert_eq!(Platform::CCA.to_string(), "cca");
+        assert_eq!(Platform::Unknown.to_string(), "unknown");
+    }
+
+    #[test]
+    fn test_platform_serialization() {
+        // 测试序列化
+        let platform = Platform::Itrustee;
+        let json = serde_json::to_string(&platform).unwrap();
+        assert_eq!(json, "\"itrustee\"");
+        
+        let platform = Platform::Virtcca;
+        let json = serde_json::to_string(&platform).unwrap();
+        assert_eq!(json, "\"virtcca\"");
+    }
+
+    #[test]
+    fn test_platform_deserialization() {
+        // 测试反序列化
+        let platform: Platform = serde_json::from_str("\"itrustee\"").unwrap();
+        assert_eq!(platform, Platform::Itrustee);
+        
+        let platform: Platform = serde_json::from_str("\"virtcca\"").unwrap();
+        assert_eq!(platform, Platform::Virtcca);
+        
+        let platform: Platform = serde_json::from_str("\"VirtCCA\"").unwrap();
+        assert_eq!(platform, Platform::Virtcca);
+    }
+
+    #[test]
+    fn test_appconfig_deserialization() {
+        // 测试 AppConfig 的反序列化
+        let json = r#"{
+            "uuid": "f68fd704-6eb1-4d14-b218-722850eb3ef0",
+            "ima": true,
+            "interval": 30,
+            "platform": "itrustee"
+        }"#;
+        
+        let app_config: AppConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(app_config.uuid, "f68fd704-6eb1-4d14-b218-722850eb3ef0");
+        assert_eq!(app_config.ima, true);
+        assert_eq!(app_config.interval, 30);
+        assert_eq!(app_config.platform, Platform::Itrustee);
+        
+        // 测试没有 platform 字段的情况（应该使用默认值）
+        let json = r#"{
+            "uuid": "0715F5BA-13A2-478B-BD60-B43B645E23DE",
+            "ima": false,
+            "interval": 60
+        }"#;
+        
+        let app_config: AppConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(app_config.platform, Platform::Unknown);
+    }
 }
