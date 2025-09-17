@@ -12,9 +12,19 @@
 
 pub mod resource;
 pub mod service;
+pub mod config;
+pub mod error;
+
+#[cfg(test)]
+mod tests;
+
+// 重新导出常用类型
+pub use config::{AppConfig, AAConfig, HttpProtocal, TokenVerifyConfig, DEFAULT_AACONFIG_FILE};
+pub use error::AgentError;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::str::FromStr;
 
 pub const SESSION_TIMEOUT_MIN: i64 = 1;
 
@@ -32,12 +42,56 @@ pub struct VirtccaEvidence {
     pub uefi_log: Option<UefiLog>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TeeType {
     Itrustee = 1,
     Virtcca,
     Rustcca,
     Invalid,
+}
+
+impl std::str::FromStr for TeeType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "itrustee" => Ok(TeeType::Itrustee),
+            "virtcca" => Ok(TeeType::Virtcca),
+            "rustcca" => Ok(TeeType::Rustcca),
+            "cca" => Ok(TeeType::Rustcca), // 将 CCA 映射到 Rustcca
+            _ => Ok(TeeType::Invalid),
+        }
+    }
+}
+
+impl std::fmt::Display for TeeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TeeType::Itrustee => write!(f, "itrustee"),
+            TeeType::Virtcca => write!(f, "virtcca"),
+            TeeType::Rustcca => write!(f, "rustcca"),
+            TeeType::Invalid => write!(f, "invalid"),
+        }
+    }
+}
+
+impl Serialize for TeeType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for TeeType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        TeeType::from_str(&s).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -16,8 +16,9 @@ use attestation_agent::{
         get_challenge, get_evidence, get_resource, get_token, verify_evidence, verify_token,
         get_current_token,
     },
-    AAConfig, AttestationAgent, HttpProtocal, DEFAULT_AACONFIG_FILE,
+    AttestationAgent,
 };
+use attestation_types::{AAConfig, HttpProtocal, DEFAULT_AACONFIG_FILE};
 use clap::{arg, command, Parser};
 use env_logger;
 use std::{path::Path, sync::Arc};

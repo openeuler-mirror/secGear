@@ -9,7 +9,7 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use attestation_types::Claims;
+use attestation_types::{Claims, TokenVerifyConfig};
 use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -26,21 +26,6 @@ pub enum VerifyError {
     SerializeFail(#[from] serde_json::error::Error),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TokenVerifyConfig {
-    pub cert: String, // Attestation Service cert to verify jwt token signature
-    pub iss: String,  // Attestation Service name
-                      //pub root_cert: String,
-}
-
-impl Default for TokenVerifyConfig {
-    fn default() -> Self {
-        TokenVerifyConfig {
-            cert: "/etc/attestation/attestation-agent/as_cert.pem".to_string(),
-            iss: "oeas".to_string(),
-        }
-    }
-}
 pub struct TokenVerifier {
     pub config: TokenVerifyConfig,
 }
