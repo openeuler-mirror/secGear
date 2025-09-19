@@ -247,14 +247,21 @@ pub async fn get_current_token(
     log::debug!("get current token request");
     
     let agent_guard = agent.read().await;
-    let token = if let Ok(token_guard) = agent_guard.current_token.lock() {
-        match token_guard.as_ref() {
-            Some(token) => token.clone(),
-            None => "No active token available".to_string(),
-        }
-    } else {
-        "Failed to access token storage".to_string()
-    };
+    let mut token_info = Vec::new();
     
-    Ok(HttpResponse::Ok().body(token))
+    for app in &agent_guard.config.app_list {
+        token_info.push(serde_json::json!({
+            "app_uuid": app.uuid,
+            "has_token": app.has_token().await,
+            "created_at": app.get_token_created_at().await.map(|t| t.elapsed().as_secs()),
+            "failure_count": app.get_failure_count(),
+            "is_expired": app.is_token_expired(app.interval).await
+        }));
+    }
+    
+    let response = serde_json::json!({
+        "apps": token_info
+    });
+    
+    Ok(HttpResponse::Ok().json(response))
 }

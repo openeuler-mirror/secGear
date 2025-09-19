@@ -34,8 +34,6 @@ use serde_json::json;
 use serde_json::Value;
 use std::path::Path;
 use token_verifier::{TokenRawData, TokenVerifier};
-use std::sync::Arc;
-use std::sync::Mutex;
 
 pub type TeeClaim = serde_json::Value;
 
@@ -184,14 +182,10 @@ impl AttestationAgentAPIs for AttestationAgent {
     }
 }
 
-
-
-
 #[derive(Clone)]
 pub struct AttestationAgent {
     pub config: AAConfig,
     as_client_sessions: SessionMap,
-    current_token: Arc<Mutex<Option<String>>>,
 }
 
 #[allow(dead_code)]
@@ -222,7 +216,6 @@ impl AttestationAgent {
         let agent = AttestationAgent {
             config,
             as_client_sessions,
-            current_token: Arc::new(Mutex::new(None)),
         };
 
         if enable_active_attestation {
@@ -257,60 +250,48 @@ impl AttestationAgent {
             return; // 提前返回，避免无限循环
         };
         
-        log::info!("Starting active attestation with interval {} seconds", interval);
+        log::info!("Starting active attestation for {} with interval {} seconds", config.uuid, interval);
         
-        let mut iteration_count = 0;
-        let mut consecutive_failures = 0;
-        let max_consecutive_failures = 5; // 最大连续失败次数
-        let max_delay = config.interval * 2; // 最大延迟时间（秒）
+        let max_consecutive_failures = 5;
+        let max_delay = config.interval * 2;
         
         loop {
-            iteration_count += 1;
-            log::info!("Active attestation iteration {} starting", iteration_count);
-            
-            // 检查是否达到最大连续失败次数
-            if consecutive_failures >= max_consecutive_failures {
-                log::error!("Too many consecutive failures ({}), stopping active attestation", consecutive_failures);
-                break;
+            // 检查是否需要刷新 token
+            if !config.is_token_expired(config.interval).await {
+                log::debug!("Token for {} still valid, skipping refresh", config.uuid);
+                tokio::time::sleep(std::time::Duration::from_secs(config.interval)).await;
+                continue;
             }
             
             match self.perform_active_attestation(config).await {
                 Ok(token) => {
-                    log::info!("Active attestation successful, token obtained");
-                    consecutive_failures = 0; // 重置失败计数
-                    
-                    // Store the token in the agent
-                    match self.current_token.lock() {
-                        Ok(mut token_guard) => {
-                            *token_guard = Some(token);
-                            log::debug!("Token stored successfully");
-                        }
-                        Err(e) => {
-                            log::error!("Failed to store token: mutex lock failed: {:?}", e);
-                        }
-                    }
+                    config.store_token(token).await;
+                    config.reset_failures();
+                    log::info!("Token stored successfully for {}", config.uuid);
                 }
                 Err(e) => {
-                    consecutive_failures += 1;
-                    log::error!("Active attestation failed (attempt {}): {:?}", iteration_count, e);
-                    log::error!("Consecutive failures: {}", consecutive_failures);
+                    config.record_failure();
+                    let failure_count = config.get_failure_count();
                     
-                    // 使用指数退避算法计算延迟时间
-                    if consecutive_failures > 1 {
-                        let delay = std::cmp::min(
-                            10 * (2_u64.pow(consecutive_failures as u32 - 1)), // 指数退避
-                            max_delay // 限制最大延迟
-                        );
-                        log::warn!("Adding exponential backoff delay: {} seconds", delay);
-                        tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
-                    }
+                    log::error!("Active attestation failed for {} (attempt {}): {:?}", 
+                               config.uuid, failure_count, e);
+                    
+                    // 智能重试机制
+                    let delay = if failure_count >= max_consecutive_failures {
+                        log::warn!("Too many consecutive failures for {}, using longer delay", config.uuid);
+                        config.interval * 2 // 使用更长的延迟
+                    } else {
+                        std::cmp::min(
+                            10 * (2_u64.pow(failure_count as u32 - 1)),
+                            max_delay
+                        )
+                    };
+                    
+                    tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
                 }
             }
             
-            log::debug!("Active attestation iteration {} completed", iteration_count);
-            
-            // 在循环末尾sleep，避免第一次执行前的延迟
-            tokio::time::sleep(std::time::Duration::from_secs(interval)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(config.interval)).await;
         }
     }
 
@@ -595,6 +576,38 @@ impl AttestationAgent {
         };
 
         Ok(resource)
+    }
+
+    // 获取特定应用的 token
+    pub async fn get_app_token(&self, app_uuid: &str) -> Option<String> {
+        if let Some(app) = self.config.app_list.iter().find(|app| app.uuid == app_uuid) {
+            app.get_token().await
+        } else {
+            None
+        }
+    }
+
+    // 检查应用是否有有效 token
+    pub async fn has_app_token(&self, app_uuid: &str) -> bool {
+        if let Some(app) = self.config.app_list.iter().find(|app| app.uuid == app_uuid) {
+            app.has_token().await
+        } else {
+            false
+        }
+    }
+
+    // 获取应用 token 信息（用于监控）
+    pub async fn get_app_token_info(&self, app_uuid: &str) -> Option<serde_json::Value> {
+        if let Some(app) = self.config.app_list.iter().find(|app| app.uuid == app_uuid) {
+            Some(serde_json::json!({
+                "has_token": app.has_token().await,
+                "created_at": app.get_token_created_at().await.map(|t| t.elapsed().as_secs()),
+                "failure_count": app.get_failure_count(),
+                "is_expired": app.is_token_expired(app.interval).await
+            }))
+        } else {
+            None
+        }
     }
 }
 
