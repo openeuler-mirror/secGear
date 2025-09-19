@@ -250,12 +250,18 @@ pub async fn get_current_token(
     let mut token_info = Vec::new();
     
     for app in &agent_guard.config.app_list {
+        let ttl = app.get_token_ttl().await.unwrap_or(0);
+        let should_refresh = app.should_refresh_token().await;
+        
         token_info.push(serde_json::json!({
             "app_uuid": app.uuid,
             "has_token": app.has_token().await,
-            "created_at": app.get_token_created_at().await.map(|t| t.elapsed().as_secs()),
+            "expires_at": app.get_token_expires_at().await,
+            "ttl_seconds": ttl,
+            "should_refresh": should_refresh,
+            "refresh_threshold": std::cmp::max(app.interval, (ttl as f64 * 0.1) as u64),
             "failure_count": app.get_failure_count(),
-            "is_expired": app.is_token_expired(app.interval).await
+            "is_expired": app.is_token_expired().await
         }));
     }
     

@@ -17,8 +17,6 @@ use anyhow::Result;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use tokio::sync::RwLock;
-use std::time::Instant;
-use std::time::Duration;
 
 pub const DEFAULT_AACONFIG_FILE: &str = "/etc/attestation/attestation-agent/attestation-agent.conf";
 
@@ -26,7 +24,7 @@ pub const DEFAULT_AACONFIG_FILE: &str = "/etc/attestation/attestation-agent/atte
 pub struct TokenManager {
     // Token 相关信息
     current_token: Arc<RwLock<Option<String>>>,
-    token_created_at: Arc<RwLock<Option<Instant>>>,
+    token_exp: Arc<RwLock<Option<u64>>>,  // JWT 的 exp 字段（过期时间）
     consecutive_failures: Arc<AtomicU32>,
 }
 
@@ -34,21 +32,45 @@ impl TokenManager {
     pub fn new() -> Self {
         Self {
             current_token: Arc::new(RwLock::new(None)),
-            token_created_at: Arc::new(RwLock::new(None)),
+            token_exp: Arc::new(RwLock::new(None)),
             consecutive_failures: Arc::new(AtomicU32::new(0)),
         }
     }
 
+    /// 解析 JWT 并提取过期时间
+    fn parse_jwt_exp(&self, token: &str) -> Result<u64> {
+        // 解析 JWT payload
+        let parts: Vec<&str> = token.split('.').collect();
+        if parts.len() != 3 {
+            return Err(anyhow::anyhow!("Invalid JWT format"));
+        }
+        
+        // 解码 payload (base64url)
+        let payload = base64_url::decode(parts[1])?;
+        let payload_str = String::from_utf8(payload)?;
+        let claims: serde_json::Value = serde_json::from_str(&payload_str)?;
+        
+        // 提取 exp
+        let exp = claims["exp"]
+            .as_u64()
+            .ok_or_else(|| anyhow::anyhow!("Missing exp field"))?;
+            
+        Ok(exp)
+    }
+
     // 存储 token
-    pub async fn store_token(&self, token: String) {
+    pub async fn store_token(&self, token: String) -> Result<()> {
+        let exp = self.parse_jwt_exp(&token)?;
+        
         let mut token_guard = self.current_token.write().await;
-        let mut time_guard = self.token_created_at.write().await;
+        let mut exp_guard = self.token_exp.write().await;
         
         *token_guard = Some(token);
-        *time_guard = Some(Instant::now());
+        *exp_guard = Some(exp);
         
         // 重置失败计数
         self.consecutive_failures.store(0, Ordering::Relaxed);
+        Ok(())
     }
 
     // 获取 token
@@ -63,13 +85,61 @@ impl TokenManager {
         token_guard.is_some()
     }
 
-    // 检查 token 是否过期
-    pub async fn is_token_expired(&self, max_age_seconds: u64) -> bool {
-        let time_guard = self.token_created_at.read().await;
-        if let Some(created_at) = *time_guard {
-            Instant::now() - created_at > Duration::from_secs(max_age_seconds)
+    /// 检查 Token 是否过期（基于 exp 字段）
+    pub async fn is_token_expired(&self) -> bool {
+        let exp_guard = self.token_exp.read().await;
+        if let Some(exp) = *exp_guard {
+            let current_time = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            current_time >= exp
         } else {
             true
+        }
+    }
+
+    /// 获取 Token 的过期时间（exp）
+    pub async fn get_token_expires_at(&self) -> Option<u64> {
+        let exp_guard = self.token_exp.read().await;
+        *exp_guard
+    }
+
+    /// 获取 Token 的剩余有效时间（秒）
+    pub async fn get_token_ttl(&self) -> Option<i64> {
+        let exp_guard = self.token_exp.read().await;
+        if let Some(exp) = *exp_guard {
+            let current_time = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            Some(exp as i64 - current_time as i64)
+        } else {
+            None
+        }
+    }
+
+    /// 检查是否需要刷新 Token
+    /// interval: 检查间隔（秒）
+    pub async fn should_refresh_token(&self, interval: u64) -> bool {
+        if let Some(ttl) = self.get_token_ttl().await {
+            if ttl <= 0 {
+                return true; // 已过期
+            }
+            
+            // 策略1: 固定时间提前刷新（使用 interval）
+            // 确保在下次检查前完成刷新
+            let fixed_threshold = interval;
+            
+            // 策略2: 百分比提前刷新（剩余不足 10%）
+            let percentage_threshold = (ttl as f64 * 0.1) as u64;
+            
+            // 取更保守的策略（更早刷新）
+            let threshold = std::cmp::max(fixed_threshold, percentage_threshold);
+            
+            ttl <= threshold as i64
+        } else {
+            true // 没有 Token 时需要刷新
         }
     }
 
@@ -91,16 +161,10 @@ impl TokenManager {
     // 清理 token
     pub async fn clear_token(&self) {
         let mut token_guard = self.current_token.write().await;
-        let mut time_guard = self.token_created_at.write().await;
+        let mut exp_guard = self.token_exp.write().await;
         
         *token_guard = None;
-        *time_guard = None;
-    }
-
-    // 获取 token 存储时间
-    pub async fn get_created_at(&self) -> Option<Instant> {
-        let time_guard = self.token_created_at.read().await;
-        *time_guard
+        *exp_guard = None;
     }
 }
 
@@ -158,7 +222,7 @@ pub struct AppConfig {
     pub ima: bool,
     pub interval: u64,
     pub platform: crate::TeeType,
-    // 使用独立的 TokenManager
+    // 使用TokenManager管理token
     pub token_manager: Arc<TokenManager>,
 }
 
@@ -174,8 +238,8 @@ impl AppConfig {
     }
 
     // 便捷方法：委托给 TokenManager
-    pub async fn store_token(&self, token: String) {
-        self.token_manager.store_token(token).await;
+    pub async fn store_token(&self, token: String) -> Result<()> {
+        self.token_manager.store_token(token).await
     }
 
     pub async fn get_token(&self) -> Option<String> {
@@ -186,8 +250,24 @@ impl AppConfig {
         self.token_manager.has_token().await
     }
 
-    pub async fn is_token_expired(&self, max_age_seconds: u64) -> bool {
-        self.token_manager.is_token_expired(max_age_seconds).await
+    // 检查Token是否过期
+    pub async fn is_token_expired(&self) -> bool {
+        self.token_manager.is_token_expired().await
+    }
+
+    // 检查是否需要刷新 Token
+    pub async fn should_refresh_token(&self) -> bool {
+        self.token_manager.should_refresh_token(self.interval).await
+    }
+
+    // 获取 Token 过期时间
+    pub async fn get_token_expires_at(&self) -> Option<u64> {
+        self.token_manager.get_token_expires_at().await
+    }
+
+    // 获取 Token 剩余有效时间
+    pub async fn get_token_ttl(&self) -> Option<i64> {
+        self.token_manager.get_token_ttl().await
     }
 
     pub fn record_failure(&self) {
@@ -200,11 +280,6 @@ impl AppConfig {
 
     pub fn reset_failures(&self) {
         self.token_manager.reset_failures();
-    }
-
-    // 新增：获取 token 存储时间
-    pub async fn get_token_created_at(&self) -> Option<Instant> {
-        self.token_manager.get_created_at().await
     }
 }
 
@@ -322,13 +397,33 @@ impl Default for AAConfig {
 
 impl TryFrom<&Path> for AAConfig {
     /// Load `AAConfig` from a configuration file like:
-    ///    {
-    ///        "svr_url": "http://127.0.0.1:8080",
-    ///        "token_cfg": {
-    ///            "cert": "/etc/attestation/attestation-agent/as_cert.pem",
-    ///            "iss": "oeas"
-    ///        }
-    ///    }
+    // {
+    //     "svr_url": "http://127.0.0.1:8080",
+    //     "token_cfg": {
+    //         "cert": "/etc/attestation/attestation-agent/as_cert.pem",
+    //         "iss": "oeas"
+    //     },
+    //     "protocal": {
+    //         "Http": {
+    //             "protocal": "http"
+    //         }
+    //     },
+    //     "enable_active_attestation": true,
+    //     "app_list": [
+    //         {
+    //             "uuid": "f68fd704-6eb1-4d14-b218-722850eb3ef0",
+    //             "ima": true,
+    //             "interval": 30,
+    //             "platform": "itrustee"
+    //         },
+    //         {
+    //             "uuid": "0715F5BA-13A2-478B-BD60-B43B645E23DE", // RIM of VM
+    //             "ima": false,
+    //             "interval": 60,
+    //             "platform": "virtcca"
+    //         }
+    //     ]
+    // }
     type Error = anyhow::Error;
     fn try_from(config_path: &Path) -> Result<Self, Self::Error> {
         let file = File::open(config_path).unwrap();

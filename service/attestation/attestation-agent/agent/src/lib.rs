@@ -240,7 +240,7 @@ impl AttestationAgent {
         Ok(agent)
     }
 
-    /// Start active attestation task
+    /// Start active attestation task with dynamic timer
     async fn start_active_attestation(&self, config: &AppConfig) {
         // 安全检查：确保 interval 大于 0
         let interval = if config.interval > 0 {
@@ -252,46 +252,80 @@ impl AttestationAgent {
         
         log::info!("Starting active attestation for {} with interval {} seconds", config.uuid, interval);
         
-        let max_consecutive_failures = 5;
-        let max_delay = config.interval * 2;
-        
         loop {
-            // 检查是否需要刷新 token
-            if !config.is_token_expired(config.interval).await {
-                log::debug!("Token for {} still valid, skipping refresh", config.uuid);
-                tokio::time::sleep(std::time::Duration::from_secs(config.interval)).await;
-                continue;
+            // 计算下次刷新延迟
+            let next_refresh_delay = self.calculate_refresh_delay(config).await;
+            
+            log::debug!("Next refresh for {} in {} seconds", config.uuid, next_refresh_delay);
+            
+            // 等待到刷新时间（使用 sleep_until 提高精度）
+            if next_refresh_delay > 0 {
+                let target_time = tokio::time::Instant::now() + std::time::Duration::from_secs(next_refresh_delay);
+                tokio::time::sleep_until(target_time).await;
             }
             
-            match self.perform_active_attestation(config).await {
-                Ok(token) => {
-                    config.store_token(token).await;
-                    config.reset_failures();
-                    log::info!("Token stored successfully for {}", config.uuid);
-                }
-                Err(e) => {
+            // 双重检查：确保真的需要刷新
+            if config.should_refresh_token().await {
+                self.perform_token_refresh(config).await;
+            }
+        }
+    }
+
+    /// 计算下次刷新延迟时间
+    async fn calculate_refresh_delay(&self, config: &AppConfig) -> u64 {
+        if let Some(ttl) = config.get_token_ttl().await {
+            if ttl <= 0 {
+                0 // 已过期，立即刷新
+            } else {
+                let refresh_threshold = std::cmp::max(config.interval, (ttl as f64 * 0.1) as u64);
+                std::cmp::max(1, ttl - refresh_threshold as i64) as u64
+            }
+        } else {
+            0 // 没有 Token，立即刷新
+        }
+    }
+
+    /// 执行 Token 刷新
+    async fn perform_token_refresh(&self, config: &AppConfig) {
+        if config.is_token_expired().await {
+            log::info!("Token for {} has expired, refreshing", config.uuid);
+        } else {
+            let ttl = config.get_token_ttl().await.unwrap_or(0);
+            log::info!("Token for {} will expire in {} seconds, refreshing proactively", 
+                      config.uuid, ttl);
+        }
+        
+        match self.perform_active_attestation(config).await {
+            Ok(token) => {
+                if let Err(e) = config.store_token(token).await {
+                    log::error!("Failed to store token for {}: {:?}", config.uuid, e);
                     config.record_failure();
-                    let failure_count = config.get_failure_count();
-                    
-                    log::error!("Active attestation failed for {} (attempt {}): {:?}", 
-                               config.uuid, failure_count, e);
-                    
-                    // 智能重试机制
-                    let delay = if failure_count >= max_consecutive_failures {
-                        log::warn!("Too many consecutive failures for {}, using longer delay", config.uuid);
-                        config.interval * 2 // 使用更长的延迟
-                    } else {
-                        std::cmp::min(
-                            10 * (2_u64.pow(failure_count as u32 - 1)),
-                            max_delay
-                        )
-                    };
-                    
-                    tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+                } else {
+                    config.reset_failures();
+                    log::info!("Token refreshed successfully for {}", config.uuid);
                 }
             }
-            
-            tokio::time::sleep(std::time::Duration::from_secs(config.interval)).await;
+            Err(e) => {
+                config.record_failure();
+                let failure_count = config.get_failure_count();
+                log::error!("Token refresh failed for {} (attempt {}): {:?}", 
+                           config.uuid, failure_count, e);
+                
+                // 智能重试延迟
+                let max_consecutive_failures = 5;
+                let max_delay = config.interval * 2;
+                let delay = if failure_count >= max_consecutive_failures {
+                    log::warn!("Too many consecutive failures for {}, using longer delay", config.uuid);
+                    config.interval * 2
+                } else {
+                    std::cmp::min(
+                        10 * (2_u64.pow(failure_count as u32 - 1)),
+                        max_delay
+                    )
+                };
+                
+                tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+            }
         }
     }
 
@@ -601,9 +635,10 @@ impl AttestationAgent {
         if let Some(app) = self.config.app_list.iter().find(|app| app.uuid == app_uuid) {
             Some(serde_json::json!({
                 "has_token": app.has_token().await,
-                "created_at": app.get_token_created_at().await.map(|t| t.elapsed().as_secs()),
+                "expires_at": app.get_token_expires_at().await,
+                "ttl_seconds": app.get_token_ttl().await,
                 "failure_count": app.get_failure_count(),
-                "is_expired": app.is_token_expired(app.interval).await
+                "is_expired": app.is_token_expired().await
             }))
         } else {
             None
