@@ -1,0 +1,8 @@
+gpd.ta.appID: c1edecce-fef4-11ef-9821-c8a776e83705
+gpd.ta.service_name: DBCC-002
+gpd.ta.singleInstance: true
+gpd.ta.instanceKeepAlive: false
+gpd.ta.multiSession: true
+gpd.ta.stackSize: 1792
+gpd.ta.dataSize: 802816
+gpd.ta.mem_page_align: true

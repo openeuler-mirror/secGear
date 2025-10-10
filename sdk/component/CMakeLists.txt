@@ -16,6 +16,7 @@ ADD_SUBDIRECTORY(remote_attest)
 ADD_SUBDIRECTORY(local_attest)
 ADD_SUBDIRECTORY(ra_tls)
 
+ADD_SUBDIRECTORY(secure_mapping)
 
  
 
