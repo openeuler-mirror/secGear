@@ -63,16 +63,17 @@ fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     let mut in_data = challenge.to_vec();
     if with_ima {
         let report_nonce = js_evidence["payload"]["nonce"].as_str().unwrap();
+        let uuid = js_evidence["payload"]["uuid"].as_str().unwrap();
         let nonce_all = base64_url::decode(&report_nonce)?;
         if nonce_all.len() != MAX_CHALLENGE_LEN {
-            log::error!("IMA verification: nonce length is not 64 bytes, got {}", nonce_all.len());
-            bail!("IMA verification: nonce length is not 64 bytes, got {}", nonce_all.len());
+            log::error!("IMA verification: {} nonce length is not 64 bytes, got {}", uuid, nonce_all.len());
+            bail!("IMA verification: {} nonce length is not 64 bytes, got {}", uuid, nonce_all.len());
         }
         let nonce_expected = &nonce_all[..32]; // 前32字节是challenge
         let ima_log_hash = &nonce_all[32..];   // 后32字节是ima_log_hash
         if nonce_expected != challenge {
-            log::error!("IMA verification: nonce and challenge mismatch");
-            bail!("IMA verification: nonce and challenge mismatch");
+            log::error!("IMA verification: {} nonce and challenge mismatch", uuid);
+            bail!("IMA verification: {} nonce and challenge mismatch", uuid);
         }
         ima = crate::ima::itrustee::ItrusteeImaVerify::default()
             .ima_verify(&ima_log, &[ima_log_hash.to_vec()])?;
