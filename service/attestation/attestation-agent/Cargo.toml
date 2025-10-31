@@ -23,5 +23,9 @@ clap = { version = "4.5.7", features = ["derive"] }
 scc = "2.1"
 sha2 = "0.10"
 
+strum = { version = "0.25", features = ["derive"] }
+tempfile = "3.0"
+openssl-sys = { version = "0.9", features = ["vendored"] }
+
 verifier = { path = "../attestation-service/verifier", default-features = false }
 attestation-types = { path = "../attestation-types" }

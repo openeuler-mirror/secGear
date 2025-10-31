@@ -28,6 +28,8 @@ use ccatoken::token;
 use serde_json::value::RawValue;
 use std::error::Error;
 
+use std::io::Cursor;
+
 const TEST_CPAK: &str = include_str!("../../test_data/cpak.json");
 
 #[derive(Debug, Default)]
@@ -43,8 +45,8 @@ impl RustCCAVerifier {
 // 1. execute golden to get tas, rvs
 // 2. execute verify
 fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
-    let mut in_evidence =
-        token::Evidence::decode(&evidence.to_vec()).unwrap_or_else(|_| panic!("decode evidence"));
+    let mut reader = Cursor::new(evidence.to_vec());
+    let mut in_evidence = token::Evidence::decode(reader).unwrap_or_else(|_| panic!("decode evidence"));
 
     let cpak = map_str_to_cpak(&in_evidence.platform_claims, &TEST_CPAK)
         .unwrap_or_else(|_| panic!("map cpak"));
@@ -80,7 +82,7 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
             "challenge" : hex::encode(in_evidence.realm_claims.challenge.clone()),
             "perso" : hex::encode(in_evidence.realm_claims.perso.clone()),
             "hash_alg" : hex::encode(in_evidence.realm_claims.hash_alg.clone()),
-            "rak" : hex::encode(in_evidence.realm_claims.rak.clone())
+            "rak" : hex::encode(in_evidence.realm_claims.get_realm_key().expect("get RAK failed"))
         }
     });
 
@@ -200,8 +202,7 @@ mod tests {
 
     #[test]
     fn cca_test() -> Result<(), Box<dyn Error>> {
-        let mut evidence =
-            token::Evidence::decode(&TEST_CCA_TOKEN.to_vec()).expect("decoding TEST_CCA_TOKEN");
+        let mut evidence = token::Evidence::decode(Cursor::new(TEST_CCA_TOKEN.to_vec())).expect("decoding TEST_CCA_TOKEN");
 
         let j = TEST_CPAK;
         let cpak = map_str_to_cpak(&evidence.platform_claims, &j)?;
@@ -232,7 +233,7 @@ mod tests {
                 "challenge" : hex::encode(evidence.realm_claims.challenge.clone()),
                 "perso" : hex::encode(evidence.realm_claims.perso.clone()),
                 "hash_alg" : hex::encode(evidence.realm_claims.hash_alg.clone()),
-                "rak" : hex::encode(evidence.realm_claims.rak.clone())
+                "rak" : hex::encode(evidence.realm_claims.get_realm_key().expect("get RAK failed"))
             }
         });
 

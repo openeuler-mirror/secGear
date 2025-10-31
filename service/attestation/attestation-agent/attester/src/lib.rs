@@ -23,6 +23,12 @@ mod itrustee;
 #[cfg(feature = "virtcca-attester")]
 pub mod virtcca;
 
+#[cfg(feature = "cca-attester")]
+pub mod cca;
+
+#[cfg(feature = "cca-attester")]
+pub mod tsm_report;
+
 // IMA module for handling IMA logs
 pub mod ima;
 
@@ -67,6 +73,18 @@ impl AttesterAPIs for Attester {
             let aa_evidence = attestation_types::Evidence {
                 tee: attestation_types::TeeType::Virtcca,
                 evidence,
+            };
+            let evidence = serde_json::to_vec(&aa_evidence)?;
+            return Ok(evidence);
+        }
+        #[cfg(feature = "cca-attester")]
+        if cca::detect_platform() {
+            let evidence = cca::CcaAttester::default()
+                .tee_get_evidence(_user_data)
+                .await?;
+            let aa_evidence = attestation_types::Evidence {
+                tee: attestation_types::TeeType::Rustcca,
+                evidence: evidence,
             };
             let evidence = serde_json::to_vec(&aa_evidence)?;
             return Ok(evidence);
