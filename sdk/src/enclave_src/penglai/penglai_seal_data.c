@@ -15,7 +15,7 @@
 #include "dataseal_internal.h"
 
 
-uint32_t get_sealed_data_size_ex(uint32_t aad_len, uint32_t seal_data_len)
+uint32_t get_sealed_data_size_ex(const uint32_t aad_len, const uint32_t seal_data_len)
 {
     /* Penglai does not support this API now */
     return CC_ERROR_NOT_SUPPORTED;

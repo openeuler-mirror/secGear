@@ -38,7 +38,7 @@ int seal_data_test_func(char *buf, uint32_t buf_len)
     uint32_t data_len = strlen((const char *)seal_data);
     uint32_t add_len = strlen((const char *)additional_text);
     /******** prepare to seal data *********/
-    uint32_t sealed_data_len = cc_enclave_get_sealed_data_size(data_len, add_len);
+    uint32_t sealed_data_len = cc_enclave_get_sealed_data_size(add_len, data_len);
     if (sealed_data_len == UINT32_MAX)
         return CC_ERROR_OUT_OF_MEMORY;
     
