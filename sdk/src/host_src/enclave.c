@@ -323,6 +323,10 @@ cc_enclave_result_t cc_sl_get_async_result(cc_enclave_t *enclave, int task_id, v
         return CC_ERROR_BAD_PARAMETERS;
     }
 
+    if (enclave->list_ops_node == NULL || enclave->list_ops_node->ops_desc->ops->cc_sl_async_ecall_get_result == NULL) {
+        return CC_ERROR_BAD_PARAMETERS;
+    }
+
     CC_RWLOCK_LOCK_RD(&enclave->rwlock);
 
     ret = enclave->list_ops_node->ops_desc->ops->cc_sl_async_ecall_get_result(enclave, task_id, retval);
