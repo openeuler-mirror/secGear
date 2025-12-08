@@ -13,7 +13,7 @@
 #include "dataseal_internal.h"
 
 
-uint32_t get_sealed_data_size_ex(uint32_t aad_len, uint32_t seal_data_len)
+uint32_t get_sealed_data_size_ex(const uint32_t aad_len, const uint32_t seal_data_len)
 {
     return sgx_calc_sealed_data_size(aad_len, seal_data_len);
 }

@@ -19,7 +19,7 @@
 #define SEAL_DATA_FN(in, inl, out, outl, aad, aadl) penglai_seal_data(in, inl, out, outl, aad, aadl)
 #define UNSEAL_DATA_FN(in, out, outl, aad, aadl) penglai_unseal_data(in, out, outl, aad, aadl)
 
-uint32_t get_sealed_data_size_ex(uint32_t seal_data_len, uint32_t aad_len);
+uint32_t get_sealed_data_size_ex(const uint32_t aad_len, const uint32_t seal_data_len);
 uint32_t get_encrypted_text_size_ex(const void *sealed_data);
 uint32_t get_add_text_size_ex(const void *sealed_data);
 

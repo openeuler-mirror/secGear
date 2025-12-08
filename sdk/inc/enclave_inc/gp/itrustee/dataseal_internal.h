@@ -42,7 +42,7 @@ typedef struct _itrustee_seal_data {
     uint8_t payload_data[];
 } itrustee_seal_data_t;
 
-uint32_t get_sealed_data_size_ex(const uint32_t seal_data_len, const uint32_t aad_len);
+uint32_t get_sealed_data_size_ex(const uint32_t aad_len, const uint32_t seal_data_len);
 uint32_t get_encrypted_text_size_ex(const void *sealed_data);
 uint32_t get_add_text_size_ex(const void *sealed_data);
 
