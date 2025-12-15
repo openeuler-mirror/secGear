@@ -77,5 +77,11 @@ pub fn verify_ima_events(events: &[Event], ima_refs: &HashSet<String>) -> Result
 
 /// IMA verifier trait for different TEE implementations
 pub trait ImaVerifier {
-    fn ima_verify(&self, ima_log: &[u8], addons: &[Vec<u8>]) -> Result<Value>;
-} 
+    /// `app_id` 用于选择应用级 IMA reference 文件；None 回退默认文件
+    fn ima_verify(
+        &self,
+        ima_log: &[u8],
+        addons: &[Vec<u8>],
+        app_id: Option<&str>,
+    ) -> Result<Value>;
+}

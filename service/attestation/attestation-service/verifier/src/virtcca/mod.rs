@@ -136,8 +136,9 @@ impl Evidence {
             }
         };
 
+        let app_id = hex::encode(&evidence.cvm_token.rim);
         let ima: serde_json::Value = crate::ima::virtcca::VirtCCAImaVerify::default()
-            .ima_verify(&ima_log, &evidence.cvm_token.rem)?;
+            .ima_verify(&ima_log, &evidence.cvm_token.rem, Some(&app_id))?;
 
         // verify uefi
         let uefi_log = if let Some(uefi_log) = virtcca_ev.uefi_log {

@@ -76,7 +76,7 @@ fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
             bail!("IMA verification: {} nonce and challenge mismatch", uuid);
         }
         ima = crate::ima::itrustee::ItrusteeImaVerify::default()
-            .ima_verify(&ima_log, &[ima_log_hash.to_vec()])?;
+            .ima_verify(&ima_log, &[ima_log_hash.to_vec()], Some(uuid))?;
         in_data = nonce_all.to_vec();
     }
 
