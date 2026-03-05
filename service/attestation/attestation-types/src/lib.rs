@@ -89,8 +89,32 @@ impl<'de> Deserialize<'de> for TeeType {
     where
         D: serde::Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
-        TeeType::from_str(&s).map_err(serde::de::Error::custom)
+        // 首先尝试作为字符串反序列化
+        struct TeeTypeVisitor;
+        
+        impl<'de> serde::de::Visitor<'de> for TeeTypeVisitor {
+            type Value = TeeType;
+            
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a string representing a TEE type")
+            }
+            
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                TeeType::from_str(v).map_err(serde::de::Error::custom)
+            }
+            
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                TeeType::from_str(&v).map_err(serde::de::Error::custom)
+            }
+        }
+        
+        deserializer.deserialize_str(TeeTypeVisitor)
     }
 }
 

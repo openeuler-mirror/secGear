@@ -359,9 +359,9 @@ impl AttestationAgent {
             }
         };
         
-        // Verify evidence with attestation service
+        // Verify evidence with attestation service, currently only default policy is supported
         // #[cfg(not(feature = "no_as"))]
-        let token = match self.verify_evidence_by_as(&encoded_challenge, &evidence, Some(vec!["0".to_string()])).await {
+        let token = match self.verify_evidence_by_as(&encoded_challenge, &evidence, None).await {
             Ok(token) => {
                 log::info!("Successfully verified evidence with AS, token length: {}", token.len());
                 token
@@ -403,7 +403,7 @@ impl AttestationAgent {
         policy_id: Option<Vec<String>>,
     ) -> Result<String> {
         log::info!("Starting verify_evidence_by_as");
-        log::debug!("Challenge length: {} bytes, Evidence length: {} bytes", challenge.len(), evidence.len());
+        log::debug!("Challenge length: {} bytes, Evidence length: {} bytes, policy_id: {:?}", challenge.len(), evidence.len(), policy_id);
         
         let challenge = String::from_utf8_lossy(challenge).to_string();
         log::debug!("Challenge string: {}", challenge);

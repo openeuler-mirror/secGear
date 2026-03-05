@@ -216,14 +216,35 @@ impl Default for TokenVerifyConfig {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
+#[serde(from = "AppConfigDeserializable")]
 pub struct AppConfig {
     pub uuid: String,
     pub ima: bool,
     pub interval: u64,
     pub platform: crate::TeeType,
     // 使用TokenManager管理token
+    #[serde(skip)]
     pub token_manager: Arc<TokenManager>,
+}
+
+#[derive(Deserialize)]
+struct AppConfigDeserializable {
+    uuid: String,
+    #[serde(default)]
+    ima: bool,
+    #[serde(default = "default_interval")]
+    interval: u64,
+    #[serde(default = "default_platform")]
+    platform: crate::TeeType,
+}
+
+fn default_interval() -> u64 {
+    30
+}
+
+fn default_platform() -> crate::TeeType {
+    crate::TeeType::Invalid
 }
 
 impl AppConfig {
@@ -298,75 +319,14 @@ impl Serialize for AppConfig {
     }
 }
 
-impl<'de> Deserialize<'de> for AppConfig {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use serde::de::{self, MapAccess, Visitor};
-        use std::fmt;
-
-        struct AppConfigVisitor;
-
-        impl<'de> Visitor<'de> for AppConfigVisitor {
-            type Value = AppConfig;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("struct AppConfig")
-            }
-
-            fn visit_map<V>(self, mut map: V) -> Result<AppConfig, V::Error>
-            where
-                V: MapAccess<'de>,
-            {
-                let mut uuid = None;
-                let mut ima = None;
-                let mut interval = None;
-                let mut platform = None;
-
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        "uuid" => {
-                            if uuid.is_some() {
-                                return Err(de::Error::duplicate_field("uuid"));
-                            }
-                            uuid = Some(map.next_value()?);
-                        }
-                        "ima" => {
-                            if ima.is_some() {
-                                return Err(de::Error::duplicate_field("ima"));
-                            }
-                            ima = Some(map.next_value()?);
-                        }
-                        "interval" => {
-                            if interval.is_some() {
-                                return Err(de::Error::duplicate_field("interval"));
-                            }
-                            interval = Some(map.next_value()?);
-                        }
-                        "platform" => {
-                            if platform.is_some() {
-                                return Err(de::Error::duplicate_field("platform"));
-                            }
-                            platform = Some(map.next_value()?);
-                        }
-                        _ => {
-                            let _ = map.next_value::<de::IgnoredAny>()?;
-                        }
-                    }
-                }
-
-                let uuid = uuid.ok_or_else(|| de::Error::missing_field("uuid"))?;
-                let ima = ima.unwrap_or(false); // 默认值为 false
-                let interval = interval.unwrap_or(30); // 默认值为 30
-                let platform = platform.unwrap_or(crate::TeeType::Invalid); // 默认值为 Invalid
-
-                Ok(AppConfig::new(uuid, ima, interval, platform))
-            }
-        }
-
-        const FIELDS: &'static [&'static str] = &["uuid", "ima", "interval", "platform"];
-        deserializer.deserialize_struct("AppConfig", FIELDS, AppConfigVisitor)
+impl From<AppConfigDeserializable> for AppConfig {
+    fn from(deserializable: AppConfigDeserializable) -> Self {
+        AppConfig::new(
+            deserializable.uuid,
+            deserializable.ima,
+            deserializable.interval,
+            deserializable.platform,
+        )
     }
 }
 

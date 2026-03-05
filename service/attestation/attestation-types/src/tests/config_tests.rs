@@ -54,4 +54,48 @@ mod tests {
         assert_eq!(config.enable_active_attestation, false);
         assert_eq!(config.app_list.len(), 0);
     }
+
+    #[test]
+    fn test_aaconfig_deserialization() {
+        // 测试完整的 AAConfig 反序列化
+        let json = r#"{
+            "svr_url": "http://127.0.0.1:8080",
+            "token_cfg": {
+                "cert": "/etc/attestation/attestation-agent/as_cert.pem",
+                "iss": "oeas"
+            },
+            "protocal": {
+                "Http": {
+                    "protocal": "http"
+                }
+            },
+            "enable_active_attestation": true,
+            "app_list": [
+                {
+                    "uuid": "f68fd704-6eb1-4d14-b218-722850eb3ef0",
+                    "ima": true,
+                    "interval": 30,
+                    "platform": "itrustee"
+                },
+                {
+                    "uuid": "0715F5BA-13A2-478B-BD60-B43B645E23DE",
+                    "ima": false,
+                    "interval": 60
+                }
+            ]
+        }"#;
+        
+        let config: AAConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.svr_url, "http://127.0.0.1:8080");
+        assert_eq!(config.enable_active_attestation, true);
+        assert_eq!(config.app_list.len(), 2);
+        assert_eq!(config.app_list[0].uuid, "f68fd704-6eb1-4d14-b218-722850eb3ef0");
+        assert_eq!(config.app_list[0].ima, true);
+        assert_eq!(config.app_list[0].interval, 30);
+        assert_eq!(config.app_list[0].platform, TeeType::Itrustee);
+        assert_eq!(config.app_list[1].uuid, "0715F5BA-13A2-478B-BD60-B43B645E23DE");
+        assert_eq!(config.app_list[1].ima, false);
+        assert_eq!(config.app_list[1].interval, 60);
+        assert_eq!(config.app_list[1].platform, TeeType::Invalid); // 默认值
+    }
 }

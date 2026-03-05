@@ -61,7 +61,7 @@ impl PolicyEngine for OPA {
             let engine_policy = tokio::fs::read_to_string(path.clone())
                 .await
                 .map_err(|err| {
-                    PolicyEngineError::ReadPolicyError(format!("read policy failed: {}", err))
+                    PolicyEngineError::ReadPolicyError(format!("read policy {} failed: {}", path.display(),err))
                 })?;
             let mut engine = regorus::Engine::new();
             engine

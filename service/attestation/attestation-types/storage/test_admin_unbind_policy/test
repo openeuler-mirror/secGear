@@ -1,0 +1,4 @@
+{
+        "content": "hello",
+        "policy": ["test_admin_unbind_policy/c.rego", "test_admin_unbind_policy/a.rego", "default/b.rego", "test_admin_unbind_policy/b.rego"]
+}
