@@ -45,7 +45,7 @@ impl Session {
     }
     pub fn cookie(&self) -> Cookie {
         Cookie::build("oeas-session-id", self.id.clone())
-            .expires(self.timeout.clone())
+            .expires(self.timeout)
             .finish()
     }
 
@@ -73,7 +73,14 @@ impl SessionMap {
             session_map: HashMap::new(),
         }
     }
+
     pub fn insert(&self, session: Session) {
         let _ = self.session_map.insert(session.id.clone(), session);
+    }
+}
+
+impl Default for SessionMap {
+    fn default() -> Self {
+        Self::new()
     }
 }

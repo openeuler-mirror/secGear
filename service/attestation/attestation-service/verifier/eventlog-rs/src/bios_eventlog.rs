@@ -48,7 +48,7 @@ impl TryFrom<Vec<u8>> for BiosEventlog {
         let mut index = 0;
         let mut event_log: Vec<BiosEventlogEntry> = Vec::new();
 
-        while index < data.len() as usize {
+        while index < data.len() {
             let stop_flag = (&data[index..(index + 8)]).read_u64::<LittleEndian>()?;
             let pcr_index = (&data[index..(index + 4)]).read_u32::<LittleEndian>()?;
             index += 4;

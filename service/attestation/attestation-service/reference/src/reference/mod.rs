@@ -69,10 +69,9 @@ pub enum RefOpError {
 
 impl ReferenceOps {
     pub fn new(st: impl KvStore + 'static) -> ReferenceOps {
-        let ops = ReferenceOps {
+        ReferenceOps {
             store: Box::new(st),
-        };
-        ops
+        }
     }
 
     fn generate_reference_key(reference: &Ref) -> String {
@@ -87,8 +86,7 @@ impl ReferenceOps {
             &key,
             serde_json::to_string(&reference)
                 .unwrap()
-                .as_bytes()
-                .as_ref(),
+                .as_bytes(),
         )?;
         Ok(())
     }
@@ -104,7 +102,7 @@ impl ReferenceOps {
         self.store.read(&key)
     }
     /// ref_set is a json string like:{"refname1":xx,"refname2":yy}
-    pub fn register(&mut self, ref_set: &String) -> Result<(), RefOpError> {
+    pub fn register(&mut self, ref_set: &str) -> Result<(), RefOpError> {
         let refs =
             Extractor::split(ref_set).ok_or(RefOpError::Err("parse reference fail".to_string()))?;
         for item in refs {
@@ -115,7 +113,7 @@ impl ReferenceOps {
                 let path = Path::new(file_name.as_str());
                 let mut file = File::create(path)
                     .map_err(|_|RefOpError::Err("create itrustee reference file failed: ".to_string() + file_name.as_str()))?;
-                file.write_all(&item.value.as_str().unwrap().as_bytes())
+                file.write_all(item.value.as_str().unwrap().as_bytes())
                     .map_err(|_|RefOpError::Err("write itrustee reference file failed".to_string() + file_name.as_str()))?;
             }
 
@@ -132,7 +130,7 @@ impl ReferenceOps {
         Ok(())
     }
 
-    pub fn unregister(&mut self, ref_set: &String) -> Result<(), RefOpError> {
+    pub fn unregister(&mut self, ref_set: &str) -> Result<(), RefOpError> {
         let refs =
             Extractor::split(ref_set).ok_or(RefOpError::Err("parse reference fail".to_string()))?;
         for item in refs {
@@ -141,7 +139,7 @@ impl ReferenceOps {
         Ok(())
     }
 
-    pub fn query(&mut self, ref_set: &String) -> Option<String> {
+    pub fn query(&mut self, ref_set: &str) -> Option<String> {
         let refs = Extractor::split(ref_set)?;
         let mut ret: Value = json!({});
         for item in refs {

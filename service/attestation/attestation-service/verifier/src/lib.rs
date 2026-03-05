@@ -25,8 +25,8 @@ pub mod itrustee;
 #[cfg(feature = "virtcca-verifier")]
 pub mod virtcca;
 
-#[cfg(feature = "rustcca-verifier")]
-pub mod rustcca;
+#[cfg(feature = "cca-verifier")]
+pub mod cca;
 
 pub mod ima;
 
@@ -60,9 +60,9 @@ impl VerifierAPIs for Verifier {
                     .evaluate(user_data, evidence)
                     .await
             }
-            #[cfg(feature = "rustcca-verifier")]
-            TeeType::Rustcca => {
-                rustcca::RustCCAVerifier::default()
+            #[cfg(feature = "cca-verifier")]
+            TeeType::Cca => {
+                cca::CcaVerifier::default()
                     .evaluate(user_data, evidence)
                     .await
             }
@@ -71,7 +71,7 @@ impl VerifierAPIs for Verifier {
     }
 }
 
-#[cfg(all(feature = "no_as", feature = "parse_evidence"))]
+#[cfg(feature = "no_as")]
 pub fn virtcca_parse_evidence(evidence: &[u8]) -> Result<TeeClaim> {
     let aa_evidence: Evidence = serde_json::from_slice(evidence)?;
     let evidence = aa_evidence.evidence.as_bytes();

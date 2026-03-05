@@ -112,7 +112,7 @@ pub async fn attestation(
     let token = service
         .read()
         .await
-        .evaluate(&nonce, &evidence, &ids)
+        .evaluate(nonce, &evidence, &ids)
         .await?;
 
     if cookie_exist {

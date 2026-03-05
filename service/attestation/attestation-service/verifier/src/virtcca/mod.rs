@@ -112,6 +112,15 @@ impl Evidence {
             cvm_token: CvmToken::new(),
         }
     }
+}
+
+impl Default for Evidence {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Evidence {
     pub fn verify(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         let virtcca_ev: VirtccaEvidence = serde_json::from_slice(evidence)?;
         let evidence = virtcca_ev.evidence;
@@ -194,7 +203,7 @@ impl Evidence {
             "vcca.platform": "",
         });
         let claim = json!({
-            "tee": "vcca",
+            "tee": "virtcca",
             "payload" : payload,
             "ima": ima,
             "uefi": uefi,
@@ -389,6 +398,15 @@ impl CvmToken {
             pub_key_hash_alg: String::from(""),
         }
     }
+}
+
+impl Default for CvmToken {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CvmToken {
     pub fn decode(raw_payload: &Vec<u8>) -> Result<CvmToken> {
         let payload: Vec<u8> = ciborium::de::from_reader(raw_payload.as_slice())?;
         log::debug!("After decode CBOR payload, payload {:?}", payload);

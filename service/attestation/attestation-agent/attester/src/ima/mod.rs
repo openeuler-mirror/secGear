@@ -47,6 +47,7 @@ impl ImaLogReader {
     }
 
     /// Check if IMA is available on the system
+    #[allow(dead_code)]
     fn is_ima_available(&self) -> bool {
         std::path::Path::new(IMA_LOG_PATH).exists()
     }

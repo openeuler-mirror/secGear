@@ -16,14 +16,18 @@ mod tests {
         assert_eq!(TeeType::from_str("virtcca").unwrap(), TeeType::Virtcca);
         assert_eq!(TeeType::from_str("VirtCCA").unwrap(), TeeType::Virtcca);
         assert_eq!(TeeType::from_str("VIRTCCA").unwrap(), TeeType::Virtcca);
+        // 向下兼容旧标识 vcca
+        assert_eq!(TeeType::from_str("vcca").unwrap(), TeeType::Virtcca);
+        assert_eq!(TeeType::from_str("vCCA").unwrap(), TeeType::Virtcca);
         
-        assert_eq!(TeeType::from_str("rustcca").unwrap(), TeeType::Rustcca);
-        assert_eq!(TeeType::from_str("RustCCA").unwrap(), TeeType::Rustcca);
-        assert_eq!(TeeType::from_str("RUSTCCA").unwrap(), TeeType::Rustcca);
+        // 正向使用 cca
+        assert_eq!(TeeType::from_str("cca").unwrap(), TeeType::Cca);
+        assert_eq!(TeeType::from_str("CCA").unwrap(), TeeType::Cca);
         
-        // 测试 CCA 映射到 Rustcca
-        assert_eq!(TeeType::from_str("cca").unwrap(), TeeType::Rustcca);
-        assert_eq!(TeeType::from_str("CCA").unwrap(), TeeType::Rustcca);
+        // 向下兼容旧标识 rustcca
+        assert_eq!(TeeType::from_str("rustcca").unwrap(), TeeType::Cca);
+        assert_eq!(TeeType::from_str("RustCCA").unwrap(), TeeType::Cca);
+        assert_eq!(TeeType::from_str("RUSTCCA").unwrap(), TeeType::Cca);
         
         assert_eq!(TeeType::from_str("invalid").unwrap(), TeeType::Invalid);
         assert_eq!(TeeType::from_str("unknown").unwrap(), TeeType::Invalid);
@@ -34,7 +38,7 @@ mod tests {
         // 测试枚举到字符串的转换
         assert_eq!(TeeType::Itrustee.to_string(), "itrustee");
         assert_eq!(TeeType::Virtcca.to_string(), "virtcca");
-        assert_eq!(TeeType::Rustcca.to_string(), "rustcca");
+        assert_eq!(TeeType::Cca.to_string(), "cca");
         assert_eq!(TeeType::Invalid.to_string(), "invalid");
     }
 
@@ -49,9 +53,9 @@ mod tests {
         let json = serde_json::to_string(&tee_type).unwrap();
         assert_eq!(json, "\"virtcca\"");
         
-        let tee_type = TeeType::Rustcca;
+        let tee_type = TeeType::Cca;
         let json = serde_json::to_string(&tee_type).unwrap();
-        assert_eq!(json, "\"rustcca\"");
+        assert_eq!(json, "\"cca\"");
     }
 
     #[test]
@@ -67,6 +71,9 @@ mod tests {
         assert_eq!(tee_type, TeeType::Virtcca);
         
         let tee_type: TeeType = serde_json::from_str("\"cca\"").unwrap();
-        assert_eq!(tee_type, TeeType::Rustcca);
+        assert_eq!(tee_type, TeeType::Cca);
+
+        let tee_type: TeeType = serde_json::from_str("\"rustcca\"").unwrap();
+        assert_eq!(tee_type, TeeType::Cca);
     }
 }

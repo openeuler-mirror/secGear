@@ -28,5 +28,5 @@ eventlog-rs = { path = "./eventlog-rs" }
 default = ["itrustee-verifier", "virtcca-verifier"]
 itrustee-verifier = []
 virtcca-verifier = []
-rustcca-verifier = []
+cca-verifier = []
 no_as = []

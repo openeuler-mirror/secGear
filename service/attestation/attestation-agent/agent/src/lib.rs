@@ -9,6 +9,8 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+#![allow(clippy::redundant_field_names)]
+#![allow(clippy::needless_return)]
 
 //! Attestation Agent
 //!
@@ -26,7 +28,7 @@ use attestation_types::{
     AppConfig, AAConfig, HttpProtocal, AgentError, DEFAULT_AACONFIG_FILE
 };
 use attester::{Attester, AttesterAPIs};
-use log;
+
 use rand::{RngCore, Rng};
 use reqwest::Client;
 use result::Error;
@@ -43,7 +45,6 @@ use verifier::{Verifier, VerifierAPIs};
 
 #[cfg(not(feature = "no_as"))]
 use {
-    base64_url,
     reqwest::header::{HeaderMap, HeaderValue},
 };
 
@@ -319,7 +320,7 @@ impl AttestationAgent {
                     config.interval * 2
                 } else {
                     std::cmp::min(
-                        10 * (2_u64.pow(failure_count as u32 - 1)),
+                        10 * (2_u64.pow(failure_count - 1)),
                         max_delay
                     )
                 };
@@ -531,8 +532,8 @@ impl AttestationAgent {
     async fn generate_challenge_local(&self, user_data: Option<Vec<u8>>) -> Result<String> {
         let mut nonce: Vec<u8> = vec![0; 32];
         rand::thread_rng().fill_bytes(&mut nonce);
-        if user_data != None {
-            nonce.append(&mut user_data.unwrap());
+        if let Some(mut data) = user_data {
+            nonce.append(&mut data);
         }
         Ok(base64_url::encode(&nonce))
     }
@@ -540,12 +541,11 @@ impl AttestationAgent {
     async fn get_challenge_from_as(&self, user_data: Option<Vec<u8>>) -> Result<String> {
         let challenge_endpoint = format!("{}/challenge", self.config.svr_url);
         let client = self.create_client(self.config.protocal.clone(), true)?;
-        let data: Value;
-        if user_data.is_some() {
-            data = json!({"user_data":user_data.unwrap()});
+        let data: Value = if user_data.is_some() {
+            json!({"user_data":user_data.unwrap()})
         } else {
-            data = Value::Null;
-        }
+            Value::Null
+        };
         let res = client
             .get(challenge_endpoint)
             .header("Content-Type", "application/json")
@@ -653,7 +653,7 @@ use tokio::runtime::Runtime;
 #[ffi_export]
 pub fn init_env_logger(c_level: Option<&repr_c::String>) {
     let level = match c_level {
-        Some(level) => &level,
+        Some(level) => level,
         None => "info",
     };
     env_logger::init_from_env(env_logger::Env::new().default_filter_or(level));
@@ -703,10 +703,7 @@ pub fn get_report(
     report.into()
 }
 
-#[cfg(all(feature = "no_as", feature = "parse_evidence"))]
-use verifier::virtcca_parse_evidence;
-
-#[cfg(all(feature = "no_as", feature = "parse_evidence"))]
+#[cfg(feature = "no_as")]
 #[ffi_export]
 pub fn parse_report(report: Option<&repr_c::Vec<u8>>) -> repr_c::String {
     let report = match report {

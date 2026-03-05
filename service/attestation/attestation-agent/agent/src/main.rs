@@ -20,7 +20,7 @@ use attestation_agent::{
 };
 use attestation_types::{AAConfig, HttpProtocal, DEFAULT_AACONFIG_FILE};
 use clap::{arg, command, Parser};
-use env_logger;
+
 use std::{path::Path, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -81,7 +81,7 @@ async fn main() -> Result<()> {
     }
 
     // Override the listening url.
-    if cli.serverurl != "" {
+    if !cli.serverurl.is_empty() {
         config.svr_url = config.protocal.get_protocal() + "://" + &cli.serverurl.clone();
     }
 
@@ -102,7 +102,7 @@ async fn main() -> Result<()> {
             .service(verify_token)
             .service(get_resource)
             .service(get_current_token)
-            .default_service(web::to(|| HttpResponse::NotFound()))
+            .default_service(web::to(HttpResponse::NotFound))
     })
     .bind(cli.socketaddr)?
     .run()

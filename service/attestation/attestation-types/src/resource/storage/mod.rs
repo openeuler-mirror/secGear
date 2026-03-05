@@ -19,9 +19,11 @@ use crate::resource::Resource;
 use crate::resource::ResourceLocation;
 use async_trait::async_trait;
 
+#[allow(dead_code)]
 #[async_trait]
 pub(crate) trait StorageEngine: StorageOp + PolicyOp {}
 
+#[allow(dead_code)]
 #[async_trait]
 pub(crate) trait StorageOp: Send + Sync {
     /// Get the resource inside the storage and return a structure instance.
@@ -45,6 +47,7 @@ pub(crate) trait StorageOp: Send + Sync {
     }
 }
 
+#[allow(dead_code)]
 #[async_trait]
 pub(crate) trait PolicyOp: StorageOp + Send + Sync {
     /// Clear the original policy and set the new ones.

@@ -2308,6 +2308,7 @@ name = "policy"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "attestation-types",
  "base64 0.22.1",
  "futures",
  "regorus",

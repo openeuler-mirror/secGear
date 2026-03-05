@@ -20,6 +20,7 @@ use std::path::Path;
 use crate::ima::ImaVerifier;
 use attestation_types::ItrusteeEvidence;
 
+#[allow(clippy::module_inception)]
 mod itrustee;
 
 const ITRUSTEE_REF_VALUE_DIR: &str =

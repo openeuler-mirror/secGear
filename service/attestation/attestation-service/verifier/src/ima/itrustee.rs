@@ -88,7 +88,6 @@ impl ImaVerifier for ItrusteeImaVerify {
         let ima_refs: std::collections::HashSet<String> = file_reader(&ref_path)
             .map_err(|err| anyhow!("Failed to read {}: {}", ref_path, err))?
             .into_iter()
-            .map(String::from)
             .collect();
         log::debug!(
             "ima reference loaded for app_id {:?} from {} entries={}",

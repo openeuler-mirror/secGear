@@ -12,12 +12,8 @@
 
 //! This is a test bin, test get evidence and verify
 //! on kunpeng platform, libqca has white ta lists, need copy target/debug/attestation-agent to /vendor/bin/
-use env_logger;
-use reqwest;
+
 use serde_json::json;
-use tokio;
-use rand;
-use base64_url;
 
 const TEST_THREAD_NUM: i64 = 1; // multi thread num
 const AA_ADDR: &str = "http://127.0.0.1:8081";
@@ -49,7 +45,7 @@ async fn aa_proc(i: i64, ima: bool) {
 
     // get challenge
     log::info!("thread {} case1 get challenge", i);
-    let client = reqwest::Client::new();
+    let _client = reqwest::Client::new();
     // let challenge_endpoint = format!("{AA_ADDR}/challenge");
     // let res = client
     //     .get(challenge_endpoint)

@@ -24,7 +24,10 @@ pub struct OPA {
     default_policy_itrustee: String,
 }
 
+#[cfg(not(test))]
 const DEFAULT_POLICY_DIR: &str = "/etc/attestation/attestation-service/policy/";
+#[cfg(test)]
+const DEFAULT_POLICY_DIR: &str = "/tmp/secgear_test_policy/";
 const DEFAULT_VCCA_REGO: &str = "default_vcca.rego";
 const DEFAULT_ITRUSTEE_REGO: &str = "default_itrustee.rego";
 
@@ -32,27 +35,37 @@ impl PolicyEngine for OPA {
     /// refs comes from report, by using query reference API
     async fn evaluate(
         &self,
-        tee: &String,
-        refs: &String,
-        data_for_policy: &String,
-        policy_id: &Vec<String>,
+        tee: &attestation_types::TeeType,
+        refs: &str,
+        data_for_policy: &str,
+        policy_id: &[String],
     ) -> Result<HashMap<String, String>, PolicyEngineError> {
-        let mut policy_id_used = policy_id.clone();
-        let policy_path: PathBuf;
-        if policy_id_used.is_empty() {
-            if tee == "vcca" {
-                policy_id_used.push(String::from(DEFAULT_VCCA_REGO));
-            } else if tee == "itrustee" {
-                policy_id_used.push(String::from(DEFAULT_ITRUSTEE_REGO));
-            } else {
-                return Err(PolicyEngineError::TeeTypeUnknown(format!(
-                    "tee type unknown: {tee}"
-                )));
+        let mut policy_id_used = policy_id.to_vec();
+        let policy_path: PathBuf = if policy_id_used.is_empty() {
+            match tee {
+                attestation_types::TeeType::Virtcca => {
+                    policy_id_used.push(String::from(DEFAULT_VCCA_REGO));
+                }
+                attestation_types::TeeType::Itrustee => {
+                    policy_id_used.push(String::from(DEFAULT_ITRUSTEE_REGO));
+                }
+                attestation_types::TeeType::Cca => {
+                    // Currently cca has no specific open source default policy, fallback or use default_vcca format if required
+                    // policy_id_used.push(String::from("default_cca.rego"));
+                    return Err(PolicyEngineError::TeeTypeUnknown(
+                        "default policy for cca is not implemented".to_string()
+                    ));
+                }
+                attestation_types::TeeType::Invalid => {
+                    return Err(PolicyEngineError::TeeTypeUnknown(format!(
+                        "tee type unknown: {:?}", tee
+                    )));
+                }
             }
-            policy_path = self.default_policy_dir.clone();
+            self.default_policy_dir.clone()
         } else {
-            policy_path = self.policy_dir.clone();
-        }
+            self.policy_dir.clone()
+        };
 
         let mut result: HashMap<String, String> = HashMap::new();
         for id in policy_id_used {
@@ -92,14 +105,14 @@ impl PolicyEngine for OPA {
                 .map_err(|err| {
                     PolicyEngineError::EngineEvalError(format!("engine eval error:{}", err))
                 })?;
-            result.insert(id, eval.to_string());
+            result.insert(id.clone(), eval.to_string());
         }
         Ok(result)
     }
     async fn set_policy(
         &self,
-        policy_id: &String,
-        policy: &String,
+        policy_id: &str,
+        policy: &str,
     ) -> Result<(), PolicyEngineError> {
         let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(policy)
@@ -108,7 +121,7 @@ impl PolicyEngine for OPA {
             })?;
 
         let mut policy_file: PathBuf = self.policy_dir.clone();
-        policy_file.push(format!("{}", policy_id));
+        policy_file.push(policy_id);
         tokio::fs::write(policy_file.as_path(), &raw)
             .await
             .map_err(|err| {
@@ -152,12 +165,12 @@ impl PolicyEngine for OPA {
                 policies.insert(name.to_string() + ".rego", content);
             }
         }
-        return Ok(policies);
+        Ok(policies)
     }
 
-    async fn get_policy(&self, policy_id: &String) -> Result<String, PolicyEngineError> {
+    async fn get_policy(&self, policy_id: &str) -> Result<String, PolicyEngineError> {
         let mut policy_file: PathBuf = self.policy_dir.clone();
-        policy_file.push(format!("{}", policy_id));
+        policy_file.push(policy_id);
         let policy = tokio::fs::read(policy_file.as_path())
             .await
             .map_err(|err| {
@@ -172,7 +185,7 @@ impl OPA {
     pub async fn new(policy_dir: &String) -> Result<Self, PolicyEngineError> {
         let policy_path = PathBuf::from(policy_dir);
         if !policy_path.as_path().exists() {
-            std::fs::create_dir_all(&policy_dir).map_err(|err| {
+            std::fs::create_dir_all(policy_dir).map_err(|err| {
                 PolicyEngineError::CreatePolicyDirError(format!(
                     "policy dir create failed: {}",
                     err

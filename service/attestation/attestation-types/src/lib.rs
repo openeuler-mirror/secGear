@@ -46,7 +46,7 @@ pub struct VirtccaEvidence {
 pub enum TeeType {
     Itrustee = 1,
     Virtcca,
-    Rustcca,
+    Cca,
     Invalid,
 }
 
@@ -56,9 +56,8 @@ impl std::str::FromStr for TeeType {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "itrustee" => Ok(TeeType::Itrustee),
-            "virtcca" => Ok(TeeType::Virtcca),
-            "rustcca" => Ok(TeeType::Rustcca),
-            "cca" => Ok(TeeType::Rustcca), // 将 CCA 映射到 Rustcca
+            "virtcca" | "vcca" => Ok(TeeType::Virtcca),
+            "cca" | "rustcca" => Ok(TeeType::Cca),
             _ => Ok(TeeType::Invalid),
         }
     }
@@ -69,7 +68,7 @@ impl std::fmt::Display for TeeType {
         match self {
             TeeType::Itrustee => write!(f, "itrustee"),
             TeeType::Virtcca => write!(f, "virtcca"),
-            TeeType::Rustcca => write!(f, "rustcca"),
+            TeeType::Cca => write!(f, "cca"),
             TeeType::Invalid => write!(f, "invalid"),
         }
     }

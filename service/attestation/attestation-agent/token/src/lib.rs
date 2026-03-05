@@ -26,17 +26,12 @@ pub enum VerifyError {
     SerializeFail(#[from] serde_json::error::Error),
 }
 
+#[derive(Default)]
 pub struct TokenVerifier {
     pub config: TokenVerifyConfig,
 }
 
-impl Default for TokenVerifier {
-    fn default() -> Self {
-        TokenVerifier {
-            config: TokenVerifyConfig::default(),
-        }
-    }
-}
+
 
 // 返回token的原始数据
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -53,16 +48,16 @@ impl TokenVerifier {
         if *alg == Algorithm::RS256 || *alg == Algorithm::RS384 || *alg == Algorithm::RS512 {
             return true;
         }
-        return false;
+        false
     }
     fn support_ps(alg: &Algorithm) -> bool {
         if *alg == Algorithm::PS256 || *alg == Algorithm::PS384 || *alg == Algorithm::PS512 {
             return true;
         }
-        return false;
+        false
     }
-    pub fn verify(&self, token: &String) -> Result<TokenRawData, VerifyError> {
-        let header = decode_header(&token)?;
+    pub fn verify(&self, token: &str) -> Result<TokenRawData, VerifyError> {
+        let header = decode_header(token)?;
         let alg: Algorithm = header.alg;
 
         if !Self::support_rs(&alg) && !Self::support_ps(&alg) {
@@ -86,7 +81,7 @@ impl TokenVerifier {
         validation.set_issuer(&[self.config.iss.clone()]);
         validation.validate_exp = true;
 
-        let data = decode::<Claims>(&token, &key_value, &validation)?;
+        let data = decode::<Claims>(token, &key_value, &validation)?;
         Ok(TokenRawData {
             header: serde_json::to_string(&data.header)?,
             claim: serde_json::to_string(&data.claims)?,

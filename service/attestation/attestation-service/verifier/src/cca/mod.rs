@@ -31,9 +31,9 @@ use std::error::Error;
 const TEST_CPAK: &str = include_str!("../../test_data/cpak.json");
 
 #[derive(Debug, Default)]
-pub struct RustCCAVerifier {}
+pub struct CcaVerifier {}
 
-impl RustCCAVerifier {
+impl CcaVerifier {
     pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         return evalute_wrapper(user_data, evidence);
     }
@@ -85,7 +85,7 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     });
 
     let claim = json!({
-        "tee_type": "ccatoken",
+        "tee": "cca",
         "payload" : payload,
     });
     Ok(claim as TeeClaim)
@@ -237,7 +237,7 @@ mod tests {
         });
 
         let claim = json!({
-            "tee_type": "ccatoken",
+            "tee": "cca",
             "payload" : payload,
         });
         println!("verify success {:?}", claim);

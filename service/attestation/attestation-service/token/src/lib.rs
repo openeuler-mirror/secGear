@@ -17,7 +17,6 @@ use jsonwebtoken::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use thiserror;
 
 const PRIVATE_KEY_PATH: &str = "/etc/attestation/attestation-service/token/private.pem";
 
@@ -70,17 +69,12 @@ pub struct EvlReport {
 }
 
 pub type SignAlg = Algorithm;
+#[derive(Default)]
 pub struct TokenSigner {
     pub config: TokenSignConfig,
 }
 
-impl Default for TokenSigner {
-    fn default() -> Self {
-        TokenSigner {
-            config: TokenSignConfig::default(),
-        }
-    }
-}
+
 
 impl TokenSigner {
     pub fn new(config: TokenSignConfig) -> Result<Self> {
@@ -90,13 +84,13 @@ impl TokenSigner {
         if *alg == Algorithm::RS256 || *alg == Algorithm::RS384 || *alg == Algorithm::RS512 {
             return true;
         }
-        return false;
+        false
     }
     fn support_ps(alg: &Algorithm) -> bool {
         if *alg == Algorithm::PS256 || *alg == Algorithm::PS384 || *alg == Algorithm::PS512 {
             return true;
         }
-        return false;
+        false
     }
     pub fn sign(&self, report: &EvlReport) -> Result<String, SignError> {
         let alg: Algorithm = self.config.alg;
@@ -122,7 +116,7 @@ impl TokenSigner {
         let key_value: EncodingKey = match EncodingKey::from_rsa_pem(&self.config.key) {
             Ok(val) => val,
             _ => {
-                return Err(SignError::ReadKeyFail(format!("get key from input error")));
+                return Err(SignError::ReadKeyFail("get key from input error".to_string()));
             }
         };
 
@@ -136,8 +130,8 @@ impl TokenSigner {
     }
 }
 
-pub fn verify(token: &String) -> Result<Claims> {
-    let header = decode_header(&token)?;
+pub fn verify(token: &str) -> Result<Claims> {
+    let header = decode_header(token)?;
     let alg: Algorithm = header.alg;
 
     // todo: check support of verification algorithm
@@ -146,6 +140,6 @@ pub fn verify(token: &String) -> Result<Claims> {
     let key_value = DecodingKey::from_rsa_pem(&cert)?;
     let validation = Validation::new(alg);
 
-    let data = decode::<Claims>(&token, &key_value, &validation)?;
+    let data = decode::<Claims>(token, &key_value, &validation)?;
     Ok(data.claims)
 }

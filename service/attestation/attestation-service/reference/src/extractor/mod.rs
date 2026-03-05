@@ -13,11 +13,11 @@ use crate::reference::Ref;
 use serde_json::Value;
 pub struct Extractor {}
 impl Extractor {
-    pub fn split(ref_set: &String) -> Option<Vec<Ref>> {
+    pub fn split(ref_set: &str) -> Option<Vec<Ref>> {
         // expect ref_set as a json string, like follow:
         // {"refname1":xx,"refname2":yy}
         let mut ret: Vec<Ref> = vec![];
-        let refs: Value = serde_json::from_str(ref_set.as_str()).ok()?;
+        let refs: Value = serde_json::from_str(ref_set).ok()?;
         for (key, val) in refs.as_object().unwrap() {
             let ref_obj = Ref {
                 name: key.clone(),
