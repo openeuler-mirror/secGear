@@ -11,12 +11,16 @@
  */
 use crate::result::Result;
 use crate::{AgentError, AttestationAgent, AttestationAgentAPIs, TokenRequest};
-use actix_web::{get, post, web, HttpResponse};
+use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use attestation_types::resource::ResourceLocation;
 use attester::EvidenceRequest;
 use log;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::net::IpAddr;
 use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
 #[cfg(feature = "no_as")]
@@ -245,14 +249,14 @@ pub async fn get_current_token(
     agent: web::Data<Arc<RwLock<AttestationAgent>>>,
 ) -> Result<HttpResponse> {
     log::debug!("get current token request");
-    
+
     let agent_guard = agent.read().await;
     let mut token_info = Vec::new();
-    
+
     for app in &agent_guard.config.app_list {
         let ttl = app.get_token_ttl().await.unwrap_or(0);
         let should_refresh = app.should_refresh_token().await;
-        
+
         token_info.push(serde_json::json!({
             "app_uuid": app.uuid,
             "has_token": app.has_token().await,
@@ -264,10 +268,225 @@ pub async fn get_current_token(
             "is_expired": app.is_token_expired().await
         }));
     }
-    
+
     let response = serde_json::json!({
         "apps": token_info
     });
-    
+
     Ok(HttpResponse::Ok().json(response))
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct ActiveTokenRequest {
+    nonce: Option<String>,
+}
+
+pub struct ActiveTokenRateLimiter {
+    limit_per_second: u32,
+    clients: Mutex<HashMap<IpAddr, RateLimitState>>,
+}
+
+struct RateLimitState {
+    window_started_at: Instant,
+    request_count: u32,
+}
+
+impl ActiveTokenRateLimiter {
+    pub fn new(limit_per_second: u32) -> Self {
+        Self {
+            limit_per_second,
+            clients: Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub fn check(&self, ip_addr: IpAddr) -> bool {
+        let mut clients = self.clients.lock().unwrap();
+        let now = Instant::now();
+        let state = clients.entry(ip_addr).or_insert(RateLimitState {
+            window_started_at: now,
+            request_count: 0,
+        });
+
+        if now.duration_since(state.window_started_at) >= Duration::from_secs(1) {
+            state.window_started_at = now;
+            state.request_count = 0;
+        }
+
+        if state.request_count >= self.limit_per_second {
+            return false;
+        }
+
+        state.request_count += 1;
+        true
+    }
+}
+
+#[get("/active_token")]
+pub async fn active_token(
+    http_request: HttpRequest,
+    request: web::Query<ActiveTokenRequest>,
+    agent: web::Data<Arc<RwLock<AttestationAgent>>>,
+    rate_limiter: Option<web::Data<ActiveTokenRateLimiter>>,
+) -> Result<HttpResponse> {
+    if let (Some(limiter), Some(peer_addr)) = (rate_limiter, http_request.peer_addr()) {
+        if !limiter.check(peer_addr.ip()) {
+            return Ok(HttpResponse::TooManyRequests().json(serde_json::json!({
+                "error": "rate_limited",
+                "message": "too many /active_token requests from this peer"
+            })));
+        }
+    }
+
+    let nonce_bytes = if let Some(ref nonce_hex) = request.nonce {
+        if nonce_hex.len() != 64 {
+            return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "invalid_nonce",
+                "message": "nonce must be exactly 32 bytes (64 hex characters)"
+            })));
+        }
+        match hex::decode(nonce_hex) {
+            Ok(bytes) if bytes.len() == 32 => Some(bytes),
+            _ => {
+                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "invalid_nonce",
+                    "message": "nonce must be exactly 32 bytes (64 hex characters)"
+                })));
+            }
+        }
+    } else {
+        None
+    };
+
+    if nonce_bytes.is_some() {
+        #[cfg(not(feature = "virtcca-attester"))]
+        {
+            return Ok(HttpResponse::NotImplemented().json(serde_json::json!({
+                "error": "not_supported",
+                "message": "Challenge-response requires virtcca-attester feature"
+            })));
+        }
+    }
+
+    let agent_guard = agent.read().await;
+    match agent_guard.get_active_token(nonce_bytes).await {
+        Ok(response) => Ok(HttpResponse::Ok().json(response)),
+        Err(e) => {
+            log::error!("get_active_token failed: {:?}", e);
+            if e.to_string() == "no_token_available" {
+                return Ok(HttpResponse::ServiceUnavailable().json(serde_json::json!({
+                    "error": "no_token_available",
+                    "message": "no cached JWT token is available for challenge-response"
+                })));
+            }
+            Ok(HttpResponse::ServiceUnavailable().json(serde_json::json!({
+                "error": "tsi_unavailable",
+                "message": "failed to generate CVM token for challenge-response"
+            })))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{http::StatusCode, test as awtest, App};
+    use attestation_types::AAConfig;
+
+    fn test_service_data() -> web::Data<Arc<RwLock<AttestationAgent>>> {
+        let agent = AttestationAgent::new(AAConfig::default()).unwrap();
+        web::Data::new(Arc::new(RwLock::new(agent)))
+    }
+
+    #[actix_web::test]
+    async fn active_token_accepts_get_without_nonce() {
+        let service = test_service_data();
+        let app = awtest::init_service(
+            App::new()
+                .app_data(web::Data::clone(&service))
+                .service(active_token),
+        )
+        .await;
+        let request = awtest::TestRequest::get().uri("/active_token").to_request();
+        let response = awtest::call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[actix_web::test]
+    async fn active_token_rejects_invalid_nonce_query() {
+        let service = test_service_data();
+        let app = awtest::init_service(
+            App::new()
+                .app_data(web::Data::clone(&service))
+                .service(active_token),
+        )
+        .await;
+        let request = awtest::TestRequest::get()
+            .uri("/active_token?nonce=abc")
+            .to_request();
+        let response = awtest::call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[cfg(not(feature = "virtcca-attester"))]
+    #[actix_web::test]
+    async fn active_token_with_nonce_requires_virtcca_attester_feature() {
+        let service = test_service_data();
+        let app = awtest::init_service(
+            App::new()
+                .app_data(web::Data::clone(&service))
+                .service(active_token),
+        )
+        .await;
+        let nonce = "00".repeat(32);
+        let request = awtest::TestRequest::get()
+            .uri(&format!("/active_token?nonce={nonce}"))
+            .to_request();
+        let response = awtest::call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::NOT_IMPLEMENTED);
+    }
+
+    #[cfg(feature = "virtcca-attester")]
+    #[actix_web::test]
+    async fn active_token_with_nonce_requires_cached_jwt() {
+        let service = test_service_data();
+        let app = awtest::init_service(
+            App::new()
+                .app_data(web::Data::clone(&service))
+                .service(active_token),
+        )
+        .await;
+        let nonce = "00".repeat(32);
+        let request = awtest::TestRequest::get()
+            .uri(&format!("/active_token?nonce={nonce}"))
+            .to_request();
+        let response = awtest::call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[test]
+    fn active_token_rate_limiter_rejects_eleventh_request_from_same_peer() {
+        let limiter = ActiveTokenRateLimiter::new(10);
+        let peer = "192.0.2.10".parse().unwrap();
+
+        for _ in 0..10 {
+            assert!(limiter.check(peer));
+        }
+
+        assert!(!limiter.check(peer));
+    }
+
+    #[test]
+    fn active_token_rate_limiter_tracks_peers_independently() {
+        let limiter = ActiveTokenRateLimiter::new(1);
+        let first_peer = "192.0.2.10".parse().unwrap();
+        let second_peer = "192.0.2.11".parse().unwrap();
+
+        assert!(limiter.check(first_peer));
+        assert!(!limiter.check(first_peer));
+        assert!(limiter.check(second_peer));
+    }
 }

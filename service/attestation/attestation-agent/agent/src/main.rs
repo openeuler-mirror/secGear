@@ -13,18 +13,26 @@ use actix_web::{web, App, HttpResponse, HttpServer};
 use anyhow::{bail, Result};
 use attestation_agent::{
     restapi::{
-        get_challenge, get_evidence, get_resource, get_token, verify_evidence, verify_token,
-        get_current_token,
+        active_token, get_challenge, get_current_token, get_evidence, get_resource, get_token,
+        verify_evidence, verify_token, ActiveTokenRateLimiter,
     },
     AttestationAgent,
 };
 use attestation_types::{AAConfig, HttpProtocal, DEFAULT_AACONFIG_FILE};
 use clap::{arg, command, Parser};
 
-use std::{path::Path, sync::Arc};
+use std::{net::SocketAddr, path::Path, sync::Arc};
 use tokio::sync::RwLock;
 
 const DEFAULT_SOCKETADDR: &str = "127.0.0.1:8081";
+const ACTIVE_TOKEN_RATE_LIMIT_PER_SECOND: u32 = 10;
+
+fn is_unspecified_listen_addr(socketaddr: &str) -> bool {
+    socketaddr
+        .parse::<SocketAddr>()
+        .map(|addr| addr.ip().is_unspecified())
+        .unwrap_or(false)
+}
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -54,7 +62,11 @@ pub struct Cli {
     cert_root: String,
 
     /// global switch for active attestation
-    #[arg(short = 's', long = "enable_active_attestation", default_value_t = false)]
+    #[arg(
+        short = 's',
+        long = "enable_active_attestation",
+        default_value_t = false
+    )]
     enable_active_attestation: bool,
 }
 
@@ -92,9 +104,16 @@ async fn main() -> Result<()> {
         AttestationAgent::new(config).unwrap()
     };
     let service = web::Data::new(Arc::new(RwLock::new(server)));
+    let active_token_rate_limiter = web::Data::new(ActiveTokenRateLimiter::new(
+        ACTIVE_TOKEN_RATE_LIMIT_PER_SECOND,
+    ));
+    if is_unspecified_listen_addr(&cli.socketaddr) {
+        log::warn!("AA is listening on an unspecified address, which exposes the service to all network interfaces. This may allow CVMs in the same VPC to access the /active_token endpoint, enabling real-time forwarding attacks. Consider binding to a specific IP address and using VPC security groups to restrict access.");
+    }
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::clone(&service))
+            .app_data(web::Data::clone(&active_token_rate_limiter))
             .service(get_challenge)
             .service(get_evidence)
             .service(verify_evidence)
@@ -102,6 +121,7 @@ async fn main() -> Result<()> {
             .service(verify_token)
             .service(get_resource)
             .service(get_current_token)
+            .service(active_token)
             .default_service(web::to(HttpResponse::NotFound))
     })
     .bind(cli.socketaddr)?
@@ -109,4 +129,16 @@ async fn main() -> Result<()> {
     .await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unspecified_listen_address_detection_covers_ipv4_and_ipv6() {
+        assert!(is_unspecified_listen_addr("0.0.0.0:8081"));
+        assert!(is_unspecified_listen_addr("[::]:8081"));
+        assert!(!is_unspecified_listen_addr("127.0.0.1:8081"));
+    }
 }
