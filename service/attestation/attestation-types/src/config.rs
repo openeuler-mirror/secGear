@@ -10,12 +10,12 @@
  * See the Mulan PSL v2 for more details.
  */
 
-use serde::{Deserialize, Serialize};
-use std::path::Path;
-use std::fs::File;
 use anyhow::Result;
-use std::sync::Arc;
+use serde::{Deserialize, Serialize};
+use std::fs::File;
+use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 pub const DEFAULT_AACONFIG_FILE: &str = "/etc/attestation/attestation-agent/attestation-agent.conf";
@@ -24,7 +24,7 @@ pub const DEFAULT_AACONFIG_FILE: &str = "/etc/attestation/attestation-agent/atte
 pub struct TokenManager {
     // Token 相关信息
     current_token: Arc<RwLock<Option<String>>>,
-    token_exp: Arc<RwLock<Option<u64>>>,  // JWT 的 exp 字段（过期时间）
+    token_exp: Arc<RwLock<Option<u64>>>, // JWT 的 exp 字段（过期时间）
     consecutive_failures: Arc<AtomicU32>,
 }
 
@@ -44,30 +44,30 @@ impl TokenManager {
         if parts.len() != 3 {
             return Err(anyhow::anyhow!("Invalid JWT format"));
         }
-        
+
         // 解码 payload (base64url)
         let payload = base64_url::decode(parts[1])?;
         let payload_str = String::from_utf8(payload)?;
         let claims: serde_json::Value = serde_json::from_str(&payload_str)?;
-        
+
         // 提取 exp
         let exp = claims["exp"]
             .as_u64()
             .ok_or_else(|| anyhow::anyhow!("Missing exp field"))?;
-            
+
         Ok(exp)
     }
 
     // 存储 token
     pub async fn store_token(&self, token: String) -> Result<()> {
         let exp = self.parse_jwt_exp(&token)?;
-        
+
         let mut token_guard = self.current_token.write().await;
         let mut exp_guard = self.token_exp.write().await;
-        
+
         *token_guard = Some(token);
         *exp_guard = Some(exp);
-        
+
         // 重置失败计数
         self.consecutive_failures.store(0, Ordering::Relaxed);
         Ok(())
@@ -126,17 +126,17 @@ impl TokenManager {
             if ttl <= 0 {
                 return true; // 已过期
             }
-            
+
             // 策略1: 固定时间提前刷新（使用 interval）
             // 确保在下次检查前完成刷新
             let fixed_threshold = interval;
-            
+
             // 策略2: 百分比提前刷新（剩余不足 10%）
             let percentage_threshold = (ttl as f64 * 0.1) as u64;
-            
+
             // 取更保守的策略（更早刷新）
             let threshold = std::cmp::max(fixed_threshold, percentage_threshold);
-            
+
             ttl <= threshold as i64
         } else {
             true // 没有 Token 时需要刷新
@@ -162,12 +162,11 @@ impl TokenManager {
     pub async fn clear_token(&self) {
         let mut token_guard = self.current_token.write().await;
         let mut exp_guard = self.token_exp.write().await;
-        
+
         *token_guard = None;
         *exp_guard = None;
     }
 }
-
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum HttpProtocal {
@@ -223,7 +222,10 @@ pub struct AppConfig {
     pub ima: bool,
     pub interval: u64,
     pub platform: crate::TeeType,
-    // 使用TokenManager管理token
+    #[serde(default)]
+    pub rim_auto_discover: bool,
+    #[serde(skip)]
+    pub discovered_rim: Arc<std::sync::OnceLock<String>>,
     #[serde(skip)]
     pub token_manager: Arc<TokenManager>,
 }
@@ -237,6 +239,8 @@ struct AppConfigDeserializable {
     interval: u64,
     #[serde(default = "default_platform")]
     platform: crate::TeeType,
+    #[serde(default)]
+    rim_auto_discover: bool,
 }
 
 fn default_interval() -> u64 {
@@ -248,12 +252,20 @@ fn default_platform() -> crate::TeeType {
 }
 
 impl AppConfig {
-    pub fn new(uuid: String, ima: bool, interval: u64, platform: crate::TeeType) -> Self {
+    pub fn new(
+        uuid: String,
+        ima: bool,
+        interval: u64,
+        platform: crate::TeeType,
+        rim_auto_discover: bool,
+    ) -> Self {
         Self {
             uuid,
             ima,
             interval,
             platform,
+            rim_auto_discover,
+            discovered_rim: Arc::new(std::sync::OnceLock::new()),
             token_manager: Arc::new(TokenManager::new()),
         }
     }
@@ -310,11 +322,12 @@ impl Serialize for AppConfig {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("AppConfig", 4)?;
+        let mut state = serializer.serialize_struct("AppConfig", 5)?;
         state.serialize_field("uuid", &self.uuid)?;
         state.serialize_field("ima", &self.ima)?;
         state.serialize_field("interval", &self.interval)?;
         state.serialize_field("platform", &self.platform)?;
+        state.serialize_field("rim_auto_discover", &self.rim_auto_discover)?;
         state.end()
     }
 }
@@ -326,6 +339,7 @@ impl From<AppConfigDeserializable> for AppConfig {
             deserializable.ima,
             deserializable.interval,
             deserializable.platform,
+            deserializable.rim_auto_discover,
         )
     }
 }
@@ -387,13 +401,24 @@ impl TryFrom<&Path> for AAConfig {
     type Error = anyhow::Error;
     fn try_from(config_path: &Path) -> Result<Self, Self::Error> {
         let file = File::open(config_path).unwrap();
-        let mut config: AAConfig = serde_json::from_reader::<File, AAConfig>(file).map_err(|e| anyhow::anyhow!("invalid aaconfig {e}"))?;
-        
+        let mut config: AAConfig = serde_json::from_reader::<File, AAConfig>(file)
+            .map_err(|e| anyhow::anyhow!("invalid aaconfig {e}"))?;
+
         // 为每个应用初始化 TokenManager
-        config.app_list = config.app_list.into_iter().map(|app| {
-            AppConfig::new(app.uuid, app.ima, app.interval, app.platform)
-        }).collect();
-        
+        config.app_list = config
+            .app_list
+            .into_iter()
+            .map(|app| {
+                AppConfig::new(
+                    app.uuid,
+                    app.ima,
+                    app.interval,
+                    app.platform,
+                    app.rim_auto_discover,
+                )
+            })
+            .collect();
+
         Ok(config)
     }
 }
