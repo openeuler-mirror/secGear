@@ -18,7 +18,7 @@ use anyhow::*;
 use async_trait::async_trait;
 
 #[cfg(feature = "itrustee-attester")]
-mod itrustee;
+pub mod itrustee;
 
 #[cfg(feature = "virtcca-attester")]
 pub mod virtcca;
@@ -46,7 +46,6 @@ pub struct Attester {}
 #[async_trait]
 impl AttesterAPIs for Attester {
     async fn tee_get_evidence(&self, _user_data: EvidenceRequest) -> Result<Vec<u8>> {
-
         #[cfg(feature = "itrustee-attester")]
         if itrustee::detect_platform() {
             let evidence = itrustee::ItrusteeAttester::default()

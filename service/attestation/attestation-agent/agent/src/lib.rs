@@ -25,7 +25,7 @@ use anyhow::{bail, Result};
 use async_trait::async_trait;
 use attestation_types::{
     resource::ResourceLocation, service::GetResourceOp, AAConfig, AgentError, AppConfig,
-    HttpProtocal, DEFAULT_AACONFIG_FILE,
+    HttpProtocal, TeeType, DEFAULT_AACONFIG_FILE,
 };
 use attester::{Attester, AttesterAPIs};
 #[cfg(feature = "virtcca-attester")]
@@ -38,6 +38,7 @@ use result::Error;
 use serde_json::json;
 use serde_json::Value;
 use std::path::Path;
+use std::{error::Error as StdError, fmt};
 use token_verifier::{TokenRawData, TokenVerifier};
 
 pub type TeeClaim = serde_json::Value;
@@ -68,6 +69,49 @@ pub struct ActiveTokenResponse {
     pub dev_cert: Option<String>,
     pub error: Option<String>,
     pub failure_count: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ActiveTokenError {
+    InvalidUuid,
+    MissingNonce,
+    PlatformMismatch,
+    AppNotFound,
+    AmbiguousApp,
+    NotSupported,
+    NoTokenAvailable,
+    TeeUnavailable,
+}
+
+impl fmt::Display for ActiveTokenError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidUuid => write!(f, "invalid_uuid"),
+            Self::MissingNonce => write!(f, "missing_nonce"),
+            Self::PlatformMismatch => write!(f, "platform_mismatch"),
+            Self::AppNotFound => write!(f, "app_not_found"),
+            Self::AmbiguousApp => write!(f, "ambiguous_app"),
+            Self::NotSupported => write!(f, "not_supported"),
+            Self::NoTokenAvailable => write!(f, "no_token_available"),
+            Self::TeeUnavailable => write!(f, "tee_unavailable"),
+        }
+    }
+}
+
+impl StdError for ActiveTokenError {}
+
+fn detect_active_token_runtime_platform() -> TeeType {
+    #[cfg(feature = "itrustee-attester")]
+    if attester::itrustee::detect_platform() {
+        return TeeType::Itrustee;
+    }
+
+    #[cfg(feature = "virtcca-attester")]
+    if attester::virtcca::detect_platform() {
+        return TeeType::Virtcca;
+    }
+
+    TeeType::Invalid
 }
 
 #[async_trait]
@@ -755,53 +799,118 @@ impl AttestationAgent {
         }
     }
 
-    pub async fn get_active_token(
+    fn select_active_token_app(
         &self,
-        nonce: Option<Vec<u8>>,
-    ) -> anyhow::Result<ActiveTokenResponse> {
-        let (jwt_token, expires_at, ttl_seconds, failure_count) = match self.config.app_list.first()
-        {
-            Some(app) => (
-                app.get_token().await,
-                app.get_token_expires_at().await,
-                app.get_token_ttl().await,
-                app.get_failure_count(),
-            ),
-            None => (None, None, None, 0),
-        };
-
-        let error = if jwt_token.is_none() {
-            Some("no_token_available".to_string())
-        } else {
-            None
-        };
-
-        if nonce.is_some() && jwt_token.is_none() {
-            anyhow::bail!("no_token_available");
+        uuid: Option<&str>,
+        runtime_platform: TeeType,
+    ) -> std::result::Result<Option<&AppConfig>, ActiveTokenError> {
+        if self.config.app_list.is_empty() {
+            return if uuid.is_some() {
+                Err(ActiveTokenError::AppNotFound)
+            } else {
+                Ok(None)
+            };
         }
 
-        let (cvm_token, dev_cert) = {
-            #[cfg(feature = "virtcca-attester")]
-            {
-                if let Some(nonce_bytes) = nonce {
-                    let result = tokio::task::spawn_blocking(move || {
-                        attester::virtcca::tee_get_token_only(&nonce_bytes)
-                    })
-                    .await
-                    .map_err(|e| anyhow::anyhow!("spawn_blocking failed: {}", e))??;
-                    (
-                        Some(BASE64_STANDARD.encode(&result.0)),
-                        Some(BASE64_STANDARD.encode(&result.1)),
-                    )
+        match runtime_platform {
+            TeeType::Itrustee => {
+                let app = if let Some(uuid) = uuid {
+                    if uuid == "auto" {
+                        return Err(ActiveTokenError::InvalidUuid);
+                    }
+
+                    let mut matches = self.config.app_list.iter().filter(|app| app.uuid == uuid);
+                    let first = matches.next().ok_or(ActiveTokenError::AppNotFound)?;
+                    if matches.next().is_some() {
+                        return Err(ActiveTokenError::AmbiguousApp);
+                    }
+                    first
                 } else {
-                    (None, None)
+                    self.config
+                        .app_list
+                        .first()
+                        .ok_or(ActiveTokenError::AppNotFound)?
+                };
+
+                if app.platform != TeeType::Itrustee {
+                    return Err(ActiveTokenError::PlatformMismatch);
+                }
+
+                Ok(Some(app))
+            }
+            TeeType::Virtcca => {
+                let app = self
+                    .config
+                    .app_list
+                    .first()
+                    .ok_or(ActiveTokenError::AppNotFound)?;
+
+                if app.platform != TeeType::Virtcca && app.platform != TeeType::Invalid {
+                    return Err(ActiveTokenError::PlatformMismatch);
+                }
+
+                if let Some(uuid) = uuid {
+                    if uuid == "auto" {
+                        return Err(ActiveTokenError::InvalidUuid);
+                    }
+                    if app.configured_uuid() == "auto" || app.configured_uuid() != uuid {
+                        return Err(ActiveTokenError::AppNotFound);
+                    }
+                }
+
+                Ok(Some(app))
+            }
+            _ => Err(ActiveTokenError::TeeUnavailable),
+        }
+    }
+
+    pub async fn get_active_token(
+        &self,
+        uuid: Option<&str>,
+        nonce: Option<Vec<u8>>,
+    ) -> std::result::Result<ActiveTokenResponse, ActiveTokenError> {
+        let runtime_platform = detect_active_token_runtime_platform();
+        self.get_active_token_with_platform(uuid, nonce, runtime_platform)
+            .await
+    }
+
+    pub(crate) async fn get_active_token_with_platform(
+        &self,
+        uuid: Option<&str>,
+        nonce: Option<Vec<u8>>,
+        runtime_platform: TeeType,
+    ) -> std::result::Result<ActiveTokenResponse, ActiveTokenError> {
+        match runtime_platform {
+            TeeType::Itrustee => {
+                if nonce.is_some() {
+                    return Err(ActiveTokenError::NotSupported);
                 }
             }
-            #[cfg(not(feature = "virtcca-attester"))]
-            {
-                let _ = nonce;
-                (None, None)
+            TeeType::Virtcca => {
+                if nonce.is_none() {
+                    return Err(ActiveTokenError::MissingNonce);
+                }
             }
+            _ => return Err(ActiveTokenError::TeeUnavailable),
+        }
+
+        let app = self.select_active_token_app(uuid, runtime_platform.clone())?;
+        let Some(app) = app else {
+            return Err(ActiveTokenError::NoTokenAvailable);
+        };
+
+        let jwt_token = app.get_token().await;
+        let expires_at = app.get_token_expires_at().await;
+        let ttl_seconds = app.get_token_ttl().await;
+        let failure_count = app.get_failure_count();
+
+        if jwt_token.is_none() {
+            return Err(ActiveTokenError::NoTokenAvailable);
+        }
+
+        let (cvm_token, dev_cert) = match runtime_platform {
+            TeeType::Virtcca => self.get_virtcca_token_for_nonce(nonce.unwrap()).await?,
+            _ => (None, None),
         };
 
         Ok(ActiveTokenResponse {
@@ -810,9 +919,34 @@ impl AttestationAgent {
             ttl_seconds,
             cvm_token,
             dev_cert,
-            error,
+            error: None,
             failure_count,
         })
+    }
+
+    #[cfg(feature = "virtcca-attester")]
+    async fn get_virtcca_token_for_nonce(
+        &self,
+        nonce_bytes: Vec<u8>,
+    ) -> std::result::Result<(Option<String>, Option<String>), ActiveTokenError> {
+        let result = tokio::task::spawn_blocking(move || {
+            attester::virtcca::tee_get_token_only(&nonce_bytes)
+        })
+        .await
+        .map_err(|_| ActiveTokenError::TeeUnavailable)?
+        .map_err(|_| ActiveTokenError::TeeUnavailable)?;
+        Ok((
+            Some(BASE64_STANDARD.encode(&result.0)),
+            Some(BASE64_STANDARD.encode(&result.1)),
+        ))
+    }
+
+    #[cfg(not(feature = "virtcca-attester"))]
+    async fn get_virtcca_token_for_nonce(
+        &self,
+        _nonce_bytes: Vec<u8>,
+    ) -> std::result::Result<(Option<String>, Option<String>), ActiveTokenError> {
+        Err(ActiveTokenError::NotSupported)
     }
 }
 
@@ -976,5 +1110,252 @@ mod tests {
         let result = AttestationAgent::new(config);
 
         assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+mod active_token_tests {
+    use super::*;
+    use attestation_types::TeeType;
+
+    fn fake_jwt(label: &str) -> String {
+        let header = base64_url::encode(r#"{"alg":"none"}"#);
+        let exp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 3600;
+        let payload = base64_url::encode(&format!(r#"{{"exp":{exp},"label":"{label}"}}"#));
+        format!("{header}.{payload}.signature")
+    }
+
+    fn agent_with_apps(apps: Vec<AppConfig>) -> AttestationAgent {
+        let mut config = AAConfig::default();
+        config.app_list = apps;
+        AttestationAgent {
+            config,
+            as_client_sessions: SessionMap::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn itrustee_active_token_can_select_cached_token_by_uuid() {
+        let agent = agent_with_apps(vec![
+            AppConfig::new("ta-1".to_string(), true, 30, TeeType::Itrustee, false),
+            AppConfig::new("ta-2".to_string(), true, 30, TeeType::Itrustee, false),
+        ]);
+        let expected = fake_jwt("ta-2");
+        agent.config.app_list[1]
+            .store_token(expected.clone())
+            .await
+            .unwrap();
+
+        let response = agent
+            .get_active_token_with_platform(Some("ta-2"), None, TeeType::Itrustee)
+            .await
+            .unwrap();
+
+        assert_eq!(response.jwt_token, Some(expected));
+    }
+
+    #[tokio::test]
+    async fn itrustee_active_token_rejects_duplicate_uuid() {
+        let agent = agent_with_apps(vec![
+            AppConfig::new("same-ta".to_string(), true, 30, TeeType::Itrustee, false),
+            AppConfig::new("same-ta".to_string(), true, 30, TeeType::Itrustee, false),
+        ]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("same-ta"), None, TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::AmbiguousApp);
+    }
+
+    #[tokio::test]
+    async fn itrustee_active_token_rejects_auto_uuid() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "ta-1".to_string(),
+            true,
+            30,
+            TeeType::Itrustee,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("auto"), None, TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::InvalidUuid);
+    }
+
+    #[tokio::test]
+    async fn itrustee_active_token_returns_not_found_for_unknown_uuid() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "ta-1".to_string(),
+            true,
+            30,
+            TeeType::Itrustee,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("missing-ta"), None, TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::AppNotFound);
+    }
+
+    #[tokio::test]
+    async fn itrustee_nonce_is_not_supported_before_token_lookup() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "ta-1".to_string(),
+            true,
+            30,
+            TeeType::Itrustee,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("ta-1"), Some(vec![0u8; 32]), TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::NotSupported);
+    }
+
+    #[tokio::test]
+    async fn itrustee_active_token_requires_cached_token() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "ta-1".to_string(),
+            true,
+            30,
+            TeeType::Itrustee,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("ta-1"), None, TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::NoTokenAvailable);
+    }
+
+    #[tokio::test]
+    async fn empty_itrustee_app_list_still_rejects_nonce() {
+        let agent = agent_with_apps(vec![]);
+
+        let error = agent
+            .get_active_token_with_platform(None, Some(vec![0u8; 32]), TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::NotSupported);
+    }
+
+    #[tokio::test]
+    async fn empty_virtcca_app_list_still_requires_nonce() {
+        let agent = agent_with_apps(vec![]);
+
+        let error = agent
+            .get_active_token_with_platform(None, None, TeeType::Virtcca)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::MissingNonce);
+    }
+
+    #[tokio::test]
+    async fn virtcca_active_token_requires_nonce() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "rim-1".to_string(),
+            false,
+            30,
+            TeeType::Virtcca,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(None, None, TeeType::Virtcca)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::MissingNonce);
+    }
+
+    #[tokio::test]
+    async fn virtcca_active_token_rejects_auto_uuid_query() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "rim-1".to_string(),
+            false,
+            30,
+            TeeType::Virtcca,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("auto"), Some(vec![0u8; 32]), TeeType::Virtcca)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::InvalidUuid);
+    }
+
+    #[tokio::test]
+    async fn virtcca_uuid_query_matches_configured_uuid_before_token_lookup() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "rim-1".to_string(),
+            false,
+            30,
+            TeeType::Virtcca,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("rim-1"), Some(vec![0u8; 32]), TeeType::Virtcca)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::NoTokenAvailable);
+    }
+
+    #[tokio::test]
+    async fn virtcca_uuid_query_does_not_match_auto_config_after_discovery() {
+        let mut app = AppConfig::new("auto".to_string(), false, 30, TeeType::Virtcca, true);
+        app.uuid = "discovered-rim".to_string();
+        let agent = agent_with_apps(vec![app]);
+
+        let error = agent
+            .get_active_token_with_platform(
+                Some("discovered-rim"),
+                Some(vec![0u8; 32]),
+                TeeType::Virtcca,
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::AppNotFound);
+    }
+
+    #[tokio::test]
+    async fn selected_app_platform_must_match_runtime_platform() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "rim-1".to_string(),
+            false,
+            30,
+            TeeType::Virtcca,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(None, None, TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::PlatformMismatch);
     }
 }

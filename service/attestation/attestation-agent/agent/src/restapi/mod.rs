@@ -10,7 +10,7 @@
  * See the Mulan PSL v2 for more details.
  */
 use crate::result::Result;
-use crate::{AgentError, AttestationAgent, AttestationAgentAPIs, TokenRequest};
+use crate::{ActiveTokenError, AgentError, AttestationAgent, AttestationAgentAPIs, TokenRequest};
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use attestation_types::resource::ResourceLocation;
 use attester::EvidenceRequest;
@@ -279,6 +279,7 @@ pub async fn get_current_token(
 #[derive(Deserialize, Serialize, Debug)]
 struct ActiveTokenRequest {
     nonce: Option<String>,
+    uuid: Option<String>,
 }
 
 pub struct ActiveTokenRateLimiter {
@@ -357,31 +358,56 @@ pub async fn active_token(
         None
     };
 
-    if nonce_bytes.is_some() {
-        #[cfg(not(feature = "virtcca-attester"))]
-        {
-            return Ok(HttpResponse::NotImplemented().json(serde_json::json!({
-                "error": "not_supported",
-                "message": "Challenge-response requires virtcca-attester feature"
-            })));
-        }
-    }
-
     let agent_guard = agent.read().await;
-    match agent_guard.get_active_token(nonce_bytes).await {
+    match agent_guard
+        .get_active_token(request.uuid.as_deref(), nonce_bytes)
+        .await
+    {
         Ok(response) => Ok(HttpResponse::Ok().json(response)),
         Err(e) => {
             log::error!("get_active_token failed: {:?}", e);
-            if e.to_string() == "no_token_available" {
-                return Ok(HttpResponse::ServiceUnavailable().json(serde_json::json!({
-                    "error": "no_token_available",
-                    "message": "no cached JWT token is available for challenge-response"
-                })));
-            }
-            Ok(HttpResponse::ServiceUnavailable().json(serde_json::json!({
-                "error": "tsi_unavailable",
-                "message": "failed to generate CVM token for challenge-response"
-            })))
+            Ok(active_token_error_response(e))
+        }
+    }
+}
+
+fn active_token_error_response(error: ActiveTokenError) -> HttpResponse {
+    match error {
+        ActiveTokenError::InvalidUuid => HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "invalid_uuid",
+            "message": "uuid must not be auto"
+        })),
+        ActiveTokenError::MissingNonce => HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "missing_nonce",
+            "message": "nonce is required for virtCCA active token"
+        })),
+        ActiveTokenError::PlatformMismatch => HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "platform_mismatch",
+            "message": "selected app platform does not match current TEE platform"
+        })),
+        ActiveTokenError::AppNotFound => HttpResponse::NotFound().json(serde_json::json!({
+            "error": "app_not_found",
+            "message": "no active attestation app matches the request"
+        })),
+        ActiveTokenError::AmbiguousApp => HttpResponse::Conflict().json(serde_json::json!({
+            "error": "ambiguous_app",
+            "message": "multiple active attestation apps match the request"
+        })),
+        ActiveTokenError::NotSupported => HttpResponse::NotImplemented().json(serde_json::json!({
+            "error": "not_supported",
+            "message": "iTrustee nonce-bound active token is not supported in the current stage"
+        })),
+        ActiveTokenError::NoTokenAvailable => {
+            HttpResponse::ServiceUnavailable().json(serde_json::json!({
+                "error": "no_token_available",
+                "message": "no cached JWT token is available for challenge-response"
+            }))
+        }
+        ActiveTokenError::TeeUnavailable => {
+            HttpResponse::ServiceUnavailable().json(serde_json::json!({
+                "error": "tee_unavailable",
+                "message": "failed to detect or access the current TEE platform"
+            }))
         }
     }
 }
@@ -398,7 +424,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn active_token_accepts_get_without_nonce() {
+    async fn active_token_without_supported_platform_returns_unavailable() {
         let service = test_service_data();
         let app = awtest::init_service(
             App::new()
@@ -409,7 +435,7 @@ mod tests {
         let request = awtest::TestRequest::get().uri("/active_token").to_request();
         let response = awtest::call_service(&app, request).await;
 
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     }
 
     #[actix_web::test]
@@ -429,21 +455,9 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
-    #[cfg(not(feature = "virtcca-attester"))]
     #[actix_web::test]
-    async fn active_token_with_nonce_requires_virtcca_attester_feature() {
-        let service = test_service_data();
-        let app = awtest::init_service(
-            App::new()
-                .app_data(web::Data::clone(&service))
-                .service(active_token),
-        )
-        .await;
-        let nonce = "00".repeat(32);
-        let request = awtest::TestRequest::get()
-            .uri(&format!("/active_token?nonce={nonce}"))
-            .to_request();
-        let response = awtest::call_service(&app, request).await;
+    async fn active_token_error_response_maps_not_supported() {
+        let response = active_token_error_response(ActiveTokenError::NotSupported);
 
         assert_eq!(response.status(), StatusCode::NOT_IMPLEMENTED);
     }
