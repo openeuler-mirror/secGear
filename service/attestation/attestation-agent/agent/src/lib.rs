@@ -24,12 +24,15 @@ use actix_web::web::Bytes;
 use anyhow::{bail, Result};
 use async_trait::async_trait;
 use attestation_types::{
-    resource::ResourceLocation, service::GetResourceOp,
-    AppConfig, AAConfig, HttpProtocal, AgentError, DEFAULT_AACONFIG_FILE
+    resource::ResourceLocation, service::GetResourceOp, AAConfig, AgentError, AppConfig,
+    HttpProtocal, DEFAULT_AACONFIG_FILE,
 };
 use attester::{Attester, AttesterAPIs};
+#[cfg(feature = "virtcca-attester")]
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use serde::Serialize;
 
-use rand::{RngCore, Rng};
+use rand::{Rng, RngCore};
 use reqwest::Client;
 use result::Error;
 use serde_json::json;
@@ -39,14 +42,11 @@ use token_verifier::{TokenRawData, TokenVerifier};
 
 pub type TeeClaim = serde_json::Value;
 
-
 #[cfg(feature = "no_as")]
 use verifier::{Verifier, VerifierAPIs};
 
 #[cfg(not(feature = "no_as"))]
-use {
-    reqwest::header::{HeaderMap, HeaderValue},
-};
+use reqwest::header::{HeaderMap, HeaderValue};
 
 pub use attester::EvidenceRequest;
 mod session;
@@ -57,6 +57,17 @@ pub type AsTokenClaim = TokenRawData;
 pub struct TokenRequest {
     pub ev_req: EvidenceRequest,
     pub policy_id: Option<Vec<String>>,
+}
+
+#[derive(Serialize, Debug)]
+pub struct ActiveTokenResponse {
+    pub jwt_token: Option<String>,
+    pub expires_at: Option<u64>,
+    pub ttl_seconds: Option<i64>,
+    pub cvm_token: Option<String>,
+    pub dev_cert: Option<String>,
+    pub error: Option<String>,
+    pub failure_count: u32,
 }
 
 #[async_trait]
@@ -196,10 +207,13 @@ impl AttestationAgent {
         Self::new_with_interval(config, enable_active_attestation)
     }
 
-    pub fn new_with_interval(config: AAConfig, enable_active_attestation: bool) -> Result<Self, Error> {
+    pub fn new_with_interval(
+        config: AAConfig,
+        enable_active_attestation: bool,
+    ) -> Result<Self, Error> {
         let as_client_sessions = SessionMap::new();
         let sessions = as_client_sessions.clone();
-        
+
         // Start session cleanup task
         tokio::spawn(async move {
             loop {
@@ -211,9 +225,56 @@ impl AttestationAgent {
             }
         });
 
-        // Start active attestation task if enable_active_attestation is true
+        #[cfg(feature = "virtcca-attester")]
+        let mut config = config;
+        #[cfg(not(feature = "virtcca-attester"))]
+        let config = config;
+
+        #[cfg(feature = "virtcca-attester")]
+        for app in &mut config.app_list {
+            if app.rim_auto_discover || app.uuid == "auto" {
+                if attester::virtcca::detect_platform() {
+                    match attester::virtcca::discover_rim() {
+                        Ok(rim_hex) => {
+                            log::info!("Auto-discovered rim: {}", rim_hex);
+                            app.uuid = rim_hex.clone();
+                            let _ = app.discovered_rim.set(rim_hex);
+                        }
+                        Err(e) => {
+                            if app.uuid == "auto" {
+                                return Err(Error::Agent {
+                                    source: AgentError::GetEvidenceError(format!(
+                                        "Rim auto-discovery failed: {}",
+                                        e
+                                    )),
+                                });
+                            }
+                            log::warn!("Rim auto-discovery failed, using configured uuid: {:?}", e);
+                        }
+                    }
+                } else if app.uuid == "auto" {
+                    return Err(Error::Agent {
+                        source: AgentError::GetEvidenceError(
+                            "uuid='auto' requires virtCCA platform".to_string(),
+                        ),
+                    });
+                }
+            }
+        }
+
+        #[cfg(not(feature = "virtcca-attester"))]
+        for app in &config.app_list {
+            if app.uuid == "auto" {
+                return Err(Error::Agent {
+                    source: AgentError::GetEvidenceError(
+                        "uuid='auto' requires virtcca-attester feature".to_string(),
+                    ),
+                });
+            }
+        }
+
         let app_list = config.app_list.clone();
-        
+
         let agent = AttestationAgent {
             config,
             as_client_sessions,
@@ -227,11 +288,14 @@ impl AttestationAgent {
                     tokio::spawn(async move {
                         // Add random delay betwenn [0, 1) seconds to avoid all tasks starting at the same time
                         let delay = rand::thread_rng().gen_range(0..1);
-                        tokio::time::sleep(std::time::Duration::from_secs(delay)).await;   
+                        tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
                         agent_clone.start_active_attestation(&app_clone).await;
                     });
                 } else {
-                    log::warn!("Attestation interval is 0, skipping active attestation task {}", app.uuid);
+                    log::warn!(
+                        "Attestation interval is 0, skipping active attestation task {}",
+                        app.uuid
+                    );
                 }
             }
         } else {
@@ -250,21 +314,30 @@ impl AttestationAgent {
             log::error!("Invalid attestation interval: {}", config.interval);
             return; // 提前返回，避免无限循环
         };
-        
-        log::info!("Starting active attestation for {} with interval {} seconds", config.uuid, interval);
-        
+
+        log::info!(
+            "Starting active attestation for {} with interval {} seconds",
+            config.uuid,
+            interval
+        );
+
         loop {
             // 计算下次刷新延迟
             let next_refresh_delay = self.calculate_refresh_delay(config).await;
-            
-            log::debug!("Next refresh for {} in {} seconds", config.uuid, next_refresh_delay);
-            
+
+            log::debug!(
+                "Next refresh for {} in {} seconds",
+                config.uuid,
+                next_refresh_delay
+            );
+
             // 等待到刷新时间（使用 sleep_until 提高精度）
             if next_refresh_delay > 0 {
-                let target_time = tokio::time::Instant::now() + std::time::Duration::from_secs(next_refresh_delay);
+                let target_time = tokio::time::Instant::now()
+                    + std::time::Duration::from_secs(next_refresh_delay);
                 tokio::time::sleep_until(target_time).await;
             }
-            
+
             // 双重检查：确保真的需要刷新
             if config.should_refresh_token().await {
                 self.perform_token_refresh(config).await;
@@ -292,10 +365,13 @@ impl AttestationAgent {
             log::info!("Token for {} has expired, refreshing", config.uuid);
         } else {
             let ttl = config.get_token_ttl().await.unwrap_or(0);
-            log::info!("Token for {} will expire in {} seconds, refreshing proactively", 
-                      config.uuid, ttl);
+            log::info!(
+                "Token for {} will expire in {} seconds, refreshing proactively",
+                config.uuid,
+                ttl
+            );
         }
-        
+
         match self.perform_active_attestation(config).await {
             Ok(token) => {
                 if let Err(e) = config.store_token(token).await {
@@ -309,49 +385,60 @@ impl AttestationAgent {
             Err(e) => {
                 config.record_failure();
                 let failure_count = config.get_failure_count();
-                log::error!("Token refresh failed for {} (attempt {}): {:?}", 
-                           config.uuid, failure_count, e);
-                
+                log::error!(
+                    "Token refresh failed for {} (attempt {}): {:?}",
+                    config.uuid,
+                    failure_count,
+                    e
+                );
+
                 // 智能重试延迟
                 let max_consecutive_failures = 5;
                 let max_delay = config.interval * 2;
                 let delay = if failure_count >= max_consecutive_failures {
-                    log::warn!("Too many consecutive failures for {}, using longer delay", config.uuid);
+                    log::warn!(
+                        "Too many consecutive failures for {}, using longer delay",
+                        config.uuid
+                    );
                     config.interval * 2
                 } else {
-                    std::cmp::min(
-                        10 * (2_u64.pow(failure_count - 1)),
-                        max_delay
-                    )
+                    std::cmp::min(10 * (2_u64.pow(failure_count - 1)), max_delay)
                 };
-                
+
                 tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
             }
         }
     }
 
     /// Perform active attestation: get challenge, evidence, and verify with AS
-    async fn perform_active_attestation(&self, config: &AppConfig) -> Result<String> {        
+    async fn perform_active_attestation(&self, config: &AppConfig) -> Result<String> {
         // Generate a random challenge
         // let challenge_data: [u8; 32] = rand::random();
         // let challenge = base64_url::encode(&challenge_data);
         // Get challenge from AS
         let challenge_from_as = self.get_challenge_from_as(None).await?;
         let encoded_challenge = challenge_from_as.as_bytes().to_vec();
-               
+
         // Create evidence request from AppConfig
         let evidence_request = EvidenceRequest {
             uuid: config.uuid.clone(),
             challenge: encoded_challenge.clone(),
             ima: Some(config.ima), // Enable IMA for active attestation
         };
-        log::debug!("Created evidence request: uuid={}, ima={:?}", evidence_request.uuid, evidence_request.ima);
-        
+        log::debug!(
+            "Created evidence request: uuid={}, ima={:?}",
+            evidence_request.uuid,
+            evidence_request.ima
+        );
+
         // Get evidence from TEE
         log::info!("Calling get_evidence from TEE");
         let evidence = match self.get_evidence(evidence_request).await {
             Ok(evidence) => {
-                log::info!("Successfully obtained evidence from TEE: {} bytes", evidence.len());
+                log::info!(
+                    "Successfully obtained evidence from TEE: {} bytes",
+                    evidence.len()
+                );
                 evidence
             }
             Err(e) => {
@@ -359,12 +446,18 @@ impl AttestationAgent {
                 return Err(e);
             }
         };
-        
+
         // Verify evidence with attestation service, currently only default policy is supported
         // #[cfg(not(feature = "no_as"))]
-        let token = match self.verify_evidence_by_as(&encoded_challenge, &evidence, None).await {
+        let token = match self
+            .verify_evidence_by_as(&encoded_challenge, &evidence, None)
+            .await
+        {
             Ok(token) => {
-                log::info!("Successfully verified evidence with AS, token length: {}", token.len());
+                log::info!(
+                    "Successfully verified evidence with AS, token length: {}",
+                    token.len()
+                );
                 token
             }
             Err(e) => {
@@ -404,11 +497,16 @@ impl AttestationAgent {
         policy_id: Option<Vec<String>>,
     ) -> Result<String> {
         log::info!("Starting verify_evidence_by_as");
-        log::debug!("Challenge length: {} bytes, Evidence length: {} bytes, policy_id: {:?}", challenge.len(), evidence.len(), policy_id);
-        
+        log::debug!(
+            "Challenge length: {} bytes, Evidence length: {} bytes, policy_id: {:?}",
+            challenge.len(),
+            evidence.len(),
+            policy_id
+        );
+
         let challenge = String::from_utf8_lossy(challenge).to_string();
         log::debug!("Challenge string: {}", challenge);
-        
+
         let ss = self
             .as_client_sessions
             .session_map
@@ -421,8 +519,12 @@ impl AttestationAgent {
             "evidence": base64_url::encode(evidence),
             "policy_id": policy_id,
         });
-        log::debug!("Request body prepared: challenge={}, evidence_length={}", challenge, evidence.len());
-        
+        log::debug!(
+            "Request body prepared: challenge={}, evidence_length={}",
+            challenge,
+            evidence.len()
+        );
+
         let mut map = HeaderMap::new();
         let client;
         if ss.is_none() {
@@ -452,24 +554,28 @@ impl AttestationAgent {
         }
 
         let attest_endpoint = format!("{}/attestation", self.config.svr_url);
-        log::info!("Sending request to attestation endpoint: {}", attest_endpoint);
+        log::info!(
+            "Sending request to attestation endpoint: {}",
+            attest_endpoint
+        );
         log::debug!("Request headers: {:?}", map);
-        
+
         let res = match client
             .post(&attest_endpoint)
             .headers(map)
             .json(&request_body)
             .send()
-            .await {
-                Ok(res) => {
-                    log::debug!("Request sent successfully, status: {}", res.status());
-                    res
-                }
-                Err(e) => {
-                    log::error!("Failed to send request: {:?}", e);
-                    return Err(anyhow::anyhow!("Request failed: {:?}", e));
-                }
-            };
+            .await
+        {
+            Ok(res) => {
+                log::debug!("Request sent successfully, status: {}", res.status());
+                res
+            }
+            Err(e) => {
+                log::error!("Failed to send request: {:?}", e);
+                return Err(anyhow::anyhow!("Request failed: {:?}", e));
+            }
+        };
 
         match res.status() {
             reqwest::StatusCode::OK => {
@@ -484,7 +590,7 @@ impl AttestationAgent {
                         return Err(anyhow::anyhow!("Failed to read response: {:?}", e));
                     }
                 };
-                
+
                 if ss.as_ref().is_some() {
                     // 使用正确的方式访问session
                     if let Some(_session) = ss.as_ref() {
@@ -503,7 +609,11 @@ impl AttestationAgent {
                     Ok(text) => text,
                     Err(e) => format!("Failed to read error response: {:?}", e),
                 };
-                log::error!("Remote Attestation Failed, Status: {}, Response: {}", status, error_text);
+                log::error!(
+                    "Remote Attestation Failed, Status: {}, Response: {}",
+                    status,
+                    error_text
+                );
                 bail!(
                     "Remote Attestation Failed, Status: {}, AS Response: {}",
                     status,
@@ -643,6 +753,66 @@ impl AttestationAgent {
         } else {
             None
         }
+    }
+
+    pub async fn get_active_token(
+        &self,
+        nonce: Option<Vec<u8>>,
+    ) -> anyhow::Result<ActiveTokenResponse> {
+        let (jwt_token, expires_at, ttl_seconds, failure_count) = match self.config.app_list.first()
+        {
+            Some(app) => (
+                app.get_token().await,
+                app.get_token_expires_at().await,
+                app.get_token_ttl().await,
+                app.get_failure_count(),
+            ),
+            None => (None, None, None, 0),
+        };
+
+        let error = if jwt_token.is_none() {
+            Some("no_token_available".to_string())
+        } else {
+            None
+        };
+
+        if nonce.is_some() && jwt_token.is_none() {
+            anyhow::bail!("no_token_available");
+        }
+
+        let (cvm_token, dev_cert) = {
+            #[cfg(feature = "virtcca-attester")]
+            {
+                if let Some(nonce_bytes) = nonce {
+                    let result = tokio::task::spawn_blocking(move || {
+                        attester::virtcca::tee_get_token_only(&nonce_bytes)
+                    })
+                    .await
+                    .map_err(|e| anyhow::anyhow!("spawn_blocking failed: {}", e))??;
+                    (
+                        Some(BASE64_STANDARD.encode(&result.0)),
+                        Some(BASE64_STANDARD.encode(&result.1)),
+                    )
+                } else {
+                    (None, None)
+                }
+            }
+            #[cfg(not(feature = "virtcca-attester"))]
+            {
+                let _ = nonce;
+                (None, None)
+            }
+        };
+
+        Ok(ActiveTokenResponse {
+            jwt_token,
+            expires_at,
+            ttl_seconds,
+            cvm_token,
+            dev_cert,
+            error,
+            failure_count,
+        })
     }
 }
 
@@ -787,3 +957,24 @@ pub fn generate_headers() -> ::std::io::Result<()> {
         .generate()
 }
 
+#[cfg(all(test, not(feature = "virtcca-attester")))]
+mod tests {
+    use super::*;
+    use attestation_types::TeeType;
+
+    #[tokio::test]
+    async fn uuid_auto_requires_virtcca_attester_feature() {
+        let mut config = AAConfig::default();
+        config.app_list.push(AppConfig::new(
+            "auto".to_string(),
+            true,
+            30,
+            TeeType::Virtcca,
+            true,
+        ));
+
+        let result = AttestationAgent::new(config);
+
+        assert!(result.is_err());
+    }
+}
