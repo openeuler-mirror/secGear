@@ -219,6 +219,9 @@ impl Default for TokenVerifyConfig {
 #[serde(from = "AppConfigDeserializable")]
 pub struct AppConfig {
     pub uuid: String,
+    // Preserves the UUID from the config file before runtime discovery mutates `uuid`.
+    #[serde(skip)]
+    configured_uuid: String,
     pub ima: bool,
     pub interval: u64,
     pub platform: crate::TeeType,
@@ -259,8 +262,10 @@ impl AppConfig {
         platform: crate::TeeType,
         rim_auto_discover: bool,
     ) -> Self {
+        let configured_uuid = uuid.clone();
         Self {
             uuid,
+            configured_uuid,
             ima,
             interval,
             platform,
@@ -314,6 +319,10 @@ impl AppConfig {
     pub fn reset_failures(&self) {
         self.token_manager.reset_failures();
     }
+
+    pub fn configured_uuid(&self) -> &str {
+        &self.configured_uuid
+    }
 }
 
 impl Serialize for AppConfig {
@@ -323,7 +332,7 @@ impl Serialize for AppConfig {
     {
         use serde::ser::SerializeStruct;
         let mut state = serializer.serialize_struct("AppConfig", 5)?;
-        state.serialize_field("uuid", &self.uuid)?;
+        state.serialize_field("uuid", &self.configured_uuid)?;
         state.serialize_field("ima", &self.ima)?;
         state.serialize_field("interval", &self.interval)?;
         state.serialize_field("platform", &self.platform)?;

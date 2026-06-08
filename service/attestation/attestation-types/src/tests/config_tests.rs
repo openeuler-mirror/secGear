@@ -46,8 +46,23 @@ mod tests {
 
         let app_config: AppConfig = serde_json::from_str(json).unwrap();
         assert_eq!(app_config.uuid, "auto");
+        assert_eq!(app_config.configured_uuid(), "auto");
         assert_eq!(app_config.platform, TeeType::Virtcca);
         assert_eq!(app_config.rim_auto_discover, true);
+    }
+
+    #[test]
+    fn test_appconfig_serialization_uses_configured_uuid() {
+        let mut app_config = AppConfig::new("auto".to_string(), false, 30, TeeType::Virtcca, true);
+        app_config.uuid =
+            "8b20beea9304b06459e7cd295145d643d8b93cd8f47c8ccabafc6979040dc7c0".to_string();
+
+        let value = serde_json::to_value(&app_config).unwrap();
+
+        assert_eq!(value["uuid"], "auto");
+        assert!(value.get("configured_uuid").is_none());
+        assert!(value.get("discovered_rim").is_none());
+        assert!(value.get("token_manager").is_none());
     }
 
     #[test]
