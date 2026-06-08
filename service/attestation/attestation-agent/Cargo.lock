@@ -406,6 +406,7 @@ dependencies = [
  "attestation-types",
  "base64-url",
  "ciborium",
+ "cose-rust",
  "hex",
  "log",
  "rand 0.8.5",

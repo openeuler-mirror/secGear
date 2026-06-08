@@ -244,21 +244,18 @@ fn extract_rim_from_cbor(cbor_data: &[u8]) -> Result<Vec<u8>> {
 
     let cose_payload = match &token_bytes {
         Value::Bytes(b) => {
-            let cose: Value = from_reader(b.as_slice())
-                .map_err(|e| anyhow!("Failed to parse COSE_Sign1: {}", e))?;
-            match cose {
-                Value::Array(items) if items.len() >= 3 => items[2].clone(),
-                _ => bail!("Invalid COSE_Sign1 structure"),
-            }
+            let mut cose_envelop = cose::message::CoseMessage::new_sign();
+            cose_envelop.bytes = b.clone();
+            cose_envelop
+                .init_decoder(None)
+                .map_err(|e| anyhow!("Failed to parse COSE_Sign1: {:?}", e))?;
+            cose_envelop.payload
         }
         _ => bail!("Expected bytes for COSE_Sign1"),
     };
 
-    let payload_bytes: Vec<u8> = match &cose_payload {
-        Value::Bytes(b) => from_reader(b.as_slice())
-            .map_err(|e| anyhow!("Failed to parse CvmToken payload bytes: {}", e))?,
-        _ => bail!("Expected bytes for COSE payload"),
-    };
+    let payload_bytes: Vec<u8> = from_reader(cose_payload.as_slice())
+        .map_err(|e| anyhow!("Failed to parse CvmToken payload bytes: {}", e))?;
     let payload: Value = from_reader(payload_bytes.as_slice())
         .map_err(|e| anyhow!("Failed to parse CvmToken payload: {}", e))?;
 

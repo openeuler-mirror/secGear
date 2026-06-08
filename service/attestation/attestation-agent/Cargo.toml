@@ -25,6 +25,7 @@ sha2 = "0.10"
 ciborium = "0.2"
 hex = "0.4"
 base64 = "0.22.1"
+cose-rust = "0.1.7"
 
 verifier = { path = "../attestation-service/verifier", default-features = false }
 attestation-types = { path = "../attestation-types" }
