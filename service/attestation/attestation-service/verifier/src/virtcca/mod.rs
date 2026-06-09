@@ -42,6 +42,7 @@ const RSA_ROOT_CERT: &str =
 #[cfg(not(feature = "no_as"))]
 const RSA_SUB_CERT: &str =
     "/etc/attestation/attestation-service/verifier/virtcca/Huawei IT Product CA.pem";
+#[cfg(not(feature = "no_as"))]
 const ECCP_ROOT_CERT: &str =
     "/etc/attestation/attestation-service/verifier/virtcca/eccp521_root_cert.pem";
 #[cfg(not(feature = "no_as"))]
