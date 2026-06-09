@@ -374,6 +374,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "time-core",
  "token_verifier",
  "tokio",
  "verifier",
@@ -409,10 +410,14 @@ dependencies = [
  "cose-rust",
  "hex",
  "log",
+ "openssl-sys",
  "rand 0.8.5",
  "serde",
  "serde_json",
  "sha2",
+ "strum",
+ "tempfile",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -597,15 +602,14 @@ dependencies = [
 [[package]]
 name = "ccatoken"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d9c07ffa2f6287cab59d80d540cf59875a4f6ff899455c99ae5df7ec3e7e208"
+source = "git+https://github.com/veraison/rust-ccatoken.git?rev=dfe9ca2d949c28eb0944fe16769f06a96676dda1#dfe9ca2d949c28eb0944fe16769f06a96676dda1"
 dependencies = [
  "base64 0.21.7",
  "bitmask",
  "ciborium",
  "clap",
  "cose-rust",
- "ear",
+ "ear 0.3.0",
  "hex",
  "hex-literal",
  "jsonwebtoken 9.3.1",
@@ -714,7 +718,7 @@ version = "4.5.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf4ced95c6f4a675af3da73304b9ac4ed991640c36374e4b46795c49e17cf1ed"
 dependencies = [
- "heck",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.98",
@@ -1034,6 +1038,25 @@ dependencies = [
  "cose-rust",
  "hex",
  "jsonwebtoken 8.3.0",
+ "openssl",
+ "phf",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "ear"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1134a8dbb5ad666d26d82da83d12b71703b16f2ed5433d5ba24d8cfea2b66d96"
+dependencies = [
+ "base64 0.22.1",
+ "ciborium",
+ "cose-rust",
+ "hex",
+ "jsonwebtoken 9.3.1",
+ "lazy_static",
  "openssl",
  "phf",
  "serde",
@@ -1433,6 +1456,12 @@ checksum = "e8094feaf31ff591f651a2664fb9cfd92bba7a60ce3197265e9482ebe753c8f7"
 dependencies = [
  "hashbrown 0.14.5",
 ]
+
+[[package]]
+name = "heck"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "heck"
@@ -3295,6 +3324,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
+name = "strum"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.25.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23dc1fa9ac9c169a78ba62f0b841814b7abae11bdd047b9c58f893439e309ea0"
+dependencies = [
+ "heck 0.4.1",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.98",
+]
+
+[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3779,7 +3830,7 @@ dependencies = [
  "ccatoken",
  "ciborium",
  "cose-rust",
- "ear",
+ "ear 0.1.2",
  "eventlog-rs",
  "fallible-iterator",
  "hex",
