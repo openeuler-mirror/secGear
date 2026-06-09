@@ -30,7 +30,7 @@ mod tests {
         assert_eq!(TeeType::from_str("RUSTCCA").unwrap(), TeeType::Cca);
 
         assert_eq!(TeeType::from_str("invalid").unwrap(), TeeType::Invalid);
-        assert_eq!(TeeType::from_str("unknown").unwrap(), TeeType::Invalid);
+        assert!(TeeType::from_str("unknown").is_err());
     }
 
     #[test]
@@ -75,5 +75,7 @@ mod tests {
 
         let tee_type: TeeType = serde_json::from_str("\"rustcca\"").unwrap();
         assert_eq!(tee_type, TeeType::Cca);
+
+        assert!(serde_json::from_str::<TeeType>("\"unknown\"").is_err());
     }
 }

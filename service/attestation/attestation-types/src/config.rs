@@ -409,7 +409,8 @@ impl TryFrom<&Path> for AAConfig {
     // }
     type Error = anyhow::Error;
     fn try_from(config_path: &Path) -> Result<Self, Self::Error> {
-        let file = File::open(config_path).unwrap();
+        let file = File::open(config_path)
+            .map_err(|e| anyhow::anyhow!("failed to open aaconfig {:?}: {e}", config_path))?;
         let mut config: AAConfig = serde_json::from_reader::<File, AAConfig>(file)
             .map_err(|e| anyhow::anyhow!("invalid aaconfig {e}"))?;
 

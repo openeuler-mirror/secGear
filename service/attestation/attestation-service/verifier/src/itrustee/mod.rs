@@ -62,8 +62,12 @@ fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     let mut ima = serde_json::Value::Null;
     let mut in_data = challenge.to_vec();
     if with_ima {
-        let report_nonce = js_evidence["payload"]["nonce"].as_str().unwrap();
-        let uuid = js_evidence["payload"]["uuid"].as_str().unwrap();
+        let report_nonce = js_evidence["payload"]["nonce"]
+            .as_str()
+            .ok_or_else(|| anyhow!("IMA verification: nonce not found in evidence"))?;
+        let uuid = js_evidence["payload"]["uuid"]
+            .as_str()
+            .ok_or_else(|| anyhow!("IMA verification: uuid not found in evidence"))?;
         let nonce_all = base64_url::decode(&report_nonce)?;
         if nonce_all.len() != MAX_CHALLENGE_LEN {
             log::error!(

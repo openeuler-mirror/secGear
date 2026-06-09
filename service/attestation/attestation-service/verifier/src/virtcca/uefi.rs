@@ -12,7 +12,7 @@
 
 use super::CVM_REM_ARR_SIZE;
 use crate::ima::file_reader;
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use attestation_types::UefiLog;
 use eventlog_rs::{self, Eventlog};
 use hex;
@@ -188,7 +188,8 @@ impl UefiVerify {
             return Ok(json!({}));
         }
 
-        let event_log = eventlog_rs::Eventlog::try_from(uefi_log.ccel_data).unwrap();
+        let event_log = eventlog_rs::Eventlog::try_from(uefi_log.ccel_data)
+            .map_err(|err| anyhow!("failed to parse UEFI event log: {err}"))?;
         let _replayed_rtmr = event_log.replay_measurement_registry();
 
         if !UefiVerify::compare_rtmr_with_uefi_log(&_replayed_rtmr, &uefi_log_hash) {

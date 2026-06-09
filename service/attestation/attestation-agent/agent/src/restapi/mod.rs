@@ -25,8 +25,6 @@ use tokio::sync::RwLock;
 
 #[cfg(feature = "no_as")]
 use crate::result::Error;
-#[cfg(feature = "no_as")]
-use anyhow::anyhow;
 
 #[derive(Deserialize, Serialize, Debug)]
 struct GetChallengeRequest {
@@ -196,48 +194,56 @@ struct GetResourceRequest {
     resource: ResourceLocation,
 }
 
-#[get("/resource")]
+#[get("/resource/storage")]
 pub async fn get_resource(
     request: web::Json<GetResourceRequest>,
     agent: web::Data<Arc<RwLock<AttestationAgent>>>,
 ) -> Result<HttpResponse> {
-    let request = request.0;
-    log::debug!("get resource request: {:?}", request);
-    let uuid = request.uuid.clone();
-    let challenge = request.challenge;
-    let ima = request.ima;
-    let policy_id = request.policy_id;
-    let resource = request.resource;
+    #[cfg(feature = "no_as")]
+    {
+        log::debug!("get resource request: {:?}", request.0);
+        let _ = agent;
+        return Err(Error::AttestationAgentError(
+            "Resource can only be got from attestation server.".to_string(),
+        ));
+    }
 
-    let token = if let Some(challenge) = challenge {
+    #[cfg(not(feature = "no_as"))]
+    {
+        let request = request.0;
+        log::debug!("get resource request: {:?}", request);
+        let agent = agent.read().await;
+
+        let challenge = match request.challenge.as_ref() {
+            Some(challenge) => challenge.clone(),
+            None => agent
+                .get_challenge(None)
+                .await
+                .map_err(|err| AgentError::ChallengeError(err.to_string()))?,
+        };
+
         let ev = EvidenceRequest {
-            uuid: request.uuid,
-            challenge: challenge.into_bytes(),
-            ima: ima,
+            uuid: request.uuid.clone(),
+            challenge: challenge.clone().into_bytes(),
+            ima: request.ima,
         };
         let input = TokenRequest {
             ev_req: ev,
-            policy_id: policy_id,
+            policy_id: request.policy_id.clone(),
         };
-        agent
-            .read()
-            .await
+        let token = agent
             .get_token(input)
             .await
-            .map_err(|err| AgentError::GetTokenError(err.to_string()))?
-    } else {
-        // Use stored token if available
-        "".to_string() // Placeholder - need to implement token storage
-    };
+            .map_err(|err| AgentError::GetTokenError(err.to_string()))?;
 
-    let resource_content = agent
-        .read()
-        .await
-        .get_resource(&uuid, "", resource, &token)
-        .await
-        .map_err(|err| AgentError::GetTokenError(err.to_string()))?;
+        let restful = format!("{}/resource/storage", agent.config.svr_url);
+        let resource_content = agent
+            .get_resource(&challenge, &restful, request.resource.clone(), &token)
+            .await
+            .map_err(|err| AgentError::GetTokenError(err.to_string()))?;
 
-    Ok(HttpResponse::Ok().body(resource_content))
+        Ok(HttpResponse::Ok().body(resource_content))
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -303,12 +309,15 @@ impl ActiveTokenRateLimiter {
     pub fn check(&self, ip_addr: IpAddr) -> bool {
         let mut clients = self.clients.lock().unwrap();
         let now = Instant::now();
+        let window = Duration::from_secs(1);
+        clients.retain(|_, state| now.duration_since(state.window_started_at) < window);
+
         let state = clients.entry(ip_addr).or_insert(RateLimitState {
             window_started_at: now,
             request_count: 0,
         });
 
-        if now.duration_since(state.window_started_at) >= Duration::from_secs(1) {
+        if now.duration_since(state.window_started_at) >= window {
             state.window_started_at = now;
             state.request_count = 0;
         }
@@ -502,5 +511,23 @@ mod tests {
         assert!(limiter.check(first_peer));
         assert!(!limiter.check(first_peer));
         assert!(limiter.check(second_peer));
+    }
+
+    #[test]
+    fn active_token_rate_limiter_prunes_inactive_peers() {
+        let limiter = ActiveTokenRateLimiter::new(1);
+        let stale_peer = "192.0.2.10".parse().unwrap();
+        let active_peer = "192.0.2.11".parse().unwrap();
+
+        limiter.clients.lock().unwrap().insert(
+            stale_peer,
+            RateLimitState {
+                window_started_at: Instant::now() - Duration::from_secs(2),
+                request_count: 1,
+            },
+        );
+
+        assert!(limiter.check(active_peer));
+        assert!(!limiter.clients.lock().unwrap().contains_key(&stale_peer));
     }
 }

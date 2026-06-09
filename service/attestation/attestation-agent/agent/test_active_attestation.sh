@@ -4,9 +4,9 @@
 
 echo "Testing active attestation functionality..."
 
-# Start the agent with active attestation enabled (10 second interval)
-echo "Starting attestation agent with 10 second active attestation interval..."
-../target/release/attestation-agent -s 10 &
+# Start the agent with active attestation enabled from configuration
+echo "Starting attestation agent with active attestation enabled..."
+../target/release/attestation-agent --enable_active_attestation &
 AGENT_PID=$!
 
 # Wait for agent to start

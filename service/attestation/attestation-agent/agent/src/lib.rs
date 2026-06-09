@@ -43,6 +43,8 @@ use token_verifier::{TokenRawData, TokenVerifier};
 
 pub type TeeClaim = serde_json::Value;
 
+#[cfg(all(feature = "no_as", feature = "virtcca-verifier"))]
+use verifier::virtcca_parse_evidence;
 #[cfg(feature = "no_as")]
 use verifier::{Verifier, VerifierAPIs};
 
@@ -199,6 +201,7 @@ impl AttestationAgentAPIs for AttestationAgent {
     async fn get_token(&self, user_data: TokenRequest) -> Result<String> {
         #[cfg(feature = "no_as")]
         {
+            let _ = user_data;
             return Ok("no as in not support get token".to_string());
         }
         // todo token 有效期内，不再重新获取报告
@@ -229,12 +232,16 @@ impl AttestationAgentAPIs for AttestationAgent {
     ) -> Result<String> {
         #[cfg(feature = "no_as")]
         {
+            let _ = (challenge, restful, resource, token);
             bail!("resource can only be gotten from attestation server!")
         }
-        let rest = self
-            .get_resource_from_as(challenge, restful, resource, token)
-            .await?;
-        Ok(String::from_utf8(rest.to_vec())?)
+        #[cfg(not(feature = "no_as"))]
+        {
+            let rest = self
+                .get_resource_from_as(challenge, restful, resource, token)
+                .await?;
+            Ok(String::from_utf8(rest.to_vec())?)
+        }
     }
 }
 
@@ -456,61 +463,62 @@ impl AttestationAgent {
 
     /// Perform active attestation: get challenge, evidence, and verify with AS
     async fn perform_active_attestation(&self, config: &AppConfig) -> Result<String> {
-        // Generate a random challenge
-        // let challenge_data: [u8; 32] = rand::random();
-        // let challenge = base64_url::encode(&challenge_data);
-        // Get challenge from AS
-        let challenge_from_as = self.get_challenge_from_as(None).await?;
-        let encoded_challenge = challenge_from_as.as_bytes().to_vec();
-
-        // Create evidence request from AppConfig
-        let evidence_request = EvidenceRequest {
-            uuid: config.uuid.clone(),
-            challenge: encoded_challenge.clone(),
-            ima: Some(config.ima), // Enable IMA for active attestation
-        };
-        log::debug!(
-            "Created evidence request: uuid={}, ima={:?}",
-            evidence_request.uuid,
-            evidence_request.ima
-        );
-
-        // Get evidence from TEE
-        log::info!("Calling get_evidence from TEE");
-        let evidence = match self.get_evidence(evidence_request).await {
-            Ok(evidence) => {
-                log::info!(
-                    "Successfully obtained evidence from TEE: {} bytes",
-                    evidence.len()
-                );
-                evidence
-            }
-            Err(e) => {
-                log::error!("Failed to get evidence from TEE: {:?}", e);
-                return Err(e);
-            }
-        };
-
-        // Verify evidence with attestation service, currently only default policy is supported
-        // #[cfg(not(feature = "no_as"))]
-        let token = match self
-            .verify_evidence_by_as(&encoded_challenge, &evidence, None)
-            .await
+        #[cfg(feature = "no_as")]
         {
-            Ok(token) => {
-                log::info!(
-                    "Successfully verified evidence with AS, token length: {}",
-                    token.len()
-                );
-                token
-            }
-            Err(e) => {
-                log::error!("Failed to verify evidence with AS: {:?}", e);
-                return Err(e);
-            }
-        };
+            let _ = config;
+            bail!("active attestation requires attestation service");
+        }
 
-        Ok(token)
+        #[cfg(not(feature = "no_as"))]
+        {
+            let challenge_from_as = self.get_challenge_from_as(None).await?;
+            let encoded_challenge = challenge_from_as.as_bytes().to_vec();
+
+            let evidence_request = EvidenceRequest {
+                uuid: config.uuid.clone(),
+                challenge: encoded_challenge.clone(),
+                ima: Some(config.ima),
+            };
+            log::debug!(
+                "Created evidence request: uuid={}, ima={:?}",
+                evidence_request.uuid,
+                evidence_request.ima
+            );
+
+            log::info!("Calling get_evidence from TEE");
+            let evidence = match self.get_evidence(evidence_request).await {
+                Ok(evidence) => {
+                    log::info!(
+                        "Successfully obtained evidence from TEE: {} bytes",
+                        evidence.len()
+                    );
+                    evidence
+                }
+                Err(e) => {
+                    log::error!("Failed to get evidence from TEE: {:?}", e);
+                    return Err(e);
+                }
+            };
+
+            let token = match self
+                .verify_evidence_by_as(&encoded_challenge, &evidence, None)
+                .await
+            {
+                Ok(token) => {
+                    log::info!(
+                        "Successfully verified evidence with AS, token length: {}",
+                        token.len()
+                    );
+                    token
+                }
+                Err(e) => {
+                    log::error!("Failed to verify evidence with AS: {:?}", e);
+                    return Err(e);
+                }
+            };
+
+            Ok(token)
+        }
     }
 
     fn create_client(&self, protocal: HttpProtocal, cookie_store: bool) -> Result<reqwest::Client> {
@@ -557,6 +565,7 @@ impl AttestationAgent {
             .get_async(&challenge)
             .await;
         log::debug!("Session lookup result: {:?}", ss.is_some());
+        let should_update_session_token = ss.is_some();
 
         let request_body = json!({
             "challenge": challenge,
@@ -596,6 +605,7 @@ impl AttestationAgent {
             client = ss.as_ref().unwrap().get().as_client.clone();
             log::debug!("Using client from existing session");
         }
+        drop(ss);
 
         let attest_endpoint = format!("{}/attestation", self.config.svr_url);
         log::info!(
@@ -635,13 +645,16 @@ impl AttestationAgent {
                     }
                 };
 
-                if ss.as_ref().is_some() {
-                    // 使用正确的方式访问session
-                    if let Some(_session) = ss.as_ref() {
-                        // 直接访问session的token字段
-                        log::debug!("Session exists, but cannot modify token in this context");
-                        // 注意：这里无法直接修改session的token，因为get()返回的是不可变引用
-                        // 如果需要修改token，需要在session创建时就设置好
+                if should_update_session_token {
+                    let updated = self
+                        .as_client_sessions
+                        .session_map
+                        .update_async(&challenge, |_, session| {
+                            session.token = Some(token.clone());
+                        })
+                        .await;
+                    if updated.is_none() {
+                        log::debug!("Session expired before token cache update");
                     }
                 }
                 log::info!("Remote Attestation success, token length: {}", token.len());
@@ -1007,7 +1020,7 @@ pub fn get_report(
     report.into()
 }
 
-#[cfg(feature = "no_as")]
+#[cfg(all(feature = "no_as", feature = "virtcca-verifier"))]
 #[ffi_export]
 pub fn parse_report(report: Option<&repr_c::Vec<u8>>) -> repr_c::String {
     let report = match report {

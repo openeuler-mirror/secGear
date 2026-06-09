@@ -58,7 +58,8 @@ impl std::str::FromStr for TeeType {
             "itrustee" => Ok(TeeType::Itrustee),
             "virtcca" | "vcca" => Ok(TeeType::Virtcca),
             "cca" | "rustcca" => Ok(TeeType::Cca),
-            _ => Ok(TeeType::Invalid),
+            "invalid" => Ok(TeeType::Invalid),
+            _ => Err(format!("unsupported tee type: {s}")),
         }
     }
 }

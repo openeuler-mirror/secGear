@@ -298,8 +298,13 @@ mod tests {
 
     #[test]
     fn extract_rim_from_cbor_matches_verifier_fixture() {
-        let rim = extract_rim_from_cbor(TEST_VIRTCCA_TOKEN).unwrap();
+        let token_hex = std::str::from_utf8(TEST_VIRTCCA_TOKEN).unwrap().trim();
+        let token = hex::decode(token_hex).unwrap();
+        let rim = extract_rim_from_cbor(&token).unwrap();
 
-        assert_eq!(rim.len(), 64);
+        assert_eq!(
+            hex::encode(rim),
+            "7309ec52e2870938ffa6930793d61e55ab982a756111410829d6073f66c71708"
+        );
     }
 }
