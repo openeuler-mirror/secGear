@@ -22,6 +22,16 @@ use thiserror::{self, Error};
 
 const ITRUSTEE_REF_VALUE_DIR: &str = "/etc/attestation/attestation-service/reference-itrustee/";
 const VERIFY_BY_POLICY: [&str; 2] = ["vcca.is_platform", "vcca.platform.measure_value"];
+const ITRUSTEE_IMA_BASE_DIR: &str = "/etc/attestation/attestation-service/verifier/itrustee/ima";
+const VIRTCCA_IMA_BASE_DIR: &str = "/etc/attestation/attestation-service/verifier/virtcca/ima";
+
+const DIGEST_LIST_FILE_NAME: &str = "digest_list_file";
+const ITRUSTEE_IMA_PREFIX: &str = "itrustee_ima_";
+const VIRTCCA_IMA_PREFIX: &str = "virtcca_ima_";
+
+const APP_ID_MAX_LEN: usize = 256;
+const MAX_DIGEST_COUNT: usize = 10_000;
+const DIGEST_SHA256_HEX_LEN: usize = 64;
 
 pub struct ReferenceOps {
     store: Box<dyn KvStore>,
@@ -57,10 +67,9 @@ pub enum RefOpError {
 
 impl ReferenceOps {
     pub fn new(st: impl KvStore + 'static) -> ReferenceOps {
-        let ops = ReferenceOps {
+        ReferenceOps {
             store: Box::new(st),
-        };
-        ops
+        }
     }
 
     fn generate_reference_key(reference: &Ref) -> String {
@@ -71,13 +80,8 @@ impl ReferenceOps {
     fn register_reference(&mut self, reference: &Ref) -> Result<(), RefOpError> {
         // generate reference key
         let key = Self::generate_reference_key(reference);
-        self.store.write(
-            &key,
-            serde_json::to_string(&reference)
-                .unwrap()
-                .as_bytes()
-                .as_ref(),
-        )?;
+        self.store
+            .write(&key, serde_json::to_string(&reference).unwrap().as_bytes())?;
         Ok(())
     }
 
@@ -92,7 +96,7 @@ impl ReferenceOps {
         self.store.read(&key)
     }
     /// ref_set is a json string like:{"refname1":xx,"refname2":yy}
-    pub fn register(&mut self, ref_set: &String) -> Result<(), RefOpError> {
+    pub fn register(&mut self, ref_set: &str) -> Result<(), RefOpError> {
         let refs =
             Extractor::split(ref_set).ok_or(RefOpError::Err("parse reference fail".to_string()))?;
         for item in refs {
@@ -113,11 +117,21 @@ impl ReferenceOps {
                         )
                     })?;
             }
+
+            if item.name.starts_with(ITRUSTEE_IMA_PREFIX) {
+                if let Some(uuid) = item.name.strip_prefix(ITRUSTEE_IMA_PREFIX) {
+                    Self::write_ima_reference_file(ITRUSTEE_IMA_BASE_DIR, uuid, &item.value)?;
+                }
+            } else if item.name.starts_with(VIRTCCA_IMA_PREFIX) {
+                if let Some(app_id) = item.name.strip_prefix(VIRTCCA_IMA_PREFIX) {
+                    Self::write_ima_reference_file(VIRTCCA_IMA_BASE_DIR, app_id, &item.value)?;
+                }
+            }
         }
         Ok(())
     }
 
-    pub fn unregister(&mut self, ref_set: &String) -> Result<(), RefOpError> {
+    pub fn unregister(&mut self, ref_set: &str) -> Result<(), RefOpError> {
         let refs =
             Extractor::split(ref_set).ok_or(RefOpError::Err("parse reference fail".to_string()))?;
         for item in refs {
@@ -126,7 +140,7 @@ impl ReferenceOps {
         Ok(())
     }
 
-    pub fn query(&mut self, ref_set: &String) -> Option<String> {
+    pub fn query(&mut self, ref_set: &str) -> Option<String> {
         let refs = Extractor::split(ref_set)?;
         let mut ret: Value = json!({});
         for item in refs {
@@ -150,5 +164,79 @@ impl ReferenceOps {
             }
         }
         Some(ret.to_string())
+    }
+}
+
+impl ReferenceOps {
+    fn write_ima_reference_file(
+        base_dir: &str,
+        app_id: &str,
+        value: &Value,
+    ) -> Result<(), RefOpError> {
+        if app_id.is_empty()
+            || app_id.len() > APP_ID_MAX_LEN
+            || app_id.contains("..")
+            || app_id.contains('/')
+            || app_id.contains('\\')
+        {
+            return Err(RefOpError::Err(format!(
+                "invalid app_id for IMA reference: {}",
+                app_id
+            )));
+        }
+
+        let digests: Vec<String> = match value {
+            Value::String(s) => s
+                .lines()
+                .map(|l| l.trim().to_string())
+                .filter(|l| !l.is_empty())
+                .collect(),
+            Value::Array(arr) => arr
+                .iter()
+                .filter_map(|v| v.as_str().map(|s| s.trim().to_string()))
+                .filter(|s| !s.is_empty())
+                .collect(),
+            _ => {
+                return Err(RefOpError::Err(
+                    "invalid IMA reference format, expect string or array".to_string(),
+                ))
+            }
+        };
+
+        if digests.len() > MAX_DIGEST_COUNT {
+            return Err(RefOpError::Err("too many digests".to_string()));
+        }
+
+        let app_dir = format!("{}/{}", base_dir, app_id);
+        std::fs::create_dir_all(&app_dir).map_err(|e| {
+            RefOpError::Err(format!("Failed to create directory {}: {}", app_dir, e))
+        })?;
+
+        let file_path = format!("{}/{}", app_dir, DIGEST_LIST_FILE_NAME);
+        let mut file = File::create(&file_path)
+            .map_err(|e| RefOpError::Err(format!("Failed to create file {}: {}", file_path, e)))?;
+
+        for digest in digests {
+            if digest.len() != DIGEST_SHA256_HEX_LEN
+                || !digest.chars().all(|c| c.is_ascii_hexdigit())
+            {
+                log::warn!(
+                    "skip invalid digest for app_id {} file {} digest {}",
+                    app_id,
+                    file_path,
+                    digest
+                );
+                continue;
+            }
+            file.write_all(format!("{}\n", digest).as_bytes())
+                .map_err(|e| {
+                    RefOpError::Err(format!("Failed to write digest to {}: {}", file_path, e))
+                })?;
+        }
+
+        file.sync_all()
+            .map_err(|e| RefOpError::Err(format!("Failed to sync file {}: {}", file_path, e)))?;
+
+        Ok(())
     }
 }
