@@ -39,10 +39,7 @@ pub async fn get_resource_policy(
             log::debug!("Request for getting all policies");
             match admin.get_all_policies().await {
                 Ok(policies) => {
-                    let ret: Vec<String> = policies
-                        .iter()
-                        .map(String::from)
-                        .collect();
+                    let ret: Vec<String> = policies.iter().map(String::from).collect();
                     let s = serde_json::to_string(&ret)
                         .unwrap_or(format!("Failed to serialize '{:?}'", ret));
                     Ok(HttpResponse::Ok().body(s))
@@ -57,10 +54,7 @@ pub async fn get_resource_policy(
             log::debug!("Request for getting all policies in vendor {}", vendor);
             match admin.get_all_policies_in_vendor(&vendor).await {
                 Ok(policies) => {
-                    let ret: Vec<String> = policies
-                        .iter()
-                        .map(String::from)
-                        .collect();
+                    let ret: Vec<String> = policies.iter().map(String::from).collect();
                     let s = serde_json::to_string(&ret)
                         .unwrap_or(format!("Failed to serialize '{:?}'", ret));
                     Ok(HttpResponse::Ok().body(s))

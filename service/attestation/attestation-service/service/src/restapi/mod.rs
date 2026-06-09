@@ -120,7 +120,6 @@ pub async fn attestation(
     } else {
         Ok(HttpResponse::Ok().body(token))
     }
-
 }
 
 #[derive(Deserialize, Serialize, Debug)]

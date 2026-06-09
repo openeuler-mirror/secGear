@@ -31,8 +31,6 @@ pub struct TokenVerifier {
     pub config: TokenVerifyConfig,
 }
 
-
-
 // 返回token的原始数据
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct TokenRawData {

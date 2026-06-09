@@ -13,18 +13,17 @@
 //! itrustee verifier plugin
 
 use super::*;
+use crate::ima::ImaVerifier;
+use attestation_types::ItrusteeEvidence;
 use log;
 use serde_json::json;
 use std::ops::Add;
 use std::path::Path;
-use crate::ima::ImaVerifier;
-use attestation_types::ItrusteeEvidence;
 
 #[allow(clippy::module_inception)]
 mod itrustee;
 
-const ITRUSTEE_REF_VALUE_DIR: &str =
-    "/etc/attestation/attestation-service/verifier/itrustee";
+const ITRUSTEE_REF_VALUE_DIR: &str = "/etc/attestation/attestation-service/verifier/itrustee";
 const MAX_CHALLENGE_LEN: usize = 64;
 
 #[derive(Debug, Default)]
@@ -39,9 +38,9 @@ impl ItrusteeVerifier {
 fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     let challenge = base64_url::decode(user_data)?;
     let evidence: ItrusteeEvidence = serde_json::from_slice(evidence)?;
-    
+
     log::debug!("{}", serde_json::to_string_pretty(&evidence).unwrap());
-    
+
     let report = evidence.report;
     let js_evidence: serde_json::Value = serde_json::from_str(&report)?;
     let with_ima = evidence.ima_log.is_some();
@@ -67,17 +66,28 @@ fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         let uuid = js_evidence["payload"]["uuid"].as_str().unwrap();
         let nonce_all = base64_url::decode(&report_nonce)?;
         if nonce_all.len() != MAX_CHALLENGE_LEN {
-            log::error!("IMA verification: {} nonce length is not 64 bytes, got {}", uuid, nonce_all.len());
-            bail!("IMA verification: {} nonce length is not 64 bytes, got {}", uuid, nonce_all.len());
+            log::error!(
+                "IMA verification: {} nonce length is not 64 bytes, got {}",
+                uuid,
+                nonce_all.len()
+            );
+            bail!(
+                "IMA verification: {} nonce length is not 64 bytes, got {}",
+                uuid,
+                nonce_all.len()
+            );
         }
         let nonce_expected = &nonce_all[..32]; // 前32字节是challenge
-        let ima_log_hash = &nonce_all[32..];   // 后32字节是ima_log_hash
+        let ima_log_hash = &nonce_all[32..]; // 后32字节是ima_log_hash
         if nonce_expected != challenge {
             log::error!("IMA verification: {} nonce and challenge mismatch", uuid);
             bail!("IMA verification: {} nonce and challenge mismatch", uuid);
         }
-        ima = crate::ima::itrustee::ItrusteeImaVerify::default()
-            .ima_verify(&ima_log, &[ima_log_hash.to_vec()], Some(uuid))?;
+        ima = crate::ima::itrustee::ItrusteeImaVerify::default().ima_verify(
+            &ima_log,
+            &[ima_log_hash.to_vec()],
+            Some(uuid),
+        )?;
         in_data = nonce_all.to_vec();
     }
 
@@ -91,14 +101,16 @@ fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         size: in_data.len() as ::std::os::raw::c_uint,
         buf: in_data.as_mut_ptr() as *mut ::std::os::raw::c_uchar,
     };
-  
+
     // 1: verify ta_img; 2: verfiy ta_mem; 3: verify ta_img and ta_mem hash;
     let policy: std::os::raw::c_int = 1;
 
     let uuid;
-    if let Some(v) = js_evidence.get("payload")
-                                      .and_then(|v|v.get("uuid"))
-                                      .and_then(|v|v.as_str()) {
+    if let Some(v) = js_evidence
+        .get("payload")
+        .and_then(|v| v.get("uuid"))
+        .and_then(|v| v.as_str())
+    {
         uuid = v;
     } else {
         log::error!("Parse TA uuid from evidence failed.");
@@ -106,16 +118,10 @@ fn evaluate_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     }
     let ref_file = ITRUSTEE_REF_VALUE_DIR.to_string() + "/itrustee_" + uuid;
     if !Path::new(&ref_file).exists() {
-        log::error!(
-            "itrustee verify report {} not exists",
-            ref_file
-        );
-        bail!(
-            "itrustee verify report {} not exists",
-            ref_file
-        );
+        log::error!("itrustee verify report {} not exists", ref_file);
+        bail!("itrustee verify report {} not exists", ref_file);
     }
-    
+
     let mut file = ref_file.add("\0");
     let basevalue = file.as_mut_ptr() as *mut ::std::os::raw::c_char;
     unsafe {

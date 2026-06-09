@@ -9,12 +9,12 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+use crate::policy_engine;
 use base64::Engine;
+use log;
 use policy_engine::{PolicyEngine, PolicyEngineError};
 use regorus::Value;
 use std::{collections::HashMap, path::PathBuf};
-use log;
-use crate::policy_engine;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OPA {
@@ -53,12 +53,13 @@ impl PolicyEngine for OPA {
                     // Currently cca has no specific open source default policy, fallback or use default_vcca format if required
                     // policy_id_used.push(String::from("default_cca.rego"));
                     return Err(PolicyEngineError::TeeTypeUnknown(
-                        "default policy for cca is not implemented".to_string()
+                        "default policy for cca is not implemented".to_string(),
                     ));
                 }
                 attestation_types::TeeType::Invalid => {
                     return Err(PolicyEngineError::TeeTypeUnknown(format!(
-                        "tee type unknown: {:?}", tee
+                        "tee type unknown: {:?}",
+                        tee
                     )));
                 }
             }
@@ -74,7 +75,11 @@ impl PolicyEngine for OPA {
             let engine_policy = tokio::fs::read_to_string(path.clone())
                 .await
                 .map_err(|err| {
-                    PolicyEngineError::ReadPolicyError(format!("read policy {} failed: {}", path.display(),err))
+                    PolicyEngineError::ReadPolicyError(format!(
+                        "read policy {} failed: {}",
+                        path.display(),
+                        err
+                    ))
                 })?;
             let mut engine = regorus::Engine::new();
             engine
@@ -110,11 +115,7 @@ impl PolicyEngine for OPA {
         }
         Ok(result)
     }
-    async fn set_policy(
-        &self,
-        policy_id: &str,
-        policy: &str,
-    ) -> Result<(), PolicyEngineError> {
+    async fn set_policy(&self, policy_id: &str, policy: &str) -> Result<(), PolicyEngineError> {
         let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(policy)
             .map_err(|err| {

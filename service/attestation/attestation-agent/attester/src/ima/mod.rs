@@ -30,7 +30,7 @@ impl ImaLogReader {
     }
 
     /// Read IMA log from the system
-    /// 
+    ///
     /// Returns the IMA log data as a vector of bytes, or None if IMA is not enabled
     /// or the log cannot be read.
     fn read_ima_log(&self) -> Result<Option<Vec<u8>>> {
@@ -53,7 +53,7 @@ impl ImaLogReader {
     }
 
     /// Read IMA log if requested
-    /// 
+    ///
     /// This function checks the `with_ima` parameter and reads the IMA log
     /// only if it's requested.
     fn read_ima_log_if_requested(&self, with_ima: bool) -> Result<Option<Vec<u8>>> {
@@ -66,7 +66,7 @@ impl ImaLogReader {
 }
 
 /// Convenience function to read IMA log if requested
-/// 
+///
 /// This is a standalone function that can be used without creating an ImaLogReader instance.
 pub fn read_ima_log_if_requested(with_ima: bool) -> Result<Option<Vec<u8>>> {
     let reader = ImaLogReader::new();
@@ -111,4 +111,4 @@ mod tests {
         // This should not panic regardless of system state
         assert!(available == true || available == false);
     }
-} 
+}

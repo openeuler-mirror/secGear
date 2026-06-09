@@ -70,8 +70,7 @@ output[exist] := null if {
 output["Other"] := "other" if {
     "test" in input_keys
 }"#;
-        let _ =
-            tokio::fs::remove_file("/tmp/secgear_test_policy/test.rego").await;
+        let _ = tokio::fs::remove_file("/tmp/secgear_test_policy/test.rego").await;
 
         let ret = engine
             .unwrap()
@@ -105,14 +104,20 @@ output["Other"] := "other" if {
         );
         let data = String::new();
         let policy_id: Vec<String> = vec![];
-        
+
         let default_policy = r#"package attestation
 import rego.v1
 output := input"#;
-        let _ = tokio::fs::write("/tmp/secgear_test_policy/default_vcca.rego", default_policy).await;
+        let _ =
+            tokio::fs::write("/tmp/secgear_test_policy/default_vcca.rego", default_policy).await;
 
         let result = engine
-            .evaluate(&attestation_types::TeeType::Virtcca, &refs_from_report, &data, &policy_id)
+            .evaluate(
+                &attestation_types::TeeType::Virtcca,
+                &refs_from_report,
+                &data,
+                &policy_id,
+            )
             .await;
         println!("{:?}", result);
         assert!(result.is_ok());
@@ -152,8 +157,7 @@ output["Other"] := "other" if {
     "test" in input_keys
 }"#;
         // 删除已重复存在的policy
-        let _ =
-            tokio::fs::remove_file("/tmp/secgear_test_policy/test.rego").await;
+        let _ = tokio::fs::remove_file("/tmp/secgear_test_policy/test.rego").await;
 
         let ret = engine
             .set_policy(
@@ -174,7 +178,12 @@ output["Other"] := "other" if {
         let data = String::new();
         let policy_id: Vec<String> = vec!["test.rego".to_string()];
         let result = engine
-            .evaluate(&attestation_types::TeeType::Virtcca, &refs_from_report, &data, &policy_id)
+            .evaluate(
+                &attestation_types::TeeType::Virtcca,
+                &refs_from_report,
+                &data,
+                &policy_id,
+            )
             .await;
         assert!(result.is_ok());
         match result {

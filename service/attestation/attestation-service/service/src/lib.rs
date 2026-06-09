@@ -156,12 +156,7 @@ impl AttestationService {
             .map_err(|e| anyhow!("invalid tee type: {}", e))?;
 
         let result = engine
-            .evaluate(
-                &tee_enum,
-                &refs_of_claims.unwrap(),
-                &data,
-                &policy_ids,
-            )
+            .evaluate(&tee_enum, &refs_of_claims.unwrap(), &data, &policy_ids)
             .await;
         let mut report = serde_json::json!({});
         let mut ref_verify: bool = true;

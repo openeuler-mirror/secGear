@@ -80,7 +80,7 @@ async fn aa_proc(i: i64, ima: bool) {
     // 生成32字节的随机数作为challenge
     let challenge_bytes: [u8; 32] = rand::random();
     let challenge = base64_url::encode(&challenge_bytes);
-    
+
     let request_body = json!({
         "challenge": challenge, // 使用随机生成的32字节安全随机数
         "uuid": String::from("f68fd704-6eb1-4d14-b218-722850eb3ef0"),

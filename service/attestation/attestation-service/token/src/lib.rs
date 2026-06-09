@@ -46,10 +46,10 @@ pub struct TokenSignConfig {
 impl Default for TokenSignConfig {
     fn default() -> Self {
         let default_key = std::fs::read(PRIVATE_KEY_PATH)
-        .map_err(|err| {
-            SignError::ReadKeyFail(format!("Failed to read {PRIVATE_KEY_PATH}: {err}"))
-        })
-        .unwrap();
+            .map_err(|err| {
+                SignError::ReadKeyFail(format!("Failed to read {PRIVATE_KEY_PATH}: {err}"))
+            })
+            .unwrap();
 
         TokenSignConfig {
             iss: "oeas".to_string(),
@@ -73,8 +73,6 @@ pub type SignAlg = Algorithm;
 pub struct TokenSigner {
     pub config: TokenSignConfig,
 }
-
-
 
 impl TokenSigner {
     pub fn new(config: TokenSignConfig) -> Result<Self> {
@@ -116,7 +114,9 @@ impl TokenSigner {
         let key_value: EncodingKey = match EncodingKey::from_rsa_pem(&self.config.key) {
             Ok(val) => val,
             _ => {
-                return Err(SignError::ReadKeyFail("get key from input error".to_string()));
+                return Err(SignError::ReadKeyFail(
+                    "get key from input error".to_string(),
+                ));
             }
         };
 

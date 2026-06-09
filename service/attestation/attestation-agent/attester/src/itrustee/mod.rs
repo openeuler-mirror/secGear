@@ -15,16 +15,16 @@
 //! Call the hardware sdk or driver to get the specific evidence
 
 use anyhow::*;
+use attestation_types::ItrusteeEvidence;
 use base64_url;
 use log;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use sha2::{Digest, Sha256};
 use std::fs;
-use sha2::{Sha256, Digest};
-use attestation_types::ItrusteeEvidence;
 
-use crate::EvidenceRequest;
 use crate::ima;
+use crate::EvidenceRequest;
 
 mod itrustee;
 
@@ -105,12 +105,12 @@ fn itrustee_get_evidence(user_data: EvidenceRequest) -> Result<String> {
             log::error!("ima log is empty");
             bail!("ima log is empty");
         }
-        
+
         // Calculate SHA256 hash of IMA log
         let mut hasher = Sha256::new();
         hasher.update(ima_log.as_ref().unwrap());
         let ima_log_hash = hasher.finalize();
-        
+
         // Combine challenge and IMA log hash
         let mut combined = challenge.clone();
         combined.extend_from_slice(&ima_log_hash);

@@ -10,7 +10,7 @@
  * See the Mulan PSL v2 for more details.
  */
 
-use super::{file_reader, ImaVerifier, verify_ima_events};
+use super::{file_reader, verify_ima_events, ImaVerifier};
 use anyhow::{anyhow, bail, Result};
 use fallible_iterator::FallibleIterator;
 use ima_measurements::{Event, Parser};
@@ -21,16 +21,14 @@ use serde_json::{json, Value};
 const IMA_REFERENCE_FILE: &str =
     "/etc/attestation/attestation-service/verifier/itrustee/ima/digest_list_file";
 #[cfg(not(feature = "no_as"))]
-const IMA_BASE_DIR: &str =
-    "/etc/attestation/attestation-service/verifier/itrustee/ima";
+const IMA_BASE_DIR: &str = "/etc/attestation/attestation-service/verifier/itrustee/ima";
 
 // attestation agent local ima reference
 #[cfg(feature = "no_as")]
 const IMA_REFERENCE_FILE: &str =
     "/etc/attestation/attestation-agent/local_verifier/itrustee/ima/digest_list_file";
 #[cfg(feature = "no_as")]
-const IMA_BASE_DIR: &str =
-    "/etc/attestation/attestation-agent/local_verifier/itrustee/ima";
+const IMA_BASE_DIR: &str = "/etc/attestation/attestation-agent/local_verifier/itrustee/ima";
 
 const DIGEST_LIST_FILE_NAME: &str = "digest_list_file";
 const MIN_IMA_EVENTS: usize = 2;
@@ -60,7 +58,7 @@ impl ImaVerifier for ItrusteeImaVerify {
         if events.len() < MIN_IMA_EVENTS {
             bail!("No IMA measurement records for files found.");
         }
-        
+
         // Note: iTrustee does not check pcr_index as it is TPM dependent.
         // Verify that ima_log_hash array is not empty before accessing
         if ima_log_hash.is_empty() {
@@ -98,7 +96,7 @@ impl ImaVerifier for ItrusteeImaVerify {
         // Use the common function to verify IMA events
         verify_ima_events(&events, &ima_refs)
     }
-} 
+}
 
 impl ItrusteeImaVerify {
     fn get_ima_reference_file_path(uuid: Option<&str>) -> String {
@@ -121,7 +119,8 @@ impl ItrusteeImaVerify {
     }
 
     fn is_valid_uuid(uuid: &str) -> bool {
-        uuid.len() == UUID_LEN && uuid.matches('-').count() == 4 &&
-            uuid.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
+        uuid.len() == UUID_LEN
+            && uuid.matches('-').count() == 4
+            && uuid.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
     }
 }
