@@ -30,6 +30,7 @@ use attestation_types::{
 use attester::{Attester, AttesterAPIs};
 #[cfg(feature = "virtcca-attester")]
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use futures::FutureExt;
 use serde::Serialize;
 
 use rand::{Rng, RngCore};
@@ -37,11 +38,14 @@ use reqwest::Client;
 use result::Error;
 use serde_json::json;
 use serde_json::Value;
+use std::future::Future;
+use std::panic::AssertUnwindSafe;
 use std::path::Path;
 use std::{error::Error as StdError, fmt};
 use token_verifier::{TokenRawData, TokenVerifier};
 
 pub type TeeClaim = serde_json::Value;
+const ACTIVE_ATTESTATION_PANIC_RESTART_DELAY_SECS: u64 = 5;
 
 #[cfg(all(feature = "no_as", feature = "virtcca-verifier"))]
 use verifier::virtcca_parse_evidence;
@@ -251,6 +255,12 @@ pub struct AttestationAgent {
     as_client_sessions: SessionMap,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum ActiveAttestationTaskRunResult {
+    Completed,
+    Panicked,
+}
+
 #[allow(dead_code)]
 impl AttestationAgent {
     pub fn new(config: AAConfig) -> Result<Self, Error> {
@@ -334,14 +344,7 @@ impl AttestationAgent {
         if enable_active_attestation {
             for app in &app_list {
                 if app.interval > 0 {
-                    let agent_clone = agent.clone();
-                    let app_clone = app.clone();
-                    tokio::spawn(async move {
-                        // Add random delay betwenn [0, 1) seconds to avoid all tasks starting at the same time
-                        let delay = rand::thread_rng().gen_range(0..1);
-                        tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
-                        agent_clone.start_active_attestation(&app_clone).await;
-                    });
+                    Self::spawn_active_attestation_task(agent.clone(), app.clone());
                 } else {
                     log::warn!(
                         "Attestation interval is 0, skipping active attestation task {}",
@@ -354,6 +357,58 @@ impl AttestationAgent {
         }
 
         Ok(agent)
+    }
+
+    fn spawn_active_attestation_task(agent: AttestationAgent, app: AppConfig) {
+        tokio::spawn(async move {
+            // Add random delay betwenn [0, 1) seconds to avoid all tasks starting at the same time
+            let delay = rand::thread_rng().gen_range(0..1);
+            tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+
+            loop {
+                let result = Self::run_active_attestation_task_once(
+                    &app,
+                    agent.start_active_attestation(&app),
+                )
+                .await;
+                match result {
+                    ActiveAttestationTaskRunResult::Completed => break,
+                    ActiveAttestationTaskRunResult::Panicked => {
+                        tokio::time::sleep(std::time::Duration::from_secs(
+                            ACTIVE_ATTESTATION_PANIC_RESTART_DELAY_SECS,
+                        ))
+                        .await;
+                    }
+                }
+            }
+        });
+    }
+
+    async fn run_active_attestation_task_once<F>(
+        app: &AppConfig,
+        task: F,
+    ) -> ActiveAttestationTaskRunResult
+    where
+        F: Future<Output = ()>,
+    {
+        match AssertUnwindSafe(task).catch_unwind().await {
+            Ok(()) => {
+                log::error!(
+                    "Active attestation task for {} exited unexpectedly",
+                    app.uuid
+                );
+                ActiveAttestationTaskRunResult::Completed
+            }
+            Err(_) => {
+                app.record_failure();
+                log::error!(
+                    "Active attestation task for {} panicked; restarting after {} seconds",
+                    app.uuid,
+                    ACTIVE_ATTESTATION_PANIC_RESTART_DELAY_SECS
+                );
+                ActiveAttestationTaskRunResult::Panicked
+            }
+        }
     }
 
     /// Start active attestation task with dynamic timer
@@ -858,7 +913,7 @@ impl AttestationAgent {
                     .first()
                     .ok_or(ActiveTokenError::AppNotFound)?;
 
-                if app.platform != TeeType::Virtcca && app.platform != TeeType::Invalid {
+                if app.platform != TeeType::Virtcca {
                     return Err(ActiveTokenError::PlatformMismatch);
                 }
 
@@ -1355,6 +1410,24 @@ mod active_token_tests {
     }
 
     #[tokio::test]
+    async fn virtcca_active_token_rejects_invalid_app_platform() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "rim-1".to_string(),
+            false,
+            30,
+            TeeType::Invalid,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(None, Some(vec![0u8; 32]), TeeType::Virtcca)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::PlatformMismatch);
+    }
+
+    #[tokio::test]
     async fn selected_app_platform_must_match_runtime_platform() {
         let agent = agent_with_apps(vec![AppConfig::new(
             "rim-1".to_string(),
@@ -1370,5 +1443,38 @@ mod active_token_tests {
             .unwrap_err();
 
         assert_eq!(error, ActiveTokenError::PlatformMismatch);
+    }
+}
+
+#[cfg(test)]
+mod active_attestation_task_tests {
+    use super::*;
+    use attestation_types::TeeType;
+
+    fn test_app() -> AppConfig {
+        AppConfig::new("ta-1".to_string(), false, 30, TeeType::Itrustee, false)
+    }
+
+    #[tokio::test]
+    async fn active_attestation_task_records_failure_after_panic() {
+        let app = test_app();
+
+        let result = AttestationAgent::run_active_attestation_task_once(&app, async {
+            panic!("active attestation task panic");
+        })
+        .await;
+
+        assert_eq!(result, ActiveAttestationTaskRunResult::Panicked);
+        assert_eq!(app.get_failure_count(), 1);
+    }
+
+    #[tokio::test]
+    async fn active_attestation_task_does_not_record_failure_after_normal_exit() {
+        let app = test_app();
+
+        let result = AttestationAgent::run_active_attestation_task_once(&app, async {}).await;
+
+        assert_eq!(result, ActiveAttestationTaskRunResult::Completed);
+        assert_eq!(app.get_failure_count(), 0);
     }
 }

@@ -4,7 +4,7 @@ members = ["service", "verifier", "token", "reference", "policy", "tests"]
 
 [workspace.dependencies]
 anyhow = "1.0.80"
-serde = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 async-trait = "0.1.78"
 async-recursion = "1.1.1"

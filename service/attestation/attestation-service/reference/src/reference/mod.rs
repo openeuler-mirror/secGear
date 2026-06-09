@@ -100,34 +100,51 @@ impl ReferenceOps {
         let refs =
             Extractor::split(ref_set).ok_or(RefOpError::Err("parse reference fail".to_string()))?;
         for item in refs {
-            self.register_reference(&item)?;
-            // refnamex with prefix "itrustee_" should write to seperate file，itrustee sdk will use it
-            if item.name.starts_with("itrustee_") {
-                let file_name = ITRUSTEE_REF_VALUE_DIR.to_string() + item.name.as_str();
-                let path = Path::new(file_name.as_str());
-                let mut file = File::create(path).map_err(|_| {
+            self.register_item(&item)?;
+        }
+        Ok(())
+    }
+
+    fn register_item(&mut self, item: &Ref) -> Result<(), RefOpError> {
+        self.register_item_with_ima_dirs(item, ITRUSTEE_IMA_BASE_DIR, VIRTCCA_IMA_BASE_DIR)
+    }
+
+    fn register_item_with_ima_dirs(
+        &mut self,
+        item: &Ref,
+        itrustee_ima_base_dir: &str,
+        virtcca_ima_base_dir: &str,
+    ) -> Result<(), RefOpError> {
+        if let Some(uuid) = item.name.strip_prefix(ITRUSTEE_IMA_PREFIX) {
+            Self::write_ima_reference_file(itrustee_ima_base_dir, uuid, &item.value)?;
+            self.register_reference(item)?;
+            return Ok(());
+        }
+
+        if let Some(app_id) = item.name.strip_prefix(VIRTCCA_IMA_PREFIX) {
+            Self::write_ima_reference_file(virtcca_ima_base_dir, app_id, &item.value)?;
+            self.register_reference(item)?;
+            return Ok(());
+        }
+
+        self.register_reference(item)?;
+        // refnamex with prefix "itrustee_" should write to seperate file，itrustee sdk will use it
+        if item.name.starts_with("itrustee_") {
+            let file_name = ITRUSTEE_REF_VALUE_DIR.to_string() + item.name.as_str();
+            let path = Path::new(file_name.as_str());
+            let mut file = File::create(path).map_err(|_| {
+                RefOpError::Err(
+                    "create itrustee reference file failed: ".to_string() + file_name.as_str(),
+                )
+            })?;
+            file.write_all(&item.value.as_str().unwrap().as_bytes())
+                .map_err(|_| {
                     RefOpError::Err(
-                        "create itrustee reference file failed: ".to_string() + file_name.as_str(),
+                        "write itrustee reference file failed".to_string() + file_name.as_str(),
                     )
                 })?;
-                file.write_all(&item.value.as_str().unwrap().as_bytes())
-                    .map_err(|_| {
-                        RefOpError::Err(
-                            "write itrustee reference file failed".to_string() + file_name.as_str(),
-                        )
-                    })?;
-            }
-
-            if item.name.starts_with(ITRUSTEE_IMA_PREFIX) {
-                if let Some(uuid) = item.name.strip_prefix(ITRUSTEE_IMA_PREFIX) {
-                    Self::write_ima_reference_file(ITRUSTEE_IMA_BASE_DIR, uuid, &item.value)?;
-                }
-            } else if item.name.starts_with(VIRTCCA_IMA_PREFIX) {
-                if let Some(app_id) = item.name.strip_prefix(VIRTCCA_IMA_PREFIX) {
-                    Self::write_ima_reference_file(VIRTCCA_IMA_BASE_DIR, app_id, &item.value)?;
-                }
-            }
         }
+
         Ok(())
     }
 
@@ -208,14 +225,8 @@ impl ReferenceOps {
         }
 
         let app_dir = format!("{}/{}", base_dir, app_id);
-        std::fs::create_dir_all(&app_dir).map_err(|e| {
-            RefOpError::Err(format!("Failed to create directory {}: {}", app_dir, e))
-        })?;
-
         let file_path = format!("{}/{}", app_dir, DIGEST_LIST_FILE_NAME);
-        let mut file = File::create(&file_path)
-            .map_err(|e| RefOpError::Err(format!("Failed to create file {}: {}", file_path, e)))?;
-
+        let mut valid_digests = Vec::new();
         for digest in digests {
             if digest.len() != DIGEST_SHA256_HEX_LEN
                 || !digest.chars().all(|c| c.is_ascii_hexdigit())
@@ -228,6 +239,24 @@ impl ReferenceOps {
                 );
                 continue;
             }
+            valid_digests.push(digest);
+        }
+
+        if valid_digests.is_empty() {
+            return Err(RefOpError::Err(format!(
+                "no valid IMA reference digest for app_id {}",
+                app_id
+            )));
+        }
+
+        std::fs::create_dir_all(&app_dir).map_err(|e| {
+            RefOpError::Err(format!("Failed to create directory {}: {}", app_dir, e))
+        })?;
+
+        let mut file = File::create(&file_path)
+            .map_err(|e| RefOpError::Err(format!("Failed to create file {}: {}", file_path, e)))?;
+
+        for digest in valid_digests {
             file.write_all(format!("{}\n", digest).as_bytes())
                 .map_err(|e| {
                     RefOpError::Err(format!("Failed to write digest to {}: {}", file_path, e))
@@ -238,5 +267,132 @@ impl ReferenceOps {
             .map_err(|e| RefOpError::Err(format!("Failed to sync file {}: {}", file_path, e)))?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    const VALID_DIGEST: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    #[derive(Default)]
+    struct MemoryStore {
+        entries: HashMap<String, Vec<u8>>,
+    }
+
+    impl KvStore for MemoryStore {
+        fn write(&mut self, key: &str, value: &[u8]) -> Result<(), KvError> {
+            self.entries.insert(key.to_string(), value.to_vec());
+            Ok(())
+        }
+
+        fn read(&mut self, key: &str) -> Option<Vec<u8>> {
+            self.entries.get(key).cloned()
+        }
+
+        fn delete(&mut self, key: &str) -> Result<(), KvError> {
+            self.entries.remove(key);
+            Ok(())
+        }
+    }
+
+    fn temp_base_dir(test_name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "secgear-reference-{test_name}-{}-{unique}",
+            std::process::id()
+        ))
+    }
+
+    fn digest_file(base_dir: &Path, app_id: &str) -> PathBuf {
+        base_dir.join(app_id).join(DIGEST_LIST_FILE_NAME)
+    }
+
+    #[test]
+    fn ima_reference_rejects_all_invalid_digests_without_overwriting_existing_file() {
+        let base_dir = temp_base_dir("invalid-digests");
+        let app_id = "app";
+        let file_path = digest_file(&base_dir, app_id);
+        fs::create_dir_all(file_path.parent().unwrap()).unwrap();
+        fs::write(&file_path, format!("{VALID_DIGEST}\n")).unwrap();
+
+        let result = ReferenceOps::write_ima_reference_file(
+            base_dir.to_str().unwrap(),
+            app_id,
+            &json!(["not-a-sha256-digest"]),
+        );
+
+        assert!(result.is_err());
+        assert_eq!(
+            fs::read_to_string(&file_path).unwrap(),
+            format!("{VALID_DIGEST}\n")
+        );
+        let _ = fs::remove_dir_all(&base_dir);
+    }
+
+    #[test]
+    fn ima_reference_rejects_empty_digest_inputs() {
+        let base_dir = temp_base_dir("empty-digests");
+
+        assert!(ReferenceOps::write_ima_reference_file(
+            base_dir.to_str().unwrap(),
+            "empty-string",
+            &Value::String("".to_string()),
+        )
+        .is_err());
+        assert!(ReferenceOps::write_ima_reference_file(
+            base_dir.to_str().unwrap(),
+            "empty-array",
+            &json!([]),
+        )
+        .is_err());
+
+        assert!(!digest_file(&base_dir, "empty-string").exists());
+        assert!(!digest_file(&base_dir, "empty-array").exists());
+        let _ = fs::remove_dir_all(&base_dir);
+    }
+
+    #[test]
+    fn ima_reference_writes_only_valid_digests_when_input_is_mixed() {
+        let base_dir = temp_base_dir("mixed-digests");
+        let app_id = "app";
+
+        ReferenceOps::write_ima_reference_file(
+            base_dir.to_str().unwrap(),
+            app_id,
+            &json!(["invalid", VALID_DIGEST]),
+        )
+        .unwrap();
+
+        assert_eq!(
+            fs::read_to_string(digest_file(&base_dir, app_id)).unwrap(),
+            format!("{VALID_DIGEST}\n")
+        );
+        let _ = fs::remove_dir_all(&base_dir);
+    }
+
+    #[test]
+    fn ima_reference_register_does_not_update_store_when_file_write_fails() {
+        let base_dir = temp_base_dir("register-failure");
+        let mut ops = ReferenceOps::new(MemoryStore::default());
+        let reference = Ref {
+            name: format!("{VIRTCCA_IMA_PREFIX}app"),
+            value: json!(["invalid"]),
+        };
+
+        let result = ops.register_item_with_ima_dirs(&reference, "", base_dir.to_str().unwrap());
+
+        assert!(result.is_err());
+        assert!(ops.query_reference(&reference).is_none());
+        assert!(!digest_file(&base_dir, "app").exists());
+        let _ = fs::remove_dir_all(&base_dir);
     }
 }
