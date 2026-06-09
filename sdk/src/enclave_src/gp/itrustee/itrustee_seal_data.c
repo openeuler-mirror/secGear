@@ -22,7 +22,7 @@ CC_OPTIMIZE_OFF static void *memset_no_optimize(void *ptr, int value, size_t num
     memset(ptr, 0, num);
 }
 
-uint32_t get_sealed_data_size_ex(uint32_t seal_data_len, uint32_t aad_len)
+uint32_t get_sealed_data_size_ex(const uint32_t aad_len, const uint32_t seal_data_len)
 {
     if (UINT32_MAX - aad_len <= seal_data_len) {
         return UINT32_MAX;
@@ -137,7 +137,8 @@ TEE_Result itrustee_seal_data(uint8_t *seal_data, uint32_t seal_data_len, void *
     result = aes_seal_unseal_data(key_buf, SEAL_KEY_LEN, nonce, SEAL_DATA_NONCE_LEN, 
                     TEE_MODE_ENCRYPT, seal_data, seal_data_len, 
                     (uint8_t *)&(tmp_sealed_data->payload_data), (uint32_t *)&(tmp_sealed_data->encrypted_data_len),
-                    (uint8_t *)&(tmp_sealed_data->tag), (uint32_t *)&(tmp_sealed_data->tag_len));
+                    (uint8_t *)&(tmp_sealed_data->tag), (uint32_t *)&(tmp_sealed_data->tag_len),
+		            mac_data, mac_data_len);
     if (result != TEE_SUCCESS) {
         SLogError("aes_seal_unseal_data failed");
         goto error0;
@@ -158,7 +159,8 @@ error2:
 }
 
 TEE_Result aes_seal_unseal_data(uint8_t *key_buf, uint32_t key_len, uint8_t *nonce, uint32_t nonce_len, uint32_t mode,
-    uint8_t *src_data, uint32_t src_len, uint8_t *dest_data, uint32_t *dest_len, uint8_t *tag, uint32_t *tag_len)
+    uint8_t *src_data, uint32_t src_len, uint8_t *dest_data, uint32_t *dest_len, uint8_t *tag, uint32_t *tag_len,
+    uint8_t *aad_data, uint32_t aad_len)
 {
     TEE_Result ret;
     TEE_ObjectHandle key_object;
@@ -184,6 +186,10 @@ TEE_Result aes_seal_unseal_data(uint8_t *key_buf, uint32_t key_len, uint8_t *non
     if (TEE_SUCCESS != ret) {
         SLogError("TEE_AEInit failed, ret %x\n", ret);
         goto error2;
+    }
+
+    if (aad_data != NULL && aad_len > 0) {
+        TEE_AEUpdateAAD(crypto_ops, aad_data, aad_len);
     }
 
     size_t temp_dest_len = *dest_len;
@@ -234,10 +240,12 @@ TEE_Result itrustee_unseal_data(void *sealed_data, uint8_t *decrypted_data, uint
         goto done;
     }
     *decrypted_data_len = tmp_sealed_data->encrypted_data_len;
+    uint8_t *saved_aad = tmp_sealed_data->payload_data + tmp_sealed_data->encrypted_data_len;
+    uint32_t saved_aad_len = tmp_sealed_data->aad_len;
     result = aes_seal_unseal_data(key_buf, key_len, (uint8_t *)&(tmp_sealed_data->nonce), SEAL_DATA_NONCE_LEN,
         TEE_MODE_DECRYPT, (uint8_t *)&(tmp_sealed_data->payload_data), tmp_sealed_data->encrypted_data_len,
         decrypted_data, decrypted_data_len, (uint8_t *)&(tmp_sealed_data->tag),
-        (uint32_t *)&(tmp_sealed_data->tag_len));
+        (uint32_t *)&(tmp_sealed_data->tag_len), saved_aad, saved_aad_len);
     if (result != TEE_SUCCESS) {
         SLogError("AES unseal data failed\n");
         goto done;

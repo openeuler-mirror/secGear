@@ -36,4 +36,4 @@ scc = "2.1"
 
 attestation-types = { path = "../attestation-types" }
 ear = "0.1.1"
-ccatoken = "0.1.0"
+ccatoken = { git = "https://github.com/veraison/rust-ccatoken.git" , rev = "dfe9ca2d949c28eb0944fe16769f06a96676dda1" }

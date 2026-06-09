@@ -1,0 +1,36 @@
+# Build directories
+build/
+*/build/
+**/build/
+
+# Generated projects
+generated/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Build outputs
+*.o
+*.so
+*.a
+*.signed.so
+*_host
+a.out
+
+# Temporary signing keys generated during local builds
+*.pem
+
+# Temporary files
+*.tmp
+*.log
+.DS_Store
+
+# secGear codegen outputs
+*_t.c
+*_t.h
+*_u.c
+*_u.h
+*_args.h

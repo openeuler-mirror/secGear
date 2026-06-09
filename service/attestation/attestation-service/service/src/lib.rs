@@ -135,11 +135,12 @@ impl AttestationService {
 
         let mut passed = true;
         AttestationService::evaluate_evidence_field(&claims_evidence, "ima", &mut passed).await;
-        AttestationService::evaluate_evidence_field(&claims_evidence, "uefi", &mut passed).await;
+        AttestationService::evaluate_evidence_field(&claims_evidence, "event", &mut passed).await;
 
         // get reference by keys in claims_evidence
         let mut ops_refs = ReferenceOps::default();
         let refs_of_claims = ops_refs.query(&claims_evidence["payload"].to_string());
+        log::debug!("refs_of_claims: {:?}", refs_of_claims);
         // apply policy to verify claims_evidence with reference value
         let policy_ids = match policy_ids {
             Some(policy_id) => policy_id.clone(),
@@ -163,7 +164,7 @@ impl AttestationService {
             )
             .await;
         let mut report = serde_json::json!({});
-        let mut ref_exist_null: bool = false;
+        let mut ref_verify: bool = true;
 
         match result {
             Ok(eval) => {
@@ -181,8 +182,8 @@ impl AttestationService {
                     };
                     for key in refs.keys() {
                         // reference value is null means not found
-                        if refs[key].is_null() {
-                            ref_exist_null = true;
+                        if refs[key].is_null() || refs[key] == Value::Bool(false) {
+                            ref_verify = false;
                         }
                     }
                     report
@@ -202,11 +203,11 @@ impl AttestationService {
             .unwrap()
             .insert("ima".to_string(), claims_evidence["ima"].clone());
 
-        // add uefi detail result to report
+        // add event detail result to report
         report
             .as_object_mut()
             .unwrap()
-            .insert("uefi".to_string(), claims_evidence["uefi"].clone());
+            .insert("event".to_string(), claims_evidence["event"].clone());
 
         // issue attestation result token
         let evl_report = EvlReport {
@@ -216,7 +217,7 @@ impl AttestationService {
                     .ok_or(anyhow!("tee type unknown"))?,
             ),
             result: EvlResult {
-                eval_result: passed & !ref_exist_null,
+                eval_result: passed & ref_verify,
                 policy: policy_ids,
                 report: report,
             },

@@ -2311,6 +2311,7 @@ dependencies = [
  "attestation-types",
  "base64 0.22.1",
  "futures",
+ "log",
  "regorus",
  "tokio",
 ]

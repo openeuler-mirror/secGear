@@ -42,7 +42,7 @@ typedef struct _itrustee_seal_data {
     uint8_t payload_data[];
 } itrustee_seal_data_t;
 
-uint32_t get_sealed_data_size_ex(const uint32_t seal_data_len, const uint32_t aad_len);
+uint32_t get_sealed_data_size_ex(const uint32_t aad_len, const uint32_t seal_data_len);
 uint32_t get_encrypted_text_size_ex(const void *sealed_data);
 uint32_t get_add_text_size_ex(const void *sealed_data);
 
@@ -53,7 +53,8 @@ TEE_Result itrustee_unseal_data(void *cc_enclave_sealed_data, uint8_t *decrypted
     uint8_t *mac_data, uint32_t *mac_data_len);
 
 TEE_Result aes_seal_unseal_data(uint8_t *key_buf, uint32_t key_len, uint8_t *nonce, uint32_t nonce_len, uint32_t mode,
-    uint8_t *src_data, uint32_t src_len, uint8_t *dest_data, uint32_t *dest_len, uint8_t *tag, uint32_t *tag_len);
+    uint8_t *src_data, uint32_t src_len, uint8_t *dest_data, uint32_t *dest_len, uint8_t *tag, uint32_t *tag_len,
+    uint8_t *aad_data, uint32_t aad_len);
 
 
 

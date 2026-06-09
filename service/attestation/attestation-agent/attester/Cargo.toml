@@ -5,7 +5,8 @@ edition = "2021"
 
 [features]
 itrustee-attester = ["base64-url", "rand", "sha2"]
-virtcca-attester = ["base64-url", "ciborium", "cose-rust", "hex", "rand"]
+virtcca-attester = ["base64-url"]
+cca-attester = ["base64-url"]
 
 [dependencies]
 anyhow.workspace = true
@@ -17,6 +18,8 @@ async-trait.workspace = true
 log.workspace = true
 attestation-types.workspace = true
 sha2 = { workspace = true, optional = true }
-ciborium = { workspace = true, optional = true }
-cose-rust = { workspace = true, optional = true }
-hex = { workspace = true, optional = true }
+
+strum.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+openssl-sys.workspace = true
