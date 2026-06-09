@@ -211,7 +211,7 @@ impl Evidence {
             "vcca.platform.measure_value": self.platform_token.sw_components.clone(),
         });
         let claim = json!({
-            "tee": "vcca",
+            "tee": "virtcca",
             "payload" : payload,
             "ima": ima,
             "uefi": uefi,
@@ -505,6 +505,16 @@ mod tests {
     use hex;
 
     const TEST_VIRTCCA_TOKEN: &[u8; 2862] = include_bytes!("../../test_data/virtcca.cbor");
+
+    #[test]
+    fn parse_claim_uses_canonical_virtcca_tee() {
+        let claim = Evidence::default()
+            .parse_claim_from_evidence(json!({}), json!({}))
+            .unwrap();
+
+        assert_eq!(claim["tee"], json!("virtcca"));
+    }
+
     #[test]
     fn decode_token() {
         let token = hex::decode(TEST_VIRTCCA_TOKEN).unwrap();
@@ -519,8 +529,8 @@ mod tests {
         let virtcca_ev = serde_json::to_vec(&virtcca_ev).unwrap();
         let r = Evidence::verify(&challenge, &virtcca_ev);
         match r {
-            Ok(claim) => println!("verify success {:?}", claim),
-            Err(e) => assert!(false, "verify failed {:?}", e),
+            std::result::Result::Ok(claim) => println!("verify success {:?}", claim),
+            std::result::Result::Err(e) => assert!(false, "verify failed {:?}", e),
         }
     }
 }

@@ -123,6 +123,14 @@ impl AttestationService {
         }
     }
 
+    async fn evaluate_evidence_details(claims_evidence: &Value) -> bool {
+        let mut passed = true;
+        AttestationService::evaluate_evidence_field(claims_evidence, "ima", &mut passed).await;
+        AttestationService::evaluate_evidence_field(claims_evidence, "uefi", &mut passed).await;
+        AttestationService::evaluate_evidence_field(claims_evidence, "event", &mut passed).await;
+        passed
+    }
+
     /// evaluate tee evidence with reference and policy, and issue attestation result token
     pub async fn evaluate(
         &self,
@@ -133,9 +141,7 @@ impl AttestationService {
         let verifier = Verifier::default();
         let claims_evidence = verifier.verify_evidence(user_data, evidence).await?;
 
-        let mut passed = true;
-        AttestationService::evaluate_evidence_field(&claims_evidence, "ima", &mut passed).await;
-        AttestationService::evaluate_evidence_field(&claims_evidence, "event", &mut passed).await;
+        let passed = AttestationService::evaluate_evidence_details(&claims_evidence).await;
 
         // get reference by keys in claims_evidence
         let mut ops_refs = ReferenceOps::default();
@@ -203,6 +209,12 @@ impl AttestationService {
             .as_object_mut()
             .unwrap()
             .insert("event".to_string(), claims_evidence["event"].clone());
+
+        // add uefi detail result to report
+        report
+            .as_object_mut()
+            .unwrap()
+            .insert("uefi".to_string(), claims_evidence["uefi"].clone());
 
         // issue attestation result token
         let evl_report = EvlReport {
@@ -306,5 +318,24 @@ impl AttestationService {
 
     pub fn get_sessions(&self) -> Data<SessionMap> {
         self.sessions.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AttestationService;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn evidence_detail_results_fail_when_uefi_reference_mismatches() {
+        let claims_evidence = json!({
+            "ima": {},
+            "uefi": {
+                "kernel": false
+            },
+            "event": {}
+        });
+
+        assert!(!AttestationService::evaluate_evidence_details(&claims_evidence).await);
     }
 }

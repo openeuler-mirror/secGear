@@ -70,6 +70,10 @@ mod tests {
         let tee_type: TeeType = serde_json::from_str("\"VirtCCA\"").unwrap();
         assert_eq!(tee_type, TeeType::Virtcca);
 
+        let tee_type: TeeType = serde_json::from_str("\"vcca\"").unwrap();
+        assert_eq!(tee_type, TeeType::Virtcca);
+        assert_eq!(serde_json::to_string(&tee_type).unwrap(), "\"virtcca\"");
+
         let tee_type: TeeType = serde_json::from_str("\"cca\"").unwrap();
         assert_eq!(tee_type, TeeType::Cca);
 
