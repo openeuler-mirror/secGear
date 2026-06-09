@@ -14,6 +14,7 @@ use crate::{ActiveTokenError, AgentError, AttestationAgent, AttestationAgentAPIs
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use attestation_types::resource::ResourceLocation;
 use attester::EvidenceRequest;
+use hex;
 use log;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

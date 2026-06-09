@@ -551,6 +551,8 @@ curl -s "http://127.0.0.1:8081/active_token?uuid=<configured_rim>&nonce=${NONCE}
 
 `cvm_token` 和 `dev_cert` 使用标准 base64 编码，可能包含 `+`、`/`、`=`。
 
+`expires_at` 来自缓存 AS JWT 的 `exp` 字段，是 Unix epoch 秒的绝对时间。AA 缓存的 JWT 未刷新时，多次调用 `/active_token` 可能返回相同的 `expires_at`，这是预期行为。RP 判断 token 是否有效时，应在验证 JWT 签名后检查 JWT 内的 `nbf` 和 `exp`；响应 JSON 中的 `expires_at` 只是便于调用方读取的冗余字段。virtCCA nonce 模式的新鲜度来自实时 `cvm_token` 中 challenge 绑定 RP nonce，不要求 `expires_at` 每次变化。
+
 ### 7.4 检查 JWT 评估结果
 
 解码 JWT payload：
@@ -627,7 +629,7 @@ GET /active_token?uuid=<uuid>&nonce=<hex_encoded_nonce>
 RP 最少应完成以下检查：
 
 1. 使用 AS 公钥证书验证 JWT 签名。
-2. 检查 JWT `iss`、`nbf`、`exp`。
+2. 检查 JWT `iss`、`nbf`、`exp`，其中 `exp` 是 Unix epoch 秒的绝对过期时间。
 3. 检查 `evaluation_reports.eval_result == true`。
 4. 检查 JWT 中的平台标识和 app 标识符合预期。
 5. virtCCA nonce 模式下，验证 `cvm_token` 中 challenge 前 32 字节等于 RP 发出的 nonce。

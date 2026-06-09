@@ -111,10 +111,16 @@ impl UefiVerify {
         //based event_type get grub image info
         for event_entry in event_log.log.iter() {
             if event_entry.event_type == grub_event_type {
+                let Some(digest) = event_entry
+                    .digests
+                    .first()
+                    .filter(|digest| !digest.digest.is_empty())
+                else {
+                    log::warn!("Skipping UEFI GRUB image event without digest");
+                    continue;
+                };
                 state.grub_image_count += 1;
-                state
-                    .grub_image_list
-                    .push(hex::encode(event_entry.digests[0].digest.clone()));
+                state.grub_image_list.push(hex::encode(&digest.digest));
             } else {
                 let event_desc = match std::str::from_utf8(&event_entry.event_desc) {
                     Ok(s) => s,
@@ -131,10 +137,17 @@ impl UefiVerify {
                     }
 
                     if event_desc.contains(pattern) {
-                        state.state_hash.insert(
-                            key.to_string(),
-                            hex::encode(event_entry.digests[0].digest.clone()),
-                        );
+                        let Some(digest) = event_entry
+                            .digests
+                            .first()
+                            .filter(|digest| !digest.digest.is_empty())
+                        else {
+                            log::warn!("Skipping UEFI event '{key}' without digest");
+                            continue;
+                        };
+                        state
+                            .state_hash
+                            .insert(key.to_string(), hex::encode(&digest.digest));
                     }
                 }
 
@@ -145,6 +158,18 @@ impl UefiVerify {
         }
 
         state
+    }
+
+    fn validate_event_log_digests(event_log: &Eventlog) -> Result<()> {
+        for (index, event_entry) in event_log.log.iter().enumerate() {
+            match event_entry.digests.first() {
+                Some(digest) if !digest.digest.is_empty() => {}
+                Some(_) => bail!("UEFI event log entry {index} has an empty digest"),
+                None => bail!("UEFI event log entry {index} has no digest"),
+            }
+        }
+
+        Ok(())
     }
 
     pub fn check_uefi_references(
@@ -190,6 +215,7 @@ impl UefiVerify {
 
         let event_log = eventlog_rs::Eventlog::try_from(uefi_log.ccel_data)
             .map_err(|err| anyhow!("failed to parse UEFI event log: {err}"))?;
+        UefiVerify::validate_event_log_digests(&event_log)?;
         let _replayed_rtmr = event_log.replay_measurement_registry();
 
         if !UefiVerify::compare_rtmr_with_uefi_log(&_replayed_rtmr, &uefi_log_hash) {
@@ -207,5 +233,86 @@ impl UefiVerify {
             &firmware_state,
             &uefi_refs,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eventlog_rs::{ElDigest, EventlogEntry};
+
+    fn event_entry(event_type: &str, digests: Vec<ElDigest>, event_desc: &[u8]) -> EventlogEntry {
+        EventlogEntry {
+            target_measurement_registry: 1,
+            event_type_id: 0x80000003,
+            event_type: event_type.to_string(),
+            digests,
+            event_desc: event_desc.to_vec(),
+        }
+    }
+
+    fn ccel_data_with_empty_digest_entry() -> Vec<u8> {
+        let mut ccel_data = Vec::new();
+        ccel_data.extend_from_slice(&1u32.to_le_bytes());
+        ccel_data.extend_from_slice(&4u32.to_le_bytes());
+        ccel_data.extend_from_slice(&0u32.to_le_bytes());
+        ccel_data.extend_from_slice(&0u32.to_le_bytes());
+        ccel_data
+    }
+
+    #[test]
+    fn event_log_digest_validation_rejects_entries_without_digests() {
+        let event_log = Eventlog {
+            log: vec![event_entry("EV_EFI_BOOT_SERVICES_APPLICATION", vec![], b"")],
+        };
+
+        assert!(UefiVerify::validate_event_log_digests(&event_log).is_err());
+    }
+
+    #[test]
+    fn event_log_digest_validation_rejects_empty_digest_bytes() {
+        let event_log = Eventlog {
+            log: vec![event_entry(
+                "EV_EFI_BOOT_SERVICES_APPLICATION",
+                vec![ElDigest {
+                    algorithm: "TPM_ALG_SHA256".to_string(),
+                    digest: vec![],
+                }],
+                b"",
+            )],
+        };
+
+        assert!(UefiVerify::validate_event_log_digests(&event_log).is_err());
+    }
+
+    #[test]
+    fn firmware_log_state_ignores_entries_without_digests() {
+        let event_log = Eventlog {
+            log: vec![
+                event_entry("EV_EFI_BOOT_SERVICES_APPLICATION", vec![], b""),
+                event_entry("EV_SEPARATOR", vec![], b"/vmlinuz-test"),
+            ],
+        };
+
+        let state = UefiVerify::firmware_log_state(&event_log);
+
+        assert_eq!(state.grub_image_count, 0);
+        assert!(state.grub_image_list.is_empty());
+        assert!(state.state_hash.is_empty());
+    }
+
+    #[test]
+    fn uefi_verify_rejects_entries_without_digests_before_replay() {
+        let verifier = UefiVerify::default();
+        let uefi_log = UefiLog {
+            ccel_table: vec![],
+            ccel_data: ccel_data_with_empty_digest_entry(),
+        };
+        let uefi_log_hash = std::array::from_fn(|_| vec![0; 32]);
+
+        let result = std::panic::catch_unwind(|| verifier.uefi_verify(uefi_log, uefi_log_hash));
+
+        assert!(result.is_ok(), "uefi_verify should return Err, not panic");
+        assert!(result.unwrap().is_err());
     }
 }

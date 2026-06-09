@@ -38,7 +38,7 @@ fn is_unspecified_listen_addr(socketaddr: &str) -> bool {
 #[command(version, about, long_about = None)]
 pub struct Cli {
     /// Socket address to listen on
-    #[arg(short = 'l', long, default_value_t = DEFAULT_SOCKETADDR.to_string())]
+    #[arg(short, long, default_value_t = DEFAULT_SOCKETADDR.to_string())]
     socketaddr: String,
     /// Socket address connect to
     #[arg(short = 'u', long, default_value_t = String::from(""))]
@@ -62,11 +62,7 @@ pub struct Cli {
     cert_root: String,
 
     /// global switch for active attestation
-    #[arg(
-        short = 's',
-        long = "enable_active_attestation",
-        default_value_t = false
-    )]
+    #[arg(long = "enable_active_attestation", default_value_t = false)]
     enable_active_attestation: bool,
 }
 
@@ -134,6 +130,30 @@ async fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cli_keeps_short_s_for_socketaddr() {
+        let cli = Cli::try_parse_from(["attestation-agent", "-s", "127.0.0.1:9000"]).unwrap();
+
+        assert_eq!(cli.socketaddr, "127.0.0.1:9000");
+        assert!(!cli.enable_active_attestation);
+    }
+
+    #[test]
+    fn cli_accepts_long_socketaddr_option() {
+        let cli =
+            Cli::try_parse_from(["attestation-agent", "--socketaddr", "127.0.0.1:9000"]).unwrap();
+
+        assert_eq!(cli.socketaddr, "127.0.0.1:9000");
+    }
+
+    #[test]
+    fn cli_uses_long_option_for_active_attestation() {
+        let cli =
+            Cli::try_parse_from(["attestation-agent", "--enable_active_attestation"]).unwrap();
+
+        assert!(cli.enable_active_attestation);
+    }
 
     #[test]
     fn unspecified_listen_address_detection_covers_ipv4_and_ipv6() {

@@ -16,7 +16,7 @@ use thiserror::Error;
 pub enum AgentError {
     #[error("challenge error: {0}")]
     ChallengeError(String),
-    #[error("get evidence error: {0}")]
+    #[error("decode error: {0}")]
     DecodeError(String),
     #[error("get evidence error: {0}")]
     GetEvidenceError(String),
@@ -26,4 +26,16 @@ pub enum AgentError {
     GetTokenError(String),
     #[error("verify token error: {0}")]
     VerifyTokenError(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decode_error_message_names_decode_failure() {
+        let err = AgentError::DecodeError("invalid hex".to_string());
+
+        assert_eq!(err.to_string(), "decode error: invalid hex");
+    }
 }
