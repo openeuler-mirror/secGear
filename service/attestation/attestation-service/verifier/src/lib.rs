@@ -43,7 +43,6 @@ pub trait VerifierAPIs {
 #[async_trait]
 impl VerifierAPIs for Verifier {
     async fn verify_evidence(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
-
         let aa_evidence: Evidence = serde_json::from_slice(evidence)?;
         let tee_type = aa_evidence.tee;
         let evidence = aa_evidence.evidence.as_bytes();

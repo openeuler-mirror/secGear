@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 //
-use anyhow::{bail, Result, Context};
-use crate::EvidenceRequest;
 use super::tsm_report::*;
+use crate::EvidenceRequest;
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default)]
@@ -44,7 +44,8 @@ impl CcaAttester {
         let evidence = CcaEvidence { token };
 
         // 序列化为 JSON 字符串
-        let ev = serde_json::to_string(&evidence).context("Serialization of CCA evidence failed")?;
+        let ev =
+            serde_json::to_string(&evidence).context("Serialization of CCA evidence failed")?;
 
         // 将 JSON 字符串进行 base64_url 编码
         let ev_str = base64_url::encode(&ev);
