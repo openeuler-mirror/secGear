@@ -33,9 +33,9 @@ use std::io::Cursor;
 const TEST_CPAK: &str = include_str!("../../test_data/cpak.json");
 
 #[derive(Debug, Default)]
-pub struct RustCCAVerifier {}
+pub struct CcaVerifier {}
 
-impl RustCCAVerifier {
+impl CcaVerifier {
     pub async fn evaluate(&self, user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
         return evalute_wrapper(user_data, evidence);
     }
@@ -46,7 +46,8 @@ impl RustCCAVerifier {
 // 2. execute verify
 fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     let mut reader = Cursor::new(evidence.to_vec());
-    let mut in_evidence = token::Evidence::decode(reader).unwrap_or_else(|_| panic!("decode evidence"));
+    let mut in_evidence =
+        token::Evidence::decode(reader).unwrap_or_else(|_| panic!("decode evidence"));
 
     let cpak = map_str_to_cpak(&in_evidence.platform_claims, &TEST_CPAK)
         .unwrap_or_else(|_| panic!("map cpak"));
@@ -87,7 +88,7 @@ fn evalute_wrapper(user_data: &[u8], evidence: &[u8]) -> Result<TeeClaim> {
     });
 
     let claim = json!({
-        "tee_type": "ccatoken",
+        "tee": "cca",
         "payload" : payload,
     });
     Ok(claim as TeeClaim)
@@ -202,7 +203,8 @@ mod tests {
 
     #[test]
     fn cca_test() -> Result<(), Box<dyn Error>> {
-        let mut evidence = token::Evidence::decode(Cursor::new(TEST_CCA_TOKEN.to_vec())).expect("decoding TEST_CCA_TOKEN");
+        let mut evidence = token::Evidence::decode(Cursor::new(TEST_CCA_TOKEN.to_vec()))
+            .expect("decoding TEST_CCA_TOKEN");
 
         let j = TEST_CPAK;
         let cpak = map_str_to_cpak(&evidence.platform_claims, &j)?;
@@ -238,7 +240,7 @@ mod tests {
         });
 
         let claim = json!({
-            "tee_type": "ccatoken",
+            "tee": "cca",
             "payload" : payload,
         });
         println!("verify success {:?}", claim);

@@ -34,54 +34,38 @@ impl Default for LocalFs {
 
 impl KvStore for LocalFs {
     fn write(&mut self, key: &str, value: &[u8]) -> Result<(), KvError> {
-        match self.db.insert(key.as_bytes(), value) {
-            Err(_err) => {
-                return Err(KvError::Err("insert error".to_string()));
-            }
-            Ok(_) => {}
+        if self.db.insert(key.as_bytes(), value).is_err() {
+            return Err(KvError::Err("insert error".to_string()));
         }
-        match self.db.flush() {
-            Err(_err) => {
-                return Err(KvError::Err("write flush error".to_string()));
-            }
-            Ok(_) => {
-                return Ok(());
-            }
+        if self.db.flush().is_err() {
+            Err(KvError::Err("write flush error".to_string()))
+        } else {
+            Ok(())
         }
     }
     fn read(&mut self, key: &str) -> Option<Vec<u8>> {
         match self.db.get(key) {
-            Ok(val) => match val {
-                Some(iv) => Some(Vec::from(iv.deref())),
-                None => None,
-            },
+            Ok(val) => val.map(|iv| Vec::from(iv.deref())),
             Err(_err) => None,
         }
     }
 
     fn delete(&mut self, key: &str) -> Result<(), KvError> {
-        match self.db.remove(key.as_bytes()) {
-            Err(_err) => {
-                return Err(KvError::Err("delete fail".to_string()));
-            }
-            Ok(_) => (),
+        if self.db.remove(key.as_bytes()).is_err() {
+            return Err(KvError::Err("delete fail".to_string()));
         }
-        match self.db.flush() {
-            Err(_err) => {
-                return Err(KvError::Err("delete flush fail".to_string()));
-            }
-            Ok(_) => {
-                return Ok(());
-            }
+        if self.db.flush().is_err() {
+            Err(KvError::Err("delete flush fail".to_string()))
+        } else {
+            Ok(())
         }
     }
 }
 
 impl LocalFs {
     pub fn new(path: &String) -> LocalFs {
-        let lfs = LocalFs {
+        LocalFs {
             db: Arc::new(sled::open(path).unwrap()),
-        };
-        lfs
+        }
     }
 }

@@ -13,9 +13,9 @@
 //! virtcca verifier plugin
 pub mod ccatoken;
 pub mod event_log;
-use attestation_types::VirtccaEvidence;
+pub mod uefi;
+use attestation_types::{UefiLog, VirtccaEvidence};
 use ccatoken::{CvmToken, Decode, PlatformToken};
-use event_log::EventVerify;
 
 use super::TeeClaim;
 use crate::ima::{virtcca::VirtCCAImaVerify, ImaVerifier};
@@ -42,6 +42,7 @@ const RSA_ROOT_CERT: &str =
 #[cfg(not(feature = "no_as"))]
 const RSA_SUB_CERT: &str =
     "/etc/attestation/attestation-service/verifier/virtcca/Huawei IT Product CA.pem";
+#[cfg(not(feature = "no_as"))]
 const ECCP_ROOT_CERT: &str =
     "/etc/attestation/attestation-service/verifier/virtcca/eccp521_root_cert.pem";
 #[cfg(not(feature = "no_as"))]
@@ -69,6 +70,7 @@ const MAX_CHALLENGE_LEN: usize = 64;
 const CBOR_TAG: u64 = 399;
 const CVM_LABEL: i128 = 44241;
 const PLATFORM_LABEL: i128 = 44234;
+const CVM_REM_ARR_SIZE: usize = 4;
 
 #[derive(Debug, Default)]
 pub struct VirtCCAVerifier {}
@@ -148,25 +150,37 @@ impl Evidence {
             }
         };
 
-        let ima: serde_json::Value =
-            VirtCCAImaVerify::default().ima_verify(&ima_log, &evidence.cvm_token.rem)?;
+        let app_id = hex::encode(&evidence.cvm_token.rim);
+        let ima: serde_json::Value = VirtCCAImaVerify::default().ima_verify(
+            &ima_log,
+            &evidence.cvm_token.rem,
+            Some(&app_id),
+        )?;
 
-        // verify event
-        let event_log = match virtcca_ev.event_log {
-            Some(log) => {
-                log::info!("get event log");
-                log
+        // verify uefi
+        let uefi_log = if let Some(uefi_log) = virtcca_ev.uefi_log {
+            if !uefi_log.ccel_table.is_empty() && !uefi_log.ccel_data.is_empty() {
+                log::info!("get valid uefi log");
+                uefi_log
+            } else {
+                log::info!("uefi log is invalid (empty fields)");
+                UefiLog {
+                    ccel_table: vec![],
+                    ccel_data: vec![],
+                }
             }
-            None => {
-                log::info!("no event log");
-                vec![]
+        } else {
+            log::info!("no uefi log at all");
+            UefiLog {
+                ccel_table: vec![],
+                ccel_data: vec![],
             }
         };
 
-        let event: serde_json::Value =
-            EventVerify::event_verify(event_log, evidence.cvm_token.rem.clone())?;
+        let uefi: serde_json::Value =
+            uefi::UefiVerify::default().uefi_verify(uefi_log, evidence.cvm_token.rem.clone())?;
 
-        evidence.parse_claim_from_evidence(ima, event)
+        evidence.parse_claim_from_evidence(ima, uefi)
     }
     pub fn parse_evidence(evidence: &[u8]) -> Result<TeeClaim> {
         let virtcca_ev: VirtccaEvidence = serde_json::from_slice(evidence)?;
@@ -174,16 +188,16 @@ impl Evidence {
         let evidence = Evidence::decode(evidence)?;
 
         let ima = json!("");
-        let event = json!("");
+        let uefi = json!("");
         // parsed TeeClaim
-        let claim = evidence.parse_claim_from_evidence(ima, event).unwrap();
+        let claim = evidence.parse_claim_from_evidence(ima, uefi).unwrap();
         Ok(claim["payload"].clone() as TeeClaim)
     }
 
     fn parse_claim_from_evidence(
         &self,
         ima: serde_json::Value,
-        event: serde_json::Value,
+        uefi: serde_json::Value,
     ) -> Result<TeeClaim> {
         let payload = json!({
             "vcca.cvm.challenge": hex::encode(self.cvm_token.challenge),
@@ -197,10 +211,10 @@ impl Evidence {
             "vcca.platform.measure_value": self.platform_token.sw_components.clone(),
         });
         let claim = json!({
-            "tee": "vcca",
+            "tee": "virtcca",
             "payload" : payload,
             "ima": ima,
-            "event": event,
+            "uefi": uefi,
         });
         Ok(claim)
     }
@@ -491,6 +505,16 @@ mod tests {
     use hex;
 
     const TEST_VIRTCCA_TOKEN: &[u8; 2862] = include_bytes!("../../test_data/virtcca.cbor");
+
+    #[test]
+    fn parse_claim_uses_canonical_virtcca_tee() {
+        let claim = Evidence::default()
+            .parse_claim_from_evidence(json!({}), json!({}))
+            .unwrap();
+
+        assert_eq!(claim["tee"], json!("virtcca"));
+    }
+
     #[test]
     fn decode_token() {
         let token = hex::decode(TEST_VIRTCCA_TOKEN).unwrap();
@@ -500,13 +524,13 @@ mod tests {
             evidence: token.to_vec(),
             dev_cert,
             ima_log: None,
-            event_log: None,
+            uefi_log: None,
         };
         let virtcca_ev = serde_json::to_vec(&virtcca_ev).unwrap();
         let r = Evidence::verify(&challenge, &virtcca_ev);
         match r {
-            Ok(claim) => println!("verify success {:?}", claim),
-            Err(e) => assert!(false, "verify failed {:?}", e),
+            std::result::Result::Ok(claim) => println!("verify success {:?}", claim),
+            std::result::Result::Err(e) => assert!(false, "verify failed {:?}", e),
         }
     }
 }

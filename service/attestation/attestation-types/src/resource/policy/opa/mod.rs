@@ -24,6 +24,13 @@ pub(crate) const DEFAULT_RESOURCE_POLICY_DIR: &str =
     "/etc/attestation/attestation-service/resource/policy/";
 pub(crate) const DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY: &str = "virtcca.rego";
 
+fn default_resource_policy_for_tee(tee: &str) -> Option<&'static str> {
+    match tee {
+        "vcca" | "virtcca" => Some(DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY),
+        _ => None,
+    }
+}
+
 pub(crate) struct OpenPolicyAgent {
     base: PathBuf,
 }
@@ -84,33 +91,23 @@ impl PolicyEngine for OpenPolicyAgent {
             let claim_json: serde_json::Value = serde_json::from_str(claim)?;
             if let Some(tee) = claim_json.get("tee") {
                 if let Some(tee_str) = tee.as_str() {
-                    match tee_str {
-                        "vcca" => {
-                            engine
-                                .add_policy_from_file(
-                                    self.base
-                                        .join(DEFAULT_VENDOR_BASE)
-                                        .join(DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY),
-                                )
-                                .context("failed to add policy from file")?;
-                            let vendor = DEFAULT_VENDOR_BASE;
-                            let id = match DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY
-                                .strip_suffix(".rego")
-                            {
-                                Some(v) => v,
-                                None => {
-                                    log::debug!(
-                                        "Invalid default policy id '{}'",
-                                        DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY
-                                    );
-                                    return Err(ResourceError::IllegalPolicySuffix(
-                                        DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY.to_string(),
-                                    ));
-                                }
-                            };
-                            eval_targets.push(format!("data.{}.{}.allow", vendor, id))
-                        }
-                        _ => {}
+                    if let Some(default_policy) = default_resource_policy_for_tee(tee_str) {
+                        engine
+                            .add_policy_from_file(
+                                self.base.join(DEFAULT_VENDOR_BASE).join(default_policy),
+                            )
+                            .context("failed to add policy from file")?;
+                        let vendor = DEFAULT_VENDOR_BASE;
+                        let id = match default_policy.strip_suffix(".rego") {
+                            Some(v) => v,
+                            None => {
+                                log::debug!("Invalid default policy id '{}'", default_policy);
+                                return Err(ResourceError::IllegalPolicySuffix(
+                                    default_policy.to_string(),
+                                ));
+                            }
+                        };
+                        eval_targets.push(format!("data.{}.{}.allow", vendor, id))
                     }
                 }
             }
@@ -310,12 +307,39 @@ mod tests {
     use tokio::runtime;
 
     use super::ResourceLocation;
-    use super::{OpenPolicyAgent, PolicyEngine};
+    use super::{default_resource_policy_for_tee, OpenPolicyAgent, PolicyEngine};
+
+    #[test]
+    fn test_default_policy_selector_accepts_virtcca_aliases() {
+        assert_eq!(
+            default_resource_policy_for_tee("vcca"),
+            Some(super::DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY)
+        );
+        assert_eq!(
+            default_resource_policy_for_tee("virtcca"),
+            Some(super::DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY)
+        );
+    }
 
     #[test]
     fn test_evaluate() {
-        let pwd = std::env::current_dir().expect("failed to get pwd");
-        let opa = OpenPolicyAgent::new(pwd.join("src/policy/opa"));
+        let base = std::env::temp_dir().join(format!(
+            "secgear-opa-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let policy_dir = base.join(super::DEFAULT_VENDOR_BASE);
+        std::fs::create_dir_all(&policy_dir).unwrap();
+        std::fs::write(
+            policy_dir.join(super::DEFAULT_RESOURCE_VIRTCCA_DEFAULT_POLICY),
+            include_str!("virtcca.rego"),
+        )
+        .unwrap();
+
+        let opa = OpenPolicyAgent::new(base.clone());
         let resource = ResourceLocation::new(None, "b/p/f".to_string());
         let claims = r#"
 {
@@ -328,7 +352,7 @@ mod tests {
         "policy": [],
         "report": {
             "default_vcca.rego": "{\"vcca.cvm.rim\":\"1ee366339c8245a34a8ad9d27a0b912a588af7da8aef514ae8dec22746956dd1\"}",
-            "ima": {}
+            "ima": {},
             "event": {}
         }
     },
@@ -346,7 +370,12 @@ mod tests {
 }"#;
         let policy = vec![];
         let rt = runtime::Runtime::new().unwrap();
-        let r = rt.block_on(opa.evaluate(resource, claims, policy));
-        assert_eq!(r.unwrap(), true);
+        for tee in ["vcca", "virtcca"] {
+            let claims = claims.replace("\"tee\": \"vcca\"", &format!("\"tee\": \"{}\"", tee));
+            let r = rt.block_on(opa.evaluate(resource.clone(), &claims, policy.clone()));
+            assert_eq!(r.unwrap(), true);
+        }
+
+        let _ = std::fs::remove_dir_all(base);
     }
 }

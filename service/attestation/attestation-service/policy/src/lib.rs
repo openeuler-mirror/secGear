@@ -24,14 +24,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_new_policy_engine() {
-        let policy_dir = String::from("/etc/attestation/attestation-service/policy");
+        let policy_dir = String::from("/tmp/secgear_test_policy");
         let ret = OPA::new(&policy_dir).await;
         assert!(ret.is_ok());
     }
 
     #[tokio::test]
     async fn test_new_policy_engine_dir_exist() {
-        let policy_dir = String::from("/etc/attestation/attestation-service/policy");
+        let policy_dir = String::from("/tmp/secgear_test_policy");
         let _ = fs::create_dir_all(&policy_dir);
         let ret = OPA::new(&policy_dir).await;
         assert!(ret.is_ok());
@@ -43,7 +43,7 @@ mod tests {
         let ret = OPA::new(&policy_dir).await;
         assert!(ret.is_err());
         if let PolicyEngineError::CreatePolicyDirError(msg) = ret.err().unwrap() {
-            assert_eq!(msg, "policy dir create failed");
+            assert!(msg.starts_with("policy dir create failed"));
         } else {
             panic!("Unexpected error type");
         }
@@ -51,7 +51,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_set_policy() {
-        let policy_dir = String::from("/etc/attestation/attestation-service/policy");
+        let policy_dir = String::from("/tmp/secgear_test_policy");
         let engine = OPA::new(&policy_dir).await;
 
         let policy_id = "test.rego".to_string();
@@ -70,8 +70,7 @@ output[exist] := null if {
 output["Other"] := "other" if {
     "test" in input_keys
 }"#;
-        let _ =
-            tokio::fs::remove_file("/etc/attestation/attestation-service/policy/test.rego").await;
+        let _ = tokio::fs::remove_file("/tmp/secgear_test_policy/test.rego").await;
 
         let ret = engine
             .unwrap()
@@ -85,7 +84,7 @@ output["Other"] := "other" if {
 
     #[tokio::test]
     async fn test_get_all_policy() {
-        let policy_dir = String::from("/etc/attestation/attestation-service/policy");
+        let policy_dir = String::from("/tmp/secgear_test_policy");
         let engine = OPA::new(&policy_dir).await;
         let ret = engine.unwrap().get_all_policy().await;
         println!("{:?}", ret);
@@ -94,7 +93,7 @@ output["Other"] := "other" if {
 
     #[tokio::test]
     async fn test_evaluate_by_default() {
-        let policy_dir = String::from("/etc/attestation/attestation-service/policy");
+        let policy_dir = String::from("/tmp/secgear_test_policy");
         let engine = OPA::new(&policy_dir).await.unwrap();
         let refs_from_report = String::from(
             r#"{
@@ -105,8 +104,20 @@ output["Other"] := "other" if {
         );
         let data = String::new();
         let policy_id: Vec<String> = vec![];
+
+        let default_policy = r#"package attestation
+import rego.v1
+output := input"#;
+        let _ =
+            tokio::fs::write("/tmp/secgear_test_policy/default_vcca.rego", default_policy).await;
+
         let result = engine
-            .evaluate(&String::from("vcca"), &refs_from_report, &data, &policy_id)
+            .evaluate(
+                &attestation_types::TeeType::Virtcca,
+                &refs_from_report,
+                &data,
+                &policy_id,
+            )
             .await;
         println!("{:?}", result);
         assert!(result.is_ok());
@@ -125,7 +136,7 @@ output["Other"] := "other" if {
     #[tokio::test]
     async fn test_evaluate_use_specified_policy() {
         // 先设置指定的策略
-        let policy_dir = String::from("/etc/attestation/attestation-service/policy");
+        let policy_dir = String::from("/tmp/secgear_test_policy");
         let engine = OPA::new(&policy_dir).await.unwrap();
 
         let policy_id = "test.rego".to_string();
@@ -146,8 +157,7 @@ output["Other"] := "other" if {
     "test" in input_keys
 }"#;
         // 删除已重复存在的policy
-        let _ =
-            tokio::fs::remove_file("/etc/attestation/attestation-service/policy/test.rego").await;
+        let _ = tokio::fs::remove_file("/tmp/secgear_test_policy/test.rego").await;
 
         let ret = engine
             .set_policy(
@@ -168,7 +178,12 @@ output["Other"] := "other" if {
         let data = String::new();
         let policy_id: Vec<String> = vec!["test.rego".to_string()];
         let result = engine
-            .evaluate(&String::from("vcca"), &refs_from_report, &data, &policy_id)
+            .evaluate(
+                &attestation_types::TeeType::Virtcca,
+                &refs_from_report,
+                &data,
+                &policy_id,
+            )
             .await;
         assert!(result.is_ok());
         match result {

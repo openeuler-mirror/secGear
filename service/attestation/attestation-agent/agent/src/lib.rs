@@ -9,6 +9,8 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+#![allow(clippy::redundant_field_names)]
+#![allow(clippy::needless_return)]
 
 //! Attestation Agent
 //!
@@ -19,60 +21,103 @@ pub mod restapi;
 pub mod result;
 
 use actix_web::web::Bytes;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use async_trait::async_trait;
-use attestation_types::{resource::ResourceLocation, service::GetResourceOp};
+use attestation_types::{
+    resource::ResourceLocation, service::GetResourceOp, AAConfig, AgentError, AppConfig,
+    HttpProtocal, TeeType, DEFAULT_AACONFIG_FILE,
+};
 use attester::{Attester, AttesterAPIs};
-use log;
-use rand::RngCore;
+#[cfg(feature = "virtcca-attester")]
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use futures::FutureExt;
+use serde::Serialize;
+
+use rand::{Rng, RngCore};
 use reqwest::Client;
 use result::Error;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::Value;
-use std::fs::File;
+use std::future::Future;
+use std::panic::AssertUnwindSafe;
 use std::path::Path;
-use thiserror;
-use token_verifier::{TokenRawData, TokenVerifier, TokenVerifyConfig};
+use std::{error::Error as StdError, fmt};
+use token_verifier::{TokenRawData, TokenVerifier};
 
 pub type TeeClaim = serde_json::Value;
+const ACTIVE_ATTESTATION_PANIC_RESTART_DELAY_SECS: u64 = 5;
 
-#[derive(Debug, thiserror::Error)]
-pub enum AgentError {
-    #[error("challenge error: {0}")]
-    ChallengeError(String),
-    #[error("get evidence error: {0}")]
-    DecodeError(String),
-    #[error("get evidence error: {0}")]
-    GetEvidenceError(String),
-    #[error("verify evidence error: {0}")]
-    VerifyEvidenceError(String),
-    #[error("get token error: {0}")]
-    GetTokenError(String),
-    #[error("verify token error: {0}")]
-    VerifyTokenError(String),
-}
-
+#[cfg(all(feature = "no_as", feature = "virtcca-verifier"))]
+use verifier::virtcca_parse_evidence;
 #[cfg(feature = "no_as")]
 use verifier::{Verifier, VerifierAPIs};
 
 #[cfg(not(feature = "no_as"))]
-use {
-    base64_url,
-    reqwest::header::{HeaderMap, HeaderValue},
-};
+use reqwest::header::{HeaderMap, HeaderValue};
 
 pub use attester::EvidenceRequest;
 mod session;
 use attestation_types::SESSION_TIMEOUT_MIN;
 use session::{Session, SessionMap};
-
 pub type AsTokenClaim = TokenRawData;
 
-pub const DEFAULT_AACONFIG_FILE: &str = "/etc/attestation/attestation-agent/attestation-agent.conf";
 pub struct TokenRequest {
     pub ev_req: EvidenceRequest,
     pub policy_id: Option<Vec<String>>,
+}
+
+#[derive(Serialize, Debug)]
+pub struct ActiveTokenResponse {
+    pub jwt_token: Option<String>,
+    pub expires_at: Option<u64>,
+    pub ttl_seconds: Option<i64>,
+    pub cvm_token: Option<String>,
+    pub dev_cert: Option<String>,
+    pub error: Option<String>,
+    pub failure_count: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ActiveTokenError {
+    InvalidUuid,
+    MissingNonce,
+    PlatformMismatch,
+    AppNotFound,
+    AmbiguousApp,
+    NotSupported,
+    NoTokenAvailable,
+    TeeUnavailable,
+}
+
+impl fmt::Display for ActiveTokenError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidUuid => write!(f, "invalid_uuid"),
+            Self::MissingNonce => write!(f, "missing_nonce"),
+            Self::PlatformMismatch => write!(f, "platform_mismatch"),
+            Self::AppNotFound => write!(f, "app_not_found"),
+            Self::AmbiguousApp => write!(f, "ambiguous_app"),
+            Self::NotSupported => write!(f, "not_supported"),
+            Self::NoTokenAvailable => write!(f, "no_token_available"),
+            Self::TeeUnavailable => write!(f, "tee_unavailable"),
+        }
+    }
+}
+
+impl StdError for ActiveTokenError {}
+
+fn detect_active_token_runtime_platform() -> TeeType {
+    #[cfg(feature = "itrustee-attester")]
+    if attester::itrustee::detect_platform() {
+        return TeeType::Itrustee;
+    }
+
+    #[cfg(feature = "virtcca-attester")]
+    if attester::virtcca::detect_platform() {
+        return TeeType::Virtcca;
+    }
+
+    TeeType::Invalid
 }
 
 #[async_trait]
@@ -160,6 +205,7 @@ impl AttestationAgentAPIs for AttestationAgent {
     async fn get_token(&self, user_data: TokenRequest) -> Result<String> {
         #[cfg(feature = "no_as")]
         {
+            let _ = user_data;
             return Ok("no as in not support get token".to_string());
         }
         // todo token 有效期内，不再重新获取报告
@@ -176,7 +222,7 @@ impl AttestationAgentAPIs for AttestationAgent {
     }
 
     async fn verify_token(&self, token: String) -> Result<AsTokenClaim> {
-        let verifier = TokenVerifier::new(self.config.token_cfg.clone())?;
+        let verifier = TokenVerifier::new(self.config.get_token_cfg().clone())?;
         let result = verifier.verify(&token)?;
         Ok(result)
     }
@@ -190,93 +236,46 @@ impl AttestationAgentAPIs for AttestationAgent {
     ) -> Result<String> {
         #[cfg(feature = "no_as")]
         {
+            let _ = (challenge, restful, resource, token);
             bail!("resource can only be gotten from attestation server!")
         }
-        let rest = self
-            .get_resource_from_as(challenge, restful, resource, token)
-            .await?;
-        Ok(String::from_utf8(rest.to_vec())?)
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum HttpProtocal {
-    Http { protocal: String },
-    // If https is uesd, the root certificate must be provided.
-    Https { protocal: String, cert_root: String },
-}
-
-impl Default for HttpProtocal {
-    fn default() -> Self {
-        Self::Http {
-            protocal: "http".to_string(),
+        #[cfg(not(feature = "no_as"))]
+        {
+            let rest = self
+                .get_resource_from_as(challenge, restful, resource, token)
+                .await?;
+            Ok(String::from_utf8(rest.to_vec())?)
         }
     }
 }
 
-impl HttpProtocal {
-    pub fn get_protocal(&self) -> String {
-        match self {
-            Self::Http { protocal } => protocal,
-            Self::Https { protocal, .. } => protocal,
-        }
-        .clone()
-    }
-
-    pub fn get_cert_root(&self) -> Option<String> {
-        match self {
-            Self::Https { cert_root, .. } => Some(cert_root.clone()),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AAConfig {
-    // Attestation Service url
-    pub svr_url: String,
-    // Http protocal, such as http or https
-    pub protocal: HttpProtocal,
-    token_cfg: TokenVerifyConfig,
-}
-
-impl Default for AAConfig {
-    fn default() -> Self {
-        Self {
-            svr_url: String::from("http://127.0.0.1:8080"),
-            token_cfg: TokenVerifyConfig::default(),
-            protocal: HttpProtocal::default(),
-        }
-    }
-}
-
-impl TryFrom<&Path> for AAConfig {
-    /// Load `AAConfig` from a configuration file like:
-    ///    {
-    ///        "svr_url": "http://127.0.0.1:8080",
-    ///        "token_cfg": {
-    ///            "cert": "/etc/attestation/attestation-agent/as_cert.pem",
-    ///            "iss": "oeas"
-    ///        }
-    ///    }
-    type Error = anyhow::Error;
-    fn try_from(config_path: &Path) -> Result<Self, Self::Error> {
-        let file = File::open(config_path).unwrap();
-        serde_json::from_reader::<File, AAConfig>(file).map_err(|e| anyhow!("invalid aaconfig {e}"))
-    }
-}
-
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct AttestationAgent {
     pub config: AAConfig,
     as_client_sessions: SessionMap,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum ActiveAttestationTaskRunResult {
+    Completed,
+    Panicked,
+}
+
 #[allow(dead_code)]
 impl AttestationAgent {
     pub fn new(config: AAConfig) -> Result<Self, Error> {
+        let enable_active_attestation = config.enable_active_attestation;
+        Self::new_with_interval(config, enable_active_attestation)
+    }
+
+    pub fn new_with_interval(
+        config: AAConfig,
+        enable_active_attestation: bool,
+    ) -> Result<Self, Error> {
         let as_client_sessions = SessionMap::new();
         let sessions = as_client_sessions.clone();
+
+        // Start session cleanup task
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(std::time::Duration::from_secs(60)).await;
@@ -286,10 +285,295 @@ impl AttestationAgent {
                     .await;
             }
         });
-        Ok(AttestationAgent {
+
+        #[cfg(feature = "virtcca-attester")]
+        let mut config = config;
+        #[cfg(not(feature = "virtcca-attester"))]
+        let config = config;
+
+        #[cfg(feature = "virtcca-attester")]
+        for app in &mut config.app_list {
+            if app.rim_auto_discover || app.uuid == "auto" {
+                if attester::virtcca::detect_platform() {
+                    match attester::virtcca::discover_rim() {
+                        Ok(rim_hex) => {
+                            log::info!("Auto-discovered rim: {}", rim_hex);
+                            app.uuid = rim_hex.clone();
+                            let _ = app.discovered_rim.set(rim_hex);
+                        }
+                        Err(e) => {
+                            if app.uuid == "auto" {
+                                return Err(Error::Agent {
+                                    source: AgentError::GetEvidenceError(format!(
+                                        "Rim auto-discovery failed: {}",
+                                        e
+                                    )),
+                                });
+                            }
+                            log::warn!("Rim auto-discovery failed, using configured uuid: {:?}", e);
+                        }
+                    }
+                } else if app.uuid == "auto" {
+                    return Err(Error::Agent {
+                        source: AgentError::GetEvidenceError(
+                            "uuid='auto' requires virtCCA platform".to_string(),
+                        ),
+                    });
+                }
+            }
+        }
+
+        #[cfg(not(feature = "virtcca-attester"))]
+        for app in &config.app_list {
+            if app.uuid == "auto" {
+                return Err(Error::Agent {
+                    source: AgentError::GetEvidenceError(
+                        "uuid='auto' requires virtcca-attester feature".to_string(),
+                    ),
+                });
+            }
+        }
+
+        let app_list = config.app_list.clone();
+
+        let agent = AttestationAgent {
             config,
             as_client_sessions,
-        })
+        };
+
+        if enable_active_attestation {
+            for app in &app_list {
+                if app.interval > 0 {
+                    Self::spawn_active_attestation_task(agent.clone(), app.clone());
+                } else {
+                    log::warn!(
+                        "Attestation interval is 0, skipping active attestation task {}",
+                        app.uuid
+                    );
+                }
+            }
+        } else {
+            log::debug!("Active attestation disabled, skipping active attestation task");
+        }
+
+        Ok(agent)
+    }
+
+    fn spawn_active_attestation_task(agent: AttestationAgent, app: AppConfig) {
+        tokio::spawn(async move {
+            // Add random delay betwenn [0, 1) seconds to avoid all tasks starting at the same time
+            let delay = rand::thread_rng().gen_range(0..1);
+            tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+
+            loop {
+                let result = Self::run_active_attestation_task_once(
+                    &app,
+                    agent.start_active_attestation(&app),
+                )
+                .await;
+                match result {
+                    ActiveAttestationTaskRunResult::Completed => break,
+                    ActiveAttestationTaskRunResult::Panicked => {
+                        tokio::time::sleep(std::time::Duration::from_secs(
+                            ACTIVE_ATTESTATION_PANIC_RESTART_DELAY_SECS,
+                        ))
+                        .await;
+                    }
+                }
+            }
+        });
+    }
+
+    async fn run_active_attestation_task_once<F>(
+        app: &AppConfig,
+        task: F,
+    ) -> ActiveAttestationTaskRunResult
+    where
+        F: Future<Output = ()>,
+    {
+        match AssertUnwindSafe(task).catch_unwind().await {
+            Ok(()) => {
+                log::error!(
+                    "Active attestation task for {} exited unexpectedly",
+                    app.uuid
+                );
+                ActiveAttestationTaskRunResult::Completed
+            }
+            Err(_) => {
+                app.record_failure();
+                log::error!(
+                    "Active attestation task for {} panicked; restarting after {} seconds",
+                    app.uuid,
+                    ACTIVE_ATTESTATION_PANIC_RESTART_DELAY_SECS
+                );
+                ActiveAttestationTaskRunResult::Panicked
+            }
+        }
+    }
+
+    /// Start active attestation task with dynamic timer
+    async fn start_active_attestation(&self, config: &AppConfig) {
+        // 安全检查：确保 interval 大于 0
+        let interval = if config.interval > 0 {
+            config.interval
+        } else {
+            log::error!("Invalid attestation interval: {}", config.interval);
+            return; // 提前返回，避免无限循环
+        };
+
+        log::info!(
+            "Starting active attestation for {} with interval {} seconds",
+            config.uuid,
+            interval
+        );
+
+        loop {
+            // 计算下次刷新延迟
+            let next_refresh_delay = self.calculate_refresh_delay(config).await;
+
+            log::debug!(
+                "Next refresh for {} in {} seconds",
+                config.uuid,
+                next_refresh_delay
+            );
+
+            // 等待到刷新时间（使用 sleep_until 提高精度）
+            if next_refresh_delay > 0 {
+                let target_time = tokio::time::Instant::now()
+                    + std::time::Duration::from_secs(next_refresh_delay);
+                tokio::time::sleep_until(target_time).await;
+            }
+
+            // 双重检查：确保真的需要刷新
+            if config.should_refresh_token().await {
+                self.perform_token_refresh(config).await;
+            }
+        }
+    }
+
+    /// 计算下次刷新延迟时间
+    async fn calculate_refresh_delay(&self, config: &AppConfig) -> u64 {
+        if let Some(ttl) = config.get_token_ttl().await {
+            if ttl <= 0 {
+                0 // 已过期，立即刷新
+            } else {
+                let refresh_threshold = std::cmp::max(config.interval, (ttl as f64 * 0.1) as u64);
+                std::cmp::max(1, ttl - refresh_threshold as i64) as u64
+            }
+        } else {
+            0 // 没有 Token，立即刷新
+        }
+    }
+
+    /// 执行 Token 刷新
+    async fn perform_token_refresh(&self, config: &AppConfig) {
+        if config.is_token_expired().await {
+            log::info!("Token for {} has expired, refreshing", config.uuid);
+        } else {
+            let ttl = config.get_token_ttl().await.unwrap_or(0);
+            log::info!(
+                "Token for {} will expire in {} seconds, refreshing proactively",
+                config.uuid,
+                ttl
+            );
+        }
+
+        match self.perform_active_attestation(config).await {
+            Ok(token) => {
+                if let Err(e) = config.store_token(token).await {
+                    log::error!("Failed to store token for {}: {:?}", config.uuid, e);
+                    config.record_failure();
+                } else {
+                    config.reset_failures();
+                    log::info!("Token refreshed successfully for {}", config.uuid);
+                }
+            }
+            Err(e) => {
+                config.record_failure();
+                let failure_count = config.get_failure_count();
+                log::error!(
+                    "Token refresh failed for {} (attempt {}): {:?}",
+                    config.uuid,
+                    failure_count,
+                    e
+                );
+
+                // 智能重试延迟
+                let max_consecutive_failures = 5;
+                let max_delay = config.interval * 2;
+                let delay = if failure_count >= max_consecutive_failures {
+                    log::warn!(
+                        "Too many consecutive failures for {}, using longer delay",
+                        config.uuid
+                    );
+                    config.interval * 2
+                } else {
+                    std::cmp::min(10 * (2_u64.pow(failure_count - 1)), max_delay)
+                };
+
+                tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+            }
+        }
+    }
+
+    /// Perform active attestation: get challenge, evidence, and verify with AS
+    async fn perform_active_attestation(&self, config: &AppConfig) -> Result<String> {
+        #[cfg(feature = "no_as")]
+        {
+            let _ = config;
+            bail!("active attestation requires attestation service");
+        }
+
+        #[cfg(not(feature = "no_as"))]
+        {
+            let challenge_from_as = self.get_challenge_from_as(None).await?;
+            let encoded_challenge = challenge_from_as.as_bytes().to_vec();
+
+            let evidence_request = EvidenceRequest {
+                uuid: config.uuid.clone(),
+                challenge: encoded_challenge.clone(),
+                ima: Some(config.ima),
+            };
+            log::debug!(
+                "Created evidence request: uuid={}, ima={:?}",
+                evidence_request.uuid,
+                evidence_request.ima
+            );
+
+            log::info!("Calling get_evidence from TEE");
+            let evidence = match self.get_evidence(evidence_request).await {
+                Ok(evidence) => {
+                    log::info!(
+                        "Successfully obtained evidence from TEE: {} bytes",
+                        evidence.len()
+                    );
+                    evidence
+                }
+                Err(e) => {
+                    log::error!("Failed to get evidence from TEE: {:?}", e);
+                    return Err(e);
+                }
+            };
+
+            let token = match self
+                .verify_evidence_by_as(&encoded_challenge, &evidence, None)
+                .await
+            {
+                Ok(token) => {
+                    log::info!(
+                        "Successfully verified evidence with AS, token length: {}",
+                        token.len()
+                    );
+                    token
+                }
+                Err(e) => {
+                    log::error!("Failed to verify evidence with AS: {:?}", e);
+                    return Err(e);
+                }
+            };
+
+            Ok(token)
+        }
     }
 
     fn create_client(&self, protocal: HttpProtocal, cookie_store: bool) -> Result<reqwest::Client> {
@@ -319,54 +603,133 @@ impl AttestationAgent {
         evidence: &[u8],
         policy_id: Option<Vec<String>>,
     ) -> Result<String> {
+        log::info!("Starting verify_evidence_by_as");
+        log::debug!(
+            "Challenge length: {} bytes, Evidence length: {} bytes, policy_id: {:?}",
+            challenge.len(),
+            evidence.len(),
+            policy_id
+        );
+
         let challenge = String::from_utf8_lossy(challenge).to_string();
+        log::debug!("Challenge string: {}", challenge);
+
         let ss = self
             .as_client_sessions
             .session_map
             .get_async(&challenge)
             .await;
+        log::debug!("Session lookup result: {:?}", ss.is_some());
+        let should_update_session_token = ss.is_some();
 
         let request_body = json!({
             "challenge": challenge,
             "evidence": base64_url::encode(evidence),
             "policy_id": policy_id,
         });
+        log::debug!(
+            "Request body prepared: challenge={}, evidence_length={}",
+            challenge,
+            evidence.len()
+        );
+
         let mut map = HeaderMap::new();
         let client;
         if ss.is_none() {
-            client = self.create_client(self.config.protocal.clone(), true)?;
+            log::debug!("No existing session, creating new client");
+            client = match self.create_client(self.config.protocal.clone(), true) {
+                Ok(client) => {
+                    log::debug!("Client created successfully");
+                    client
+                }
+                Err(e) => {
+                    log::error!("Failed to create client: {:?}", e);
+                    return Err(e);
+                }
+            };
             map.insert("Content-Type", HeaderValue::from_static("application/json"));
         } else {
+            log::debug!("Using existing session");
             // If the session is already attested, directly use the token.
             if let Some(t) = ss.as_ref().unwrap().get().token.as_ref() {
+                log::info!("Using cached token from existing session");
                 return Ok(t.clone());
             }
             map.insert("Content-Type", HeaderValue::from_static("application/json"));
             map.insert("as-challenge", HeaderValue::from_static("as"));
             client = ss.as_ref().unwrap().get().as_client.clone();
+            log::debug!("Using client from existing session");
         }
+        drop(ss);
 
         let attest_endpoint = format!("{}/attestation", self.config.svr_url);
-        let res = client
-            .post(attest_endpoint)
+        log::info!(
+            "Sending request to attestation endpoint: {}",
+            attest_endpoint
+        );
+        log::debug!("Request headers: {:?}", map);
+
+        let res = match client
+            .post(&attest_endpoint)
             .headers(map)
             .json(&request_body)
             .send()
-            .await?;
+            .await
+        {
+            Ok(res) => {
+                log::debug!("Request sent successfully, status: {}", res.status());
+                res
+            }
+            Err(e) => {
+                log::error!("Failed to send request: {:?}", e);
+                return Err(anyhow::anyhow!("Request failed: {:?}", e));
+            }
+        };
 
         match res.status() {
             reqwest::StatusCode::OK => {
-                let token = res.text().await?;
-                if ss.as_ref().is_some() {
-                    ss.unwrap().get_mut().token = Some(token.clone());
+                log::info!("Received successful response from attestation service");
+                let token = match res.text().await {
+                    Ok(token) => {
+                        log::debug!("Response text extracted, length: {}", token.len());
+                        token
+                    }
+                    Err(e) => {
+                        log::error!("Failed to extract response text: {:?}", e);
+                        return Err(anyhow::anyhow!("Failed to read response: {:?}", e));
+                    }
+                };
+
+                if should_update_session_token {
+                    let updated = self
+                        .as_client_sessions
+                        .session_map
+                        .update_async(&challenge, |_, session| {
+                            session.token = Some(token.clone());
+                        })
+                        .await;
+                    if updated.is_none() {
+                        log::debug!("Session expired before token cache update");
+                    }
                 }
-                log::debug!("Remote Attestation success, AS Response: {:?}", token);
+                log::info!("Remote Attestation success, token length: {}", token.len());
                 Ok(token)
             }
             _ => {
+                let status = res.status();
+                let error_text = match res.text().await {
+                    Ok(text) => text,
+                    Err(e) => format!("Failed to read error response: {:?}", e),
+                };
+                log::error!(
+                    "Remote Attestation Failed, Status: {}, Response: {}",
+                    status,
+                    error_text
+                );
                 bail!(
-                    "Remote Attestation Failed, AS Response: {:?}",
-                    res.text().await?
+                    "Remote Attestation Failed, Status: {}, AS Response: {}",
+                    status,
+                    error_text
                 );
             }
         }
@@ -391,8 +754,8 @@ impl AttestationAgent {
     async fn generate_challenge_local(&self, user_data: Option<Vec<u8>>) -> Result<String> {
         let mut nonce: Vec<u8> = vec![0; 32];
         rand::thread_rng().fill_bytes(&mut nonce);
-        if user_data != None {
-            nonce.append(&mut user_data.unwrap());
+        if let Some(mut data) = user_data {
+            nonce.append(&mut data);
         }
         Ok(base64_url::encode(&nonce))
     }
@@ -400,12 +763,11 @@ impl AttestationAgent {
     async fn get_challenge_from_as(&self, user_data: Option<Vec<u8>>) -> Result<String> {
         let challenge_endpoint = format!("{}/challenge", self.config.svr_url);
         let client = self.create_client(self.config.protocal.clone(), true)?;
-        let data: Value;
-        if user_data.is_some() {
-            data = json!({"user_data":user_data.unwrap()});
+        let data: Value = if user_data.is_some() {
+            json!({"user_data":user_data.unwrap()})
         } else {
-            data = Value::Null;
-        }
+            Value::Null
+        };
         let res = client
             .get(challenge_endpoint)
             .header("Content-Type", "application/json")
@@ -471,6 +833,189 @@ impl AttestationAgent {
 
         Ok(resource)
     }
+
+    // 获取特定应用的 token
+    pub async fn get_app_token(&self, app_uuid: &str) -> Option<String> {
+        if let Some(app) = self.config.app_list.iter().find(|app| app.uuid == app_uuid) {
+            app.get_token().await
+        } else {
+            None
+        }
+    }
+
+    // 检查应用是否有有效 token
+    pub async fn has_app_token(&self, app_uuid: &str) -> bool {
+        if let Some(app) = self.config.app_list.iter().find(|app| app.uuid == app_uuid) {
+            app.has_token().await
+        } else {
+            false
+        }
+    }
+
+    // 获取应用 token 信息（用于监控）
+    pub async fn get_app_token_info(&self, app_uuid: &str) -> Option<serde_json::Value> {
+        if let Some(app) = self.config.app_list.iter().find(|app| app.uuid == app_uuid) {
+            Some(serde_json::json!({
+                "has_token": app.has_token().await,
+                "expires_at": app.get_token_expires_at().await,
+                "ttl_seconds": app.get_token_ttl().await,
+                "failure_count": app.get_failure_count(),
+                "is_expired": app.is_token_expired().await
+            }))
+        } else {
+            None
+        }
+    }
+
+    fn select_active_token_app(
+        &self,
+        uuid: Option<&str>,
+        runtime_platform: TeeType,
+    ) -> std::result::Result<Option<&AppConfig>, ActiveTokenError> {
+        if self.config.app_list.is_empty() {
+            return if uuid.is_some() {
+                Err(ActiveTokenError::AppNotFound)
+            } else {
+                Ok(None)
+            };
+        }
+
+        match runtime_platform {
+            TeeType::Itrustee => {
+                let app = if let Some(uuid) = uuid {
+                    if uuid == "auto" {
+                        return Err(ActiveTokenError::InvalidUuid);
+                    }
+
+                    let mut matches = self.config.app_list.iter().filter(|app| app.uuid == uuid);
+                    let first = matches.next().ok_or(ActiveTokenError::AppNotFound)?;
+                    if matches.next().is_some() {
+                        return Err(ActiveTokenError::AmbiguousApp);
+                    }
+                    first
+                } else {
+                    self.config
+                        .app_list
+                        .first()
+                        .ok_or(ActiveTokenError::AppNotFound)?
+                };
+
+                if app.platform != TeeType::Itrustee {
+                    return Err(ActiveTokenError::PlatformMismatch);
+                }
+
+                Ok(Some(app))
+            }
+            TeeType::Virtcca => {
+                let app = self
+                    .config
+                    .app_list
+                    .first()
+                    .ok_or(ActiveTokenError::AppNotFound)?;
+
+                if app.platform != TeeType::Virtcca {
+                    return Err(ActiveTokenError::PlatformMismatch);
+                }
+
+                if let Some(uuid) = uuid {
+                    if uuid == "auto" {
+                        return Err(ActiveTokenError::InvalidUuid);
+                    }
+                    if app.configured_uuid() == "auto" || app.configured_uuid() != uuid {
+                        return Err(ActiveTokenError::AppNotFound);
+                    }
+                }
+
+                Ok(Some(app))
+            }
+            _ => Err(ActiveTokenError::TeeUnavailable),
+        }
+    }
+
+    pub async fn get_active_token(
+        &self,
+        uuid: Option<&str>,
+        nonce: Option<Vec<u8>>,
+    ) -> std::result::Result<ActiveTokenResponse, ActiveTokenError> {
+        let runtime_platform = detect_active_token_runtime_platform();
+        self.get_active_token_with_platform(uuid, nonce, runtime_platform)
+            .await
+    }
+
+    pub(crate) async fn get_active_token_with_platform(
+        &self,
+        uuid: Option<&str>,
+        nonce: Option<Vec<u8>>,
+        runtime_platform: TeeType,
+    ) -> std::result::Result<ActiveTokenResponse, ActiveTokenError> {
+        match runtime_platform {
+            TeeType::Itrustee => {
+                if nonce.is_some() {
+                    return Err(ActiveTokenError::NotSupported);
+                }
+            }
+            TeeType::Virtcca => {
+                if nonce.is_none() {
+                    return Err(ActiveTokenError::MissingNonce);
+                }
+            }
+            _ => return Err(ActiveTokenError::TeeUnavailable),
+        }
+
+        let app = self.select_active_token_app(uuid, runtime_platform.clone())?;
+        let Some(app) = app else {
+            return Err(ActiveTokenError::NoTokenAvailable);
+        };
+
+        let jwt_token = app.get_token().await;
+        let expires_at = app.get_token_expires_at().await;
+        let ttl_seconds = app.get_token_ttl().await;
+        let failure_count = app.get_failure_count();
+
+        if jwt_token.is_none() {
+            return Err(ActiveTokenError::NoTokenAvailable);
+        }
+
+        let (cvm_token, dev_cert) = match runtime_platform {
+            TeeType::Virtcca => self.get_virtcca_token_for_nonce(nonce.unwrap()).await?,
+            _ => (None, None),
+        };
+
+        Ok(ActiveTokenResponse {
+            jwt_token,
+            expires_at,
+            ttl_seconds,
+            cvm_token,
+            dev_cert,
+            error: None,
+            failure_count,
+        })
+    }
+
+    #[cfg(feature = "virtcca-attester")]
+    async fn get_virtcca_token_for_nonce(
+        &self,
+        nonce_bytes: Vec<u8>,
+    ) -> std::result::Result<(Option<String>, Option<String>), ActiveTokenError> {
+        let result = tokio::task::spawn_blocking(move || {
+            attester::virtcca::tee_get_token_only(&nonce_bytes)
+        })
+        .await
+        .map_err(|_| ActiveTokenError::TeeUnavailable)?
+        .map_err(|_| ActiveTokenError::TeeUnavailable)?;
+        Ok((
+            Some(BASE64_STANDARD.encode(&result.0)),
+            Some(BASE64_STANDARD.encode(&result.1)),
+        ))
+    }
+
+    #[cfg(not(feature = "virtcca-attester"))]
+    async fn get_virtcca_token_for_nonce(
+        &self,
+        _nonce_bytes: Vec<u8>,
+    ) -> std::result::Result<(Option<String>, Option<String>), ActiveTokenError> {
+        Err(ActiveTokenError::NotSupported)
+    }
 }
 
 // attestation agent c interface
@@ -480,7 +1025,7 @@ use tokio::runtime::Runtime;
 #[ffi_export]
 pub fn init_env_logger(c_level: Option<&repr_c::String>) {
     let level = match c_level {
-        Some(level) => &level,
+        Some(level) => level,
         None => "info",
     };
     env_logger::init_from_env(env_logger::Env::new().default_filter_or(level));
@@ -530,10 +1075,7 @@ pub fn get_report(
     report.into()
 }
 
-#[cfg(all(feature = "no_as", feature = "parse_evidence"))]
-use verifier::virtcca_parse_evidence;
-
-#[cfg(all(feature = "no_as", feature = "parse_evidence"))]
+#[cfg(all(feature = "no_as", feature = "virtcca-verifier"))]
 #[ffi_export]
 pub fn parse_report(report: Option<&repr_c::Vec<u8>>) -> repr_c::String {
     let report = match report {
@@ -615,4 +1157,324 @@ pub fn generate_headers() -> ::std::io::Result<()> {
     ::safer_ffi::headers::builder()
         .to_file("./c_header/rust_attestation_agent.h")?
         .generate()
+}
+
+#[cfg(all(test, not(feature = "virtcca-attester")))]
+mod tests {
+    use super::*;
+    use attestation_types::TeeType;
+
+    #[tokio::test]
+    async fn uuid_auto_requires_virtcca_attester_feature() {
+        let mut config = AAConfig::default();
+        config.app_list.push(AppConfig::new(
+            "auto".to_string(),
+            true,
+            30,
+            TeeType::Virtcca,
+            true,
+        ));
+
+        let result = AttestationAgent::new(config);
+
+        assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+mod active_token_tests {
+    use super::*;
+    use attestation_types::TeeType;
+
+    fn fake_jwt(label: &str) -> String {
+        let header = base64_url::encode(r#"{"alg":"none"}"#);
+        let exp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 3600;
+        let payload = base64_url::encode(&format!(r#"{{"exp":{exp},"label":"{label}"}}"#));
+        format!("{header}.{payload}.signature")
+    }
+
+    fn agent_with_apps(apps: Vec<AppConfig>) -> AttestationAgent {
+        let mut config = AAConfig::default();
+        config.app_list = apps;
+        AttestationAgent {
+            config,
+            as_client_sessions: SessionMap::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn itrustee_active_token_can_select_cached_token_by_uuid() {
+        let agent = agent_with_apps(vec![
+            AppConfig::new("ta-1".to_string(), true, 30, TeeType::Itrustee, false),
+            AppConfig::new("ta-2".to_string(), true, 30, TeeType::Itrustee, false),
+        ]);
+        let expected = fake_jwt("ta-2");
+        agent.config.app_list[1]
+            .store_token(expected.clone())
+            .await
+            .unwrap();
+
+        let response = agent
+            .get_active_token_with_platform(Some("ta-2"), None, TeeType::Itrustee)
+            .await
+            .unwrap();
+
+        assert_eq!(response.jwt_token, Some(expected));
+    }
+
+    #[tokio::test]
+    async fn itrustee_active_token_rejects_duplicate_uuid() {
+        let agent = agent_with_apps(vec![
+            AppConfig::new("same-ta".to_string(), true, 30, TeeType::Itrustee, false),
+            AppConfig::new("same-ta".to_string(), true, 30, TeeType::Itrustee, false),
+        ]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("same-ta"), None, TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::AmbiguousApp);
+    }
+
+    #[tokio::test]
+    async fn itrustee_active_token_rejects_auto_uuid() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "ta-1".to_string(),
+            true,
+            30,
+            TeeType::Itrustee,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("auto"), None, TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::InvalidUuid);
+    }
+
+    #[tokio::test]
+    async fn itrustee_active_token_returns_not_found_for_unknown_uuid() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "ta-1".to_string(),
+            true,
+            30,
+            TeeType::Itrustee,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("missing-ta"), None, TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::AppNotFound);
+    }
+
+    #[tokio::test]
+    async fn itrustee_nonce_is_not_supported_before_token_lookup() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "ta-1".to_string(),
+            true,
+            30,
+            TeeType::Itrustee,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("ta-1"), Some(vec![0u8; 32]), TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::NotSupported);
+    }
+
+    #[tokio::test]
+    async fn itrustee_active_token_requires_cached_token() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "ta-1".to_string(),
+            true,
+            30,
+            TeeType::Itrustee,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("ta-1"), None, TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::NoTokenAvailable);
+    }
+
+    #[tokio::test]
+    async fn empty_itrustee_app_list_still_rejects_nonce() {
+        let agent = agent_with_apps(vec![]);
+
+        let error = agent
+            .get_active_token_with_platform(None, Some(vec![0u8; 32]), TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::NotSupported);
+    }
+
+    #[tokio::test]
+    async fn empty_virtcca_app_list_still_requires_nonce() {
+        let agent = agent_with_apps(vec![]);
+
+        let error = agent
+            .get_active_token_with_platform(None, None, TeeType::Virtcca)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::MissingNonce);
+    }
+
+    #[tokio::test]
+    async fn virtcca_active_token_requires_nonce() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "rim-1".to_string(),
+            false,
+            30,
+            TeeType::Virtcca,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(None, None, TeeType::Virtcca)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::MissingNonce);
+    }
+
+    #[tokio::test]
+    async fn virtcca_active_token_rejects_auto_uuid_query() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "rim-1".to_string(),
+            false,
+            30,
+            TeeType::Virtcca,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("auto"), Some(vec![0u8; 32]), TeeType::Virtcca)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::InvalidUuid);
+    }
+
+    #[tokio::test]
+    async fn virtcca_uuid_query_matches_configured_uuid_before_token_lookup() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "rim-1".to_string(),
+            false,
+            30,
+            TeeType::Virtcca,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(Some("rim-1"), Some(vec![0u8; 32]), TeeType::Virtcca)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::NoTokenAvailable);
+    }
+
+    #[tokio::test]
+    async fn virtcca_uuid_query_does_not_match_auto_config_after_discovery() {
+        let mut app = AppConfig::new("auto".to_string(), false, 30, TeeType::Virtcca, true);
+        app.uuid = "discovered-rim".to_string();
+        let agent = agent_with_apps(vec![app]);
+
+        let error = agent
+            .get_active_token_with_platform(
+                Some("discovered-rim"),
+                Some(vec![0u8; 32]),
+                TeeType::Virtcca,
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::AppNotFound);
+    }
+
+    #[tokio::test]
+    async fn virtcca_active_token_rejects_invalid_app_platform() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "rim-1".to_string(),
+            false,
+            30,
+            TeeType::Invalid,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(None, Some(vec![0u8; 32]), TeeType::Virtcca)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::PlatformMismatch);
+    }
+
+    #[tokio::test]
+    async fn selected_app_platform_must_match_runtime_platform() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "rim-1".to_string(),
+            false,
+            30,
+            TeeType::Virtcca,
+            false,
+        )]);
+
+        let error = agent
+            .get_active_token_with_platform(None, None, TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(error, ActiveTokenError::PlatformMismatch);
+    }
+}
+
+#[cfg(test)]
+mod active_attestation_task_tests {
+    use super::*;
+    use attestation_types::TeeType;
+
+    fn test_app() -> AppConfig {
+        AppConfig::new("ta-1".to_string(), false, 30, TeeType::Itrustee, false)
+    }
+
+    #[tokio::test]
+    async fn active_attestation_task_records_failure_after_panic() {
+        let app = test_app();
+
+        let result = AttestationAgent::run_active_attestation_task_once(&app, async {
+            panic!("active attestation task panic");
+        })
+        .await;
+
+        assert_eq!(result, ActiveAttestationTaskRunResult::Panicked);
+        assert_eq!(app.get_failure_count(), 1);
+    }
+
+    #[tokio::test]
+    async fn active_attestation_task_does_not_record_failure_after_normal_exit() {
+        let app = test_app();
+
+        let result = AttestationAgent::run_active_attestation_task_once(&app, async {}).await;
+
+        assert_eq!(result, ActiveAttestationTaskRunResult::Completed);
+        assert_eq!(app.get_failure_count(), 0);
+    }
 }

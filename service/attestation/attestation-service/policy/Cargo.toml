@@ -12,3 +12,4 @@ tokio.workspace = true
 futures.workspace = true
 async-trait.workspace = true
 log.workspace = true
+attestation-types.workspace = true

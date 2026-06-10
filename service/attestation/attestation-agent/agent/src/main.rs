@@ -13,16 +13,26 @@ use actix_web::{web, App, HttpResponse, HttpServer};
 use anyhow::{bail, Result};
 use attestation_agent::{
     restapi::{
-        get_challenge, get_evidence, get_resource, get_token, verify_evidence, verify_token,
+        active_token, get_challenge, get_current_token, get_evidence, get_resource, get_token,
+        verify_evidence, verify_token, ActiveTokenRateLimiter,
     },
-    AAConfig, AttestationAgent, HttpProtocal, DEFAULT_AACONFIG_FILE,
+    AttestationAgent,
 };
+use attestation_types::{AAConfig, HttpProtocal, DEFAULT_AACONFIG_FILE};
 use clap::{arg, command, Parser};
-use env_logger;
-use std::{path::Path, sync::Arc};
+
+use std::{net::SocketAddr, path::Path, sync::Arc};
 use tokio::sync::RwLock;
 
 const DEFAULT_SOCKETADDR: &str = "127.0.0.1:8081";
+const ACTIVE_TOKEN_RATE_LIMIT_PER_SECOND: u32 = 10;
+
+fn is_unspecified_listen_addr(socketaddr: &str) -> bool {
+    socketaddr
+        .parse::<SocketAddr>()
+        .map(|addr| addr.ip().is_unspecified())
+        .unwrap_or(false)
+}
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -50,6 +60,10 @@ pub struct Cli {
     /// root certificate to verify peer
     #[arg(short = 't', long = "cert_root", default_value_t = String::from(""))]
     cert_root: String,
+
+    /// global switch for active attestation
+    #[arg(long = "enable_active_attestation", default_value_t = false)]
+    enable_active_attestation: bool,
 }
 
 #[actix_web::main]
@@ -75,26 +89,76 @@ async fn main() -> Result<()> {
     }
 
     // Override the listening url.
-    if cli.serverurl != "" {
+    if !cli.serverurl.is_empty() {
         config.svr_url = config.protocal.get_protocal() + "://" + &cli.serverurl.clone();
     }
 
-    let server = AttestationAgent::new(config).unwrap();
+    // Use command line parameter for enable_active_attestation
+    let server = if cli.enable_active_attestation {
+        AttestationAgent::new_with_interval(config, cli.enable_active_attestation).unwrap()
+    } else {
+        AttestationAgent::new(config).unwrap()
+    };
     let service = web::Data::new(Arc::new(RwLock::new(server)));
+    let active_token_rate_limiter = web::Data::new(ActiveTokenRateLimiter::new(
+        ACTIVE_TOKEN_RATE_LIMIT_PER_SECOND,
+    ));
+    if is_unspecified_listen_addr(&cli.socketaddr) {
+        log::warn!("AA is listening on an unspecified address, which exposes the service to all network interfaces. This may allow CVMs in the same VPC to access the /active_token endpoint, enabling real-time forwarding attacks. Consider binding to a specific IP address and using VPC security groups to restrict access.");
+    }
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::clone(&service))
+            .app_data(web::Data::clone(&active_token_rate_limiter))
             .service(get_challenge)
             .service(get_evidence)
             .service(verify_evidence)
             .service(get_token)
             .service(verify_token)
             .service(get_resource)
-            .default_service(web::to(|| HttpResponse::NotFound()))
+            .service(get_current_token)
+            .service(active_token)
+            .default_service(web::to(HttpResponse::NotFound))
     })
     .bind(cli.socketaddr)?
     .run()
     .await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cli_keeps_short_s_for_socketaddr() {
+        let cli = Cli::try_parse_from(["attestation-agent", "-s", "127.0.0.1:9000"]).unwrap();
+
+        assert_eq!(cli.socketaddr, "127.0.0.1:9000");
+        assert!(!cli.enable_active_attestation);
+    }
+
+    #[test]
+    fn cli_accepts_long_socketaddr_option() {
+        let cli =
+            Cli::try_parse_from(["attestation-agent", "--socketaddr", "127.0.0.1:9000"]).unwrap();
+
+        assert_eq!(cli.socketaddr, "127.0.0.1:9000");
+    }
+
+    #[test]
+    fn cli_uses_long_option_for_active_attestation() {
+        let cli =
+            Cli::try_parse_from(["attestation-agent", "--enable_active_attestation"]).unwrap();
+
+        assert!(cli.enable_active_attestation);
+    }
+
+    #[test]
+    fn unspecified_listen_address_detection_covers_ipv4_and_ipv6() {
+        assert!(is_unspecified_listen_addr("0.0.0.0:8081"));
+        assert!(is_unspecified_listen_addr("[::]:8081"));
+        assert!(!is_unspecified_listen_addr("127.0.0.1:8081"));
+    }
 }

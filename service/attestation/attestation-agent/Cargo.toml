@@ -23,10 +23,13 @@ clap = { version = "4.5.7", features = ["derive"] }
 scc = "2.1"
 sha2 = "0.10"
 time-core = "=0.1.2"
-
 strum = { version = "0.25", features = ["derive"] }
 tempfile = "3.0"
 openssl-sys = { version = "0.9", features = ["vendored"] }
+ciborium = "0.2"
+hex = "0.4"
+base64 = "0.22.1"
+cose-rust = "0.1.7"
 
 verifier = { path = "../attestation-service/verifier", default-features = false }
 attestation-types = { path = "../attestation-types" }

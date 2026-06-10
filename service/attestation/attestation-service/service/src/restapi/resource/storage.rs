@@ -57,29 +57,28 @@ async fn tee_get_resource(
 
     // If the corresponding session of the token exists, get the token inside the session.
     // Otherwise, get the token from the http header.
-    let token = match {
-        if let Some(cookie) = req.cookie("oeas-session-id") {
+    let token = {
+        let session_token = if let Some(cookie) = req.cookie("oeas-session-id") {
             sessions
                 .session_map
                 .get_async(cookie.value())
                 .await
-                .map(|session| session.get_token())
-                .flatten()
-                .map(|t| {
+                .and_then(|session| session.get_token())
+                .inspect(|_t| {
                     log::debug!("Get token from session {}", cookie.value());
-                    t
                 })
         } else {
             None
-        }
-    } {
-        Some(token) => token,
-        None => {
-            let bearer = Authorization::<Bearer>::parse(&req)
-                .context("failed to parse bearer token")?
-                .into_scheme();
-            log::debug!("Get token from headers");
-            bearer.token().to_string()
+        };
+        match session_token {
+            Some(token) => token,
+            None => {
+                let bearer = Authorization::<Bearer>::parse(&req)
+                    .context("failed to parse bearer token")?
+                    .into_scheme();
+                log::debug!("Get token from headers");
+                bearer.token().to_string()
+            }
         }
     };
 

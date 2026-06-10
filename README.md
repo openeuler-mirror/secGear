@@ -96,7 +96,6 @@ make && sudo make install
 
 我们非常欢迎新贡献者加入到项目中来，也非常高兴能为新加入贡献者提供指导和帮助。在您贡献代码前，需要先签署[CLA](https://www.openeuler.org/zh/blog/2022-11-25-cla/CLA%E7%AD%BE%E7%BD%B2%E6%B5%81%E7%A8%8B.html)。
 
-
 如果您有任何疑问或讨论，请通过[issue](https://gitee.com/openeuler/secGear/issues)或发送邮件到dev@openeuler.org和我们进行联系。
 
 - 会议

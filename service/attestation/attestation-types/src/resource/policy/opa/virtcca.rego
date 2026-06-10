@@ -8,5 +8,9 @@ package oeas.virtcca
 default allow = false
 
 allow {
+    input["tee"] == "virtcca"
+}
+
+allow {
     input["tee"] == "vcca"
 }

@@ -112,7 +112,7 @@ pub async fn attestation(
     let token = service
         .read()
         .await
-        .evaluate(&nonce, &evidence, &ids)
+        .evaluate(nonce, &evidence, &ids)
         .await?;
 
     if cookie_exist {
@@ -120,7 +120,6 @@ pub async fn attestation(
     } else {
         Ok(HttpResponse::Ok().body(token))
     }
-
 }
 
 #[derive(Deserialize, Serialize, Debug)]

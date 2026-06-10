@@ -21,7 +21,7 @@ use attestation_service::restapi::{
 };
 use attestation_service::AttestationService;
 use clap::{arg, command, Parser};
-use env_logger;
+
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use std::sync::Arc;
 use tokio::sync::RwLock;

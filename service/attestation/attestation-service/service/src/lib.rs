@@ -9,6 +9,8 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
+#![allow(clippy::redundant_field_names)]
+#![allow(clippy::needless_return)]
 
 pub mod restapi;
 pub mod result;
@@ -20,7 +22,7 @@ use attestation_types::resource::admin::simple::SimpleResourceAdmin;
 use attestation_types::resource::admin::ResourceAdminInterface;
 use attestation_types::resource::ResourceLocation;
 use attestation_types::EvlResult;
-use base64_url;
+
 use futures::lock::Mutex;
 use policy::opa::OPA;
 use policy::policy_engine::{PolicyEngine, PolicyEngineError};
@@ -35,19 +37,10 @@ use std::str::FromStr;
 use std::sync::Arc;
 use token_signer::{EvlReport, TokenSignConfig, TokenSigner};
 use verifier::{Verifier, VerifierAPIs};
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct ASConfig {
     pub token_cfg: TokenSignConfig,
     pub resource_policy: Option<PathBuf>,
-}
-
-impl Default for ASConfig {
-    fn default() -> Self {
-        Self {
-            token_cfg: TokenSignConfig::default(),
-            resource_policy: None,
-        }
-    }
 }
 
 impl TryFrom<&Path> for ASConfig {
@@ -61,7 +54,6 @@ impl TryFrom<&Path> for ASConfig {
     ///             "alg": "PS256"
     ///         }
     ///    }
-
     type Error = anyhow::Error;
     fn try_from(config_path: &Path) -> Result<Self, Self::Error> {
         let file = File::open(config_path)?;
@@ -131,6 +123,14 @@ impl AttestationService {
         }
     }
 
+    async fn evaluate_evidence_details(claims_evidence: &Value) -> bool {
+        let mut passed = true;
+        AttestationService::evaluate_evidence_field(claims_evidence, "ima", &mut passed).await;
+        AttestationService::evaluate_evidence_field(claims_evidence, "uefi", &mut passed).await;
+        AttestationService::evaluate_evidence_field(claims_evidence, "event", &mut passed).await;
+        passed
+    }
+
     /// evaluate tee evidence with reference and policy, and issue attestation result token
     pub async fn evaluate(
         &self,
@@ -141,9 +141,7 @@ impl AttestationService {
         let verifier = Verifier::default();
         let claims_evidence = verifier.verify_evidence(user_data, evidence).await?;
 
-        let mut passed = true;
-        AttestationService::evaluate_evidence_field(&claims_evidence, "ima", &mut passed).await;
-        AttestationService::evaluate_evidence_field(&claims_evidence, "event", &mut passed).await;
+        let passed = AttestationService::evaluate_evidence_details(&claims_evidence).await;
 
         // get reference by keys in claims_evidence
         let mut ops_refs = ReferenceOps::default();
@@ -157,17 +155,14 @@ impl AttestationService {
         let policy_dir = String::from("/etc/attestation/attestation-service/policy");
         let engine = OPA::new(&policy_dir).await.unwrap();
         let data = String::new();
+        let tee_str = claims_evidence["tee"]
+            .as_str()
+            .ok_or(anyhow!("tee type unknown"))?;
+        let tee_enum = attestation_types::TeeType::from_str(tee_str)
+            .map_err(|e| anyhow!("invalid tee type: {}", e))?;
+
         let result = engine
-            .evaluate(
-                &String::from(
-                    claims_evidence["tee"]
-                        .as_str()
-                        .ok_or(anyhow!("tee type unknown"))?,
-                ),
-                &refs_of_claims.unwrap(),
-                &data,
-                &policy_ids,
-            )
+            .evaluate(&tee_enum, &refs_of_claims.unwrap(), &data, &policy_ids)
             .await;
         let mut report = serde_json::json!({});
         let mut ref_verify: bool = true;
@@ -215,6 +210,12 @@ impl AttestationService {
             .unwrap()
             .insert("event".to_string(), claims_evidence["event"].clone());
 
+        // add uefi detail result to report
+        report
+            .as_object_mut()
+            .unwrap()
+            .insert("uefi".to_string(), claims_evidence["uefi"].clone());
+
         // issue attestation result token
         let evl_report = EvlReport {
             tee: String::from(
@@ -238,16 +239,16 @@ impl AttestationService {
     pub async fn generate_challenge(&self, user_data: Option<Vec<u8>>) -> String {
         let mut nonce: Vec<u8> = vec![0; 32];
         rand::thread_rng().fill_bytes(&mut nonce);
-        if user_data != None {
-            nonce.append(&mut user_data.unwrap());
+        if let Some(mut ud) = user_data {
+            nonce.append(&mut ud);
         }
         base64_url::encode(&nonce)
     }
 
     pub async fn set_policy(
         &self,
-        id: &String,
-        policy: &String,
+        id: &str,
+        policy: &str,
         policy_dir: &String,
     ) -> Result<(), PolicyEngineError> {
         let engine = OPA::new(policy_dir).await;
@@ -274,25 +275,24 @@ impl AttestationService {
     pub async fn get_policy(
         &self,
         policy_dir: &String,
-        id: &String,
+        id: &str,
     ) -> Result<String, PolicyEngineError> {
         let engine = OPA::new(policy_dir).await?;
-        Ok(engine.get_policy(id).await?)
+        engine.get_policy(id).await
     }
 
-    pub async fn register_reference(&self, ref_set: &String) -> Result<(), RefOpError> {
+    pub async fn register_reference(&self, ref_set: &str) -> Result<(), RefOpError> {
         let mut ops_default = ReferenceOps::default();
         ops_default.register(ref_set)
     }
 
     pub async fn resource_evaluate(&self, resource: ResourceLocation, claim: &str) -> Result<bool> {
-        Ok(self
-            .resource_admin
+        self.resource_admin
             .lock()
             .await
             .evaluate_resource(resource, claim)
             .await
-            .context("fail to evaluate resource according to the claim")?)
+            .context("fail to evaluate resource according to the claim")
     }
 
     pub async fn get_resource(&self, location: ResourceLocation) -> Result<String> {
@@ -318,5 +318,24 @@ impl AttestationService {
 
     pub fn get_sessions(&self) -> Data<SessionMap> {
         self.sessions.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AttestationService;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn evidence_detail_results_fail_when_uefi_reference_mismatches() {
+        let claims_evidence = json!({
+            "ima": {},
+            "uefi": {
+                "kernel": false
+            },
+            "event": {}
+        });
+
+        assert!(!AttestationService::evaluate_evidence_details(&claims_evidence).await);
     }
 }

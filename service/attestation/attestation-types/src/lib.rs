@@ -10,28 +10,112 @@
  * See the Mulan PSL v2 for more details.
  */
 
+pub mod config;
+pub mod error;
 pub mod resource;
 pub mod service;
 
+#[cfg(test)]
+mod tests;
+
+// 重新导出常用类型
+pub use config::{AAConfig, AppConfig, HttpProtocal, TokenVerifyConfig, DEFAULT_AACONFIG_FILE};
+pub use error::AgentError;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::str::FromStr;
 
 pub const SESSION_TIMEOUT_MIN: i64 = 1;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UefiLog {
+    pub ccel_table: Vec<u8>,
+    pub ccel_data: Vec<u8>,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VirtccaEvidence {
     pub evidence: Vec<u8>,
     pub dev_cert: Vec<u8>,
     pub ima_log: Option<Vec<u8>>,
-    pub event_log: Option<Vec<u8>>,
+    pub uefi_log: Option<UefiLog>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TeeType {
     Itrustee = 1,
     Virtcca,
-    Rustcca,
+    Cca,
     Invalid,
+}
+
+impl std::str::FromStr for TeeType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "itrustee" => Ok(TeeType::Itrustee),
+            "virtcca" | "vcca" => Ok(TeeType::Virtcca),
+            "cca" | "rustcca" => Ok(TeeType::Cca),
+            "invalid" => Ok(TeeType::Invalid),
+            _ => Err(format!("unsupported tee type: {s}")),
+        }
+    }
+}
+
+impl std::fmt::Display for TeeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TeeType::Itrustee => write!(f, "itrustee"),
+            TeeType::Virtcca => write!(f, "virtcca"),
+            TeeType::Cca => write!(f, "cca"),
+            TeeType::Invalid => write!(f, "invalid"),
+        }
+    }
+}
+
+impl Serialize for TeeType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for TeeType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // 首先尝试作为字符串反序列化
+        struct TeeTypeVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for TeeTypeVisitor {
+            type Value = TeeType;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a string representing a TEE type")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                TeeType::from_str(v).map_err(serde::de::Error::custom)
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                TeeType::from_str(&v).map_err(serde::de::Error::custom)
+            }
+        }
+
+        deserializer.deserialize_str(TeeTypeVisitor)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

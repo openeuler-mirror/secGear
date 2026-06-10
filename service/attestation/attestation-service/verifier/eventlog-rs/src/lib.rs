@@ -24,10 +24,10 @@ impl fmt::Display for Eventlog {
         let mut parsed_el = String::default();
         for event_entry in self.log.clone() {
             parsed_el = format!(
-                "{}\nEvent Entry:\nPCR(CC Event Log MR): {}\n\tEvent Type id: {}\n\tEvent Type: {}\n\tDigest Algorithm: {}\n\tDigest: {}\n\tEvent Desc: {}\n",
+                "{}\nEvent Entry:\nPCR(CC Event Log MR): {}\n\tEvent Type id: 0x{:08X}\n\tEvent Type: {}\n\tDigest Algorithm: {}\n\tDigest: {}\n\tEvent Desc: {}\n",
                 parsed_el,
                 event_entry.target_measurement_registry,
-                format!("0x{:08X}", event_entry.event_type_id),
+                event_entry.event_type_id,
                 event_entry.event_type,
                 event_entry.digests[0].algorithm,
                 hex::encode(event_entry.digests[0].digest.clone()),
@@ -82,11 +82,11 @@ impl Eventlog {
             for log in log_set.iter() {
                 let digest = &log.digests[0].digest;
                 let mut sha_algo = Sha256::new();
-                sha_algo.update(&mr_value);
+                sha_algo.update(mr_value);
                 sha_algo.update(digest.as_slice());
                 mr_value.copy_from_slice(sha_algo.finalize().as_slice());
             }
-            result.insert(mr_index.clone(), mr_value.to_vec());
+            result.insert(*mr_index, mr_value.to_vec());
         }
 
         result
@@ -101,7 +101,7 @@ impl TryFrom<Vec<u8>> for Eventlog {
         let mut event_log: Vec<EventlogEntry> = Vec::new();
         let mut digest_size_map: HashMap<u16, u16> = HashMap::new();
 
-        while index < data.len() as usize {
+        while index < data.len() {
             let stop_flag = (&data[index..(index + 8)]).read_u64::<LittleEndian>()?;
             let target_measurement_registry =
                 (&data[index..(index + 4)]).read_u32::<LittleEndian>()?;
@@ -115,7 +115,7 @@ impl TryFrom<Vec<u8>> for Eventlog {
             };
 
             let event_type_id = event_type_num;
-            if event_type == "EV_NO_ACTION".to_string() {
+            if event_type == "EV_NO_ACTION" {
                 index += 48;
                 let algo_number = (&data[index..(index + 4)]).read_u32::<LittleEndian>()?;
                 index += 4;

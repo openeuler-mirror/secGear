@@ -11,7 +11,7 @@
  */
 
 //! IMA verifier module
-//! 
+//!
 //! This module provides IMA (Integrity Measurement Architecture) verification functionality
 //! for TEE attestation.
 
@@ -22,8 +22,8 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 
-pub mod virtcca;
 pub mod itrustee;
+pub mod virtcca;
 
 /// File reader utility function
 pub fn file_reader(file_path: &str) -> io::Result<HashSet<String>> {
@@ -68,7 +68,7 @@ pub fn verify_ima_events(events: &[Event], ima_refs: &HashSet<String>) -> Result
             ima_detail.insert(name.clone(), Value::Bool(false));
         }
     }
-    
+
     let js_ima_detail: Value = ima_detail.into();
     log::debug!("ima verify detail result: {:?}", js_ima_detail);
 
@@ -77,5 +77,7 @@ pub fn verify_ima_events(events: &[Event], ima_refs: &HashSet<String>) -> Result
 
 /// IMA verifier trait for different TEE implementations
 pub trait ImaVerifier {
-    fn ima_verify(&self, ima_log: &[u8], addons: &[Vec<u8>]) -> Result<Value>;
-} 
+    /// `app_id` 用于选择应用级 IMA reference 文件；None 回退默认文件
+    fn ima_verify(&self, ima_log: &[u8], addons: &[Vec<u8>], app_id: Option<&str>)
+        -> Result<Value>;
+}

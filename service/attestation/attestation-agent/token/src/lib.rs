@@ -9,7 +9,7 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  */
-use attestation_types::Claims;
+use attestation_types::{Claims, TokenVerifyConfig};
 use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -26,31 +26,9 @@ pub enum VerifyError {
     SerializeFail(#[from] serde_json::error::Error),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TokenVerifyConfig {
-    pub cert: String, // Attestation Service cert to verify jwt token signature
-    pub iss: String,  // Attestation Service name
-                      //pub root_cert: String,
-}
-
-impl Default for TokenVerifyConfig {
-    fn default() -> Self {
-        TokenVerifyConfig {
-            cert: "/etc/attestation/attestation-agent/as_cert.pem".to_string(),
-            iss: "oeas".to_string(),
-        }
-    }
-}
+#[derive(Default)]
 pub struct TokenVerifier {
     pub config: TokenVerifyConfig,
-}
-
-impl Default for TokenVerifier {
-    fn default() -> Self {
-        TokenVerifier {
-            config: TokenVerifyConfig::default(),
-        }
-    }
 }
 
 // 返回token的原始数据
@@ -68,16 +46,16 @@ impl TokenVerifier {
         if *alg == Algorithm::RS256 || *alg == Algorithm::RS384 || *alg == Algorithm::RS512 {
             return true;
         }
-        return false;
+        false
     }
     fn support_ps(alg: &Algorithm) -> bool {
         if *alg == Algorithm::PS256 || *alg == Algorithm::PS384 || *alg == Algorithm::PS512 {
             return true;
         }
-        return false;
+        false
     }
-    pub fn verify(&self, token: &String) -> Result<TokenRawData, VerifyError> {
-        let header = decode_header(&token)?;
+    pub fn verify(&self, token: &str) -> Result<TokenRawData, VerifyError> {
+        let header = decode_header(token)?;
         let alg: Algorithm = header.alg;
 
         if !Self::support_rs(&alg) && !Self::support_ps(&alg) {
@@ -101,7 +79,7 @@ impl TokenVerifier {
         validation.set_issuer(&[self.config.iss.clone()]);
         validation.validate_exp = true;
 
-        let data = decode::<Claims>(&token, &key_value, &validation)?;
+        let data = decode::<Claims>(token, &key_value, &validation)?;
         Ok(TokenRawData {
             header: serde_json::to_string(&data.header)?,
             claim: serde_json::to_string(&data.claims)?,

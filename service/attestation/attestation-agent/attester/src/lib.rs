@@ -18,7 +18,7 @@ use anyhow::*;
 use async_trait::async_trait;
 
 #[cfg(feature = "itrustee-attester")]
-mod itrustee;
+pub mod itrustee;
 
 #[cfg(feature = "virtcca-attester")]
 pub mod virtcca;
@@ -83,8 +83,8 @@ impl AttesterAPIs for Attester {
                 .tee_get_evidence(_user_data)
                 .await?;
             let aa_evidence = attestation_types::Evidence {
-                tee: attestation_types::TeeType::Rustcca,
-                evidence: evidence,
+                tee: attestation_types::TeeType::Cca,
+                evidence,
             };
             let evidence = serde_json::to_vec(&aa_evidence)?;
             return Ok(evidence);

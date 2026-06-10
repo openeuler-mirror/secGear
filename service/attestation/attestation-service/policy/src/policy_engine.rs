@@ -56,21 +56,21 @@ impl std::error::Error for PolicyEngineError {}
 pub trait PolicyEngine {
     fn evaluate(
         &self,
-        tee: &String,
-        refs: &String,
-        data_for_policy: &String,
-        policy_id: &Vec<String>,
+        tee: &attestation_types::TeeType,
+        refs: &str,
+        data_for_policy: &str,
+        policy_id: &[String],
     ) -> impl std::future::Future<Output = Result<HashMap<String, String>, PolicyEngineError>> + Send;
     fn set_policy(
         &self,
-        policy_id: &String,
-        policy: &String,
+        policy_id: &str,
+        policy: &str,
     ) -> impl std::future::Future<Output = Result<(), PolicyEngineError>> + Send;
     fn get_all_policy(
         &self,
     ) -> impl std::future::Future<Output = Result<HashMap<String, String>, PolicyEngineError>> + Send;
     fn get_policy(
         &self,
-        policy_id: &String,
+        policy_id: &str,
     ) -> impl std::future::Future<Output = Result<String, PolicyEngineError>> + Send;
 }
