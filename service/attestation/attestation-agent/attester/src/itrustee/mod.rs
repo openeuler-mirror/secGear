@@ -161,6 +161,26 @@ fn itrustee_get_evidence(user_data: EvidenceRequest) -> Result<String> {
     };
 
     let final_report_str = serde_json::to_string(&final_report)?;
+    log::debug!(
+        "itrustee evidence: report_len={}, ima_log_len={}",
+        final_report.report.len(),
+        final_report
+            .ima_log
+            .as_ref()
+            .map(|ima_log| ima_log.len())
+            .unwrap_or(0),
+    );
+    if let Some(inner_report) =
+        serde_json::from_str::<serde_json::Value>(&final_report.report).ok()
+    {
+        log::debug!(
+            "itrustee report payload:\n{}",
+            serde_json::to_string_pretty(&inner_report)?
+        );
+    } else {
+        log::debug!("itrustee report (raw): {}", final_report.report);
+    }
+    log::debug!("final_report_str len: {} bytes", final_report_str.len());
     Ok(final_report_str)
 }
 
