@@ -1,5 +1,7 @@
 # OS Security Hardening Configuration Guide
-
+ 
+English | [简体中文](./README.md)
+ 
 This guide provides tools and methods for security hardening on the openEuler OS. It includes suggestions on system configuration and automation scripts, aiming to help users improve system security.
 
 ## Directory Structure

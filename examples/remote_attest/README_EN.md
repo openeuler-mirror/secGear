@@ -1,5 +1,7 @@
 # Quick Start
-
+ 
+English | [简体中文](./README.md)
+ 
 ## Intel SGX
 
 secGear does not support remote attestation on the SGX platform.

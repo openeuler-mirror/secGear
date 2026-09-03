@@ -1,5 +1,7 @@
 # 安全 OS 加固配置指南
 
+简体中文 | [English](./README_EN.md)
+
 本指南提供了在 openEuler 操作系统上进行安全加固的工具和方法。它包括了对系统配置的建议和自动化脚本，旨在帮助用户提高系统的安全性。
 
 ## 目录结构
@@ -75,7 +77,7 @@ secharden apply
 默认情况下，secharden 会在 `/etc/secharden` 目录中查找配置。该目录包含一个 `secharden.conf` 文件和一个 `secharden.conf.d`
 目录。
 
-`secharden.conf` 文件用于定义了全局配置和规则的启用状态。[secharden 安全防护能力配置](#secharden-安全防护能力配置)
+`secharden.conf` 文件用于定义了全局配置和规则的启用状态。[secharden 安全防护能力配置]（#secharden-内置安全防护能力）
 一节描述的规则都可以在该文件中进行配置。用户可以通过编辑该文件来启用或禁用特定的安全加固规则。
 
 建议用户在 `secharden.conf.d` 目录中创建子配置文件，该目录下的配置文件会按优先级覆盖 `secharden.conf`

@@ -1,5 +1,7 @@
 # Security Mapping
-
+ 
+English | [简体中文](./README.md)
+ 
 ## Customer Pain Points
 
 Existing confidential computing applications face high encryption and decryption overheads during computation. For example, in an encrypted database, each computation (such as SUM/AVG aggregation) requires the database system to pass the ciphertext to the TEE one by one, and the TEE to decrypt the ciphertext, perform computation, and then encrypt and return the result. Take SUM as an example: If a table contains *N* rows of data, *N* – 1 cross-domain calls are required, each involving two decryptions and one encryption. In real-world services, such high-frequency encryption and decryption operations often reach tens of millions, creating a critical performance bottleneck that reduces throughput and sharply increases query latency.

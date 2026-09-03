@@ -1,6 +1,8 @@
-<img src="sdk/docs/logo.png" alt="secGear" style="zoom:100%;" />
+<img src="docs/logo.png" alt="secGear" style="zoom:100%;" />
 
 # secGear
+
+English | [简体中文](./README.md)
 
 ## Introduction
 
@@ -10,7 +12,7 @@ in ARM Trustzone.
 
 ## Build and Install
 
-[reference build & install](./sdk/docs/build_install.md)
+[reference build & install](./docs/build_install.md)
 
 ## Develop Application and Compile
 
@@ -475,7 +477,7 @@ and the other configuration items can refer to the iTrustee development document
 
 ### 5 build and install test
 
-[reference build & install](./sdk/docs/build_install.md)
+[reference build & install](./docs/build_install.md)
 
 ## Log
 
@@ -536,13 +538,13 @@ supported on the iTrustee platform.
 secGear introduces EDL (Enclave Description Language) and intermediate code generation tool codegener. EDL is
 compatible with Intel SGX's definition.
 
-[Learn how to use codegener](./sdk/docs/codegener.md)
+[Learn how to use codegener](./docs/codegener.md)
 
 ## Learning More About sign_tool
 
 secGear introduces the signing tool to sign the enclave.
 
-[Learn how to use signing tool](./sdk/docs/sign_tool.md)
+[Learn how to use signing tool](./docs/sign_tool.md)
 
 ## Milestone
 

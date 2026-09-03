@@ -1,4 +1,7 @@
 # Quick Start
+ 
+简体中文 | [English](./README_EN.md)
+ 
 ## Intel SGX
 secGear尚未支持SGX平台远程证明
 
