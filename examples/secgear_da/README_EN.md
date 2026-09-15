@@ -1,5 +1,7 @@
 # secGearDA
-
+ 
+English | [简体中文](./README.md)
+ 
 ## Introduction
 
 This project aims to design and implement an efficient database storage solution based on secGear, the unified trusted execution environment (TEE) development framework of openEuler. The solution focuses on overcoming the performance bottleneck caused by the limited enclave page cache (EPC) size of Intel Software Guard Extensions (Intel SGX) while ensuring data confidentiality, integrity, and availability.

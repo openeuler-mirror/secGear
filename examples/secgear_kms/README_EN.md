@@ -1,5 +1,7 @@
 # secGearKMS
-
+ 
+English | [简体中文](./README.md)
+ 
 ## Overview
 
 secGearKMS is a key management system (KMS) implemented based on secGear.

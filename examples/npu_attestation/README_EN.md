@@ -1,5 +1,7 @@
 # How Do I Perform Remote Attestation on NPU Firmware?
-
+ 
+English | [简体中文](./README.md)
+ 
 ## Basic Principles
 
 For existing NPU hardware that does not support device measurement (i.e., NPU without a hardware root of trust), the integrity of the NPU computing environment can be verified by measuring the NPU firmware, provided that local physical attacks and side-channel attacks are not considered.

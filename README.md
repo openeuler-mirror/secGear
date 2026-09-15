@@ -1,6 +1,9 @@
 <img src="docs/logo.png" alt="secGear" style="zoom:100%;" />
 
-secGear
+# secGear
+
+简体中文 | [English](./README_EN.md)
+
 ============================
 
 介绍
@@ -86,7 +89,7 @@ make && sudo make install
 /vendor/bin/secgear_helloworld
 ```
 
-使用sdk进行开发，请参考[Guide](./README.en.md)
+使用sdk进行开发，请参考[Guide](./README_EN.md)
 
 编译&部署远程证明服务框架及组件，请参考[attestation/README](./service/attestation/README.md)
 

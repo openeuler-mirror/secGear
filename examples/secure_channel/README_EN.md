@@ -1,5 +1,7 @@
 # Secure Channel Sample
-
+ 
+English | [简体中文](./README.md)
+ 
 This sample consists of three parts: client, server host, and server enclave. It provides two client implementations, demonstrating both single-thread and multi-thread scenarios.
 
 ## Directory Structure

@@ -1,5 +1,7 @@
 # secGearDA
-
+ 
+简体中文 | [English](./README_EN.md)
+ 
 ## 介绍
 
 本项目旨在基于openEuler的统一可信执行环境（TEE）开发框架——secGear，设计并实现一种高效的数据库存储方案。在保障数据机密性、完整性和可用性的前提下，重点解决Intel SGX EPC（Enclave Page Cache）内存限制导致的性能瓶颈问题。

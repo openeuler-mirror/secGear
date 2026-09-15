@@ -1,5 +1,7 @@
 <img src="../../sdk/docs/logo.png" alt="secGear" style="zoom:100%;" />
-
+ 
+简体中文 | [English](./README_EN.md)
+ 
 switchless
 ============================
 

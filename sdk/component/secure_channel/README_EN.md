@@ -1,5 +1,7 @@
 # Security Channel
-
+ 
+English | [简体中文](./Readme.md)
+ 
 ## Customer Pain Points
 
 When requesting the confidential computing service on the cloud, the data owner needs to upload the data to be processed to the TEE on the cloud for processing. Because the TEE is not connected to the network, the data needs to be transferred to the REE over the network in plaintext and then transferred to the TEE from the REE. The plaintext data is exposed in the REE memory, which poses security risks.

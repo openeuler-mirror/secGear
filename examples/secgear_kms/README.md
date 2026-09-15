@@ -1,5 +1,7 @@
 # secGearKMS
-
+ 
+简体中文 | [English](./README_EN.md)
+ 
 ## 介绍
 
 基于secGear实现的密钥管理系统。

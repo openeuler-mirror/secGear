@@ -1,5 +1,7 @@
 # secGearDS
-
+ 
+简体中文 | [English](./README_EN.md)
+ 
 ## 介绍
 
 基于secGear的高效机密计算数据结构设计与实现。
