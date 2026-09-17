@@ -986,28 +986,38 @@ impl AttestationAgent {
             return Err(ActiveTokenError::NoTokenAvailable);
         };
 
-        let jwt_token = app.get_token().await;
-        let expires_at = app.get_token_expires_at().await;
-        let ttl_seconds = app.get_token_ttl().await;
-        let failure_count = app.get_failure_count();
+        match runtime_platform {
+            TeeType::Itrustee => Self::build_active_token_response(app, None, None).await,
+            TeeType::Virtcca => {
+                if app.get_unexpired_token().await.is_none() {
+                    return Err(ActiveTokenError::NoTokenAvailable);
+                }
 
-        if jwt_token.is_none() {
-            return Err(ActiveTokenError::NoTokenAvailable);
+                let (cvm_token, dev_cert) =
+                    self.get_virtcca_token_for_nonce(nonce.unwrap()).await?;
+                Self::build_active_token_response(app, cvm_token, dev_cert).await
+            }
+            _ => Err(ActiveTokenError::TeeUnavailable),
         }
+    }
 
-        let (cvm_token, dev_cert) = match runtime_platform {
-            TeeType::Virtcca => self.get_virtcca_token_for_nonce(nonce.unwrap()).await?,
-            _ => (None, None),
+    async fn build_active_token_response(
+        app: &AppConfig,
+        cvm_token: Option<String>,
+        dev_cert: Option<String>,
+    ) -> std::result::Result<ActiveTokenResponse, ActiveTokenError> {
+        let Some((jwt_token, expires_at, ttl_seconds)) = app.get_unexpired_token().await else {
+            return Err(ActiveTokenError::NoTokenAvailable);
         };
 
         Ok(ActiveTokenResponse {
-            jwt_token,
-            expires_at,
-            ttl_seconds,
+            jwt_token: Some(jwt_token),
+            expires_at: Some(expires_at),
+            ttl_seconds: Some(ttl_seconds),
             cvm_token,
             dev_cert,
             error: None,
-            failure_count,
+            failure_count: app.get_failure_count(),
         })
     }
 
@@ -1205,15 +1215,21 @@ mod active_token_tests {
     use super::*;
     use attestation_types::TeeType;
 
-    fn fake_jwt(label: &str) -> String {
-        let header = base64_url::encode(r#"{"alg":"none"}"#);
-        let exp = std::time::SystemTime::now()
+    fn current_time() -> u64 {
+        std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs()
-            + 3600;
+    }
+
+    fn fake_jwt_with_exp(label: &str, exp: u64) -> String {
+        let header = base64_url::encode(r#"{"alg":"none"}"#);
         let payload = base64_url::encode(&format!(r#"{{"exp":{exp},"label":"{label}"}}"#));
         format!("{header}.{payload}.signature")
+    }
+
+    fn fake_jwt(label: &str) -> String {
+        fake_jwt_with_exp(label, current_time() + 3600)
     }
 
     fn agent_with_apps(apps: Vec<AppConfig>) -> AttestationAgent {
@@ -1330,6 +1346,64 @@ mod active_token_tests {
             .unwrap_err();
 
         assert_eq!(error, ActiveTokenError::NoTokenAvailable);
+    }
+
+    #[tokio::test]
+    async fn active_token_response_rejects_token_that_expires_before_final_read() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "ta-1".to_string(),
+            true,
+            30,
+            TeeType::Itrustee,
+            false,
+        )]);
+        let app = &agent.config.app_list[0];
+        let exp = current_time() + 1;
+        app.store_token(fake_jwt_with_exp("expiring", exp))
+            .await
+            .unwrap();
+        assert!(app.get_unexpired_token().await.is_some());
+
+        while current_time() < exp {
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        let finalization_error = AttestationAgent::build_active_token_response(
+            app,
+            Some("cvm-token".to_string()),
+            Some("dev-cert".to_string()),
+        )
+        .await
+        .unwrap_err();
+        let endpoint_error = agent
+            .get_active_token_with_platform(Some("ta-1"), None, TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(finalization_error, ActiveTokenError::NoTokenAvailable);
+        assert_eq!(endpoint_error, ActiveTokenError::NoTokenAvailable);
+    }
+
+    #[tokio::test]
+    async fn active_token_response_uses_token_from_final_cache_read() {
+        let app = AppConfig::new("rim-1".to_string(), false, 30, TeeType::Virtcca, false);
+        let initial_token = fake_jwt("initial");
+        let refreshed_token = fake_jwt("refreshed");
+        app.store_token(initial_token.clone()).await.unwrap();
+        assert_eq!(app.get_unexpired_token().await.unwrap().0, initial_token);
+        app.store_token(refreshed_token.clone()).await.unwrap();
+
+        let response = AttestationAgent::build_active_token_response(
+            &app,
+            Some("cvm-token".to_string()),
+            Some("dev-cert".to_string()),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(response.jwt_token, Some(refreshed_token));
+        assert_eq!(response.cvm_token.as_deref(), Some("cvm-token"));
+        assert_eq!(response.dev_cert.as_deref(), Some("dev-cert"));
     }
 
     #[tokio::test]
@@ -1552,6 +1626,26 @@ mod active_attestation_task_tests {
         let app = AppConfig::new("ta-1".to_string(), false, 360, TeeType::Itrustee, false);
 
         let result = AttestationAgent::store_refreshed_token(&app, "not-a-jwt".to_string()).await;
+
+        assert_eq!(result, TokenRefreshResult::Failed);
+        assert_eq!(app.get_failure_count(), 1);
+        assert_eq!(
+            AttestationAgent::calculate_failure_retry_delay(&app, app.get_failure_count()),
+            10
+        );
+    }
+
+    #[tokio::test]
+    async fn expired_refreshed_token_records_failure_for_backoff() {
+        let app = AppConfig::new("ta-1".to_string(), false, 360, TeeType::Itrustee, false);
+        let expired_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            .saturating_sub(1);
+
+        let result =
+            AttestationAgent::store_refreshed_token(&app, fake_jwt_with_exp(expired_at)).await;
 
         assert_eq!(result, TokenRefreshResult::Failed);
         assert_eq!(app.get_failure_count(), 1);
