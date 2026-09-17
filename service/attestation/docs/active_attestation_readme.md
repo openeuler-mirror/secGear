@@ -621,7 +621,7 @@ GET /active_token?uuid=<uuid>&nonce=<hex_encoded_nonce>
 | 404 | `app_not_found` | 未找到匹配 app |
 | 409 | `ambiguous_app` | 多个 app 使用相同 UUID |
 | 501 | `not_supported` | 当前阶段不支持该请求路径 |
-| 503 | `no_token_available` | 尚无可用缓存 JWT |
+| 503 | `no_token_available` | 不存在未过期的可用缓存 JWT |
 | 503 | `tee_unavailable` | 当前 TEE 不可用或实时 token 生成失败 |
 
 ## 9. RP 验证建议

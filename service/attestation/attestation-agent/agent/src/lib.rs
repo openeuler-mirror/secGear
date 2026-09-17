@@ -261,6 +261,12 @@ enum ActiveAttestationTaskRunResult {
     Panicked,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum TokenRefreshResult {
+    Succeeded,
+    Failed,
+}
+
 #[allow(dead_code)]
 impl AttestationAgent {
     pub fn new(config: AAConfig) -> Result<Self, Error> {
@@ -428,25 +434,30 @@ impl AttestationAgent {
         );
 
         loop {
-            // 计算下次刷新延迟
-            let next_refresh_delay = self.calculate_refresh_delay(config).await;
+            let refresh_result = self.perform_token_refresh(config).await;
+            match refresh_result {
+                TokenRefreshResult::Succeeded => {
+                    let next_refresh_delay = self.calculate_refresh_delay(config).await;
 
-            log::debug!(
-                "Next refresh for {} in {} seconds",
-                config.uuid,
-                next_refresh_delay
-            );
+                    log::debug!(
+                        "Next refresh for {} in {} seconds",
+                        config.uuid,
+                        next_refresh_delay
+                    );
 
-            // 等待到刷新时间（使用 sleep_until 提高精度）
-            if next_refresh_delay > 0 {
-                let target_time = tokio::time::Instant::now()
-                    + std::time::Duration::from_secs(next_refresh_delay);
-                tokio::time::sleep_until(target_time).await;
-            }
-
-            // 双重检查：确保真的需要刷新
-            if config.should_refresh_token().await {
-                self.perform_token_refresh(config).await;
+                    if next_refresh_delay > 0 {
+                        let target_time = tokio::time::Instant::now()
+                            + std::time::Duration::from_secs(next_refresh_delay);
+                        tokio::time::sleep_until(target_time).await;
+                    }
+                }
+                TokenRefreshResult::Failed => {
+                    let delay =
+                        Self::calculate_failure_retry_delay(config, config.get_failure_count());
+                    if delay > 0 {
+                        tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+                    }
+                }
             }
         }
     }
@@ -457,16 +468,45 @@ impl AttestationAgent {
             if ttl <= 0 {
                 0 // 已过期，立即刷新
             } else {
-                let refresh_threshold = std::cmp::max(config.interval, (ttl as f64 * 0.1) as u64);
-                std::cmp::max(1, ttl - refresh_threshold as i64) as u64
+                let token_expiry_bound = ttl.saturating_sub(1) as u64;
+                std::cmp::min(config.interval, token_expiry_bound)
             }
         } else {
             0 // 没有 Token，立即刷新
         }
     }
 
+    fn calculate_failure_retry_delay(config: &AppConfig, failure_count: u32) -> u64 {
+        if failure_count == 0 {
+            return 0;
+        }
+
+        let max_consecutive_failures = 5;
+        let max_delay = config.interval * 2;
+        if failure_count >= max_consecutive_failures {
+            log::warn!(
+                "Too many consecutive failures for {}, using longer delay",
+                config.uuid
+            );
+            max_delay
+        } else {
+            std::cmp::min(10 * (2_u64.pow(failure_count - 1)), max_delay)
+        }
+    }
+
+    async fn store_refreshed_token(config: &AppConfig, token: String) -> TokenRefreshResult {
+        if let Err(e) = config.store_token(token).await {
+            log::error!("Failed to store token for {}: {:?}", config.uuid, e);
+            config.record_failure();
+            return TokenRefreshResult::Failed;
+        }
+
+        log::info!("Token refreshed successfully for {}", config.uuid);
+        TokenRefreshResult::Succeeded
+    }
+
     /// 执行 Token 刷新
-    async fn perform_token_refresh(&self, config: &AppConfig) {
+    async fn perform_token_refresh(&self, config: &AppConfig) -> TokenRefreshResult {
         if config.is_token_expired().await {
             log::info!("Token for {} has expired, refreshing", config.uuid);
         } else {
@@ -479,15 +519,7 @@ impl AttestationAgent {
         }
 
         match self.perform_active_attestation(config).await {
-            Ok(token) => {
-                if let Err(e) = config.store_token(token).await {
-                    log::error!("Failed to store token for {}: {:?}", config.uuid, e);
-                    config.record_failure();
-                } else {
-                    config.reset_failures();
-                    log::info!("Token refreshed successfully for {}", config.uuid);
-                }
-            }
+            Ok(token) => Self::store_refreshed_token(config, token).await,
             Err(e) => {
                 config.record_failure();
                 let failure_count = config.get_failure_count();
@@ -498,20 +530,7 @@ impl AttestationAgent {
                     e
                 );
 
-                // 智能重试延迟
-                let max_consecutive_failures = 5;
-                let max_delay = config.interval * 2;
-                let delay = if failure_count >= max_consecutive_failures {
-                    log::warn!(
-                        "Too many consecutive failures for {}, using longer delay",
-                        config.uuid
-                    );
-                    config.interval * 2
-                } else {
-                    std::cmp::min(10 * (2_u64.pow(failure_count - 1)), max_delay)
-                };
-
-                tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+                TokenRefreshResult::Failed
             }
         }
     }
@@ -967,28 +986,38 @@ impl AttestationAgent {
             return Err(ActiveTokenError::NoTokenAvailable);
         };
 
-        let jwt_token = app.get_token().await;
-        let expires_at = app.get_token_expires_at().await;
-        let ttl_seconds = app.get_token_ttl().await;
-        let failure_count = app.get_failure_count();
+        match runtime_platform {
+            TeeType::Itrustee => Self::build_active_token_response(app, None, None).await,
+            TeeType::Virtcca => {
+                if app.get_unexpired_token().await.is_none() {
+                    return Err(ActiveTokenError::NoTokenAvailable);
+                }
 
-        if jwt_token.is_none() {
-            return Err(ActiveTokenError::NoTokenAvailable);
+                let (cvm_token, dev_cert) =
+                    self.get_virtcca_token_for_nonce(nonce.unwrap()).await?;
+                Self::build_active_token_response(app, cvm_token, dev_cert).await
+            }
+            _ => Err(ActiveTokenError::TeeUnavailable),
         }
+    }
 
-        let (cvm_token, dev_cert) = match runtime_platform {
-            TeeType::Virtcca => self.get_virtcca_token_for_nonce(nonce.unwrap()).await?,
-            _ => (None, None),
+    async fn build_active_token_response(
+        app: &AppConfig,
+        cvm_token: Option<String>,
+        dev_cert: Option<String>,
+    ) -> std::result::Result<ActiveTokenResponse, ActiveTokenError> {
+        let Some((jwt_token, expires_at, ttl_seconds)) = app.get_unexpired_token().await else {
+            return Err(ActiveTokenError::NoTokenAvailable);
         };
 
         Ok(ActiveTokenResponse {
-            jwt_token,
-            expires_at,
-            ttl_seconds,
+            jwt_token: Some(jwt_token),
+            expires_at: Some(expires_at),
+            ttl_seconds: Some(ttl_seconds),
             cvm_token,
             dev_cert,
             error: None,
-            failure_count,
+            failure_count: app.get_failure_count(),
         })
     }
 
@@ -1186,15 +1215,21 @@ mod active_token_tests {
     use super::*;
     use attestation_types::TeeType;
 
-    fn fake_jwt(label: &str) -> String {
-        let header = base64_url::encode(r#"{"alg":"none"}"#);
-        let exp = std::time::SystemTime::now()
+    fn current_time() -> u64 {
+        std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs()
-            + 3600;
+    }
+
+    fn fake_jwt_with_exp(label: &str, exp: u64) -> String {
+        let header = base64_url::encode(r#"{"alg":"none"}"#);
         let payload = base64_url::encode(&format!(r#"{{"exp":{exp},"label":"{label}"}}"#));
         format!("{header}.{payload}.signature")
+    }
+
+    fn fake_jwt(label: &str) -> String {
+        fake_jwt_with_exp(label, current_time() + 3600)
     }
 
     fn agent_with_apps(apps: Vec<AppConfig>) -> AttestationAgent {
@@ -1311,6 +1346,64 @@ mod active_token_tests {
             .unwrap_err();
 
         assert_eq!(error, ActiveTokenError::NoTokenAvailable);
+    }
+
+    #[tokio::test]
+    async fn active_token_response_rejects_token_that_expires_before_final_read() {
+        let agent = agent_with_apps(vec![AppConfig::new(
+            "ta-1".to_string(),
+            true,
+            30,
+            TeeType::Itrustee,
+            false,
+        )]);
+        let app = &agent.config.app_list[0];
+        let exp = current_time() + 1;
+        app.store_token(fake_jwt_with_exp("expiring", exp))
+            .await
+            .unwrap();
+        assert!(app.get_unexpired_token().await.is_some());
+
+        while current_time() < exp {
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        let finalization_error = AttestationAgent::build_active_token_response(
+            app,
+            Some("cvm-token".to_string()),
+            Some("dev-cert".to_string()),
+        )
+        .await
+        .unwrap_err();
+        let endpoint_error = agent
+            .get_active_token_with_platform(Some("ta-1"), None, TeeType::Itrustee)
+            .await
+            .unwrap_err();
+
+        assert_eq!(finalization_error, ActiveTokenError::NoTokenAvailable);
+        assert_eq!(endpoint_error, ActiveTokenError::NoTokenAvailable);
+    }
+
+    #[tokio::test]
+    async fn active_token_response_uses_token_from_final_cache_read() {
+        let app = AppConfig::new("rim-1".to_string(), false, 30, TeeType::Virtcca, false);
+        let initial_token = fake_jwt("initial");
+        let refreshed_token = fake_jwt("refreshed");
+        app.store_token(initial_token.clone()).await.unwrap();
+        assert_eq!(app.get_unexpired_token().await.unwrap().0, initial_token);
+        app.store_token(refreshed_token.clone()).await.unwrap();
+
+        let response = AttestationAgent::build_active_token_response(
+            &app,
+            Some("cvm-token".to_string()),
+            Some("dev-cert".to_string()),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(response.jwt_token, Some(refreshed_token));
+        assert_eq!(response.cvm_token.as_deref(), Some("cvm-token"));
+        assert_eq!(response.dev_cert.as_deref(), Some("dev-cert"));
     }
 
     #[tokio::test]
@@ -1455,6 +1548,12 @@ mod active_attestation_task_tests {
         AppConfig::new("ta-1".to_string(), false, 30, TeeType::Itrustee, false)
     }
 
+    fn fake_jwt_with_exp(exp: u64) -> String {
+        let header = base64_url::encode(r#"{"alg":"none"}"#);
+        let payload = base64_url::encode(&format!(r#"{{"exp":{exp}}}"#));
+        format!("{header}.{payload}.signature")
+    }
+
     #[tokio::test]
     async fn active_attestation_task_records_failure_after_panic() {
         let app = test_app();
@@ -1476,5 +1575,83 @@ mod active_attestation_task_tests {
 
         assert_eq!(result, ActiveAttestationTaskRunResult::Completed);
         assert_eq!(app.get_failure_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn healthy_token_uses_configured_interval_for_next_refresh_delay() {
+        let agent = AttestationAgent {
+            config: AAConfig::default(),
+            as_client_sessions: SessionMap::new(),
+        };
+        let app = AppConfig::new("ta-1".to_string(), false, 360, TeeType::Itrustee, false);
+        let exp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 7200;
+        app.store_token(fake_jwt_with_exp(exp)).await.unwrap();
+
+        assert_eq!(agent.calculate_refresh_delay(&app).await, 360);
+    }
+
+    #[tokio::test]
+    async fn token_expiring_before_interval_refreshes_before_expiration() {
+        let agent = AttestationAgent {
+            config: AAConfig::default(),
+            as_client_sessions: SessionMap::new(),
+        };
+        let app = AppConfig::new("ta-1".to_string(), false, 360, TeeType::Itrustee, false);
+        let exp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 120;
+        app.store_token(fake_jwt_with_exp(exp)).await.unwrap();
+
+        let delay = agent.calculate_refresh_delay(&app).await;
+
+        assert!(delay < 120);
+        assert!(delay > 0);
+    }
+
+    #[test]
+    fn first_failure_retry_delay_is_not_plus_interval() {
+        let app = AppConfig::new("ta-1".to_string(), false, 360, TeeType::Itrustee, false);
+
+        assert_eq!(AttestationAgent::calculate_failure_retry_delay(&app, 1), 10);
+    }
+
+    #[tokio::test]
+    async fn malformed_refreshed_token_records_failure_for_backoff() {
+        let app = AppConfig::new("ta-1".to_string(), false, 360, TeeType::Itrustee, false);
+
+        let result = AttestationAgent::store_refreshed_token(&app, "not-a-jwt".to_string()).await;
+
+        assert_eq!(result, TokenRefreshResult::Failed);
+        assert_eq!(app.get_failure_count(), 1);
+        assert_eq!(
+            AttestationAgent::calculate_failure_retry_delay(&app, app.get_failure_count()),
+            10
+        );
+    }
+
+    #[tokio::test]
+    async fn expired_refreshed_token_records_failure_for_backoff() {
+        let app = AppConfig::new("ta-1".to_string(), false, 360, TeeType::Itrustee, false);
+        let expired_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            .saturating_sub(1);
+
+        let result =
+            AttestationAgent::store_refreshed_token(&app, fake_jwt_with_exp(expired_at)).await;
+
+        assert_eq!(result, TokenRefreshResult::Failed);
+        assert_eq!(app.get_failure_count(), 1);
+        assert_eq!(
+            AttestationAgent::calculate_failure_retry_delay(&app, app.get_failure_count()),
+            10
+        );
     }
 }

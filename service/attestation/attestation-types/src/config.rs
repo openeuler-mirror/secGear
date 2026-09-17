@@ -21,10 +21,15 @@ use tokio::sync::RwLock;
 pub const DEFAULT_AACONFIG_FILE: &str = "/etc/attestation/attestation-agent/attestation-agent.conf";
 
 #[derive(Clone, Debug)]
+struct CachedToken {
+    token: String,
+    exp: u64,
+}
+
+#[derive(Clone, Debug)]
 pub struct TokenManager {
     // Token 相关信息
-    current_token: Arc<RwLock<Option<String>>>,
-    token_exp: Arc<RwLock<Option<u64>>>, // JWT 的 exp 字段（过期时间）
+    current_token: Arc<RwLock<Option<CachedToken>>>,
     consecutive_failures: Arc<AtomicU32>,
 }
 
@@ -32,9 +37,15 @@ impl TokenManager {
     pub fn new() -> Self {
         Self {
             current_token: Arc::new(RwLock::new(None)),
-            token_exp: Arc::new(RwLock::new(None)),
             consecutive_failures: Arc::new(AtomicU32::new(0)),
         }
+    }
+
+    fn current_time() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
     }
 
     /// 解析 JWT 并提取过期时间
@@ -61,12 +72,12 @@ impl TokenManager {
     // 存储 token
     pub async fn store_token(&self, token: String) -> Result<()> {
         let exp = self.parse_jwt_exp(&token)?;
-
         let mut token_guard = self.current_token.write().await;
-        let mut exp_guard = self.token_exp.write().await;
+        if Self::current_time() >= exp {
+            return Err(anyhow::anyhow!("Token has expired"));
+        }
 
-        *token_guard = Some(token);
-        *exp_guard = Some(exp);
+        *token_guard = Some(CachedToken { token, exp });
 
         // 重置失败计数
         self.consecutive_failures.store(0, Ordering::Relaxed);
@@ -76,7 +87,7 @@ impl TokenManager {
     // 获取 token
     pub async fn get_token(&self) -> Option<String> {
         let token_guard = self.current_token.read().await;
-        token_guard.clone()
+        token_guard.as_ref().map(|cached| cached.token.clone())
     }
 
     // 检查是否有 token
@@ -87,36 +98,41 @@ impl TokenManager {
 
     /// 检查 Token 是否过期（基于 exp 字段）
     pub async fn is_token_expired(&self) -> bool {
-        let exp_guard = self.token_exp.read().await;
-        if let Some(exp) = *exp_guard {
-            let current_time = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
-            current_time >= exp
-        } else {
-            true
-        }
+        let token_guard = self.current_token.read().await;
+        token_guard
+            .as_ref()
+            .map(|cached| Self::current_time() >= cached.exp)
+            .unwrap_or(true)
     }
 
     /// 获取 Token 的过期时间（exp）
     pub async fn get_token_expires_at(&self) -> Option<u64> {
-        let exp_guard = self.token_exp.read().await;
-        *exp_guard
+        let token_guard = self.current_token.read().await;
+        token_guard.as_ref().map(|cached| cached.exp)
     }
 
     /// 获取 Token 的剩余有效时间（秒）
     pub async fn get_token_ttl(&self) -> Option<i64> {
-        let exp_guard = self.token_exp.read().await;
-        if let Some(exp) = *exp_guard {
-            let current_time = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
-            Some(exp as i64 - current_time as i64)
-        } else {
-            None
+        let token_guard = self.current_token.read().await;
+        token_guard
+            .as_ref()
+            .map(|cached| cached.exp as i64 - Self::current_time() as i64)
+    }
+
+    /// 获取未过期 Token 及其过期信息。
+    pub async fn get_unexpired_token(&self) -> Option<(String, u64, i64)> {
+        let token_guard = self.current_token.read().await;
+        let cached = token_guard.as_ref()?;
+        let current_time = Self::current_time();
+        if current_time >= cached.exp {
+            return None;
         }
+
+        Some((
+            cached.token.clone(),
+            cached.exp,
+            (cached.exp - current_time) as i64,
+        ))
     }
 
     /// 检查是否需要刷新 Token
@@ -161,10 +177,49 @@ impl TokenManager {
     // 清理 token
     pub async fn clear_token(&self) {
         let mut token_guard = self.current_token.write().await;
-        let mut exp_guard = self.token_exp.write().await;
-
         *token_guard = None;
-        *exp_guard = None;
+    }
+}
+
+#[cfg(test)]
+mod token_manager_tests {
+    use super::*;
+
+    fn fake_jwt_with_exp(exp: u64) -> String {
+        let header = base64_url::encode(r#"{"alg":"none"}"#);
+        let payload = base64_url::encode(&format!(r#"{{"exp":{exp}}}"#));
+        format!("{header}.{payload}.signature")
+    }
+
+    #[tokio::test]
+    async fn store_token_rechecks_expiration_after_waiting_for_write_lock() {
+        let manager = TokenManager::new();
+        let token_guard = manager.current_token.write().await;
+        let exp = TokenManager::current_time() + 1;
+        let pending_manager = manager.clone();
+        let pending_store =
+            tokio::spawn(async move { pending_manager.store_token(fake_jwt_with_exp(exp)).await });
+        tokio::task::yield_now().await;
+
+        while TokenManager::current_time() < exp {
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        drop(token_guard);
+
+        assert!(pending_store.await.unwrap().is_err());
+        assert!(!manager.has_token().await);
+    }
+
+    #[tokio::test]
+    async fn unexpired_token_lookup_rejects_cached_token_after_expiration() {
+        let manager = TokenManager::new();
+        let expired_at = TokenManager::current_time().saturating_sub(1);
+        *manager.current_token.write().await = Some(CachedToken {
+            token: fake_jwt_with_exp(expired_at),
+            exp: expired_at,
+        });
+
+        assert!(manager.get_unexpired_token().await.is_none());
     }
 }
 
@@ -306,6 +361,10 @@ impl AppConfig {
     // 获取 Token 剩余有效时间
     pub async fn get_token_ttl(&self) -> Option<i64> {
         self.token_manager.get_token_ttl().await
+    }
+
+    pub async fn get_unexpired_token(&self) -> Option<(String, u64, i64)> {
+        self.token_manager.get_unexpired_token().await
     }
 
     pub fn record_failure(&self) {
